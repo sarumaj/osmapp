@@ -6,21 +6,36 @@
  *   Phase 2  Voronoi -> clip each cell to the outer polygon
  *   Phase 3  build the street graph
  *   Phase 4  route each unique cell edge along the street network, once
- *   Phase 5  polygonize, assign to centroids, fill gaps, render
+ *   Phase 5  polygonize, assign, fill gaps, enforce connectivity, render
  *
- * Changes:
- *   • The dialog is a <template> (#tpl-cluster-dialog) driven through App.dom,
- *     replacing ~40 lines of string concatenation with inline styles. It also
- *     validates inline instead of alert()ing, and closes on Escape.
- *   • _feat / _union / _intersect / _getOuterFeature moved to geometry.js,
- *     where editing.js shares them instead of keeping a second copy.
- *   • The street graph stores precomputed edge weights and a spatial index.
- *     _nearestGraphNode() used to scan every node, and _findStreetPathForEdge
- *     called it up to ten times per edge because a miss restarted the scan at
- *     the next radius — on a 20k-node graph that dominated the whole run.
- *   • A* uses a binary heap and planar distances. The old version did an O(V)
- *     scan of the open set per pop and called turf.distance (haversine plus a
- *     unit conversion) on every relaxation.
+ * Connectivity
+ *   Territories used to come out in two disconnected blobs joined only across
+ *   a neighbor. Three separate causes, all fixed here:
+ *
+ *   1. Pieces were assigned by nearest centroid. Street-routed boundaries
+ *      deviate a long way from the Voronoi edges that produced them, so a
+ *      piece could be nearest a centroid whose body sits elsewhere. Assignment
+ *      is now by containment in the owning Voronoi cell, with distance only as
+ *      a fallback.
+ *   2. turf.centroid is the vertex mean and can land outside its own polygon —
+ *      routinely, for the L and crescent shapes street-following produces.
+ *      turf.pointOnFeature is guaranteed inside and is used instead.
+ *   3. _fillGaps welded fragments to the nearest occupied slot with no
+ *      adjacency test. It now prefers slots the fragment actually touches.
+ *
+ *   _enforceConnectivity() then makes it a guarantee rather than a likelihood:
+ *   any slot that is still multi-part keeps its largest part and hands the
+ *   orphans to a touching neighbor.
+ *
+ * Performance
+ *   The street graph stores precomputed edge weights and a grid index.
+ *   _nearestGraphNode() used to scan every node, and _findStreetPathForEdge
+ *   called it up to ten times per edge because a miss restarted the scan at
+ *   the next radius — on a 20k-node graph that dominated the whole run.
+ *
+ *   A* uses a binary heap and planar distances. The old version did an O(V)
+ *   scan of the open set per pop and called turf.distance (haversine plus a
+ *   unit conversion) on every relaxation.
  */
 var App = window.App || {};
 
@@ -31,10 +46,20 @@ App.clustering = (function () {
   var G = null;
   var SP = null;
   var D = null;
+  var T = null;
 
   var _cancelled = false;
   var _stats = { hits: 0, misses: 0 };
-  var T = null;
+
+  // Clipping a Voronoi cell can leave slivers. Parts below this contribute no
+  // boundary edges, and orphan parts below it are dropped rather than becoming
+  // their own territory.
+  var MIN_PART_M2 = 25;
+  // How far apart two slots can be and still count as touching. Adjacent slots
+  // share a boundary but rarely share exact vertices — the same reason
+  // geometry.unionHealed() exists.
+  var TOUCH_SLACK_M = 0.5;
+  var CONNECTIVITY_PASSES = 5;
 
   function init() {
     s = App.state;
@@ -275,6 +300,10 @@ App.clustering = (function () {
 
   // ══════════════════════════════════════════════════════════════════════
   // PHASE 2 — Voronoi, clipped to the outer polygon
+  //
+  // Each surviving cell records which centroid owns it. Phase 5 uses that to
+  // assign pieces by containment rather than by proximity, which is what keeps
+  // a territory in one piece.
   // ══════════════════════════════════════════════════════════════════════
 
   function _phase2(outerFeature, outerRing, centroids) {
@@ -315,7 +344,25 @@ App.clustering = (function () {
         } catch (e) {
           console.warn(">>> Cell", i, "failed to clip:", e.message);
         }
-        if (clipped && clipped.geometry) cells.push({ feature: clipped });
+        if (!clipped || !clipped.geometry) return;
+
+        // turf.voronoi returns cells in input order, so index i is the owning
+        // centroid. Verified rather than assumed: the cell must contain it.
+        var owner = i;
+        try {
+          if (!turf.booleanPointInPolygon(deduped[i], clipped)) {
+            owner = _nearestIndex(
+              deduped[i].geometry.coordinates,
+              deduped.map(function (c) {
+                return c.geometry.coordinates;
+              }),
+            );
+          }
+        } catch (e) {
+          /* keep the positional guess */
+        }
+
+        cells.push({ feature: clipped, centroidIdx: owner });
       });
 
       console.log(">>> Clipped cells:", cells.length, "of", deduped.length);
@@ -355,6 +402,10 @@ App.clustering = (function () {
   // independently let A* return two different street paths for the same edge,
   // which breaks the planar graph and makes polygonize miss rings. Edges are
   // keyed on their sorted endpoint pair so each is routed once.
+  //
+  // Every part of a clipped cell contributes edges, not just the largest. When
+  // only the largest did, the smaller parts were bounded purely by their
+  // neighbors' lines, producing pieces that aligned with no cell at all.
   // ══════════════════════════════════════════════════════════════════════
 
   function _phase4(outerFeature, outerRing, cells, centroids, graph) {
@@ -375,28 +426,34 @@ App.clustering = (function () {
       var uniqueEdges = Object.create(null);
 
       cells.forEach(function (cell) {
-        var parts = G.polygonParts(cell.feature);
-        if (parts.length === 0) return;
-        // Only the largest part contributes boundary edges; slivers from
-        // clipping would otherwise inject spurious rings.
-        var ring = G.largestPolygon(cell.feature).geometry.coordinates[0];
-        if (!ring || ring.length < 2) return;
+        G.polygonParts(cell.feature).forEach(function (part) {
+          var area = 0;
+          try {
+            area = turf.area(part);
+          } catch (e) {
+            return;
+          }
+          if (area < MIN_PART_M2) return; // clipping sliver
 
-        for (var i = 0; i < ring.length - 1; i++) {
-          var p1 = ring[i],
-            p2 = ring[i + 1];
-          var key = edgeKey(p1, p2);
-          if (uniqueEdges[key]) continue;
-          var mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
-          uniqueEdges[key] = {
-            p1: p1,
-            p2: p2,
-            onOuter:
-              G.isOnOuterBoundary(p1, outerRing) &&
-              G.isOnOuterBoundary(p2, outerRing) &&
-              G.isOnOuterBoundary(mid, outerRing),
-          };
-        }
+          var ring = part.geometry.coordinates[0];
+          if (!ring || ring.length < 2) return;
+
+          for (var i = 0; i < ring.length - 1; i++) {
+            var p1 = ring[i],
+              p2 = ring[i + 1];
+            var key = edgeKey(p1, p2);
+            if (uniqueEdges[key]) continue;
+            var mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+            uniqueEdges[key] = {
+              p1: p1,
+              p2: p2,
+              onOuter:
+                G.isOnOuterBoundary(p1, outerRing) &&
+                G.isOnOuterBoundary(p2, outerRing) &&
+                G.isOnOuterBoundary(mid, outerRing),
+            };
+          }
+        });
       });
 
       var boundaryLines = [];
@@ -429,16 +486,16 @@ App.clustering = (function () {
       );
 
       _defer(function () {
-        _phase5(outerFeature, outerRing, centroids, boundaryLines);
+        _phase5(outerFeature, outerRing, cells, centroids, boundaryLines);
       });
     });
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // PHASE 5 — polygonize, assign, gap-fill, render
+  // PHASE 5 — polygonize, assign, gap-fill, enforce connectivity, render
   // ══════════════════════════════════════════════════════════════════════
 
-  function _phase5(outerFeature, outerRing, centroids, boundaryLines) {
+  function _phase5(outerFeature, outerRing, cells, centroids, boundaryLines) {
     App.ui.setPhase(5);
     _defer(function () {
       var k = centroids.length;
@@ -468,15 +525,19 @@ App.clustering = (function () {
 
       console.log(">>> Pieces:", pieces.length, "for k =", k);
 
-      // ── Assign each piece to its nearest centroid ─────────────────────
+      // ── Assign each piece to the cell that contains it ─────────────────
       var centroidCoords = centroids.map(function (c) {
         return c.geometry.coordinates;
       });
       var slots = Object.create(null);
+      var byDistance = 0;
 
       pieces.forEach(function (piece) {
-        var idx = _nearestCentroidIndex(piece, centroidCoords);
-        if (idx === null) return;
+        var assignment = _assignPiece(piece, cells, centroidCoords);
+        if (assignment === null) return;
+        if (assignment.fallback) byDistance++;
+
+        var idx = assignment.index;
         if (!slots[idx]) {
           slots[idx] = G.feat(piece);
         } else {
@@ -487,6 +548,10 @@ App.clustering = (function () {
           }
         }
       });
+
+      if (byDistance > 0) {
+        console.log(">>> Pieces assigned by distance fallback:", byDistance);
+      }
 
       // ── Clip every slot to the outer polygon ──────────────────────────
       Object.keys(slots).forEach(function (idx) {
@@ -501,7 +566,12 @@ App.clustering = (function () {
       console.log(">>> Slots filled:", Object.keys(slots).length, "of", k);
 
       // ── Fill any uncovered remainder ──────────────────────────────────
+      // Must run before _enforceConnectivity, which can add slots that have no
+      // matching centroid.
       _fillGaps(slots, outerFeature, centroidCoords);
+
+      // ── Guarantee every territory is a single connected piece ──────────
+      _enforceConnectivity(slots);
 
       // ── Emit ──────────────────────────────────────────────────────────
       var partitions = Object.keys(slots)
@@ -528,17 +598,34 @@ App.clustering = (function () {
     });
   }
 
-  function _nearestCentroidIndex(feature, centroidCoords) {
-    var c;
+  // ══════════════════════════════════════════════════════════════════════
+  // ASSIGNMENT
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * A point guaranteed to lie inside the feature.
+   *
+   * turf.centroid is the vertex mean, so for the L and crescent shapes that
+   * street-following boundaries produce it lands outside the polygon — often
+   * inside a neighbor, which is how pieces ended up in the wrong territory.
+   */
+  function _representativePoint(feature) {
     try {
-      c = turf.centroid(feature).geometry.coordinates;
+      return turf.pointOnFeature(feature);
     } catch (e) {
-      return null;
+      try {
+        return turf.centroid(feature);
+      } catch (e2) {
+        return null;
+      }
     }
+  }
+
+  function _nearestIndex(coord, coords) {
     var best = null,
       bestD2 = Infinity;
-    for (var i = 0; i < centroidCoords.length; i++) {
-      var d2 = SP.distSq(c, centroidCoords[i]);
+    for (var i = 0; i < coords.length; i++) {
+      var d2 = SP.distSq(coord, coords[i]);
       if (d2 < bestD2) {
         bestD2 = d2;
         best = i;
@@ -547,7 +634,39 @@ App.clustering = (function () {
     return best;
   }
 
-  /** outer minus the union of all slots, merged into the nearest slot. */
+  /**
+   * Which territory a polygonized piece belongs to.
+   *
+   * Containment in the owning Voronoi cell comes first. Nearest centroid is
+   * only a fallback, because street-routed boundaries deviate far enough from
+   * the Voronoi edges that proximity alone put pieces in territories whose
+   * body was somewhere else entirely.
+   *
+   * @returns {{index: number, fallback: boolean}|null}
+   */
+  function _assignPiece(piece, cells, centroidCoords) {
+    var pt = _representativePoint(piece);
+    if (!pt) return null;
+
+    for (var i = 0; i < cells.length; i++) {
+      try {
+        if (turf.booleanPointInPolygon(pt, cells[i].feature)) {
+          return { index: cells[i].centroidIdx, fallback: false };
+        }
+      } catch (e) {
+        /* malformed cell — try the next */
+      }
+    }
+
+    var idx = _nearestIndex(pt.geometry.coordinates, centroidCoords);
+    return idx === null ? null : { index: idx, fallback: true };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // GAP FILLING
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** outer minus the union of all slots, merged into a touching slot. */
   function _fillGaps(slots, outerFeature, centroidCoords) {
     var keys = Object.keys(slots);
     if (keys.length === 0) return;
@@ -586,24 +705,33 @@ App.clustering = (function () {
     );
 
     var fragments = G.polygonParts(gap);
+    var stranded = 0;
+
     fragments.forEach(function (fragment) {
-      var c;
-      try {
-        c = turf.centroid(fragment).geometry.coordinates;
-      } catch (e) {
-        return;
-      }
-      // Only occupied slots can absorb a fragment.
+      var pt = _representativePoint(fragment);
+      if (!pt) return;
+
+      // Prefer slots the fragment actually touches. Ranking purely by centroid
+      // distance welded fragments onto territories across the map, which is
+      // one of the ways a territory ended up in two pieces.
+      var touching = _touchingSlots(slots, fragment, null);
+      var candidates = touching.length > 0 ? touching : Object.keys(slots);
+      if (touching.length === 0) stranded++;
+
+      var c = pt.geometry.coordinates;
       var best = null,
         bestD2 = Infinity;
-      keys.forEach(function (idx) {
-        var d2 = SP.distSq(c, centroidCoords[parseInt(idx, 10)]);
+      candidates.forEach(function (idx) {
+        var centroid = centroidCoords[parseInt(idx, 10)];
+        if (!centroid) return;
+        var d2 = SP.distSq(c, centroid);
         if (d2 < bestD2) {
           bestD2 = d2;
           best = idx;
         }
       });
       if (best === null) return;
+
       try {
         slots[best] = G.union(slots[best], fragment) || slots[best];
       } catch (e) {
@@ -611,7 +739,159 @@ App.clustering = (function () {
       }
     });
 
-    console.log(">>> Gap fragments distributed:", fragments.length);
+    console.log(
+      ">>> Gap fragments distributed:",
+      fragments.length,
+      stranded > 0 ? "(" + stranded + " touched nothing)" : "",
+    );
+  }
+
+  /**
+   * Slot keys whose polygon touches `feature`, ordered by shared area.
+   * @param {string|null} exclude a key to skip
+   */
+  function _touchingSlots(slots, feature, exclude) {
+    var probe;
+    try {
+      probe = turf.buffer(feature, TOUCH_SLACK_M, { units: "meters" });
+    } catch (e) {
+      probe = feature;
+    }
+
+    var hits = [];
+    Object.keys(slots).forEach(function (idx) {
+      if (idx === exclude) return;
+      try {
+        var shared = G.intersect(probe, slots[idx]);
+        var area = shared ? turf.area(shared) : 0;
+        if (area > 0) hits.push({ idx: idx, area: area });
+      } catch (e) {
+        /* skip an unusable slot */
+      }
+    });
+
+    hits.sort(function (a, b) {
+      return b.area - a.area;
+    });
+    return hits.map(function (h) {
+      return h.idx;
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CONNECTIVITY
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Make every territory a single connected polygon.
+   *
+   * Containment-based assignment and adjacency-checked gap filling make split
+   * territories unlikely; this makes them impossible. Any slot that is still
+   * multi-part keeps its largest part and hands each orphan to the neighbor
+   * it shares the most boundary with.
+   *
+   * An orphan that touches nothing becomes its own territory rather than being
+   * welded to a distant slot — that would recreate the exact bug this exists to
+   * prevent. Orphans below MIN_PART_M2 are dropped instead; at that size the
+   * coverage loss is noise and an extra territory is not.
+   */
+  function _enforceConnectivity(slots) {
+    var pass = 0;
+    var changed = true;
+    var split = 0;
+    var promoted = 0;
+
+    while (changed && pass++ < CONNECTIVITY_PASSES) {
+      changed = false;
+
+      Object.keys(slots).forEach(function (idx) {
+        var parts = G.polygonParts(slots[idx]);
+        if (parts.length < 2) return;
+
+        parts.sort(function (a, b) {
+          return turf.area(b) - turf.area(a);
+        });
+
+        slots[idx] = parts[0];
+        changed = true;
+        split++;
+
+        parts.slice(1).forEach(function (orphan) {
+          var area = 0;
+          try {
+            area = turf.area(orphan);
+          } catch (e) {
+            return;
+          }
+
+          var hosts = _touchingSlots(slots, orphan, idx);
+          if (hosts.length > 0) {
+            try {
+              // unionHealed, not union: touching is detected with TOUCH_SLACK_M
+              // of slack, so merging must use the same tolerance. A plain union
+              // of two nearly-touching polygons returns a MultiPolygon, the
+              // host becomes split, and the next pass tries to repair it again.
+              var merged = G.unionHealed(
+                [slots[hosts[0]], orphan],
+                TOUCH_SLACK_M,
+              );
+              if (merged && merged.geometry) slots[hosts[0]] = merged;
+            } catch (e) {
+              /* dropping it beats corrupting the host */
+            }
+            return;
+          }
+
+          if (area < MIN_PART_M2) return; // sliver, not a territory
+          slots[_nextSlotKey(slots)] = orphan;
+          promoted++;
+        });
+      });
+    }
+
+    // The pass cap is a safety net, not a plan. If anything is still
+    // multi-part, split it outright rather than shipping a territory in two
+    // places — that is the whole point of this function.
+    var forced = 0;
+    Object.keys(slots).forEach(function (idx) {
+      var parts = G.polygonParts(slots[idx]);
+      if (parts.length < 2) return;
+      parts.sort(function (a, b) {
+        return turf.area(b) - turf.area(a);
+      });
+      slots[idx] = parts[0];
+      parts.slice(1).forEach(function (orphan) {
+        var area = 0;
+        try {
+          area = turf.area(orphan);
+        } catch (e) {
+          return;
+        }
+        if (area < MIN_PART_M2) return;
+        slots[_nextSlotKey(slots)] = orphan;
+        forced++;
+      });
+    });
+
+    if (split > 0 || forced > 0) {
+      console.log(
+        ">>> Connectivity: repaired",
+        split,
+        "split territories,",
+        promoted + forced,
+        "orphans became their own" +
+          (forced > 0 ? " (" + forced + " forced)" : ""),
+      );
+    }
+  }
+
+  function _nextSlotKey(slots) {
+    var max = -1;
+    Object.keys(slots).forEach(function (idx) {
+      var n = parseInt(idx, 10);
+      if (!isNaN(n) && n > max) max = n;
+    });
+    return String(max + 1);
   }
 
   // ══════════════════════════════════════════════════════════════════════

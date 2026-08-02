@@ -22,12 +22,13 @@
     "merge": "Zaznacz i połącz tereny",
     "cleanup": "Wchłoń tereny bez budynków",
     "reset": "Wyczyść wszystko",
-    "language": "Język"
+    "language": "Język",
+    "github": "Kod źródłowy i pomoc na GitHubie"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
     "loaded": "Wczytano",
-    "filtered": "Ograniczono do terenów",
+    "filtered": "Dane liczbowe terenów",
     "streets": "Ulice",
     "buildings": "Budynki",
     "clusters": "Tereny",
@@ -87,7 +88,8 @@
     "cancel": "Anuluj"
   },
   "draw": {
-    "hint": "Klikaj, aby stawiać punkty · Dwuklik kończy · Esc anuluje"
+    "hint": "Klikaj, aby stawiać punkty · Dwuklik kończy · Esc anuluje",
+    "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
   "print": {
     "title": "Drukuj kartę terenu",
@@ -106,6 +108,7 @@
     "territoryNo": "Teren nr",
     "template": "Szablon PDF",
     "noTemplate": "Brak szablonu — mapa zostanie wydrukowana samodzielnie.",
+    "clearTemplate": "Usuń szablon",
     "withTemplate": "Szablon: {name}",
     "openPdf": "Otwórz PDF",
     "cancel": "Anuluj",
@@ -122,7 +125,7 @@
     "errRender": "Nie udało się utworzyć obrazu.",
     "errTiles": "Nie udało się wczytać mapy: {message}",
     "errPdf": "Nie udało się utworzyć pliku PDF: {message}",
-    "frame": "Kadr",
+    "frame": "Okienko",
     "zoom": "Powiększenie",
     "fit": "Dopasuj",
     "frameHint": "Przeciągnij mapę, aby ją przesunąć, przewiń, aby przybliżyć, obracaj o ćwierć obrotu. Kadr zachowuje proporcje szablonu, więc format się nie zmienia.",
@@ -130,8 +133,7 @@
     "rotateCcw": "Obróć o 90° w lewo",
     "rotateCw": "Obróć o 90° w prawo",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "Ten widok wymaga zbyt wielu kafelków mapy. Przybliż nieco.",
-    "clearTemplate": "Usuń szablon"
+    "errTooManyTiles": "Ten widok wymaga zbyt wielu kafelków mapy. Przybliż nieco."
   },
   "alert": {
     "drawFirst": "Najpierw narysuj granicę zewnętrzną.",

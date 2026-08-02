@@ -583,6 +583,15 @@ App.print = (function () {
   // DIALOG
   // ══════════════════════════════════════════════════════════════════════
 
+  var _busy = false;
+
+  function _setBusy(busy) {
+    _busy = busy;
+    D.toggleClass(D.role(_dialog, "print"), "is-disabled", busy);
+    D.toggleClass(D.role(_dialog, "cancel"), "is-disabled", busy);
+    _preview.classList.toggle("is-busy", busy);
+  }
+
   function printCluster(feature) {
     if (!feature || !feature.geometry) {
       alert(T("print.errNoGeometry"));
@@ -916,23 +925,29 @@ App.print = (function () {
   }
 
   function _print() {
-    if (!_view) {
-      alert(T("print.errStillLoading"));
-      return;
-    }
-    if (!_templateReady) return; // restoration still in flight
-    _setStatus(T(_templateFile ? "print.buildingPdf" : "print.preparing"));
+    if (!_view || _busy) return;
+    _setBusy(true);
 
-    _awaitTiles().then(function () {
-      _preview.toBlob(function (blob) {
-        if (!blob) {
-          _setStatus(T("print.errRender"));
-          return;
-        }
-        if (_templateFile) _composePdf(blob);
-        else _printImage(blob);
-      }, "image/png");
-    });
+    _setStatus(T("print.waitingTiles"));
+    _awaitTiles()
+      .then(function () {
+        _setStatus(T("print.encoding"));
+        return new Promise(function (resolve) {
+          _preview.toBlob(resolve, "image/png");
+        });
+      })
+      .then(function (blob) {
+        if (!blob) throw new Error(T("print.errRender"));
+        if (!_templateFile) return _printImage(blob);
+        _setStatus(T("print.buildingPdf"));
+        return _composePdf(blob);
+      })
+      .catch(function (err) {
+        _setStatus(err.message);
+      })
+      .then(function () {
+        _setBusy(false);
+      });
   }
 
   /** No template: print the map on its own, sized to the card's map box. */
@@ -1010,8 +1025,10 @@ App.print = (function () {
         _pdfUrl = URL.createObjectURL(pdf);
 
         var name =
-          "teren" +
-          (o.territory ? "-" + o.territory.replace(/\s+/g, "_") : "") +
+          "territory_map" +
+          (o.territory
+            ? "-" + o.territory.replace(/\s+/g, "_")
+            : `-${Math.floor(Date.now() / 1000)}`) +
           ".pdf";
 
         var link = document.createElement("a");

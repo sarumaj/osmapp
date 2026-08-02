@@ -54,7 +54,7 @@
     </div>
 
     <aside id="info-panel">
-      <p class="info-panel__title" data-role="title">
+      <p class="info-panel__title" data-role="title" data-i18n="info.prompt">
         Draw a polygon to load data.
       </p>
       <!-- The stat labels are static; the values come from App.ui.setInfo(). -->
@@ -256,7 +256,12 @@
           <div class="print-preview">
             <canvas data-role="canvas"></canvas>
             <p class="print-preview__status" data-role="status">
-              Loading map tiles…
+              <span
+                class="spinner spinner--sm"
+                data-role="status-spinner"
+                aria-hidden="true"
+              ></span>
+              <span data-role="status-text">Loading map tiles…</span>
             </p>
           </div>
 

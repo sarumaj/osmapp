@@ -668,3 +668,16 @@ body {
   color: var(--c-text-dim);
   font-size: var(--ui-fs-sm);
 }
+
+.spinner--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+  margin: 0;
+}
+
+.print-preview__status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}

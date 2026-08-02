@@ -92,23 +92,15 @@
     App.ui.init();
     App.polygons.init();
     App.data.init();
-    App.session.init();
     App.clustering.init();
     App.editing.init();
     App.print.init();
     App.controls.init(map);
     App.history.init();
 
-    App.session.restore().then(function (restored) {
-      if (restored)
-        App.ui.setInfoFiltered(
-          s.cachedStreets ? s.cachedStreets.features.length : 0,
-          s.cachedBuildings ? s.cachedBuildings.features.length : 0,
-          s.clusters.length,
-        );
-    });
-
     _setupGeocoder(s);
+
+    _setupDrawingKeys(map);
 
     // ── Map events ──────────────────────────────────────────────────────
     map.on("move zoom", App.ui.closeContextMenu);
@@ -132,6 +124,71 @@
     console.log(
       ">>> Ready (attempt " + _retries + "). Draw an outer polygon to begin.",
     );
+  }
+
+  /**
+   * Enter closes the outer polygon by committing the drawing; Leaflet.Editable
+   * joins the last vertex to the first, since a polygon ring is closed by
+   * definition. Escape abandons it.
+   *
+   * A hint banner is shown for the duration, because otherwise nothing tells
+   * anyone the Enter shortcut exists.
+   */
+  function _setupDrawingKeys(map) {
+    var hint = null;
+
+    function showHint() {
+      if (hint) return;
+      hint = App.dom.mountOnMap("tpl-draw-hint", map);
+      // The template carries data-i18n="draw.hint" for the split-line tool.
+      // Re-target the key as well as the text, so a later i18n.apply() does not
+      // put the split-line wording back.
+      hint.setAttribute("data-i18n", "draw.outerHint");
+      hint.textContent = App.i18n.t("draw.outerHint");
+    }
+
+    function hideHint() {
+      hint = App.dom.remove(hint);
+    }
+
+    map.on("editable:drawing:start", showHint);
+    map.on("editable:drawing:end", hideHint);
+    map.on("editable:drawing:commit", hideHint);
+
+    document.addEventListener("keydown", function (e) {
+      if (!map.editTools || !map.editTools.drawing()) return;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        map.editTools.stopDrawing();
+        hideHint();
+        return;
+      }
+
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+
+      // Fewer than three vertices is not a polygon; committing would produce
+      // geometry Leaflet.Editable then discards, silently losing the draw.
+      if (_drawnVertexCount(map.editTools._drawingEditor) < 3) return;
+      map.editTools.commitDrawing();
+      hideHint();
+    });
+  }
+
+  /** Vertices placed so far, preferring the public path over the private one. */
+  function _drawnVertexCount(editor) {
+    if (!editor) return 0;
+    try {
+      var rings = editor.feature.getLatLngs();
+      var ring = Array.isArray(rings[0]) ? rings[0] : rings;
+      if (Array.isArray(ring)) return ring.length;
+    } catch (e) {
+      /* fall through */
+    }
+    return Array.isArray(editor._drawnLatLngs)
+      ? editor._drawnLatLngs.length
+      : 0;
   }
 
   /** Route a freshly committed polygon to the outer boundary or a cluster. */

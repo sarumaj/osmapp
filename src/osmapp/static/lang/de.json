@@ -22,12 +22,13 @@
     "merge": "Gebiete auswählen und zusammenführen",
     "cleanup": "Gebiete ohne Gebäude auflösen",
     "reset": "Alles zurücksetzen",
-    "language": "Sprache"
+    "language": "Sprache",
+    "github": "Quellcode und Hilfestellung auf GitHub"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
     "loaded": "Geladen",
-    "filtered": "Auf Gebiete gefiltert",
+    "filtered": "Daten nach Gebieten gefiltert",
     "streets": "Straßen",
     "buildings": "Gebäude",
     "clusters": "Gebiete",
@@ -87,7 +88,8 @@
     "cancel": "Abbrechen"
   },
   "draw": {
-    "hint": "Klicken setzt Punkte · Doppelklick beendet · Esc bricht ab"
+    "hint": "Klicken setzt Punkte · Doppelklick beendet · Esc bricht ab",
+    "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
   },
   "print": {
     "title": "Gebietskarte drucken",
@@ -106,6 +108,7 @@
     "territoryNo": "Gebiet Nr.",
     "template": "PDF-Vorlage",
     "noTemplate": "Keine Vorlage — die Karte wird allein gedruckt.",
+    "clearTemplate": "Vorlage löschen",
     "withTemplate": "Vorlage: {name}",
     "openPdf": "PDF öffnen",
     "cancel": "Abbrechen",
@@ -130,8 +133,7 @@
     "rotateCcw": "Um 90° gegen den Uhrzeigersinn drehen",
     "rotateCw": "Um 90° im Uhrzeigersinn drehen",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "Diese Ansicht braucht zu viele Kartenkacheln. Zoome etwas hinein.",
-    "clearTemplate": "Vorlage entfernen"
+    "errTooManyTiles": "Diese Ansicht braucht zu viele Kartenkacheln. Zoome etwas hinein."
   },
   "alert": {
     "drawFirst": "Zeichne zuerst eine Außengrenze.",

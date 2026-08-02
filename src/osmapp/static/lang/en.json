@@ -22,7 +22,8 @@
     "merge": "Select and merge territories",
     "cleanup": "Absorb territories that contain no buildings",
     "reset": "Reset everything",
-    "language": "Language"
+    "language": "Language",
+    "github": "Source code and help resources on GitHub"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -87,7 +88,8 @@
     "cancel": "Cancel"
   },
   "draw": {
-    "hint": "Click to place vertices · Double-click to finish · Esc to cancel"
+    "hint": "Click to place vertices · Double-click to finish · Esc to cancel",
+    "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
   },
   "print": {
     "title": "Print territory card",
@@ -106,6 +108,7 @@
     "territoryNo": "Territory no.",
     "template": "PDF template",
     "noTemplate": "No template — the map prints on its own.",
+    "clearTemplate": "Clear template",
     "withTemplate": "Template: {name}",
     "openPdf": "Open PDF",
     "cancel": "Cancel",
@@ -130,8 +133,7 @@
     "rotateCcw": "Rotate 90° counter-clockwise",
     "rotateCw": "Rotate 90° clockwise",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "That view needs too many map tiles. Zoom in a little.",
-    "clearTemplate": "Clear template"
+    "errTooManyTiles": "That view needs too many map tiles. Zoom in a little."
   },
   "alert": {
     "drawFirst": "Draw an outer boundary first.",

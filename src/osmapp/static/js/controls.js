@@ -121,6 +121,14 @@ App.controls = (function () {
       accent: "red",
       onClick: resetAll,
     },
+    {
+      // fa-brands, not fa-solid: the GitHub mark lives in a separate webfont.
+      icon: "fa-github",
+      iconClass: "fa-brands",
+      titleKey: "toolbar.github",
+      accent: "purple",
+      href: "https://github.com/sarumaj/osmapp",
+    },
   ];
 
   function init(leafletMap) {
@@ -154,8 +162,12 @@ App.controls = (function () {
   // ── Button factory ────────────────────────────────────────────────────
 
   /**
-   * @param {{icon:string, titleKey?:string, accent:string, onClick?:Function,
-   *          setup?:Function, barClass?:string, btnClass?:string}} spec
+   * @param {{icon:string, iconClass?:string, titleKey?:string, accent:string,
+   *          onClick?:Function, setup?:Function, href?:string,
+   *          barClass?:string, btnClass?:string}} spec
+   *   href turns the button into a real external link. disableClickPropagation
+   *   stops the map seeing the click but does not preventDefault, so navigation
+   *   still happens.
    */
   function _makeButton(spec) {
     var Control = L.Control.extend({
@@ -170,8 +182,14 @@ App.controls = (function () {
           "tb-btn" + (spec.btnClass ? " " + spec.btnClass : ""),
           container,
         );
-        link.href = "#";
-        link.setAttribute("role", "button");
+        if (spec.href) {
+          link.href = spec.href;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+        } else {
+          link.href = "#";
+          link.setAttribute("role", "button");
+        }
         link.setAttribute("data-accent", spec.accent);
 
         if (spec.titleKey) {
@@ -183,7 +201,11 @@ App.controls = (function () {
           );
         }
 
-        var icon = L.DomUtil.create("i", "fa-solid " + spec.icon, link);
+        var icon = L.DomUtil.create(
+          "i",
+          (spec.iconClass || "fa-solid") + " " + spec.icon,
+          link,
+        );
         icon.setAttribute("aria-hidden", "true");
 
         if (spec.onClick) {
@@ -289,7 +311,6 @@ App.controls = (function () {
     if (!confirm(T("alert.resetConfirm"))) return;
 
     if (App.history) App.history.clear();
-    if (App.session) App.session.clear();
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
 
