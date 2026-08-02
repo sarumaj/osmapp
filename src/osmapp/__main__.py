@@ -32,7 +32,15 @@ def main() -> None:
         if debug:
             app.run(host=host, port=port, debug=True)
         else:
-            serve(app, host=host, port=port)
+            serve(
+                app,
+                host=host,
+                port=port,
+                connection_limit=200,
+                channel_timeout=15,
+                max_request_body_size=50 * 1024 * 1024,
+                backlog=256,
+            )
     finally:
         cancel.set()
 
