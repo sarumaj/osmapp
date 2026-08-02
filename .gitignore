@@ -176,3 +176,6 @@ cython_debug/
 # Extra cache files
 cache/
 .tile_cache/
+
+# Allow dist in src
+!src/**/dist/
