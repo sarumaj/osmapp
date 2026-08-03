@@ -78,6 +78,11 @@ body {
   filter: brightness(1.08);
 }
 
+.btn.is-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .btn:focus-visible,
 .polygon-context-menu-item:focus-visible,
 .tb-btn:focus-visible {
@@ -115,6 +120,13 @@ body {
   height: 50px;
   animation: spin 1s linear infinite;
   margin: 0 auto 20px;
+}
+
+.spinner--sm {
+  width: 18px;
+  height: 18px;
+  border-width: 3px;
+  margin: 0;
 }
 
 @keyframes spin {
@@ -370,7 +382,9 @@ body {
   border-radius: 4px !important;
   cursor: pointer !important;
   box-sizing: border-box !important;
-  transition: background-color 0.15s, color 0.15s !important;
+  transition:
+    background-color 0.15s,
+    color 0.15s !important;
 }
 
 .tb-btn.leaflet-draw-toolbar-button {
@@ -426,6 +440,28 @@ body {
   display: block !important;
 }
 
+/* Language picker (toolbar) */
+.tb-bar.lang-bar {
+  background: var(--c-surface);
+  padding: 2px;
+}
+
+.lang-select {
+  width: 30px;
+  height: 26px;
+  border: 0;
+  background: transparent;
+  font: var(--ui-fs-sm) / 26px var(--ui-font);
+  color: var(--c-text);
+  cursor: pointer;
+  text-align: center;
+  text-align-last: center;
+}
+
+.lang-select:hover {
+  background: var(--c-surface-hover);
+}
+
 /* ═══════════════════════════════════════════════════════════
    Polygon context menu
    ═══════════════════════════════════════════════════════════ */
@@ -470,6 +506,24 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Cluster tooltip
+   ═══════════════════════════════════════════════════════════ */
+.cluster-tooltip {
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font: var(--ui-fs-sm) / 1.4 var(--ui-font);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.cluster-tooltip::before {
+  border-top-color: rgba(28, 28, 30, 0.92);
+}
+
+/* ═══════════════════════════════════════════════════════════
    Print dialog
    ═══════════════════════════════════════════════════════════ */
 .print-dialog {
@@ -507,8 +561,17 @@ body {
   touch-action: none; /* pointer events drive the eraser */
 }
 
+.print-preview canvas.is-panning {
+  cursor: grab;
+}
+.print-preview canvas.is-panning:active {
+  cursor: grabbing;
+}
+
+/* No system cursor while erasing — .erase-cursor shows the true brush radius,
+   which a crosshair cannot. */
 .print-preview canvas.is-erasing {
-  cursor: crosshair;
+  cursor: none;
 }
 
 .print-preview__status {
@@ -525,6 +588,23 @@ body {
   color: var(--c-text);
   text-align: center;
   max-width: 80%;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Ring showing the brush footprint at its true on-screen size. Two-tone so it
+   stays visible over both the pale map and the dark border ink. */
+.erase-cursor {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.6);
+  background: rgba(231, 76, 60, 0.12);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .print-controls__group {
@@ -568,11 +648,17 @@ body {
 }
 
 .print-controls__field output {
-  min-width: 46px;
+  min-width: 66px;
   text-align: right;
   font-variant-numeric: tabular-nums;
   color: var(--c-text-dim);
   font-size: var(--ui-fs-sm);
+}
+
+/* Below the warning tile zoom OSM stops naming minor roads, so the readout
+   flags that softening further removes labels rather than enlarging them. */
+.print-controls__field output.is-warn {
+  color: var(--c-warn);
 }
 
 .print-controls__check {
@@ -587,11 +673,20 @@ body {
 .print-controls__row {
   display: flex;
   gap: 6px;
+  margin-bottom: 8px;
+}
+
+.print-controls__row:last-child {
+  margin-bottom: 0;
 }
 
 .print-controls__row .btn {
   flex: 1;
   padding: 5px 6px;
+}
+
+.print-controls__row .btn i {
+  font-size: var(--ui-fs-md);
 }
 
 .print-controls__hint {
@@ -601,100 +696,149 @@ body {
   word-break: break-word;
 }
 
-.btn.is-disabled {
-  opacity: 0.45;
-  pointer-events: none;
-}
-
-/* Language picker (toolbar) */
-.tb-bar.lang-bar {
-  background: var(--c-surface);
-  padding: 2px;
-}
-
-.lang-select {
-  width: 30px;
-  height: 26px;
-  border: 0;
-  background: transparent;
-  font: var(--ui-fs-sm) / 26px var(--ui-font);
-  color: var(--c-text);
-  cursor: pointer;
-  text-align: center;
-  text-align-last: center;
-}
-
-.lang-select:hover {
-  background: var(--c-surface-hover);
-}
-
-/* Print dialog: framing */
-.print-preview canvas.is-panning {
-  cursor: grab;
-}
-.print-preview canvas.is-panning:active {
-  cursor: grabbing;
-}
-
 .print-fit {
   padding: 3px 8px;
   font-size: var(--ui-fs-sm);
   white-space: nowrap;
 }
 
-/* Print dialog: rotation buttons */
-.print-controls__row .btn i {
-  font-size: var(--ui-fs-md);
-}
-
-/* Rotation row: two quarter-turn buttons around the readout */
-.print-rotate {
-  grid-column: 2 / -1;
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-
-.print-rotate .btn {
-  padding: 3px 10px;
-}
-
-.print-rotate output {
-  flex: 1;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-dim);
-  font-size: var(--ui-fs-sm);
-}
-
-.spinner--sm {
-  width: 18px;
-  height: 18px;
-  border-width: 3px;
-  margin: 0;
-}
-
-.print-preview__status {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
 /* ═══════════════════════════════════════════════════════════
-   Cluster tooltip
+   Map placement dialog
    ═══════════════════════════════════════════════════════════ */
-
-.cluster-tooltip {
-  padding: 6px 9px;
-  border: none;
-  border-radius: var(--radius-sm);
-  background: rgba(28, 28, 30, 0.92);
-  color: #fff;
-  font: var(--ui-fs-sm) / 1.4 var(--ui-font);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  white-space: nowrap;
+.place-dialog {
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow: auto;
 }
 
-.cluster-tooltip::before {
-  border-top-color: rgba(28, 28, 30, 0.92);
+.place-stage {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  user-select: none;
+  touch-action: none;
+}
+
+.place-page {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 62vh;
+  box-shadow: var(--shadow-md);
+}
+
+.place-box {
+  position: absolute;
+  border: 2px solid var(--c-danger);
+  background: rgba(231, 76, 60, 0.12) no-repeat center / 100% 100%;
+  cursor: move;
+}
+
+.place-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--c-danger);
+}
+.place-handle[data-h="nw"] {
+  left: 0;
+  top: 0;
+  cursor: nwse-resize;
+}
+.place-handle[data-h="ne"] {
+  left: 100%;
+  top: 0;
+  cursor: nesw-resize;
+}
+.place-handle[data-h="se"] {
+  left: 100%;
+  top: 100%;
+  cursor: nwse-resize;
+}
+.place-handle[data-h="sw"] {
+  left: 0;
+  top: 100%;
+  cursor: nesw-resize;
+}
+
+.place-readout {
+  display: block;
+  margin-top: 8px;
+  font: var(--ui-fs-md) / 1.4 var(--ui-font);
+  color: var(--c-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.place-notice {
+  margin: 6px 0 0;
+  min-height: 1.2em;
+  font: var(--ui-fs-sm) / 1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.place-notice.is-warn {
+  color: var(--c-warn);
+}
+
+.place-loupe {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 160px;
+  height: 160px;
+  border: 2px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Sits in the corner furthest from what is being inspected. */
+.place-loupe.is-left {
+  right: auto;
+  left: 10px;
+}
+.place-loupe.is-bottom {
+  top: auto;
+  bottom: 10px;
+}
+
+.place-loupe__inner {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+  image-rendering: pixelated; /* honest about the magnification */
+}
+
+.place-loupe__box {
+  position: absolute;
+  border: 2px solid var(--c-danger);
+  background: rgba(231, 76, 60, 0.08);
+}
+
+/* Marks the exact point being magnified. */
+.place-loupe__cross::before,
+.place-loupe__cross::after {
+  content: "";
+  position: absolute;
+  background: rgba(0, 0, 0, 0.45);
+}
+.place-loupe__cross::before {
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  margin-left: -0.5px;
+}
+.place-loupe__cross::after {
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  margin-top: -0.5px;
 }

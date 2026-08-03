@@ -1,32 +1,62 @@
-# OSM App (Territory Mapper)
+# OSM App / Territory Mapper
 
-Draw an area on a map, split it into territories whose edges follow real
-streets, and print each one onto a card.
-
-The output is built for the **S-12 territory card** (_Karta z mapą terenu_):
-A4 portrait with a fixed map box, a red boundary line, and fields for
-_Miejscowość_ and _Teren nr_. Any PDF template with a rectangular placeholder
-works — the S-12 measurements are just the defaults.
-
-Interface available in English (`/`), Polish (`/pl`) and German (`/de`).
-
----
+Split a map area into walkable territories, then print each one as a card.
 
 ## What it does
 
-1. **Draw an outer boundary.** OSM streets and building footprints for that
-   area are downloaded through Overpass.
-2. **The whole area becomes one territory automatically**, so a small area is
-   printable immediately without dividing it further.
-3. **Split it** when you want smaller territories, either by target building
-   count or by target territory count. Boundaries are routed along the street
-   network rather than cutting through blocks.
-4. **Adjust by hand**: draw a street-snapped cut line, merge neighbors, drop
-   territories with no buildings, undo/redo throughout.
-5. **Print a card.** Right-click a territory → Print. Frame it, style the
-   border, erase the parts of the line that cover street names, then print
-   directly or stamp it into your PDF template.
-6. **Export and import** the whole state as GeoJSON.
+You draw a shape on a map — a neighborhood, a village, a few blocks. The app
+downloads the real streets and buildings inside it from OpenStreetMap, then cuts
+the shape into however many pieces you ask for.
+
+The cuts follow actual streets. That is the whole point: a territory whose edge
+runs down the middle of a street is useless to the person walking it, because
+they cannot tell which houses are theirs. Every boundary here runs _along_ a
+road, so "everything on this side of Kolejowa" is an instruction you can act on.
+
+Then you print. Each territory becomes a PDF card showing that territory alone,
+at a zoom level that fits the page, with the boundary drawn on top. You can drop
+those onto a pre-printed form — an existing card template — so the map lands
+inside the box the template leaves for it.
+
+## Who it's for
+
+Anyone who divides a geographic area into assignments and hands them to people
+on foot: congregation field service, canvassing, leaflet distribution, survey
+work, parish visiting, delivery rounds.
+
+## What you actually do
+
+1. **Draw the area.** Use the polygon tool and click around the edge of the
+   region you care about. Double-click to close it.
+2. **Wait for the data.** Streets and buildings load from OpenStreetMap. A large
+   town takes a few seconds; a city takes longer.
+3. **Split it.** Choose either a number of territories ("give me 40") or a
+   target size ("about 25 buildings each") and let it run. Bigger areas and
+   higher counts take longer — a few hundred territories is a couple of minutes.
+4. **Adjust by hand.** Merge two territories that came out too small, cut one
+   that came out too big, drag a boundary, or delete one entirely. Ctrl+Z undoes.
+5. **Print.** Right-click a territory and choose Print. Set the line color and
+   thickness, rotate or zoom the map inside the frame, erase any bit of the
+   border that covers something you need to read, and export the PDF.
+
+Your work is kept in the browser, so a refresh or an accidental tab close does
+not lose it. You can also export everything to a file and load it back later, on
+another machine.
+
+## What it is not
+
+It does not know who lives where, track visits, or store anything about
+residents. It draws boundaries and prints maps. Anything about the people inside
+those boundaries stays wherever you already keep it.
+
+It also does not invent street data. Everything comes from OpenStreetMap, so if
+a new estate is missing there, it is missing here. That is fixable — OpenStreetMap
+is editable by anyone — but it is fixed there, not here.
+
+## Language
+
+Available in English, Polish and German. Pick one from the menu, or go straight
+to `/pl` or `/de`.
 
 ---
 

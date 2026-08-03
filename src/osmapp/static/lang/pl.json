@@ -80,10 +80,10 @@
     "cancel": "Anuluj",
     "submit": "Podziel",
     "calcBuildings": {
-      "one":  "{k} teren, po około {each} budynków",
-      "few":  "{k} tereny, po około {each} budynków",
+      "one": "{k} teren, po około {each} budynków",
+      "few": "{k} tereny, po około {each} budynków",
       "many": "{k} terenów, po około {each} budynków",
-      "other":"{k} terenu, po około {each} budynków"
+      "other": "{k} terenu, po około {each} budynków"
     },
     "calcArea": "{k} terenów, po około {each} m²",
     "errBuildings": "Podaj liczbę od 1 do {total}.",
@@ -136,12 +136,36 @@
     "frame": "Okienko",
     "zoom": "Powiększenie",
     "fit": "Dopasuj",
-    "frameHint": "Przeciągnij mapę, aby ją przesunąć, przewiń, aby przybliżyć, obracaj o ćwierć obrotu. Kadr zachowuje proporcje szablonu, więc format się nie zmienia.",
+    "frameHint": "Przeciągnij, aby przesunąć, przewiń, aby przybliżyć, Shift+przeciągnięcie obraca.",
     "rotation": "Obrót",
     "rotateCcw": "Obróć o 90° w lewo",
     "rotateCw": "Obróć o 90° w prawo",
+    "rotateReset": "Resetuj obrót",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "Ten widok wymaga zbyt wielu kafelków mapy. Przybliż nieco."
+    "errTooManyTiles": "Ten widok wymaga zbyt wielu kafelków mapy. Przybliż nieco.",
+    "waitingTiles": "Czekam na kafelki mapy…",
+    "encoding": "Koduję obraz…",
+    "adjustTemplate": "Dostosuj obszar mapy",
+    "renderingTemplate": "Renderowanie szablonu…",
+    "errTemplatePreview": "Nie można było wyświetlić szablonu: {message}",
+    "detail": "Wielkość napisów",
+    "detailHint": "Wielkość napisów jest przybliżona. Zależy od skali mapy i kształtu terenu.",
+    "detailOut": "≈{pt} pt · z{z}",
+    "sharpen": "Wyostrzenie mapy",
+    "basemap": "Mapa podstawowa"
+  },
+  "place": {
+    "title": "Umieść mapę",
+    "hint": "Przeciągnij ramkę na miejsce karty, gdzie ma się znaleźć mapa.",
+    "readout": "x {x} · y {y} · {w} × {h} pt",
+    "snap": "Dopasuj do wykrytego pola",
+    "snapN": "Dopasuj do wykrytego pola (1 z {n})",
+    "snapOne": "Dopasowano do jedynego wykrytego pola.",
+    "snapCycled": "Wykryte pole {i} z {n}.",
+    "snapNone": "W tym szablonie nie wykryto pola — przeciągnij ramkę ręcznie.",
+    "cancel": "Anuluj",
+    "save": "Użyj tego obszaru",
+    "keys": "Klawisze strzałek przesuwają mapę o 1 pt · Przytrzymaj dodatkowo Shift by przesuwać o 10 pt · Przytrzymaj dodatkowo Alt by przesuwać o 0.1 pt · Przytrzymaj dodatkowo Ctrl by zmienić rozmiar rozmiaru · Enter do zaakceptowania"
   },
   "alert": {
     "drawFirst": "Najpierw narysuj granicę zewnętrzną.",

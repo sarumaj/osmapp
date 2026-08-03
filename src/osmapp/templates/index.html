@@ -21,7 +21,10 @@
       // Kept as a fallback for the in-place switch path.
       window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}" />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}"
+    />
     <script src="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
     <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
     <link
@@ -31,7 +34,20 @@
   </head>
 
   <body>
-    <!-- Folium map HTML gets injected here (includes Leaflet JS/CSS) -->
+    <!-- Unsharp mask for the print preview's basemap tiles. Referenced by
+         ctx.filter in print.js; the kernel sums to 1 so brightness is
+         unchanged. Never applied to the border or attribution, which are
+         drawn as vectors and are already sharp. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="tile-sharpen" color-interpolation-filters="sRGB">
+        <feConvolveMatrix
+          order="3"
+          preserveAlpha="true"
+          kernelMatrix="0 -0.4 0  -0.4 2.6 -0.4  0 -0.4 0"
+        />
+      </filter>
+    </svg>
+
     <div id="map"></div>
 
     <!-- ═══════════════════════════════════════════════════════════════════
@@ -257,6 +273,7 @@
         <div class="print-dialog__body">
           <div class="print-preview">
             <canvas data-role="canvas"></canvas>
+            <div class="erase-cursor" data-role="erase-cursor" hidden></div>
             <p class="print-preview__status" data-role="status">
               <span
                 class="spinner spinner--sm"
@@ -270,6 +287,7 @@
           <div class="print-controls">
             <fieldset class="print-controls__group">
               <legend data-i18n="print.frame">Frame</legend>
+
               <label class="print-controls__field">
                 <span data-i18n="print.zoom">Zoom</span>
                 <input type="range" data-role="zoom" />
@@ -282,31 +300,73 @@
                   Fit
                 </button>
               </label>
-              <div class="print-controls__field">
+
+              <label class="print-controls__field">
                 <span data-i18n="print.rotation">Rotation</span>
-                <div class="print-rotate">
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    data-role="rotate-ccw"
-                    data-i18n-attrs="title=print.rotateCcw;aria-label=print.rotateCcw"
-                  >
-                    <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
-                  </button>
-                  <output data-role="rotation-out"></output>
-                  <button
-                    type="button"
-                    class="btn btn--ghost"
-                    data-role="rotate-cw"
-                    data-i18n-attrs="title=print.rotateCw;aria-label=print.rotateCw"
-                  >
-                    <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                  </button>
-                </div>
+                <input
+                  type="range"
+                  data-role="rotation"
+                  min="-180"
+                  max="180"
+                  step="1"
+                  value="0"
+                />
+                <output data-role="rotation-out"></output>
+              </label>
+              <div class="print-controls__row">
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  data-role="rotate-ccw"
+                  data-i18n-attrs="title=print.rotateCcw;aria-label=print.rotateCcw"
+                >
+                  <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  data-role="rotate-reset"
+                  data-i18n-attrs="title=print.rotateReset;aria-label=print.rotateReset"
+                >
+                  0°
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  data-role="rotate-cw"
+                  data-i18n-attrs="title=print.rotateCw;aria-label=print.rotateCw"
+                >
+                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+                </button>
               </div>
+
               <p class="print-controls__hint" data-i18n="print.frameHint">
-                Drag the map to move it, scroll to zoom. The frame keeps the
-                template's proportions, so the ratio never changes.
+                Drag the map to move it, scroll to zoom. Hold Alt while dragging
+                the rotation slider for angles off the 15° marks.
+              </p>
+            </fieldset>
+
+            <fieldset class="print-controls__group">
+              <legend data-i18n="print.basemap">Basemap</legend>
+              <label class="print-controls__field">
+                <span data-i18n="print.detail">Detail</span>
+                <input
+                  type="range"
+                  data-role="detail"
+                  min="90"
+                  max="200"
+                  step="5"
+                  value="110"
+                />
+                <output data-role="detail-out"></output>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="sharpen" checked />
+                <span data-i18n="print.sharpen">Sharpen the map</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.detailHint">
+                Left means larger street names on a softer map. The readout
+                shows the printed text height and the tile zoom in use.
               </p>
             </fieldset>
 
@@ -415,15 +475,26 @@
               >
                 No template — the map prints on its own.
               </p>
-              <button
-                type="button"
-                class="btn btn--ghost"
-                data-role="clear-template"
-                data-i18n="print.clearTemplate"
-                hidden
-              >
-                Clear template
-              </button>
+              <div class="print-controls__row">
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  data-role="clear-template"
+                  data-i18n="print.clearTemplate"
+                  hidden
+                >
+                  Clear template
+                </button>
+                <button
+                  type="button"
+                  class="btn btn--ghost"
+                  data-role="adjust-template"
+                  data-i18n="print.adjustTemplate"
+                  hidden
+                >
+                  Adjust map area
+                </button>
+              </div>
             </fieldset>
           </div>
         </div>
@@ -454,6 +525,80 @@
             data-i18n="print.print"
           >
             Print
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-place-dialog">
+      <div
+        class="app-dialog place-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Position the map"
+        tabindex="-1"
+      >
+        <h2 class="app-dialog__title" data-i18n="place.title">
+          Position the map
+        </h2>
+        <p class="app-dialog__hint" data-i18n="place.hint">
+          Drag the frame over the part of the card where the map should print.
+        </p>
+        <p class="app-dialog__hint" data-i18n="place.keys">
+          Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
+          resize · Enter to accept
+        </p>
+
+        <div class="place-stage" data-role="stage">
+          <img class="place-page" data-role="page" alt="" />
+          <div class="place-box" data-role="box">
+            <span class="place-handle" data-h="nw"></span>
+            <span class="place-handle" data-h="ne"></span>
+            <span class="place-handle" data-h="se"></span>
+            <span class="place-handle" data-h="sw"></span>
+          </div>
+
+          <div class="place-loupe" data-role="loupe" hidden>
+            <div class="place-loupe__inner" data-role="loupe-inner">
+              <div class="place-loupe__box" data-role="loupe-box"></div>
+            </div>
+            <div class="place-loupe__cross" aria-hidden="true"></div>
+          </div>
+        </div>
+
+        <output class="place-readout" data-role="readout"></output>
+        <p
+          class="place-notice"
+          data-role="notice"
+          role="status"
+          aria-live="polite"
+          hidden
+        ></p>
+
+        <div class="app-dialog__actions">
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="snap"
+            data-i18n="place.snap"
+          >
+            Snap to detected box
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="cancel"
+            data-i18n="place.cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="save"
+            data-i18n="place.save"
+          >
+            Use this area
           </button>
         </div>
       </div>

@@ -7,23 +7,31 @@
  * decouples output resolution from the screen, so the card prints at 300 dpi
  * regardless of window size.
  *
- * Tiles
- *   One tile zoom is chosen when the dialog opens and never changes. Every
- *   tile is kept as a decoded Image in _tiles for the life of the dialog, so
- *   panning, zooming and rotating re-composite from memory with no network at
- *   all. The previous version re-fetched a whole tile set on every adjustment,
- *   which is what made it slow.
+ * Layout
+ *   Where the map goes on the card is measured from the template, not
+ *   hardcoded. /inspect_template finds the placeholder rectangle and the field
+ *   anchors; the placement dialog lets that guess be corrected by hand; the
+ *   result is remembered per template, keyed on a hash of its bytes. The
+ *   canvas takes its aspect ratio from the resolved placeholder, so editing
+ *   the card can no longer silently letterbox the map.
  *
- *   The cost is sharpness when zooming past the chosen level, since tiles are
- *   then upscaled. TILE_ZOOM_BOOST trades that against the initial fetch:
- *   raising it by 1 keeps detail one zoom level further in and costs about
- *   four times the tiles.
+ * Tiles
+ *   Tiles are fetched below the display zoom and upscaled, so the basemap is
+ *   deliberately soft. OSM sets label text at ~11 px for a ~96 dpi screen; at
+ *   300 dpi that prints as a 2.6 pt street name. TILE_DPI controls the trade:
+ *   lower means larger, more readable labels on a softer map. The result is
+ *   quantized — tiles exist only at integer zooms — so the label size ladder
+ *   steps by 2x and the readout shows the tile zoom alongside the point size.
+ *
+ *   Every tile is kept as a decoded Image in _tiles, so panning and small zoom
+ *   changes re-composite from memory. Only crossing into a different tile zoom
+ *   refetches, which _maybeRetile decides.
  *
  * Framing
- *   The canvas is fixed at the template placeholder's aspect ratio, so the
- *   ratio cannot drift. Framing chooses which slice of the world lands on it:
- *   drag to pan, scroll or the slider to zoom, and the two buttons to rotate
- *   in 90 degree steps. The frame never turns — the map turns inside it.
+ *   The canvas is fixed at the placeholder's aspect ratio, so the ratio cannot
+ *   drift. Framing chooses which slice of the world lands on it: drag to pan,
+ *   scroll or the slider to zoom, and the rotation slider to turn. The frame
+ *   never turns — the map turns inside it.
  *
  * Erase strokes are stored in lng/lat with a width in metres, not canvas
  * pixels, so they stay pinned to the street name they were drawn over when the
@@ -33,43 +41,80 @@ var App = window.App || {};
 App._loaded = App._loaded || [];
 
 App.print = (function () {
-  "use strict";
+  ("use strict");
 
   var s = null;
   var G = null;
   var D = null;
   var T = null;
 
-  // ── Output geometry, measured from the S-12 card ──────────────────────
-  // A4 portrait, 595.32 x 841.92 pt. The map box runs from (22.7, 470.3) to
-  // (572.6, 752.8) in PDF points, origin bottom-left.
-  var PAGE = { width: 595.32, height: 841.92 };
-  var PLACEHOLDER = { x: 22.7, y: 470.3, width: 549.9, height: 282.5, page: 0 };
-  var FIELDS = {
-    locality: { x: 98, y: 767, size: 10 },
-    territory: { x: 351, y: 767, size: 10 },
+  // ── Output geometry ───────────────────────────────────────────────────
+  // Only the no-template fallback. A loaded template replaces all of this.
+  var DEFAULT_LAYOUT = {
+    page: 0,
+    pageWidth: 595.32,
+    pageHeight: 841.92,
+    placeholder: { x: 30.72, y: 401.69, width: 534.0, height: 350.09 },
+    fields: {
+      locality: { x: 122.3, y: 761.88, size: 14 },
+      territory: { x: 479.0, y: 761.88, size: 14 },
+    },
+    candidates: [],
   };
+
+  /**
+   * Bump whenever the detector's geometry or output shape changes.
+   *
+   * Saved layouts are keyed on the template's bytes, so a detector improvement
+   * would otherwise never reach anyone who had already loaded that template —
+   * the cached numbers pin the old behavior forever. Layouts positioned by
+   * hand carry source "manual" and survive the bump: a box someone aligned
+   * against a loupe is better evidence than anything detection produces.
+   */
+  var LAYOUT_VERSION = 2;
+
+  var _layout = DEFAULT_LAYOUT;
+  var _layoutId = null;
+  var _candidates = [];
+
+  // Reassigned by _applyLayout — never captured by reference outside it.
+  var PLACEHOLDER = _layout.placeholder;
+  var FIELDS = _layout.fields;
 
   var DPI = 300;
   var PT_PER_INCH = 72;
-  var RENDER_W = Math.round((PLACEHOLDER.width / PT_PER_INCH) * DPI); // 2291
-  var RENDER_H = Math.round((PLACEHOLDER.height / PT_PER_INCH) * DPI); // 1177
   var PX_PER_PT = DPI / PT_PER_INCH;
+  var RENDER_W = Math.round((PLACEHOLDER.width / PT_PER_INCH) * DPI);
+  var RENDER_H = Math.round((PLACEHOLDER.height / PT_PER_INCH) * DPI);
+
   var DEG = Math.PI / 180;
 
   var TILE_URL = "/tiles/{z}/{x}/{y}.png";
   var TILE_SIZE = 256;
   var TILE_CONCURRENCY = 8;
-  var TILE_ZOOM_BOOST = 0; // +1 = sharper when zoomed in, ~4x the tiles
   var TILE_MARGIN = 2; // rings of tiles prefetched around the opening view
   var MAX_TILES = 900;
+
+  /**
+   * Effective resolution of the basemap, in dpi. Mirrors the detail slider,
+   * which carries the same value directly — no inversion, so the markup and
+   * these numbers cannot drift out of agreement.
+   */
+  var TILE_DPI = 110;
+  // Below this tile zoom OSM stops naming minor roads, so softening further
+  // removes the labels instead of enlarging them.
+  var TILE_ZOOM_WARN = 14;
 
   var MIN_ZOOM = 3;
   var MAX_ZOOM = 19;
   var ZOOM_OUT_HEADROOM = 0.5; // how far below fit the slider reaches
   var ZOOM_IN_HEADROOM = 2;
   var PADDING = 0.05; // fraction of the frame kept clear when fitting
-  var ROTATION_STEP = 90;
+
+  var ROTATION_STEP = 90; // the quarter-turn buttons
+  var ROTATION_SNAP_DEG = 15; // magnetism while dragging the slider
+  var ROTATION_SNAP_TOL = 3;
+
   var EARTH_CIRCUMFERENCE_M = 40075016.686;
   var ATTRIBUTION = "© OpenStreetMap contributors";
 
@@ -78,20 +123,28 @@ App.print = (function () {
   var _feature = null;
   var _preview = null;
   var _borderCanvas = null;
+  var _eraseCursor = null;
+  var _eraseRO = null;
 
-  var _view = null; // { ez, lng, lat, rotation } — rotation is 0/90/180/270
+  var _view = null; // { ez, lng, lat, rotation } — rotation in (-180, 180]
+  var _desiredEz = null; // what the user asked for, before rotation clamping
   var _tiles = null; // "x/y" -> { img, done }
   var _tileZoom = 0;
   var _inFlight = 0;
   var _paintQueued = false;
+  var _retileTimer = null;
 
   var _strokes = [];
   var _redoStack = [];
   var _stroke = null;
   var _pan = null;
 
+  var _rotate = null; // shift-drag rotation gesture
+  var _rotationDragging = false; // true only while the slider handle is held
+
   var _templateFile = null;
   var _pdfUrl = null;
+  var _busy = false;
 
   function init() {
     s = App.state;
@@ -114,35 +167,113 @@ App.print = (function () {
     "color",
     "width",
     "opacity",
+    "detail",
+    "sharpen",
     "erase-size",
     "locality",
   ];
 
-  function _loadPrefs() {
-    var saved;
+  function _readPrefs() {
     try {
-      saved = JSON.parse(window.localStorage.getItem(PREFERENCES_KEY) || "{}");
+      return JSON.parse(window.localStorage.getItem(PREFERENCES_KEY) || "{}");
     } catch (e) {
-      return; // corrupt or storage disabled — fall back to the markup defaults
+      return {}; // corrupt or storage disabled
     }
+  }
+
+  function _writePrefs(prefs) {
+    try {
+      window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+    } catch (e) {
+      /* private mode: preferences just don't persist */
+    }
+  }
+
+  function _loadPrefs() {
+    var saved = _readPrefs();
     PREFERENCES_ROLES.forEach(function (role) {
       if (saved[role] === undefined) return;
       var input = D.role(_dialog, role);
-      if (input) input.value = saved[role]; // range inputs clamp, color ignores junk
+      if (!input) return;
+
+      if (input.type === "checkbox") {
+        input.checked = saved[role] === "1";
+      } else {
+        input.value = saved[role]; // ranges clamp, color ignores junk
+      }
+      // A select given a value it has no option for goes blank; a range given
+      // an out-of-bounds value clamps silently. Both are better than showing
+      // an empty control.
+      if (input.tagName === "SELECT" && input.selectedIndex < 0) {
+        input.selectedIndex = 0;
+      }
     });
   }
 
   function _savePrefs() {
-    var out = {};
+    // Merge rather than replace: per-template layouts live in the same record,
+    // and rebuilding from PREFERENCES_ROLES alone would drop every one of them
+    // on the next slider nudge.
+    var prefs = _readPrefs();
     PREFERENCES_ROLES.forEach(function (role) {
       var input = D.role(_dialog, role);
-      if (input) out[role] = input.value;
+      if (!input) return;
+      prefs[role] =
+        input.type === "checkbox" ? (input.checked ? "1" : "0") : input.value;
     });
-    try {
-      window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(out));
-    } catch (e) {
-      /* private mode: preferences just don't persist */
-    }
+    _writePrefs(prefs);
+  }
+
+  function _layoutIsCurrent(layout) {
+    if (!layout) return false;
+    return layout.source === "manual" || layout.v === LAYOUT_VERSION;
+  }
+
+  function _savedLayout(id) {
+    var saved = (_readPrefs().layouts || {})[id];
+    return _layoutIsCurrent(saved) ? saved : null;
+  }
+
+  function _saveLayout(id, layout) {
+    if (!id || !layout) return;
+    layout.v = LAYOUT_VERSION;
+    var prefs = _readPrefs();
+    prefs.layouts = prefs.layouts || {};
+    prefs.layouts[id] = layout;
+    _writePrefs(prefs);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // LAYOUT
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Adopt a layout: resize the canvases, refit, and restart the tile cache.
+   *
+   * Safe to call before the canvases exist: it then only updates the numbers.
+   */
+  function _applyLayout(layout) {
+    _layout = layout || DEFAULT_LAYOUT;
+    PLACEHOLDER = _layout.placeholder;
+    FIELDS = _layout.fields || DEFAULT_LAYOUT.fields;
+    _candidates = _layout.candidates || [];
+
+    RENDER_W = Math.round((PLACEHOLDER.width / PT_PER_INCH) * DPI);
+    RENDER_H = Math.round((PLACEHOLDER.height / PT_PER_INCH) * DPI);
+
+    if (!_dialog || !_preview || !_feature) return;
+
+    _preview.width = RENDER_W;
+    _preview.height = RENDER_H;
+    _borderCanvas.width = RENDER_W;
+    _borderCanvas.height = RENDER_H;
+
+    _view = _fitViewFor(_feature, _view ? _view.rotation : 0);
+    _desiredEz = _view.ez;
+
+    _syncFrameControls();
+    _sizeEraseCursor();
+    _retile();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -150,12 +281,85 @@ App.print = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   var TEMPLATE_KEY = "print:template";
-  var _templateReady = false;
+
+  /**
+   * Stable id for a template file. Survives renaming and re-export; changes
+   * when the template is actually edited, which is exactly when a saved map
+   * box becomes suspect.
+   */
+  function _templateId(file) {
+    if (!window.crypto || !crypto.subtle) {
+      // Insecure context — crypto.subtle is undefined on http://0.0.0.0:5000.
+      // Weaker, but enough to tell two templates apart on one machine.
+      return Promise.resolve(
+        "n" +
+          [file.name, file.size, file.lastModified]
+            .join(":")
+            .replace(/\W+/g, "_"),
+      );
+    }
+    return file.arrayBuffer().then(function (buf) {
+      return crypto.subtle.digest("SHA-256", buf).then(function (hash) {
+        var bytes = new Uint8Array(hash);
+        var hex = "";
+        for (var i = 0; i < 8; i++) {
+          hex += bytes[i].toString(16).padStart(2, "0");
+        }
+        return hex;
+      });
+    });
+  }
+
+  function _detectLayout(file) {
+    var form = new FormData();
+    form.append("template", file);
+    return fetch("/inspect_template", { method: "POST", body: form }).then(
+      function (r) {
+        if (!r.ok) throw new Error("inspect_template returned " + r.status);
+        return r.json();
+      },
+    );
+  }
+
+  /** A saved box wins; otherwise detect one and remember it. */
+  function _resolveLayout(file) {
+    return _templateId(file)
+      .then(function (id) {
+        _layoutId = id;
+        var saved = _savedLayout(id);
+        if (saved) {
+          _applyLayout(saved);
+          return saved;
+        }
+        return _detectLayout(file).then(function (detected) {
+          _applyLayout(detected);
+          _saveLayout(id, detected);
+          return detected;
+        });
+      })
+      .catch(function (err) {
+        console.warn(">>> Template layout unresolved:", err && err.message);
+        _applyLayout(DEFAULT_LAYOUT);
+        _setStatus(T("print.errTemplateLayout"), false);
+        return null;
+      })
+      .then(function (layout) {
+        return App.store.set(TEMPLATE_KEY, {
+          file: file,
+          id: _layoutId,
+          layout: layout,
+        });
+      });
+  }
 
   function _restoreTemplate() {
-    return App.store.get(TEMPLATE_KEY).then(function (file) {
-      _templateReady = true;
-      if (!file || !_dialog) return;
+    return App.store.get(TEMPLATE_KEY).then(function (stored) {
+      if (!stored || !_dialog) return;
+
+      // Records written before layouts existed held the File itself.
+      var file = stored.file || stored;
+      if (!file || !file.name) return;
+
       _templateFile = file;
       D.text(
         _dialog,
@@ -163,9 +367,18 @@ App.print = (function () {
         T("print.withTemplate", { name: file.name }),
       );
       D.toggle(D.role(_dialog, "clear-template"), true);
+      D.toggle(D.role(_dialog, "adjust-template"), true);
+
+      if (_layoutIsCurrent(stored.layout)) {
+        _layoutId = stored.id || null;
+        _applyLayout(stored.layout);
+        return;
+      }
+      return _resolveLayout(file);
     });
   }
 
+  /** Owns the template label — callers must not write it themselves. */
   function _setTemplate(file) {
     _templateFile = file || null;
     D.text(
@@ -176,9 +389,534 @@ App.print = (function () {
         : T("print.noTemplate"),
     );
     D.toggle(D.role(_dialog, "clear-template"), !!file);
-    return file
-      ? App.store.set(TEMPLATE_KEY, file)
-      : App.store.remove(TEMPLATE_KEY);
+    D.toggle(D.role(_dialog, "adjust-template"), !!file);
+
+    if (!file) {
+      _layoutId = null;
+      _applyLayout(DEFAULT_LAYOUT);
+      return App.store.remove(TEMPLATE_KEY);
+    }
+    return _resolveLayout(file);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PLACEMENT — drag the map box onto a render of the template
+  //
+  // Ordered dependency-first: constants, feedback, coordinate mapping, the
+  // loupe, input handling, then open/show/save/close at the end.
+  // ══════════════════════════════════════════════════════════════════════
+
+  var SNAP_PT = 4;
+  var MIN_BOX_PT = 10;
+  var LOUPE_SIZE = 160; // re-read from .place-loupe on mount
+  var LOUPE_ZOOM = 4;
+  var NUDGE_PT = 1;
+  var NUDGE_COARSE_PT = 10;
+  var NUDGE_FINE_PT = 0.1;
+  var NOTICE_MS = 4000;
+
+  var _placeDialog = null;
+  var _place = null;
+  var _placeResize = null;
+  var _placeKeys = null;
+  var _noticeTimer = null;
+
+  /**
+   * Transient feedback under the readout.
+   *
+   * Every action reports something. A click that changes nothing has to say so
+   * — silence is indistinguishable from a broken button.
+   */
+  function _placeNotice(text, warn) {
+    if (!_placeDialog) return;
+    var node = D.role(_placeDialog, "notice");
+    if (!node) {
+      console.warn(">>> Placement notice element missing:", text);
+      return;
+    }
+
+    node.textContent = text;
+    node.classList.toggle("is-warn", !!warn);
+    D.toggle(node, !!text);
+
+    if (_noticeTimer) {
+      clearTimeout(_noticeTimer);
+      _noticeTimer = null;
+    }
+    if (!text) return;
+    _noticeTimer = setTimeout(function () {
+      if (_placeDialog) D.toggle(D.role(_placeDialog, "notice"), false);
+      _noticeTimer = null;
+    }, NOTICE_MS);
+  }
+
+  /** PDF points → screen px. PDF y grows upward from the bottom-left. */
+  function _toScreen(ph) {
+    var k = _place.scale;
+    return {
+      left: ph.x * k,
+      top: (_layout.pageHeight - ph.y - ph.height) * k,
+      width: ph.width * k,
+      height: ph.height * k,
+    };
+  }
+
+  function _toPage(rect) {
+    var k = _place.scale;
+    return {
+      x: rect.left / k,
+      y: _layout.pageHeight - rect.top / k - rect.height / k,
+      width: rect.width / k,
+      height: rect.height / k,
+    };
+  }
+
+  /** The screen-space equivalent of MIN_BOX_PT, so drag and nudge agree. */
+  function _minBoxPx() {
+    return MIN_BOX_PT * _place.scale;
+  }
+
+  function _clampBox(b) {
+    b.width = Math.max(MIN_BOX_PT, Math.min(b.width, _layout.pageWidth));
+    b.height = Math.max(MIN_BOX_PT, Math.min(b.height, _layout.pageHeight));
+    b.x = Math.max(0, Math.min(b.x, _layout.pageWidth - b.width));
+    b.y = Math.max(0, Math.min(b.y, _layout.pageHeight - b.height));
+    return b;
+  }
+
+  /**
+   * Pull each edge onto a detected rectangle when it is within a few points.
+   * The card's own box is what people are aiming for, and landing one point
+   * short shows on the printed card as a hairline gap.
+   */
+  function _snap(ph) {
+    _candidates.forEach(function (c) {
+      if (Math.abs(ph.x - c.x) < SNAP_PT) ph.x = c.x;
+      if (Math.abs(ph.y - c.y) < SNAP_PT) ph.y = c.y;
+      if (Math.abs(ph.x + ph.width - (c.x + c.width)) < SNAP_PT) {
+        ph.width = c.x + c.width - ph.x;
+      }
+      if (Math.abs(ph.y + ph.height - (c.y + c.height)) < SNAP_PT) {
+        ph.height = c.y + c.height - ph.y;
+      }
+    });
+    return ph;
+  }
+
+  /**
+   * Magnify the page render around a point, with the frame's edge drawn in at
+   * the same magnification.
+   *
+   * The page renders at roughly 0.15 pt per screen pixel, so a one-point
+   * misalignment — which is visible on the printed card — cannot be seen on
+   * the stage at all. Showing the frame edge inside the loupe rather than just
+   * the template is the part that makes it useful: what matters is the gap
+   * between the two, not either one alone.
+   */
+  function _drawLoupe() {
+    if (!_placeDialog || !_place || !_place.focus) return;
+
+    var loupe = D.role(_placeDialog, "loupe");
+    var inner = D.role(_placeDialog, "loupe-inner");
+    var mark = D.role(_placeDialog, "loupe-box");
+    var img = D.role(_placeDialog, "page");
+    if (!loupe || !inner || !mark || !img) return;
+
+    var w = img.clientWidth;
+    var h = img.clientHeight;
+    if (!w || !h) return;
+
+    var half = LOUPE_SIZE / 2;
+    var ox = _place.focus[0] * LOUPE_ZOOM - half;
+    var oy = _place.focus[1] * LOUPE_ZOOM - half;
+
+    inner.style.backgroundImage = "url(" + _place.url + ")";
+    inner.style.backgroundSize = w * LOUPE_ZOOM + "px " + h * LOUPE_ZOOM + "px";
+    inner.style.backgroundPosition = -ox + "px " + -oy + "px";
+
+    var r = _toScreen(_place.box);
+    mark.style.left = r.left * LOUPE_ZOOM - ox + "px";
+    mark.style.top = r.top * LOUPE_ZOOM - oy + "px";
+    mark.style.width = r.width * LOUPE_ZOOM + "px";
+    mark.style.height = r.height * LOUPE_ZOOM + "px";
+
+    // Move to whichever corner is furthest from the point being inspected.
+    loupe.classList.toggle("is-left", _place.focus[0] > w / 2);
+    loupe.classList.toggle("is-bottom", _place.focus[1] < h / 2);
+    D.toggle(loupe, true);
+  }
+
+  function _setLoupeFocus(sx, sy) {
+    if (!_place) return;
+    _place.focus = [sx, sy];
+    _drawLoupe();
+  }
+
+  /**
+   * Keyboard nudging moves the box but not the pointer, so the loupe would
+   * keep magnifying wherever the mouse was last left. Follow the corner
+   * closest to it instead — that is the one being adjusted.
+   */
+  function _focusNearestCorner() {
+    if (!_place) return;
+    var r = _toScreen(_place.box);
+    var corners = [
+      [r.left, r.top],
+      [r.left + r.width, r.top],
+      [r.left, r.top + r.height],
+      [r.left + r.width, r.top + r.height],
+    ];
+    var from = _place.focus || corners[0];
+    var best = corners[0];
+    var bestD = Infinity;
+    corners.forEach(function (c) {
+      var d =
+        (c[0] - from[0]) * (c[0] - from[0]) +
+        (c[1] - from[1]) * (c[1] - from[1]);
+      if (d < bestD) {
+        bestD = d;
+        best = c;
+      }
+    });
+    _place.focus = best;
+  }
+
+  function _drawPlacement() {
+    if (!_placeDialog || !_place) return;
+
+    var box = D.role(_placeDialog, "box");
+    var r = _toScreen(_place.box);
+    box.style.left = r.left + "px";
+    box.style.top = r.top + "px";
+    box.style.width = r.width + "px";
+    box.style.height = r.height + "px";
+
+    D.text(
+      _placeDialog,
+      "readout",
+      T("place.readout", {
+        x: _place.box.x.toFixed(1),
+        y: _place.box.y.toFixed(1),
+        w: _place.box.width.toFixed(1),
+        h: _place.box.height.toFixed(1),
+      }),
+    );
+
+    _drawLoupe();
+  }
+
+  function _bindPlacement(box) {
+    var drag = null;
+
+    box.addEventListener("pointerdown", function (e) {
+      var handle = e.target.getAttribute("data-h");
+      box.setPointerCapture(e.pointerId);
+      drag = {
+        mode: handle || "move",
+        x0: e.clientX,
+        y0: e.clientY,
+        start: {
+          left: box.offsetLeft,
+          top: box.offsetTop,
+          width: box.offsetWidth,
+          height: box.offsetHeight,
+        },
+      };
+      e.preventDefault();
+    });
+
+    box.addEventListener("pointermove", function (e) {
+      if (!drag || !_place) return;
+      e.preventDefault();
+
+      var dx = e.clientX - drag.x0;
+      var dy = e.clientY - drag.y0;
+      var r = {
+        left: drag.start.left,
+        top: drag.start.top,
+        width: drag.start.width,
+        height: drag.start.height,
+      };
+
+      if (drag.mode === "move") {
+        r.left += dx;
+        r.top += dy;
+      } else {
+        if (drag.mode.indexOf("w") >= 0) {
+          r.left += dx;
+          r.width -= dx;
+        }
+        if (drag.mode.indexOf("e") >= 0) r.width += dx;
+        if (drag.mode.indexOf("n") >= 0) {
+          r.top += dy;
+          r.height -= dy;
+        }
+        if (drag.mode.indexOf("s") >= 0) r.height += dy;
+      }
+
+      var maxW = _layout.pageWidth * _place.scale;
+      var maxH = _layout.pageHeight * _place.scale;
+      var floor = _minBoxPx();
+      r.width = Math.max(floor, Math.min(r.width, maxW));
+      r.height = Math.max(floor, Math.min(r.height, maxH));
+      r.left = Math.max(0, Math.min(r.left, maxW - r.width));
+      r.top = Math.max(0, Math.min(r.top, maxH - r.height));
+
+      _place.box = _snap(_toPage(r));
+      _drawPlacement();
+    });
+
+    function stop() {
+      drag = null;
+    }
+    box.addEventListener("pointerup", stop);
+    box.addEventListener("pointercancel", stop);
+  }
+
+  var NUDGE = {
+    ArrowLeft: [-1, 0],
+    ArrowRight: [1, 0],
+    ArrowUp: [0, 1], // PDF y grows upward
+    ArrowDown: [0, -1],
+  };
+
+  function _onPlaceKey(e) {
+    if (!_place) return;
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      _closePlacement();
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      _savePlacement();
+      return;
+    }
+
+    var d = NUDGE[e.key];
+    if (!d) return;
+
+    // Leaflet pans the map on arrow keys and this dialog lives inside the map
+    // container, so the event has to be stopped, not merely handled.
+    e.preventDefault();
+    e.stopPropagation();
+
+    var step = e.shiftKey
+      ? NUDGE_COARSE_PT
+      : e.altKey
+        ? NUDGE_FINE_PT
+        : NUDGE_PT;
+    var b = _place.box;
+
+    if (e.ctrlKey || e.metaKey) {
+      b.width += d[0] * step;
+      b.height += d[1] * step;
+    } else {
+      b.x += d[0] * step;
+      b.y += d[1] * step;
+    }
+
+    // Deliberately not snapped. Keyboard nudging exists for the cases where
+    // snapping is the thing getting in the way.
+    _clampBox(b);
+    _focusNearestCorner();
+    _drawPlacement();
+  }
+
+  /** Step to the next detected rectangle, reporting either way. */
+  function _cycleSnap() {
+    if (!_place) return;
+
+    if (_place.snapOrder.length === 0) {
+      // Templates that draw their box as four separate lines, or inside a form
+      // XObject, yield no rectangles at all. A dead button with no explanation
+      // reads as a bug rather than a limitation.
+      _placeNotice(T("place.snapNone"), true);
+      return;
+    }
+
+    // Cycle rather than always picking the smallest. Which rectangle is the
+    // map box is a guess; stepping through turns a wrong guess into one more
+    // click instead of a dead end.
+    var n = _place.snapOrder.length;
+    _place.snapIndex = (_place.snapIndex + 1) % n;
+    var c = _place.snapOrder[_place.snapIndex];
+
+    _place.box = _clampBox({
+      x: c.x,
+      y: c.y,
+      width: c.width,
+      height: c.height,
+    });
+    _focusNearestCorner();
+    _drawPlacement();
+
+    _placeNotice(
+      n === 1
+        ? T("place.snapOne")
+        : T("place.snapCycled", { i: _place.snapIndex + 1, n: n }),
+    );
+  }
+
+  function _savePlacement() {
+    if (!_place) return;
+    var layout = {
+      page: _layout.page,
+      pageWidth: _layout.pageWidth,
+      pageHeight: _layout.pageHeight,
+      placeholder: _place.box,
+      fields: _layout.fields,
+      candidates: _candidates,
+      // Exempts this layout from LAYOUT_VERSION invalidation: a box positioned
+      // by hand should outlive detector changes.
+      source: "manual",
+    };
+    _saveLayout(_layoutId, layout);
+    _applyLayout(layout);
+    _closePlacement();
+    _setStatus(T("place.applied"), false);
+  }
+
+  function _closePlacement() {
+    if (_placeResize) {
+      window.removeEventListener("resize", _placeResize);
+      _placeResize = null;
+    }
+    if (_placeKeys) {
+      document.removeEventListener("keydown", _placeKeys, true);
+      _placeKeys = null;
+    }
+    if (_noticeTimer) {
+      clearTimeout(_noticeTimer);
+      _noticeTimer = null;
+    }
+    if (_place && _place.url) URL.revokeObjectURL(_place.url);
+    _placeDialog = D.remove(_placeDialog);
+    _place = null;
+  }
+
+  function _openPlacement() {
+    if (_placeDialog) return; // already open — self-evident, no notice needed
+    if (!_templateFile) {
+      _setStatus(T("print.errNoTemplate"), false);
+      return;
+    }
+
+    var form = new FormData();
+    form.append("template", _templateFile);
+    form.append("page", String(_layout.page || 0));
+
+    _setStatus(T("print.renderingTemplate"));
+    fetch("/template_preview", { method: "POST", body: form })
+      .then(function (r) {
+        if (!r.ok) throw new Error("template_preview returned " + r.status);
+        return r.blob();
+      })
+      .then(function (blob) {
+        _setStatus("");
+        if (_dialog) _showPlacement(URL.createObjectURL(blob));
+      })
+      .catch(function (err) {
+        console.error(">>> Placement dialog failed:", err);
+        _setStatus(
+          T("print.errTemplatePreview", { message: err.message }),
+          false,
+        );
+      });
+  }
+
+  function _showPlacement(url) {
+    // Mounted directly, not through App.ui.openDialog — that closes whatever
+    // dialog is already on screen, and the print dialog has to stay underneath.
+    _placeDialog = D.mountOnMap("tpl-place-dialog", s.leafletMap);
+    App.i18n.apply(_placeDialog);
+
+    var loupe = D.role(_placeDialog, "loupe");
+    if (loupe) LOUPE_SIZE = loupe.offsetWidth || LOUPE_SIZE;
+
+    var img = D.role(_placeDialog, "page");
+    var box = D.role(_placeDialog, "box");
+
+    _place = {
+      url: url,
+      scale: 1,
+      focus: null,
+      // Smallest first: on a card template the larger rectangles are the page
+      // frame and the card outline, not the map box.
+      snapOrder: _candidates.slice().sort(function (a, b) {
+        return a.width * a.height - b.width * b.height;
+      }),
+      snapIndex: -1,
+      box: {
+        x: PLACEHOLDER.x,
+        y: PLACEHOLDER.y,
+        width: PLACEHOLDER.width,
+        height: PLACEHOLDER.height,
+      },
+    };
+
+    // Buttons first: everything below is enhancement, and a throw in any of it
+    // would otherwise leave the dialog on screen with no working actions.
+    D.onRole(_placeDialog, "cancel", _closePlacement);
+    D.onRole(_placeDialog, "save", _savePlacement);
+    D.onRole(_placeDialog, "snap", _cycleSnap);
+
+    if (_place.snapOrder.length > 1) {
+      // Say how many there are, so cycling is discoverable without a tooltip.
+      D.text(
+        _placeDialog,
+        "snap",
+        T("place.snapN", { n: _place.snapOrder.length }),
+      );
+    }
+
+    function rescale() {
+      if (!_place) return;
+      // clientWidth is 0 until the image has been laid out, which is a frame
+      // after load — a zero scale would put the box at infinity.
+      var shown = img.clientWidth || img.naturalWidth || _layout.pageWidth;
+      _place.scale = shown / _layout.pageWidth;
+      _drawPlacement();
+    }
+
+    img.onload = function () {
+      // The real map inside the frame, so a wrong aspect ratio is visible here
+      // rather than discovered on the printed card.
+      if (_preview) {
+        box.style.backgroundImage =
+          "url(" + _preview.toDataURL("image/png") + ")";
+      }
+      requestAnimationFrame(rescale);
+    };
+    img.onerror = function () {
+      _placeNotice(T("place.errPage"), true);
+    };
+    img.src = url;
+
+    _placeResize = rescale;
+    window.addEventListener("resize", _placeResize);
+
+    _bindPlacement(box);
+
+    var stage = D.role(_placeDialog, "stage");
+    if (stage) {
+      stage.addEventListener("pointermove", function (e) {
+        var rect = img.getBoundingClientRect();
+        _setLoupeFocus(e.clientX - rect.left, e.clientY - rect.top);
+      });
+      stage.addEventListener("pointerleave", function () {
+        if (_placeDialog) D.toggle(D.role(_placeDialog, "loupe"), false);
+      });
+    } else {
+      console.warn('>>> tpl-place-dialog is missing data-role="stage"');
+    }
+
+    // Capture phase: this dialog sits inside the Leaflet map container, whose
+    // own keyboard handler would otherwise pan the map on every arrow press.
+    _placeKeys = _onPlaceKey;
+    document.addEventListener("keydown", _placeKeys, true);
+    _placeDialog.focus();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -368,6 +1106,83 @@ App.print = (function () {
   }
 
   /**
+   * Tile zoom for a display zoom at a given basemap dpi.
+   *
+   * Takes dpi as an argument so the readout can preview a slider position that
+   * has not been applied yet.
+   */
+  function _tileZoomForDpi(ez, dpi) {
+    var z = Math.round(ez - Math.log(DPI / dpi) / Math.LN2);
+    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  }
+
+  function _tileZoomFor(ez) {
+    return _tileZoomForDpi(ez, TILE_DPI);
+  }
+
+  /** Slider position, which carries the basemap dpi directly. */
+  function _detailDpi() {
+    var input = _dialog && D.role(_dialog, "detail");
+    if (!input) return TILE_DPI;
+    var v = parseFloat(input.value);
+    return v > 0 ? v : TILE_DPI;
+  }
+
+  /**
+   * Printed height of a basemap label, in points.
+   *
+   * OSM sets label text at about 11 px per tile pixel; upscaling by DPI/dpi
+   * and converting to points collapses to 11 * 72 / dpi. Rounding in
+   * _tileZoomForDpi means the rendered size lands near this rather than
+   * exactly on it, which is why the readout also shows the tile zoom.
+   */
+  function _labelPt(dpi) {
+    return (11 * PT_PER_INCH) / dpi;
+  }
+
+  /**
+   * Re-pick the tile zoom and drop the cache, keeping the current framing.
+   *
+   * Separate from _applyLayout because changing detail must not refit: the
+   * user's pan, zoom and rotation are theirs, and only the basemap resolution
+   * is in question.
+   */
+  function _retile() {
+    if (!_dialog || !_view) return;
+
+    TILE_DPI = _detailDpi();
+    _tileZoom = _tileZoomFor(_view.ez);
+    _tiles = new Map();
+    _inFlight = 0;
+
+    _syncOutputs();
+    _setStatus(T("print.loadingTiles"));
+    _prefetch(_view);
+    _schedulePaint();
+  }
+
+  /**
+   * Re-tile only if the view has drifted onto a different tile zoom.
+   *
+   * Compares the zoom in use against the one the current view wants — not the
+   * gap between ez and its own derived zoom, which is structurally bounded at
+   * about 1.9 and so could never trigger anything.
+   */
+  function _maybeRetile() {
+    if (!_dialog || !_view) return;
+    if (_tileZoomFor(_view.ez) !== _tileZoom) _retile();
+  }
+
+  /** Debounced _maybeRetile, for continuous inputs that fire in bursts. */
+  function _queueRetile() {
+    if (_retileTimer) clearTimeout(_retileTimer);
+    _retileTimer = setTimeout(function () {
+      _retileTimer = null;
+      _maybeRetile();
+    }, 250);
+  }
+
+  /**
    * Cached tile, starting a fetch on first request. Returns immediately so
    * painting never blocks; arrivals trigger a repaint.
    */
@@ -438,6 +1253,42 @@ App.print = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // ERASE CURSOR
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Brush diameter in CSS pixels. The canvas renders at RENDER_W but displays
+   * scaled to fit, so the render-space size means nothing on screen until it
+   * is converted.
+   */
+  function _eraseCursorPx() {
+    if (!_preview) return 0;
+    var rect = _preview.getBoundingClientRect();
+    if (!rect.width) return 0;
+    return (
+      Math.max(2, _opts().eraseSizePt * PX_PER_PT) * (rect.width / RENDER_W)
+    );
+  }
+
+  function _sizeEraseCursor() {
+    if (!_eraseCursor || !_preview) return;
+    var d = Math.max(4, _eraseCursorPx());
+    _eraseCursor.style.width = d + "px";
+    _eraseCursor.style.height = d + "px";
+  }
+
+  function _moveEraseCursor(e) {
+    if (!_eraseCursor || _eraseCursor.hidden) return;
+    var rect = _preview.parentNode.getBoundingClientRect();
+    _eraseCursor.style.transform =
+      "translate(" +
+      (e.clientX - rect.left) +
+      "px," +
+      (e.clientY - rect.top) +
+      "px) translate(-50%,-50%)";
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // PAINT
   // ══════════════════════════════════════════════════════════════════════
 
@@ -462,23 +1313,36 @@ App.print = (function () {
     var result = _tilesFor(_view);
     var missing = 0;
 
+    var sharpen = D.role(_dialog, "sharpen");
+    var wantSharp = (!sharpen || sharpen.checked) && "filter" in ctx;
+
+    // Upright frames keep tile edges on the pixel grid, so they need almost no
+    // overlap; a rotated or fractionally scaled frame does, or seams show.
+    var upright = Math.abs(_wrap180(_view.rotation) % 90) < 0.01;
+    var bleed = upright ? 0.05 : 0.5;
+
     _withMapTransform(ctx, _view, function () {
+      // Applied to the basemap only. The border and attribution are drawn as
+      // vectors at full canvas resolution and are already sharp — running them
+      // through the same filter would just add halos.
+      if (wantSharp) ctx.filter = "url(#tile-sharpen)";
+
       result.jobs.forEach(function (job) {
         var entry = _tile(job.x, job.y);
         if (entry.img) {
-          // Half a pixel of overlap; rotation and fractional scaling put tile
-          // edges off the pixel grid, and the seams show otherwise.
           ctx.drawImage(
             entry.img,
             job.wx,
             job.wy,
-            result.tilePx + 0.5,
-            result.tilePx + 0.5,
+            result.tilePx + bleed,
+            result.tilePx + bleed,
           );
         } else if (!entry.done) {
           missing++;
         }
       });
+
+      if (wantSharp) ctx.filter = "none";
     });
 
     _drawAttribution(ctx);
@@ -585,13 +1449,40 @@ App.print = (function () {
   // DIALOG
   // ══════════════════════════════════════════════════════════════════════
 
-  var _busy = false;
-
   function _setBusy(busy) {
     _busy = busy;
     D.toggleClass(D.role(_dialog, "print"), "is-disabled", busy);
     D.toggleClass(D.role(_dialog, "cancel"), "is-disabled", busy);
     _preview.classList.toggle("is-busy", busy);
+  }
+
+  function _teardown() {
+    _closePlacement();
+    _releasePdf();
+    if (_eraseRO) {
+      _eraseRO.disconnect();
+      _eraseRO = null;
+    }
+    if (_retileTimer) {
+      clearTimeout(_retileTimer);
+      _retileTimer = null;
+    }
+    _dialog = null;
+    _feature = null;
+    _eraseCursor = null;
+    _preview = _borderCanvas = null;
+    _view = null;
+    _desiredEz = null;
+    _tiles = null;
+    _strokes = [];
+    _redoStack = [];
+    _stroke = null;
+    _pan = null;
+    _rotate = null;
+    _rotationDragging = false;
+    _templateFile = null;
+    _layoutId = null;
+    _busy = false;
   }
 
   function printCluster(feature) {
@@ -600,52 +1491,35 @@ App.print = (function () {
       return;
     }
 
+    // openDialog closes whatever is already open, and that teardown clears
+    // module state — so nothing may be assigned before this line.
+    _dialog = App.ui.openDialog("tpl-print-dialog", _teardown);
+
     _feature = feature;
     _strokes = [];
     _redoStack = [];
     _stroke = null;
     _pan = null;
     _templateFile = null;
+    _layoutId = null;
     _tiles = new Map();
     _inFlight = 0;
+    _view = null;
+    _desiredEz = null;
 
-    _releasePdf();
-
-    function _teardown() {
-      _releasePdf();
-      _dialog = null;
-      _feature = null;
-      _preview = _borderCanvas = null;
-      _view = null;
-      _tiles = null;
-      _strokes = [];
-      _redoStack = [];
-    }
-
-    _dialog = App.ui.openDialog("tpl-print-dialog", _teardown);
     _preview = D.role(_dialog, "canvas");
-    _preview.width = RENDER_W;
-    _preview.height = RENDER_H;
+    _eraseCursor = D.role(_dialog, "erase-cursor");
     _borderCanvas = document.createElement("canvas");
-    _borderCanvas.width = RENDER_W;
-    _borderCanvas.height = RENDER_H;
-
-    _view = _fitViewFor(feature, 0);
-
-    // Fixed for the life of the dialog: every later view re-composites from
-    // these tiles instead of fetching a new set.
-    _tileZoom = Math.max(
-      MIN_ZOOM,
-      Math.min(MAX_ZOOM, Math.ceil(_view.ez) + TILE_ZOOM_BOOST),
-    );
 
     _wireControls();
     _loadPrefs();
+
+    // Sizes both canvases, fits the view, picks the tile zoom and starts the
+    // prefetch — everything downstream of the frame's aspect ratio.
+    _applyLayout(DEFAULT_LAYOUT);
+
+    // May replace the layout a moment later, which redoes all of the above.
     _restoreTemplate();
-    _syncFrameControls();
-    _setStatus(T("print.loadingTiles"));
-    _prefetch(_view);
-    _paint();
   }
 
   function close() {
@@ -661,16 +1535,67 @@ App.print = (function () {
         _schedulePaint();
       });
     });
+
     D.role(_dialog, "erase-size").addEventListener("input", function () {
       _syncOutputs();
+      _sizeEraseCursor();
       _savePrefs();
     });
+
     D.role(_dialog, "locality").addEventListener("change", _savePrefs);
     D.role(_dialog, "erase").addEventListener("change", _syncEraseMode);
-    D.role(_dialog, "zoom").addEventListener("input", function (e) {
-      _view.ez = parseFloat(e.target.value);
+
+    var zoomInput = D.role(_dialog, "zoom");
+    zoomInput.addEventListener("input", function (e) {
+      _view.ez = _desiredEz = parseFloat(e.target.value);
       _schedulePaint();
     });
+    zoomInput.addEventListener("change", _maybeRetile);
+
+    var rotation = D.role(_dialog, "rotation");
+    if (rotation) {
+      // Magnetism applies to dragging only. Arrow keys move the slider by one
+      // degree, which is inside the snap tolerance of every 15-degree mark, so
+      // snapping keyboard input pulled each press straight back and left the
+      // control looking dead.
+      rotation.addEventListener("pointerdown", function () {
+        _rotationDragging = true;
+      });
+      rotation.addEventListener("pointerup", function () {
+        _rotationDragging = false;
+      });
+      rotation.addEventListener("pointercancel", function () {
+        _rotationDragging = false;
+      });
+
+      rotation.addEventListener("input", function (e) {
+        // Alt bypasses the magnetism even while dragging.
+        _setRotation(
+          parseFloat(e.target.value),
+          !_rotationDragging || e.altKey,
+        );
+      });
+      rotation.addEventListener("change", _maybeRetile);
+    }
+
+    var detail = D.role(_dialog, "detail");
+    if (detail) {
+      // input for the readout, change for the refetch: a range fires input on
+      // every pixel of drag, and each would drop the whole tile cache.
+      detail.addEventListener("input", _syncOutputs);
+      detail.addEventListener("change", function () {
+        _retile();
+        _savePrefs();
+      });
+    }
+
+    var sharpen = D.role(_dialog, "sharpen");
+    if (sharpen) {
+      sharpen.addEventListener("change", function () {
+        _savePrefs();
+        _schedulePaint();
+      });
+    }
 
     D.onRole(_dialog, "rotate-ccw", function () {
       _setRotation(_view.rotation + ROTATION_STEP);
@@ -678,26 +1603,26 @@ App.print = (function () {
     D.onRole(_dialog, "rotate-cw", function () {
       _setRotation(_view.rotation - ROTATION_STEP);
     });
+    D.onRole(_dialog, "rotate-reset", function () {
+      _setRotation(0);
+    });
 
     D.onRole(_dialog, "fit", function () {
       // Refit at the current rotation rather than resetting it: after turning
       // the map you usually want the same angle, tightened.
       _view = _fitViewFor(_feature, _view.rotation);
+      _desiredEz = _view.ez;
       _syncFrameControls();
+      _maybeRetile();
       _schedulePaint();
     });
 
     D.role(_dialog, "template").addEventListener("change", function (e) {
-      _templateFile = e.target.files[0] || null;
-      _setTemplate(_templateFile);
-      D.text(
-        _dialog,
-        "template-name",
-        _templateFile
-          ? T("print.withTemplate", { name: _templateFile.name })
-          : T("print.noTemplate"),
-      );
+      // _setTemplate owns the label; writing it here as well raced the async
+      // layout detection and could leave a stale name on screen.
+      _setTemplate(e.target.files[0] || null);
     });
+    D.onRole(_dialog, "adjust-template", _openPlacement);
     D.onRole(_dialog, "clear-template", function () {
       D.role(_dialog, "template").value = "";
       _setTemplate(null);
@@ -713,6 +1638,11 @@ App.print = (function () {
     });
     D.onRole(_dialog, "cancel", close);
     D.onRole(_dialog, "print", _print);
+    // The href is rewritten per composition, but clearing the saved-message is
+    // a one-time binding — the link's own navigation still happens.
+    D.onRole(_dialog, "open-pdf", function () {
+      _setStatus("");
+    });
 
     _preview.addEventListener("pointerdown", _onPointerDown);
     _preview.addEventListener("pointermove", _onPointerMove);
@@ -720,33 +1650,82 @@ App.print = (function () {
     _preview.addEventListener("pointercancel", _onPointerUp);
     _preview.addEventListener("wheel", _onWheel, { passive: false });
 
-    _syncOutputs();
+    _preview.addEventListener("pointermove", _moveEraseCursor);
+    _preview.addEventListener("pointerenter", function (e) {
+      _eraseCursor.hidden = !_opts().erasing;
+      _sizeEraseCursor();
+      _moveEraseCursor(e);
+    });
+    _preview.addEventListener("pointerleave", function () {
+      _eraseCursor.hidden = true;
+    });
+
+    // The preview is fluid, so the render-to-screen ratio changes whenever the
+    // dialog is resized — the ring has to be resized with it.
+    if (window.ResizeObserver) {
+      _eraseRO = new ResizeObserver(_sizeEraseCursor);
+      _eraseRO.observe(_preview);
+    }
+
     _syncEraseMode();
   }
 
-  /** Rotation is quarter turns only, so it always lands on 0/90/180/270. */
-  function _setRotation(degrees) {
-    var steps = Math.round(degrees / ROTATION_STEP);
-    _view.rotation = (((steps * ROTATION_STEP) % 360) + 360) % 360;
+  /** Fold any angle into (-180, 180], which is the slider's range. */
+  function _wrap180(deg) {
+    var d = ((((deg + 180) % 360) + 360) % 360) - 180;
+    return d === -180 ? 180 : d;
+  }
+
+  /**
+   * Pull the angle onto a 15-degree mark when it is close to one.
+   *
+   * Free rotation is the point of the slider, but the angles people actually
+   * want are almost always round — square to a street grid, or a quarter turn.
+   * Hitting those exactly on a 361-position slider is otherwise luck.
+   */
+  function _snapRotation(deg) {
+    var near = Math.round(deg / ROTATION_SNAP_DEG) * ROTATION_SNAP_DEG;
+    return Math.abs(deg - near) <= ROTATION_SNAP_TOL ? near : deg;
+  }
+
+  function _setRotation(degrees, freeform) {
+    if (!_view) return;
+    var deg = _wrap180(degrees);
+    if (!freeform) deg = _snapRotation(deg);
+
+    _view.rotation = deg;
+    var input = D.role(_dialog, "rotation");
+    if (input) input.value = deg;
+
     _syncFrameControls();
     _schedulePaint();
   }
 
   function _syncFrameControls() {
+    if (!_dialog || !_view) return;
+
     var zoom = D.role(_dialog, "zoom");
     var fit = _fitViewFor(_feature, _view.rotation);
-    zoom.min = Math.max(MIN_ZOOM, fit.ez - ZOOM_OUT_HEADROOM).toFixed(2);
-    zoom.max = Math.min(MAX_ZOOM, fit.ez + ZOOM_IN_HEADROOM).toFixed(2);
+    var min = Math.max(MIN_ZOOM, fit.ez - ZOOM_OUT_HEADROOM);
+    var max = Math.min(MAX_ZOOM, fit.ez + ZOOM_IN_HEADROOM);
+
+    zoom.min = min.toFixed(2);
+    zoom.max = max.toFixed(2);
     zoom.step = "0.05";
-    zoom.value = Math.max(
-      parseFloat(zoom.min),
-      Math.min(parseFloat(zoom.max), _view.ez),
-    );
-    _view.ez = parseFloat(zoom.value);
+
+    // Clamp from the remembered value, never from the clamped one. A rotated
+    // frame needs a lower fit zoom, so clamping in place would ratchet the
+    // zoom down a little on every rotation and never give it back.
+    if (_desiredEz === null) _desiredEz = _view.ez;
+    _view.ez = Math.max(min, Math.min(max, _desiredEz));
+    zoom.value = _view.ez;
+
     _syncOutputs();
   }
 
   function _syncOutputs() {
+    if (!_dialog) return;
+
     var pt = function (role) {
       return T("print.unitPt", { value: D.role(_dialog, role).value });
     };
@@ -760,7 +1739,27 @@ App.print = (function () {
     D.text(
       _dialog,
       "rotation-out",
-      T("print.unitDeg", { value: _view ? _view.rotation : 0 }),
+      T("print.unitDeg", { value: _view ? Math.round(_view.rotation) : 0 }),
+    );
+
+    var detail = D.role(_dialog, "detail");
+    if (!detail) return;
+
+    var dpi = _detailDpi();
+    var z = _view ? _tileZoomForDpi(_view.ez, dpi) : null;
+    D.text(
+      _dialog,
+      "detail-out",
+      z === null
+        ? T("print.unitPt", { value: _labelPt(dpi).toFixed(1) })
+        : T("print.detailOut", { pt: _labelPt(dpi).toFixed(1), z: z }),
+    );
+    // Below TILE_ZOOM_WARN, OSM stops naming minor roads — softening further
+    // deletes the labels rather than enlarging them.
+    D.toggleClass(
+      D.role(_dialog, "detail-out"),
+      "is-warn",
+      z !== null && z < TILE_ZOOM_WARN,
     );
   }
 
@@ -768,13 +1767,25 @@ App.print = (function () {
     var erasing = D.role(_dialog, "erase").checked;
     _preview.classList.toggle("is-erasing", erasing);
     _preview.classList.toggle("is-panning", !erasing);
+    if (_eraseCursor) {
+      _eraseCursor.hidden = !erasing;
+      if (erasing) _sizeEraseCursor();
+    }
     _syncOutputs();
   }
 
-  function _setStatus(text) {
+  /**
+   * @param {string} text
+   * @param {boolean} [working=true] false for terminal messages. A saved or
+   *   failed state that keeps spinning reads as "still busy" forever.
+   */
+  function _setStatus(text, working) {
     if (!_dialog) return;
-    D.text(_dialog, "status", text);
+    // Written to the inner span, not the paragraph: the paragraph also holds
+    // the spinner, and setting its textContent would delete it.
+    D.text(_dialog, "status-text", text);
     D.toggle(D.role(_dialog, "status"), !!text);
+    D.toggle(D.role(_dialog, "status-spinner"), !!text && working !== false);
   }
 
   function _opts() {
@@ -801,11 +1812,31 @@ App.print = (function () {
     ];
   }
 
+  function _pointerCanvas(e) {
+    var rect = _preview.getBoundingClientRect();
+    return [
+      ((e.clientX - rect.left) / rect.width) * RENDER_W,
+      ((e.clientY - rect.top) / rect.height) * RENDER_H,
+    ];
+  }
+
+  /** Pointer angle about the frame centre, in degrees. */
+  function _angleAt(at) {
+    return Math.atan2(at[1] - RENDER_H / 2, at[0] - RENDER_W / 2) / DEG;
+  }
+
   function _onPointerDown(e) {
     if (!_view) return;
     e.preventDefault();
     _preview.setPointerCapture(e.pointerId);
     var at = _pointerCanvas(e);
+
+    if (e.shiftKey) {
+      // Shift-drag rotates. Anchored on the angle under the pointer at press
+      // time so the map turns with the hand rather than jumping to it.
+      _rotate = { from: _angleAt(at), start: _view.rotation };
+      return;
+    }
 
     if (_opts().erasing) {
       var sizePx = Math.max(2, _opts().eraseSizePt * PX_PER_PT);
@@ -827,6 +1858,14 @@ App.print = (function () {
   }
 
   function _onPointerMove(e) {
+    if (_rotate) {
+      e.preventDefault();
+      var turned = _angleAt(_pointerCanvas(e));
+      // Screen angles grow clockwise because y points down, while a positive
+      // rotation turns the map counter-clockwise — hence the subtraction.
+      _setRotation(_rotate.start - (turned - _rotate.from), e.altKey);
+      return;
+    }
     if (_stroke) {
       e.preventDefault();
       var at = _pointerCanvas(e);
@@ -854,6 +1893,11 @@ App.print = (function () {
   }
 
   function _onPointerUp() {
+    if (_rotate) {
+      _rotate = null;
+      _maybeRetile();
+      return;
+    }
     if (_stroke) {
       _stroke = null;
       _syncHistoryButtons();
@@ -865,14 +1909,25 @@ App.print = (function () {
   function _onWheel(e) {
     if (!_view) return;
     e.preventDefault();
+
+    if (e.shiftKey) {
+      _setRotation(_view.rotation - Math.sign(e.deltaY) * 5);
+      _queueRetile();
+      return;
+    }
+
     var slider = D.role(_dialog, "zoom");
     var next = _view.ez - Math.sign(e.deltaY) * 0.15;
-    _view.ez = Math.max(
+    _view.ez = _desiredEz = Math.max(
       parseFloat(slider.min),
       Math.min(parseFloat(slider.max), next),
     );
     slider.value = _view.ez;
     _schedulePaint();
+
+    // Setting .value in code fires no change event, so the slider's own
+    // re-tile hook never runs for wheel input.
+    _queueRetile();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -945,10 +2000,10 @@ App.print = (function () {
         return _composePdf(blob);
       })
       .catch(function (err) {
-        _setStatus(err.message);
+        _setStatus(err.message, false);
       })
       .then(function () {
-        _setBusy(false);
+        if (_dialog) _setBusy(false);
       });
   }
 
@@ -990,25 +2045,31 @@ App.print = (function () {
   function _composePdf(blob) {
     var o = _opts();
     var form = new FormData();
+
     form.append("template", _templateFile);
     form.append("image", blob, "territory.png");
-    form.append("page", String(PLACEHOLDER.page));
+    // page lives on the layout, not the placeholder — sending PLACEHOLDER.page
+    // posted the string "undefined" and the server rejected the whole request.
+    form.append("page", String(_layout.page || 0));
     form.append("x", String(PLACEHOLDER.x));
     form.append("y", String(PLACEHOLDER.y));
     form.append("width", String(PLACEHOLDER.width));
     form.append("height", String(PLACEHOLDER.height));
+
     if (o.locality) {
       form.append("locality", o.locality);
       form.append("locality_x", String(FIELDS.locality.x));
       form.append("locality_y", String(FIELDS.locality.y));
+      form.append("locality_size", String(FIELDS.locality.size));
     }
     if (o.territory) {
       form.append("territory", o.territory);
       form.append("territory_x", String(FIELDS.territory.x));
       form.append("territory_y", String(FIELDS.territory.y));
+      form.append("territory_size", String(FIELDS.territory.size));
     }
 
-    fetch("/compose_pdf", { method: "POST", body: form })
+    return fetch("/compose_pdf", { method: "POST", body: form })
       .then(function (r) {
         if (!r.ok) {
           return r.json().then(
@@ -1030,7 +2091,7 @@ App.print = (function () {
           "territory_map" +
           (o.territory
             ? "-" + o.territory.replace(/\s+/g, "_")
-            : `-${Math.floor(Date.now() / 1000)}`) +
+            : "-" + Math.floor(Date.now() / 1000)) +
           ".pdf";
 
         var link = document.createElement("a");
@@ -1040,17 +2101,18 @@ App.print = (function () {
         link.click();
         link.remove();
 
-        var open = D.role(_dialog, "open-pdf");
-        open.href = _pdfUrl;
-        D.toggle(open, true);
-
-        // Browsers block window.open once the click gesture has expired, so
-        // the file is downloaded and the Open button waits for a real click.
-        _setStatus(T("print.saved", { name: name }));
+        if (_dialog) {
+          var open = D.role(_dialog, "open-pdf");
+          open.href = _pdfUrl;
+          D.toggle(open, true);
+          // Browsers block window.open once the click gesture has expired, so
+          // the file is downloaded and the Open button waits for a real click.
+          _setStatus(T("print.saved", { name: name }), false);
+        }
       })
       .catch(function (err) {
         console.error(">>> PDF composition failed:", err);
-        _setStatus(T("print.errPdf", { message: err.message }));
+        _setStatus(T("print.errPdf", { message: err.message }), false);
       });
   }
 
@@ -1068,8 +2130,11 @@ App.print = (function () {
     close: close,
     undo: undo,
     redo: redo,
-    PLACEHOLDER: PLACEHOLDER,
-    PAGE: PAGE,
+    layout: function () {
+      // A getter, not a reference: PLACEHOLDER and FIELDS are reassigned
+      // whenever a template loads, so an exported object would go stale.
+      return _layout;
+    },
   };
 })();
 

@@ -6,15 +6,18 @@ import logging
 import math
 from io import BytesIO
 
-from flask import Blueprint, Response, request
+import pypdfium2 as pdfium  # type: ignore[reportMissingTypeStubs]
+from flask import Blueprint, Response, request, send_file
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas as rl_canvas
 
+from osmapp.internal.template import inspect_template
+
 from .config import FONT_PATH
-from .responses import error_
+from .responses import error_, json_
 
 logger = logging.getLogger("osm_app")
 bp = Blueprint("pdf", __name__)
@@ -32,6 +35,44 @@ def _ensure_font() -> str:
         pdfmetrics.registerFont(TTFont(_FONT_NAME, str(FONT_PATH)))  # type: ignore[reportUnknownMemberType]
         _font_ready = True
     return _FONT_NAME
+
+
+@bp.route("/inspect_template", methods=["POST"])
+def inspect_template_route() -> Response:
+    template = request.files.get("template")
+    if template is None:
+        return error_("No template supplied.")
+    try:
+        return json_(inspect_template(template.stream))
+    except Exception:
+        logger.exception("inspect_template failed")
+        return error_("The map area could not be found in that template.", 422)
+
+
+@bp.route("/template_preview", methods=["POST"])
+def template_preview() -> Response:
+    template = request.files.get("template")
+    if template is None:
+        return error_("No template supplied.")
+    try:
+        page_index = min(8, max(0, int(request.form.get("page", 0))))
+    except ValueError:
+        page_index = 0
+
+    try:
+        doc = pdfium.PdfDocument(template.stream.read())
+        if page_index >= len(doc):
+            return error_("The template has no page at that index.")
+        buf = BytesIO()
+        doc[page_index].render(scale=110 / 72).to_pil().save(  # type: ignore[reportUnknownMemberType,reportArgumentType]
+            buf, "PNG", optimize=True
+        )
+    except Exception:
+        logger.exception("template_preview failed")
+        return error_("That template could not be rendered.", 422)
+
+    buf.seek(0)
+    return send_file(buf, mimetype="image/png")
 
 
 @bp.route("/compose_pdf", methods=["POST"])
@@ -77,12 +118,7 @@ def compose_pdf() -> Response:
     # overlay is drawn at 0,0 so the offset has to come back out.
     origin_x, origin_y = float(box.left), float(box.bottom)
 
-    if not (
-        0 <= box_x
-        and 0 <= box_y
-        and box_x + box_w <= page_w
-        and box_y + box_h <= page_h
-    ):
+    if not (0 <= box_x and 0 <= box_y and box_x + box_w <= page_w and box_y + box_h <= page_h):
         return error_("The placeholder rectangle falls outside the page.")
 
     try:
