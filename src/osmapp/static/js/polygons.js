@@ -155,7 +155,7 @@ App.polygons = (function () {
 
       s.innerPolygonsLayerGroup.addLayer(layer);
       attachClusterEvents(layer, feature);
-      s.clusters.push({ feature: feature, layer: layer });
+      s.clusters.push({ feature: feature, layer: layer, count: null });
     });
 
     if (!opts || !opts.silent) refreshFilteredData();
@@ -269,8 +269,56 @@ App.polygons = (function () {
   // EVENTS
   // ══════════════════════════════════════════════════════════════════════
 
+  var TOOLTIP_OPTS = {
+    sticky: true,
+    direction: "top",
+    className: "cluster-tooltip",
+    opacity: 0.95,
+  };
+
+  /**
+   * Tooltip body, resolved when the tooltip opens rather than when the layer is
+   * created — counts are filled in by refreshFilteredData(), which runs after
+   * setClusters() has already built the layers.
+   */
+  function _tooltipContent(layer) {
+    var found = findCluster(layer);
+    if (!found) return "";
+    var entry = found.entry;
+
+    var lines = [
+      "<strong>" + T("tooltip.territory", { n: found.index + 1 }) + "</strong>",
+    ];
+
+    if (entry.counts) {
+      lines.push(T("tooltip.buildings", { count: App.i18n.n(entry.counts.buildings) }));
+      lines.push(T("tooltip.streets", { count: App.i18n.n(entry.counts.streets) }));
+    } else {
+      lines.push(T("tooltip.noData"));
+    }
+
+    var area = 0;
+    try {
+      area = turf.area(entry.feature);
+    } catch (e) {
+      /* unmeasurable geometry */
+    }
+    if (area > 0) {
+      lines.push(
+        area >= 1e6
+          ? T("tooltip.areaKm", { value: App.i18n.n(Math.round(area / 1e4) / 100) })
+          : T("tooltip.areaM", { value: App.i18n.n(Math.round(area)) }),
+      );
+    }
+
+    return lines.join("<br>");
+  }
+
   function attachClusterEvents(layer, feature) {
     layer.off("mouseover mouseout click contextmenu");
+
+    layer.unbindTooltip();
+    layer.bindTooltip(_tooltipContent, TOOLTIP_OPTS);
 
     layer.on("mouseover", function () {
       layer._hover = true;
@@ -339,6 +387,9 @@ App.polygons = (function () {
     var boxes = feats.map(function (f) {
       return turf.bbox(f);
     });
+    var counts = feats.map(function () {
+      return { streets: 0, buildings: 0 };
+    });
 
     // ── Streets: bbox reject, then a real intersection test ──────────────
     var filteredStreets = [];
@@ -350,20 +401,24 @@ App.polygons = (function () {
       } catch (e) {
         return;
       }
+      var hit = false;
       for (var i = 0; i < feats.length; i++) {
         if (!G.bboxOverlap(fb, boxes[i])) continue;
+        var inside = false;
         try {
-          if (turf.booleanIntersects(G.feat(f.geometry), feats[i])) {
-            filteredStreets.push(f);
-            return;
-          }
+          inside = turf.booleanIntersects(G.feat(f.geometry), feats[i]);
         } catch (e) {
-          if (G.anyCoordInPolygons(f, feats)) {
-            filteredStreets.push(f);
-            return;
-          }
+          inside = G.anyCoordInPolygons(f, [feats[i]]);
         }
+        if (!inside) continue;
+        counts[i].streets++;
+        hit = true;
+        // Deliberately no early exit. Territory boundaries follow streets, so
+        // a boundary street genuinely belongs to both neighbors and someone
+        // walking it expects to see it in either. The rendered list still gets
+        // it once; only the per-territory counts overlap.
       }
+      if (hit) filteredStreets.push(f);
     });
 
     // ── Buildings: one centroid per building, cached on the feature ──────
@@ -390,12 +445,17 @@ App.polygons = (function () {
         try {
           if (turf.booleanPointInPolygon(centroid, feats[i])) {
             filteredBuildings.push(f);
+            counts[i].buildings++;
             return;
           }
         } catch (e) {
           /* fall through to the next cluster */
         }
       }
+    });
+
+    s.clusters.forEach(function (entry, i) {
+      entry.counts = counts[i];
     });
 
     renderStreets(filteredStreets);

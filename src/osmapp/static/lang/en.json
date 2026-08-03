@@ -164,5 +164,13 @@
     "cleanupNothing": "There are no territories to clean up.",
     "cleanupNoBuildings": "Cleanup needs building data to decide which territories are empty.",
     "partitionFailed": "The partition failed: {message}"
+  },
+  "tooltip": {
+    "territory": "Territory {n}",
+    "buildings": "Buildings: {count}",
+    "streets": "Streets: {count}",
+    "areaM": "Area: {value} m²",
+    "areaKm": "Area: {value} km²",
+    "noData": "No data loaded"
   }
 }

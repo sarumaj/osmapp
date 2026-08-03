@@ -169,5 +169,13 @@
     "cleanupNothing": "Nie ma terenów do uporządkowania.",
     "cleanupNoBuildings": "Do porządkowania potrzebne są dane o budynkach, aby ustalić, które tereny są puste.",
     "partitionFailed": "Podział nie powiódł się: {message}"
+  },
+  "tooltip": {
+    "territory": "Teren {n}",
+    "buildings": "Budynki: {count}",
+    "streets": "Ulice: {count}",
+    "areaM": "Powierzchnia: {value} m²",
+    "areaKm": "Powierzchnia: {value} km²",
+    "noData": "Brak wczytanych danych"
   }
 }

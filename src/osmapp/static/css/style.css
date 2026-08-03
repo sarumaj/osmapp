@@ -370,9 +370,7 @@ body {
   border-radius: 4px !important;
   cursor: pointer !important;
   box-sizing: border-box !important;
-  transition:
-    background-color 0.15s,
-    color 0.15s !important;
+  transition: background-color 0.15s, color 0.15s !important;
 }
 
 .tb-btn.leaflet-draw-toolbar-button {
@@ -680,4 +678,23 @@ body {
   display: flex;
   gap: 10px;
   align-items: center;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Cluster tooltip
+   ═══════════════════════════════════════════════════════════ */
+
+.cluster-tooltip {
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  font: var(--ui-fs-sm) / 1.4 var(--ui-font);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+}
+
+.cluster-tooltip::before {
+  border-top-color: rgba(28, 28, 30, 0.92);
 }

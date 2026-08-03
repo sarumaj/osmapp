@@ -164,5 +164,13 @@
     "cleanupNothing": "Es gibt keine Gebiete zum Bereinigen.",
     "cleanupNoBuildings": "Für die Bereinigung werden Gebäudedaten benötigt, um leere Gebiete zu erkennen.",
     "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}"
+  },
+  "tooltip": {
+    "territory": "Gebiet {n}",
+    "buildings": "Gebäude: {count}",
+    "streets": "Straßen: {count}",
+    "areaM": "Fläche: {value} m²",
+    "areaKm": "Fläche: {value} km²",
+    "noData": "Keine Daten geladen"
   }
 }
