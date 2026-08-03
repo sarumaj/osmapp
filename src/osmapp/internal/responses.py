@@ -1,9 +1,8 @@
 """Shared HTTP helpers and the BadRequest sentinel exception."""
 
-import json
 from typing import Any
 
-from flask import Response
+from flask import Response, jsonify, make_response
 
 
 class BadRequest(Exception):
@@ -11,7 +10,7 @@ class BadRequest(Exception):
 
 
 def json_(payload: dict[str, Any] | list[Any], status: int = 200) -> Response:
-    return Response(json.dumps(payload), status=status, mimetype="application/json")
+    return make_response(jsonify(payload), status)
 
 
 def error_(message: str, status: int = 400) -> Response:

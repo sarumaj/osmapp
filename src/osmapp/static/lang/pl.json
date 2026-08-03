@@ -5,6 +5,9 @@
     "buildings": "Budynki",
     "clusters": "Tereny"
   },
+  "map": {
+    "youAreHere": "Jesteś tutaj"
+  },
   "toolbar": {
     "draw": "Narysuj granicę zewnętrzną",
     "undo": "Cofnij ostatnią zmianę",
@@ -76,7 +79,12 @@
     "count": "Liczba terenów",
     "cancel": "Anuluj",
     "submit": "Podziel",
-    "calcBuildings": "{k} terenów, po około {each} budynków",
+    "calcBuildings": {
+      "one":  "{k} teren, po około {each} budynków",
+      "few":  "{k} tereny, po około {each} budynków",
+      "many": "{k} terenów, po około {each} budynków",
+      "other":"{k} terenu, po około {each} budynków"
+    },
     "calcArea": "{k} terenów, po około {each} m²",
     "errBuildings": "Podaj liczbę od 1 do {total}.",
     "errCount": "Podaj co najmniej 2 tereny.",
@@ -147,6 +155,7 @@
     "importUnreadable": "Nie udało się odczytać tego pliku.",
     "importNotJson": "Ten plik nie zawiera poprawnego formatu JSON.",
     "importNoOuter": "Ten plik nie zawiera poprawnej granicy zewnętrznej.",
+    "importInvalid": "Ten plik nie zawiera poprawnych danych.\n\n{message}",
     "overlap": "Ten wielokąt nachodzi na istniejący teren. Wspólne krawędzie są dozwolone, nakładające się powierzchnie nie.",
     "partitionInvalidOuter": "Granica zewnętrzna jest nieprawidłowa: {message}",
     "partitionNoData": "W tym obszarze jest za mało budynków lub ulic na {k} terenów.",
@@ -158,6 +167,7 @@
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
     "cleanupNothing": "Nie ma terenów do uporządkowania.",
-    "cleanupNoBuildings": "Do porządkowania potrzebne są dane o budynkach, aby ustalić, które tereny są puste."
+    "cleanupNoBuildings": "Do porządkowania potrzebne są dane o budynkach, aby ustalić, które tereny są puste.",
+    "partitionFailed": "Podział nie powiódł się: {message}"
   }
 }

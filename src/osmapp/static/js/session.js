@@ -7,6 +7,7 @@
  * changes constantly.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.session = (function () {
   "use strict";
@@ -15,7 +16,7 @@ App.session = (function () {
   var DATA = "session:data";
   var CLUSTERS = "session:clusters";
   var DEBOUNCE_MS = 1000;
-  var VERSION = 1;
+  var VERSION = App.data.PAYLOAD_VERSION || 3;  // must match the export version
 
   var s = null;
   var _timer = null;
@@ -24,6 +25,7 @@ App.session = (function () {
 
   function init() {
     s = App.state;
+    App._loaded.push("session");
   }
 
   /** @param {{data?: boolean}} [opts] data marks streets/buildings as changed */
@@ -51,15 +53,14 @@ App.session = (function () {
     if (_dataDirty) {
       _dataDirty = false;
       writes.push(
-        App.store.set(DATA, {
-          streets: payload.streets,
-          buildings: payload.buildings,
-        }),
+        App.store.set(DATA, { streets: payload.streets, buildings: payload.buildings })
+          .then(function () { _dataDirty = false; }),
       );
     }
 
     Promise.all(writes).catch(function (err) {
       console.warn(">>> Could not save session:", err && err.message);
+      _dataDirty = true;   // retry on the next edit rather than never again
     });
   }
 

@@ -8,8 +8,20 @@ from flask import Flask, Response, jsonify, make_response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-from .internal.config import MAX_UPLOAD_BYTES, OVERPASS_URL, STATIC_DIR, TEMPLATE_DIR
+from .internal.config import (
+    MAX_UPLOAD_BYTES,
+    OVERPASS_TIMEOUT,
+    OVERPASS_URL,
+    STATIC_DIR,
+    TEMPLATE_DIR,
+)
+from .internal.data import bp as data_bp
+from .internal.geocode import bp as geocode_bp
 from .internal.headers import init_osmnx
+from .internal.pdf import bp as pdf_bp
+from .internal.tiles import bp as tiles_bp
+from .internal.tiles import prune_tiles
+from .internal.views import bp as views_bp
 
 
 def create_app() -> Flask:
@@ -22,26 +34,31 @@ def create_app() -> Flask:
     )
     app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES
 
-    limiter = Limiter(key_func=get_remote_address, default_limits=["200 per second"])
+    limiter = Limiter(
+        key_func=get_remote_address,
+        default_limits=["200 per second"],
+        storage_uri="memory://",
+        strategy="fixed-window",
+    )
     limiter.init_app(app)
+    limiter.exempt(views_bp)  # the page itself and /service/health
+    limiter.exempt(tiles_bp)  # /service/tiles is cheap and cached
+    limiter.limit("6 per minute")(data_bp)  # /service/data is expensive
+    limiter.limit("30 per minute")(geocode_bp)  # /service/geocode is expensive
+    limiter.limit("12 per minute")(pdf_bp)  # /service/compose_pdf is expensive
 
-    init_osmnx(OVERPASS_URL)
-
-    from .internal.data import bp as data_bp
-    from .internal.geocode import bp as geocode_bp
-    from .internal.pdf import bp as pdf_bp
-    from .internal.tiles import bp as tiles_bp
-    from .internal.views import bp as views_bp
+    init_osmnx(OVERPASS_URL, OVERPASS_TIMEOUT)
 
     for blueprint in (views_bp, data_bp, geocode_bp, tiles_bp, pdf_bp):
         app.register_blueprint(blueprint)
 
-    from .internal.tiles import prune_tiles
-
     @app.errorhandler(429)
     def ratelimit_handler(e: Exception) -> Response:
         return make_response(
-            jsonify(error="Rate limit exceeded.", detail=str(getattr(e, "description", None))),
+            jsonify(
+                error="Rate limit exceeded.",
+                detail=str(getattr(e, "description", None)),
+            ),
             429,
         )
 
@@ -51,4 +68,5 @@ def create_app() -> Flask:
         removed, freed = prune_tiles()
         print(f"Removed {removed} tiles, freed {freed / 1024 / 1024:.1f} MB")
 
+    _ = (ratelimit_handler, prune_tiles_command)  # silence unused variable warning
     return app

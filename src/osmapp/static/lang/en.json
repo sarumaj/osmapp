@@ -5,6 +5,9 @@
     "buildings": "Buildings",
     "clusters": "Territories"
   },
+  "map": {
+    "youAreHere": "You are here"
+  },
   "toolbar": {
     "draw": "Draw outer boundary",
     "undo": "Undo last change",
@@ -147,6 +150,7 @@
     "importUnreadable": "Could not read that file.",
     "importNotJson": "That file is not valid JSON.",
     "importNoOuter": "That file has no usable outer boundary.",
+    "importInvalid": "That file has no usable data.\n\n{message}",
     "overlap": "That polygon overlaps an existing territory. Shared edges are fine, overlapping areas are not.",
     "partitionInvalidOuter": "The outer boundary is not usable: {message}",
     "partitionNoData": "Not enough buildings or streets in this area for {k} territories.",
@@ -158,6 +162,7 @@
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
     "cleanupNothing": "There are no territories to clean up.",
-    "cleanupNoBuildings": "Cleanup needs building data to decide which territories are empty."
+    "cleanupNoBuildings": "Cleanup needs building data to decide which territories are empty.",
+    "partitionFailed": "The partition failed: {message}"
   }
 }

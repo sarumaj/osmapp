@@ -1,18 +1,8 @@
 /**
  * state.js — single source of truth for shared mutable state.
- *
- * Changes:
- *   • innerPolygons[] / innerPolygonLayers[] were two parallel arrays kept in
- *     sync by hand, and deleteInnerPolygon() could de-sync them. They are now
- *     one array of { feature, layer } pairs: s.clusters.
- *   • snapActive / snapMarker / streetSnapPoints / snapGrid / GRID_CELL_SIZE /
- *     SNAP_THRESHOLD_PX are gone with snap.js — the draw tool in editing.js
- *     does its own snapping against a spatial index.
- *   • SNAP_GRID_RANGE and STREET_SEARCH_MAX_RANGE were never read.
- *   • editMode is now actually written to (editing.js), so snap/click guards
- *     in other modules work.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.state = {
   // ── Map and layer refs ────────────────────────────────────

@@ -129,32 +129,31 @@ App.spatial = (function () {
    */
   Grid.prototype.nearestPoint = function (coord, maxMeters) {
     maxMeters = maxMeters || 500;
-    var maxRing = Math.max(
-      1,
-      Math.ceil(maxMeters / (this.cell * M_PER_DEG_LAT)),
-    );
+    var maxRing = Math.max(1, Math.ceil(maxMeters / (this.cell * M_PER_DEG_LAT)));
     var best = null;
     var bestD2 = maxMeters * maxMeters;
+    var foundRing = -1;
+    var seen = new Set();
 
-    for (var ring = 1; ring <= maxRing; ring++) {
-      var candidates = this.candidates(coord, ring);
+    for (var ring = 0; ring <= maxRing; ring++) {
+      // A hit at ring R can still be beaten from a corner of ring R+1, so
+      // widen exactly once more before committing.
+      if (foundRing >= 0 && ring > foundRing + 1) break;
+      var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
+        if (seen.has(candidates[i])) continue;
+        seen.add(candidates[i]);
         var it = this.items[candidates[i]];
         if (!it.coord) continue;
         var d2 = distSq(coord, it.coord);
         if (d2 < bestD2) {
           bestD2 = d2;
           best = it;
+          foundRing = ring;
         }
       }
-      // A hit at ring R can still be beaten by something at ring R+1, so
-      // widen once more before committing.
-      if (best && ring > 1) break;
     }
-
-    return best
-      ? { payload: best.payload, coord: best.coord, dist: Math.sqrt(bestD2) }
-      : null;
+    return best ? { payload: best.payload, coord: best.coord, dist: Math.sqrt(bestD2) } : null;
   };
 
   /** Closest point on segment a-b to p, all [lng, lat]. */
@@ -195,7 +194,7 @@ App.spatial = (function () {
     var bestD = maxMeters;
 
     for (var ring = 1; ring <= maxRing; ring++) {
-      var candidates = this.candidates(coord, ring);
+      var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
         var it = this.items[candidates[i]];
         if (!it.a) continue;
@@ -208,6 +207,32 @@ App.spatial = (function () {
       if (best && ring > 1) break;
     }
     return best;
+  };
+
+  /** Item indices in exactly the ring-th cell shell around coord. */
+  Grid.prototype.shell = function (coord, ring) {
+    var c = this.cell;
+    var cx = Math.floor(coord[0] / c);
+    var cy = Math.floor(coord[1] / c);
+    var self = this;
+    var out = [];
+    function take(kx, ky) {
+      var b = self.buckets.get(self._key(kx, ky));
+      if (b) for (var i = 0; i < b.length; i++) out.push(b[i]);
+    }
+    if (ring === 0) {
+      take(cx, cy);
+      return out;
+    }
+    for (var d = -ring; d <= ring; d++) {
+      take(cx + d, cy - ring);
+      take(cx + d, cy + ring);
+      if (d > -ring && d < ring) {
+        take(cx - ring, cy + d);
+        take(cx + ring, cy + d);
+      }
+    }
+    return out;
   };
 
   /**
@@ -245,7 +270,7 @@ App.spatial = (function () {
     if (a.length) {
       a[0] = last;
       var i = 0;
-      for (;;) {
+      for (; ;) {
         var l = 2 * i + 1,
           r = l + 1,
           m = i;

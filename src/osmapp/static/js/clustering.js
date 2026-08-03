@@ -38,6 +38,7 @@
  *   unit conversion) on every relaxation.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.clustering = (function () {
   "use strict";
@@ -49,12 +50,16 @@ App.clustering = (function () {
   var T = null;
 
   var _cancelled = false;
-  var _stats = { hits: 0, misses: 0 };
+  var _stats = { hits: 0, misses: 0, capped: 0 };
 
   // Clipping a Voronoi cell can leave slivers. Parts below this contribute no
   // boundary edges, and orphan parts below it are dropped rather than becoming
   // their own territory.
   var MIN_PART_M2 = 25;
+  // A territory has to be big enough for someone to walk. 25 m² is a 5x5 m
+  // speck — invisible on screen, but still counted in the info panel and still
+  // printable as a card. Scale the floor to the partition being produced.
+  var MIN_TERRITORY_FRACTION = 0.05;
   // How far apart two slots can be and still count as touching. Adjacent slots
   // share a boundary but rarely share exact vertices — the same reason
   // geometry.unionHealed() exists.
@@ -67,6 +72,7 @@ App.clustering = (function () {
     SP = App.spatial;
     D = App.dom;
     T = App.i18n.t;
+    App._loaded.push("clustering");
   }
 
   function cancelPartition() {
@@ -174,7 +180,7 @@ App.clustering = (function () {
   function runKMeansPartition(k, mode) {
     mode = mode || "area";
     _cancelled = false;
-    _stats = { hits: 0, misses: 0 };
+    _stats = { hits: 0, misses: 0, capped: 0 };
 
     if (!s.outerPolygonLayer) {
       alert(T("alert.drawFirst"));
@@ -196,7 +202,14 @@ App.clustering = (function () {
   function _defer(fn, ms) {
     setTimeout(function () {
       if (_cancelled) return;
-      fn();
+      try {
+        fn();
+      } catch (e) {
+        // A phase that throws must not leave the overlay spinning forever with
+        // no indication that the run is already dead.
+        console.error(">>> Partition failed:", e);
+        _abort(T("alert.partitionFailed", { message: e.message }));
+      }
     }, ms || 0);
   }
 
@@ -277,7 +290,24 @@ App.clustering = (function () {
   function _phase1(k, mode, outerFeature, outerRing, pts) {
     App.ui.setPhase(1);
     _defer(function () {
-      var clustered = turf.clustersKmeans(turf.featureCollection(pts), {
+      // turf.clustersKmeans measures Euclidean distance on raw degrees. A
+      // degree of longitude is only cos(lat) as long as a degree of latitude
+      // — 0.61 at 52°N — so unprojected clustering over-weights longitude and
+      // produces territories systematically elongated north-south. Scale into
+      // a local equirectangular frame, cluster, scale back.
+      var latSum = 0;
+      pts.forEach(function (p) {
+        latSum += p.geometry.coordinates[1];
+      });
+      var lat0 = pts.length ? latSum / pts.length : 0;
+      var kx = SP.lngScale(lat0) / SP.M_PER_DEG_LAT; // ~0.61 at 52°N
+
+      var projected = pts.map(function (p) {
+        var c = p.geometry.coordinates;
+        return turf.point([c[0] * kx, c[1]]);
+      });
+
+      var clustered = turf.clustersKmeans(turf.featureCollection(projected), {
         numberOfClusters: k,
       });
 
@@ -288,10 +318,10 @@ App.clustering = (function () {
       });
 
       var centroids = Object.keys(centMap).map(function (cid) {
-        return turf.point(centMap[cid]);
+        return turf.point([centMap[cid][0] / kx, centMap[cid][1]]);
       });
 
-      console.log(">>> Centroids:", centroids.length);
+      console.log(">>> Centroids:", centroids.length, "| lng scale:", kx.toFixed(3));
       _defer(function () {
         _phase2(outerFeature, outerRing, centroids);
       });
@@ -348,19 +378,22 @@ App.clustering = (function () {
 
         // turf.voronoi returns cells in input order, so index i is the owning
         // centroid. Verified rather than assumed: the cell must contain it.
+        // If clipping moved the cell off its centroid, fall back to whichever
+        // centroid the clipped cell's interior point is nearest — asking which
+        // centroid is nearest to centroid i always answers "i".
         var owner = i;
         try {
           if (!turf.booleanPointInPolygon(deduped[i], clipped)) {
-            owner = _nearestIndex(
-              deduped[i].geometry.coordinates,
-              deduped.map(function (c) {
-                return c.geometry.coordinates;
-              }),
-            );
+            var probe = _representativePoint(clipped);
+            if (probe) {
+              var idx = _nearestIndex(
+                probe.geometry.coordinates,
+                deduped.map(function (c) { return c.geometry.coordinates; }),
+              );
+              if (idx !== null) owner = idx;
+            }
           }
-        } catch (e) {
-          /* keep the positional guess */
-        }
+        } catch (e) { /* keep the positional guess */ }
 
         cells.push({ feature: clipped, centroidIdx: owner });
       });
@@ -433,6 +466,7 @@ App.clustering = (function () {
           } catch (e) {
             return;
           }
+
           if (area < MIN_PART_M2) return; // clipping sliver
 
           var ring = part.geometry.coordinates[0];
@@ -458,36 +492,43 @@ App.clustering = (function () {
 
       var boundaryLines = [];
       var keys = Object.keys(uniqueEdges);
+      var CHUNK = 50;   // ~50 A* runs per tick keeps Cancel responsive
 
-      keys.forEach(function (key) {
-        var e = uniqueEdges[key];
-        if (e.onOuter) {
-          boundaryLines.push([e.p1, e.p2]);
+      function routeChunk(start) {
+        if (_cancelled) return;
+        var end = Math.min(start + CHUNK, keys.length);
+        for (var n = start; n < end; n++) {
+          var e = uniqueEdges[keys[n]];
+          if (e.onOuter) {
+            boundaryLines.push([e.p1, e.p2]);
+            continue;
+          }
+          var path = _findStreetPathForEdge(e.p1, e.p2, graph);
+          boundaryLines.push(path && path.length >= 2 ? path : [e.p1, e.p2]);
+        }
+        App.ui.setPhaseProgress(4, end / keys.length);
+        if (end < keys.length) {
+          _defer(function () { routeChunk(end); });
           return;
         }
-        var path = _findStreetPathForEdge(e.p1, e.p2, graph);
-        boundaryLines.push(path && path.length >= 2 ? path : [e.p1, e.p2]);
-      });
 
-      // Outer ring segments close the cells that touch the boundary.
-      for (var i = 0; i < outerRing.length - 1; i++) {
-        boundaryLines.push([outerRing[i], outerRing[i + 1]]);
+        for (var i = 0; i < outerRing.length - 1; i++) {
+          boundaryLines.push([outerRing[i], outerRing[i + 1]]);
+        }
+
+        console.log(
+          ">>> Edges routed:", keys.length,
+          "| graph hits:", _stats.hits,
+          "misses:", _stats.misses,
+          "| A* gave up on:", _stats.capped,
+        );
+
+        _defer(function () {
+          _phase5(outerFeature, outerRing, cells, centroids, boundaryLines);
+        });
       }
 
-      console.log(
-        ">>> Edges routed:",
-        keys.length,
-        "| lines:",
-        boundaryLines.length,
-        "| graph hits:",
-        _stats.hits,
-        "misses:",
-        _stats.misses,
-      );
-
-      _defer(function () {
-        _phase5(outerFeature, outerRing, cells, centroids, boundaryLines);
-      });
+      routeChunk(0);
     });
   }
 
@@ -792,14 +833,29 @@ App.clustering = (function () {
    *
    * An orphan that touches nothing becomes its own territory rather than being
    * welded to a distant slot — that would recreate the exact bug this exists to
-   * prevent. Orphans below MIN_PART_M2 are dropped instead; at that size the
-   * coverage loss is noise and an extra territory is not.
+   * prevent. Orphans below 5% of an average territory are dropped instead: at
+   * that size they are invisible on the map but still counted in the info panel
+   * and still printable as a card, which reads as a partition that produced one
+   * more territory than it appears to have.
    */
   function _enforceConnectivity(slots) {
     var pass = 0;
     var changed = true;
     var split = 0;
     var promoted = 0;
+
+    var total = 0;
+    var n = 0;
+    Object.keys(slots).forEach(function (idx) {
+      try {
+        total += turf.area(slots[idx]);
+        n++;
+      } catch (e) {
+        /* unmeasurable slot */
+      }
+    });
+    var minArea = Math.max(MIN_PART_M2, n ? (total / n) * MIN_TERRITORY_FRACTION : 0);
+    var dropped = 0;
 
     while (changed && pass++ < CONNECTIVITY_PASSES) {
       changed = false;
@@ -842,7 +898,10 @@ App.clustering = (function () {
             return;
           }
 
-          if (area < MIN_PART_M2) return; // sliver, not a territory
+          if (area < minArea) {
+            dropped++;
+            return;
+          }
           slots[_nextSlotKey(slots)] = orphan;
           promoted++;
         });
@@ -867,20 +926,21 @@ App.clustering = (function () {
         } catch (e) {
           return;
         }
-        if (area < MIN_PART_M2) return;
+        if (area < minArea) {
+          dropped++;
+          return;
+        }
         slots[_nextSlotKey(slots)] = orphan;
         forced++;
       });
     });
 
-    if (split > 0 || forced > 0) {
+    if (split > 0 || forced > 0 || dropped > 0) {
       console.log(
-        ">>> Connectivity: repaired",
-        split,
-        "split territories,",
-        promoted + forced,
-        "orphans became their own" +
-          (forced > 0 ? " (" + forced + " forced)" : ""),
+        ">>> Connectivity: repaired", split, "split territories,",
+        promoted + forced, "orphans became their own",
+        (forced > 0 ? "(" + forced + " forced)" : ""),
+        "| dropped", dropped, "below", Math.round(minArea), "m²",
       );
     }
   }
@@ -996,6 +1056,7 @@ App.clustering = (function () {
         }
       }
     }
+    if (iter > s.STREET_SEARCH_MAX_ITER) _stats.capped++;
     return null;
   }
 

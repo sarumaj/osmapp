@@ -1,23 +1,10 @@
 /**
  * history.js — undo / redo for cluster geometry.
  *
- * Classic dual stack. Snapshots hold serialized GeoJSON only; Leaflet layers
- * are always rebuilt on restore, so no stale layer references are retained.
- *
- * Changes:
- *   • Restores through App.polygons.setClusters(), which rebuilds layers with
- *     geometry.toLayer(). The old _restore() used L.polygon(extractCoordsArray)
- *     and silently dropped every part of a MultiPolygon except the largest, so
- *     undoing a fragmented cluster destroyed the fragments permanently.
- *   • Snapshots are stored as strings rather than object graphs, which keeps
- *     30 deep clones of a 200-cluster partition from sitting in memory as live
- *     objects.
- *   • Button state uses the .is-disabled class from style.css instead of
- *     writing inline opacity and cursor.
- *
  * Shortcuts: Ctrl/Cmd+Z undo, Ctrl+Y or Ctrl+Shift+Z redo.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.history = (function () {
   "use strict";
@@ -32,6 +19,7 @@ App.history = (function () {
     _bindKeyboard();
     _updateButtons();
     App.i18n.onChange(_updateButtons);
+    App._loaded.push("history");
   }
 
   // ══════════════════════════════════════════════════════════════════════

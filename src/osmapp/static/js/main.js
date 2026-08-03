@@ -1,61 +1,35 @@
 /**
  * main.js — entry point.
  *
- * Waits for the DOM, finds the Folium-generated Leaflet map, initializes
- * Leaflet.Editable, sets up layer groups, then wires the modules.
- *
- * Changes:
- *   • The L.Draw.Event.CREATED handler is gone. index.html never loaded
- *     Leaflet.draw, so that line only resolved because Folium injects it from
- *     a remote CDN — and when it did not resolve, the TypeError aborted setup
- *     before the geolocation handlers were registered. Drawing is now
- *     Leaflet.Editable only, started from the toolbar button in controls.js.
- *   • App.history.init() runs after App.controls.init(), so the undo/redo
- *     buttons exist by the time their state is first synced.
- *   • findMap() no longer stays around as a window scan for other modules to
- *     reuse; the map is captured once into s.leafletMap.
- *   • The unprompted geolocation request on load is gone. It fired without a
- *     user gesture, which browsers increasingly block and users find abrupt.
- *     The locate button in controls.js is the only trigger now.
+ * Waits for the DOM, finds the initializes Leaflet.Editable,
+ * sets up layer groups, then wires the modules.
  */
 (function () {
   "use strict";
-
-  var SETUP_RETRY_MS = 100;
-  var SETUP_MAX_RETRIES = 50; // 5 s
-  var _retries = 0;
 
   document.addEventListener("DOMContentLoaded", function () {
     setTimeout(_setup, 100);
   });
 
-  function _findMap() {
-    for (var key in window) {
-      if (key.indexOf("map_") === 0 && window[key] instanceof L.Map)
-        return window[key];
-    }
-    return null;
-  }
-
   function _setup() {
-    _retries++;
-    var map = _findMap();
-    var editableReady = typeof L.Editable !== "undefined";
-
-    if (!map || !editableReady) {
-      if (_retries <= SETUP_MAX_RETRIES) {
-        setTimeout(_setup, SETUP_RETRY_MS);
-      } else if (!map) {
-        console.error(">>> No Leaflet map appeared after 5 s — giving up.");
-      } else {
-        console.error(
-          ">>> Leaflet.Editable never loaded — drawing is unavailable.",
-        );
-        _start(map);
-      }
+    if (typeof L === "undefined") {
+      console.error(">>> Leaflet did not load — the map is unavailable.");
       return;
     }
+    var node = document.getElementById("map");
+    if (!node) {
+      console.error(">>> No #map element in the page.");
+      return;
+    }
+    var map = L.map(node, { center: [47.3769, 8.5417], zoom: 13 });
+    L.tileLayer("/tiles/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors",
+    }).addTo(map);
 
+    if (typeof L.Editable === "undefined") {
+      console.error(">>> Leaflet.Editable never loaded — drawing is unavailable.");
+    }
     _start(map);
   }
 
@@ -92,11 +66,16 @@
     App.ui.init();
     App.polygons.init();
     App.data.init();
+    App.session.init();
     App.clustering.init();
     App.editing.init();
     App.print.init();
     App.controls.init(map);
     App.history.init();
+
+    App._loaded.forEach(element => {
+      console.log(">>> Module loaded:", element);
+    });
 
     _setupGeocoder(s);
 
@@ -118,11 +97,11 @@
         weight: 3,
       })
         .addTo(map)
-        .bindPopup("You are here");
+        .bindPopup(App.i18n.t("map.youAreHere"));
     });
 
     console.log(
-      ">>> Ready (attempt " + _retries + "). Draw an outer polygon to begin.",
+      ">>> Ready. Draw an outer polygon to begin.",
     );
   }
 

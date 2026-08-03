@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OSM Area Downloader</title>
+    <title>OSM App / Territory Mapper</title>
     <link
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
@@ -19,8 +19,10 @@
       window.LANG_PATHS = {{ lang_paths | tojson }};
       window.I18N_BUNDLE = {{ i18n_bundle | tojson }};
       // Kept as a fallback for the in-place switch path.
-      window.I18N_URL = "{{ url_for('static', filename='i18n/LANG.json') }}";
+      window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
     </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}" />
+    <script src="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
     <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
     <link
       rel="stylesheet"
@@ -30,7 +32,7 @@
 
   <body>
     <!-- Folium map HTML gets injected here (includes Leaflet JS/CSS) -->
-    {{ map_html | safe }}
+    <div id="map"></div>
 
     <!-- ═══════════════════════════════════════════════════════════════════
          LIVE UI  — structure only, no content built in JS strings

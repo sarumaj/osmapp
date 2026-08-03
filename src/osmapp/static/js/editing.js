@@ -1,25 +1,8 @@
 /**
  * editing.js — street-snapped split lines, merge mode, cluster cleanup.
- *
- * Changes:
- *   • Draw state lives on s.editMode instead of a module-private _drawMode.
- *     snap guards, cluster click handling and resetAll() all read the state
- *     flag, so previously they never saw draw mode at all.
- *   • Snapping and nearest-node lookups go through App.spatial grids. The old
- *     code scanned every street segment on every mousemove and every node on
- *     every route step.
- *   • Mousemove is throttled to one animation frame.
- *   • Dijkstra uses a heap instead of re-sorting the frontier each iteration.
- *   • The merge toolbar and the draw hint come from <template>s; the private
- *     _showSpinner/_hideSpinner pair (which mutated the clustering overlay's
- *     inline styles and left its Cancel button in the wrong state) is replaced
- *     by App.ui.showBusy / hideOverlay.
- *   • Splits handle MultiPolygon clusters, and only count as a split when the
- *     piece count actually grows.
- *   • Cluster cleanup buckets buildings once per pass instead of testing every
- *     building against every cluster.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.editing = (function () {
   "use strict";
@@ -58,6 +41,7 @@ App.editing = (function () {
     D = App.dom;
     T = App.i18n.t;
     document.addEventListener("keydown", _onKeyDown);
+    App._loaded.push("editing");
   }
 
   // ══════════════════════════════════════════════════════════════════════

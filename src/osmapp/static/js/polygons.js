@@ -14,6 +14,7 @@
  *     whole-area cluster and be refused.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.polygons = (function () {
   "use strict";
@@ -79,6 +80,7 @@ App.polygons = (function () {
     s.streetsLayerGroup.on("mouseout", function (e) {
       if (e.layer && e.layer.setStyle) e.layer.setStyle(STREET_STYLE);
     });
+    App._loaded.push("polygons");
   }
 
   // ══════════════════════════════════════════════════════════════════════

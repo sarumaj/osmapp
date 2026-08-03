@@ -8,7 +8,7 @@ import threading
 from waitress import serve
 
 from . import create_app
-from .internal.headers import refresh_headers
+from .internal.config import MAX_UPLOAD_BYTES
 from .internal.threads import execute_in_thread
 from .internal.tiles import prune_tiles
 
@@ -17,12 +17,15 @@ def main() -> None:
     app = create_app()
     cancel = threading.Event()
 
-    execute_in_thread(refresh_headers, cancel, 300, "refresh_headers")  # every 5 min
-
     def prune_tiles_wrapper() -> None:
         _ = prune_tiles()
 
-    execute_in_thread(prune_tiles_wrapper, cancel, 6 * 3600, "prune_tiles")  # every 6 h
+    _ = execute_in_thread(
+        prune_tiles_wrapper,
+        cancel,
+        3 * 3600,  # every 3 h
+        "prune_tiles",
+    )
 
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "5000"))
@@ -37,8 +40,8 @@ def main() -> None:
                 host=host,
                 port=port,
                 connection_limit=200,
-                channel_timeout=15,
-                max_request_body_size=50 * 1024 * 1024,
+                channel_timeout=120,
+                max_request_body_size=MAX_UPLOAD_BYTES,
                 backlog=256,
             )
     finally:

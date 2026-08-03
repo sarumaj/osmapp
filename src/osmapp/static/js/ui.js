@@ -13,6 +13,7 @@
  *   • Info panel writes into fixed nodes rather than replacing innerHTML.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.ui = (function () {
   "use strict";
@@ -61,6 +62,8 @@ App.ui = (function () {
     App.i18n.onChange(function () {
       if (_lastInfo) setInfo(_lastInfo);
     });
+
+    App._loaded.push("ui");
   }
 
   function _onKeyDown(e) {
@@ -115,6 +118,22 @@ App.ui = (function () {
       icon.textContent =
         i < index ? "\u2713" : i === index ? "\u25B6" : "\u25CB";
     });
+  }
+
+  /**
+   * Progress within the current phase, 0..1.
+   *
+   * Phase 4 routes thousands of edges in chunks, so without this the checklist
+   * sits on one unchanging line for tens of seconds and looks hung.
+   */
+  function setPhaseProgress(index, fraction) {
+    setPhase(index);
+    var item = _phaseNodes[index];
+    if (!item) return;
+    var label = item.querySelector(".phase-label");
+    var key = label.getAttribute("data-i18n");
+    var pct = Math.round(Math.max(0, Math.min(1, fraction || 0)) * 100);
+    label.textContent = App.i18n.t(key) + " — " + App.i18n.n(pct) + "%";
   }
 
   function setOverlayText(text, status) {
@@ -280,6 +299,7 @@ App.ui = (function () {
     showBusy: showBusy,
     showPhases: showPhases,
     setPhase: setPhase,
+    setPhaseProgress: setPhaseProgress,
     setOverlayText: setOverlayText,
     setOverlayStatus: setOverlayStatus,
     hideOverlay: hideOverlay,

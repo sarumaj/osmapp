@@ -12,6 +12,7 @@
  *     load, so this only matters for an in-place switch.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.controls = (function () {
   "use strict";
@@ -143,6 +144,7 @@ App.controls = (function () {
     _makeLanguagePicker().addTo(leafletMap);
 
     App.i18n.onChange(_buildLayerControl);
+    App._loaded.push("controls");
   }
 
   // ── Layer control ─────────────────────────────────────────────────────

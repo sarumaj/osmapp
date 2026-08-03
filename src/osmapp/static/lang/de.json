@@ -5,6 +5,9 @@
     "buildings": "Gebäude",
     "clusters": "Gebiete"
   },
+  "map": {
+    "youAreHere": "Du bist hier"
+  },
   "toolbar": {
     "draw": "Außengrenze zeichnen",
     "undo": "Letzte Änderung rückgängig machen",
@@ -147,6 +150,7 @@
     "importUnreadable": "Diese Datei konnte nicht gelesen werden.",
     "importNotJson": "Diese Datei enthält kein gültiges JSON.",
     "importNoOuter": "Diese Datei enthält keine brauchbare Außengrenze.",
+    "importInvalid": "Diese Datei enthält keine brauchbaren Daten.\n\n{message}",
     "overlap": "Dieses Polygon überlappt ein bestehendes Gebiet. Gemeinsame Kanten sind in Ordnung, überlappende Flächen nicht.",
     "partitionInvalidOuter": "Die Außengrenze ist unbrauchbar: {message}",
     "partitionNoData": "In dieser Fläche gibt es zu wenige Gebäude oder Straßen für {k} Gebiete.",
@@ -158,6 +162,7 @@
     "mergeTooFew": "Wähle mindestens zwei Gebiete zum Zusammenführen aus.",
     "mergeFailed": "Diese Gebiete konnten nicht zusammengeführt werden.\n\n{message}",
     "cleanupNothing": "Es gibt keine Gebiete zum Bereinigen.",
-    "cleanupNoBuildings": "Für die Bereinigung werden Gebäudedaten benötigt, um leere Gebiete zu erkennen."
+    "cleanupNoBuildings": "Für die Bereinigung werden Gebäudedaten benötigt, um leere Gebiete zu erkennen.",
+    "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}"
   }
 }

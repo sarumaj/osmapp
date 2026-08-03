@@ -37,10 +37,23 @@ App.i18n = (function () {
   var _fallback = {};
   var _listeners = [];
   var _numbers = new Intl.NumberFormat(FALLBACK_LANG);
+  var _plural = new Intl.PluralRules(FALLBACK_LANG);
 
   // ══════════════════════════════════════════════════════════════════════
   // LOOKUP
   // ══════════════════════════════════════════════════════════════════════
+
+  function _resolve(node, vars) {
+    // A key may resolve to a string, or to a { one, few, many, other } map
+    // when the sentence inflects. Polish has three categories, so an
+    // English-style count === 1 test produces "2 terenów" and "1 terenów".
+    if (typeof node === "string") return node;
+    if (node && typeof node === "object" && vars && typeof vars.count === "number") {
+      var cat = _plural.select(vars.count);
+      return node[cat] || node.other || node.many;
+    }
+    return undefined;
+  }
 
   function _dig(dict, key) {
     var parts = key.split(".");
@@ -49,7 +62,7 @@ App.i18n = (function () {
       if (node == null || typeof node !== "object") return undefined;
       node = node[parts[i]];
     }
-    return typeof node === "string" ? node : undefined;
+    return node;
   }
 
   /**
@@ -57,7 +70,7 @@ App.i18n = (function () {
    * @param {Object} [vars] values for {placeholders}; numbers are localized
    */
   function t(key, vars) {
-    var text = _dig(_dict, key);
+    var text = _resolve(_dig(_dict, key), vars);
     if (text === undefined) text = _dig(_fallback, key);
     if (text === undefined) {
       console.warn(">>> Missing translation:", key);
@@ -142,7 +155,7 @@ App.i18n = (function () {
    * window.I18N_URL = "/assets/translations/" also works.
    */
   function _url(code) {
-    var template = window.I18N_URL || "/static/i18n/LANG.json";
+    var template = window.I18N_URL || "/static/lang/LANG.json";
     var path =
       template.indexOf("LANG") >= 0
         ? template.split("LANG").join(code)
@@ -232,6 +245,7 @@ App.i18n = (function () {
     _lang = code;
     _dict = dict;
     _numbers = new Intl.NumberFormat(code);
+    _plural = new Intl.PluralRules(code);
     document.documentElement.lang = code;
     return code;
   }

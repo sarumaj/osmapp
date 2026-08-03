@@ -44,25 +44,30 @@ App.store = (function () {
 
   function _tx(mode, run) {
     return _open()
-      .then(function (db) {
-        return new Promise(function (resolve, reject) {
-          var tx = db.transaction(STORE, mode);
-          var request = run(tx.objectStore(STORE));
-          tx.oncomplete = function () {
-            resolve(request ? request.result : undefined);
-          };
-          tx.onerror = function () {
-            reject(tx.error);
-          };
-          tx.onabort = function () {
-            reject(tx.error);
-          };
-        });
-      })
-      .catch(function (err) {
-        console.warn(">>> Storage unavailable:", err && err.message);
-        return undefined;
-      });
+      .then(
+        function (db) {
+          return new Promise(function (resolve, reject) {
+            var tx = db.transaction(STORE, mode);
+            var request = run(tx.objectStore(STORE));
+            tx.oncomplete = function () {
+              resolve(request ? request.result : undefined);
+            };
+            tx.onerror = function () {
+              reject(tx.error);
+            };
+            tx.onabort = function () {
+              reject(tx.error);
+            };
+          });
+        },
+        function (err) {
+          // Only an unavailable database degrades silently — Firefox private
+          // mode throws on open() and the app must stay usable. A quota error
+          // on an individual write must not be swallowed.
+          console.warn(">>> Storage unavailable:", err && err.message);
+          return undefined;
+        },
+      );
   }
 
   function get(key) {

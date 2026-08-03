@@ -30,9 +30,10 @@
  * frame is panned, zoomed or rotated afterwards.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.print = (function () {
-  ("use strict");
+  "use strict";
 
   var s = null;
   var G = null;
@@ -97,6 +98,7 @@ App.print = (function () {
     G = App.geometry;
     D = App.dom;
     T = App.i18n.t;
+    App._loaded.push("print");
   }
 
   function isOpen() {

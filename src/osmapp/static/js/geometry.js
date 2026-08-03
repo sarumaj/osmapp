@@ -1,17 +1,6 @@
 /**
  * geometry.js — pure geometry helpers plus the app's only Turf call sites for
  * boolean ops.
- *
- * Changes:
- *   • feat / union / intersect / difference / getOuterFeature were duplicated
- *     verbatim in clustering.js and editing.js. They live here now, so a Turf
- *     upgrade (v6's two-arg intersect vs v7's FeatureCollection form) is a
- *     one-line change in one file.
- *   • toLayer() builds a Leaflet layer from any polygonal geometry without
- *     dropping MultiPolygon parts. extractCoordsArray() is lossy by design and
- *     is now only used where latlng rings are genuinely required.
- *   • nodeLineSegments() was an O(n^2) all-pairs sweep. It now bins segments by
- *     cell and only tests pairs that share a bin.
  */
 var App = window.App || {};
 
@@ -103,7 +92,19 @@ App.geometry = (function () {
       shrunk = null;
     }
 
-    var result = shrunk && shrunk.geometry ? shrunk : merged;
+    // A negative buffer erodes every boundary, not just the artificial ones.
+    // If it deleted area or split the result, the un-shrunk union is the
+    // safer answer — a half-metre of overshoot beats a missing corridor.
+    var result = merged;
+    if (shrunk && shrunk.geometry) {
+      try {
+        var before = G.polygonParts(merged).length;
+        var after = G.polygonParts(shrunk).length;
+        if (after >= before && turf.area(shrunk) > turf.area(merged) * 0.98) {
+          result = shrunk;
+        }
+      } catch (e) { /* keep merged */ }
+    }
     return dropSmallHoles(result) || result;
   }
 
@@ -128,9 +129,10 @@ App.geometry = (function () {
     });
 
     try {
+      var props = (feat(x) && feat(x).properties) || {};
       return cleaned.length === 1
-        ? turf.polygon(cleaned[0])
-        : turf.multiPolygon(cleaned);
+        ? turf.polygon(cleaned[0], props)
+        : turf.multiPolygon(cleaned, props);
     } catch (e) {
       return null;
     }

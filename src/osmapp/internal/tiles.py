@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
+import tempfile
 import threading
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
-from flask import Blueprint, Response
+from flask import Blueprint, Response, request
 
 from .config import (
     TILE_CACHE_DIR,
@@ -29,6 +32,13 @@ _last_call = 0.0
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+
+def _same_origin() -> bool:
+    ref = request.headers.get("Referer") or request.headers.get("Origin")
+    if not ref:
+        return False
+    return urlparse(ref).netloc == urlparse(request.host_url).netloc
 
 
 def _tile_root() -> Path:
@@ -52,8 +62,12 @@ def _tile_response(data: bytes) -> Response:
 
 @bp.route("/tiles/<int:z>/<int:x>/<int:y>.png")
 def tiles(z: int, x: int, y: int) -> Response:
+    if not _same_origin():
+        return error_("Tiles are only served to this application.", 403)
+
     if not 0 <= z <= 19:
         return error_("Zoom out of range.", 400)
+
     span = 2**z
     if not (0 <= x < span and 0 <= y < span):
         return error_("Tile out of range.", 400)
@@ -78,12 +92,28 @@ def tiles(z: int, x: int, y: int) -> Response:
             timeout=10,
         )
         resp.raise_for_status()
-    except Exception:
+        ctype = resp.headers.get("Content-Type", "")
+        if not ctype.startswith("image/"):
+            # An upstream error page returned with 200 would otherwise be
+            # cached as a tile for TILE_CACHE_MAX_AGE_DAYS.
+            raise ValueError(f"tile server returned {ctype!r}")
+    except Exception:  # noqa: BLE001
         logger.warning("tile %s/%s/%s unavailable", z, x, y)
         return error_("Tile unavailable.", 502)
 
     cached.parent.mkdir(parents=True, exist_ok=True)
-    cached.write_bytes(resp.content)
+    # Write-then-rename: a crash mid-write must not leave a truncated PNG that
+    # is served as valid for the next sixty days.
+    fd, tmp_name = tempfile.mkstemp(dir=str(cached.parent), suffix=".part")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(resp.content)
+        os.replace(tmp, cached)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        logger.exception("tile %s/%s/%s cache write failed", z, x, y)
+        return error_("Tile cache write failed.", 500)
     return _tile_response(resp.content)
 
 

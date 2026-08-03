@@ -1,20 +1,8 @@
 /**
  * data.js — Overpass fetching via the Flask backend, rendering, export/import.
- *
- * Changes:
- *   • importData() used s.outerPolygonsLayerGroup (plural) — a name nothing
- *     else in the app defines — and _ensureLayerGroups() created the typo on
- *     demand, so imported polygons sat outside the layer control and outside
- *     resetAll(). Names corrected; the guard now only fills in the real groups.
- *   • Import used to call refreshFilteredData(), which returns early with no
- *     clusters, so a cluster-less file rendered nothing. It now goes through
- *     displayResults() like a fetch does, and shows the export toolbar.
- *   • _isWithinCache() read coordinates[0] only, so it was wrong for
- *     MultiPolygon and ignored holes. It uses turf.bbox now.
- *   • The /import_data round trip was never called by any client code; the
- *     endpoint is gone from app.py and nothing here references it.
  */
 var App = window.App || {};
+App._loaded = App._loaded || [];
 
 App.data = (function () {
   "use strict";
@@ -22,11 +10,13 @@ App.data = (function () {
   var s = null;
   var G = null;
   var T = null;
+  var PAYLOAD_VERSION = 3;
 
   function init() {
     s = App.state;
     G = App.geometry;
     T = App.i18n.t;
+    App._loaded.push("data");
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -174,7 +164,7 @@ App.data = (function () {
   /** The bundle written to a file or to the session store. */
   function buildPayload() {
     return {
-      version: 3,
+      version: PAYLOAD_VERSION,
       exportedAt: new Date().toISOString(),
       outerPolygon: s.outerPolygonLayer
         ? s.outerPolygonLayer.toGeoJSON()
@@ -209,16 +199,22 @@ App.data = (function () {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    // Safari and older Firefox have not started the transfer when click()
+    // returns; revoking synchronously cancels it.
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
     console.log(">>> Exported", payload.clusters.length, "clusters");
   }
 
   /**
-   * Apply a saved bundle: outer boundary, streets, buildings, territories.
+   * Apply a saved bundle: outer boundary, streets, buildings, territories.p
    * Shared by file import and session restore.
    * @param {{outerPolygon, streets, buildings, bounds, clusters}} payload
    */
   function applyPayload(payload) {
+    if (payload && payload.version != null && payload.version !== PAYLOAD_VERSION) {
+      throw new Error("unsupported export version " + payload.version);
+    }
+
     _ensureLayerGroups();
 
     var outer = G.largestPolygon(payload.outerPolygon);
@@ -262,7 +258,14 @@ App.data = (function () {
         return;
       }
 
-      var restored = applyPayload(payload);
+      var restored;
+      try {
+        restored = applyPayload(payload);
+      } catch (err) {
+        console.error(">>> Import failed:", err);
+        alert(T("alert.importInvalid", { message: err.message }));
+        return;
+      }
       if (App.history) App.history.clear();
 
       console.log(
@@ -283,19 +286,12 @@ App.data = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function _isWithinCache(geojson) {
-    if (!s.cachedBounds) return false;
-    var b;
+    if (!s.cachedPolygon) return false;
     try {
-      b = turf.bbox(G.feat(geojson));
+      return turf.booleanContains(s.cachedPolygon, G.feat(geojson));
     } catch (e) {
       return false;
     }
-    return (
-      b[0] >= s.cachedBounds.west &&
-      b[2] <= s.cachedBounds.east &&
-      b[1] >= s.cachedBounds.south &&
-      b[3] <= s.cachedBounds.north
-    );
   }
 
   function _bboxToBounds(b) {

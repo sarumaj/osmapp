@@ -18,16 +18,16 @@ def polygon_from_request() -> Polygon:
     so endpoints are usable by hand.
     """
     payload = request.get_json(silent=True)
-    if not payload:
+    if not isinstance(payload, dict) or not payload:
         raise BadRequest("Send a GeoJSON polygon in the request body.")
 
-    raw = payload.get("geometry", payload)
+    raw = payload.get("geometry", payload)  # type: ignore[reportUnknownMemberType]
     if not isinstance(raw, dict) or "type" not in raw:
         raise BadRequest("The request body has no GeoJSON geometry.")
 
     try:
         geom: BaseGeometry = shape(raw)  # type: ignore[reportUnknownArgumentType]
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         raise BadRequest("That geometry could not be parsed.") from exc
 
     if geom.geom_type == "MultiPolygon":
@@ -38,7 +38,16 @@ def polygon_from_request() -> Polygon:
 
     if not geom.is_valid:
         geom = geom.buffer(0)
-    if geom.is_empty:
+        # buffer(0) can hand back a MultiPolygon or GeometryCollection, so the
+        # type has to be re-established rather than assumed.
+        if geom.geom_type == "MultiPolygon":
+            geom = max(geom.geoms, key=lambda p: p.area)  # type: ignore[reportUnknownMemberType]
+        elif geom.geom_type == "GeometryCollection":
+            polys = [g for g in geom.geoms if g.geom_type == "Polygon"]  # type: ignore[reportUnknownMemberType]
+            if not polys:
+                raise BadRequest("That polygon could not be repaired.")
+            geom = max(polys, key=lambda p: p.area)  # type: ignore[reportUnknownMemberType]
+    if geom.is_empty:  # type: ignore[reportUnknownMemberType]
         raise BadRequest("That polygon is empty.")
 
     _check_area(cast(Polygon, geom))

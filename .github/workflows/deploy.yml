@@ -56,7 +56,9 @@ jobs:
           usedocker: true
           delay: 30
         env:
-          HD_OVERPASS_URL: ${{ secrets.OVERPASS_URL }}
-          HD_NOMINATIM_URL: ${{ secrets.NOMINATIM_URL }}
-          HD_OSM_MAX_AREA_KM2: "50"
           HD_FLASK_DEBUG: "0"
+          HD_NOMINATIM_URL: ${{ secrets.NOMINATIM_URL }}
+          HD_OVERPASS_URL: ${{ secrets.OVERPASS_URL }}
+          HD_OSM_MAX_AREA_KM2: "50"
+          HD_OVERPASS_TIMEOUT: "30"
+          HD_TILE_URL: ${{ secrets.TILE_URL }}

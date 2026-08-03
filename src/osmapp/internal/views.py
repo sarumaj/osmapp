@@ -1,6 +1,5 @@
 """HTML views: index, health, localized index."""
 
-import folium
 from flask import Blueprint, redirect, render_template, request, url_for
 
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, load_dictionary
@@ -8,15 +7,11 @@ from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, load_dictionary
 bp = Blueprint("views", __name__)
 
 
-def _create_map() -> str:
-    """Render the base Folium map (no Draw plugin — app uses Leaflet.Editable)."""
-    m = folium.Map(location=[47.3769, 8.5417], zoom_start=13, tiles="OpenStreetMap")
-    return m.get_root().render()  # type: ignore[reportUnknownMemberType]
-
-
 def _language_paths() -> dict[str, str]:
     return {
-        code: url_for("views.index") if code == DEFAULT_LANG else url_for("views.index_localized", lang=code)
+        code: url_for("views.index")
+        if code == DEFAULT_LANG
+        else url_for("views.index_localized", lang=code)
         for code in SUPPORTED_LANGS
     }
 
@@ -24,7 +19,6 @@ def _language_paths() -> dict[str, str]:
 def _render_app(lang: str) -> str:
     return render_template(
         "index.html",
-        map_html=_create_map(),
         lang=lang,
         lang_paths=_language_paths(),
         i18n_bundle={
