@@ -35,9 +35,6 @@ TILE_URL_TEMPLATE = os.environ.get(
 TILE_CACHE_DIR = Path(os.environ.get("TILE_CACHE_DIR", ".tile_cache"))
 TILE_CACHE_MAX_BYTES = int(os.environ.get("TILE_CACHE_MAX_MB", "500")) * 1024 * 1024
 TILE_CACHE_MAX_AGE_DAYS = int(os.environ.get("TILE_CACHE_MAX_AGE_DAYS", "60"))
-TILE_MIN_INTERVAL = float(
-    os.environ.get("TILE_MIN_INTERVAL", "0.25")
-)  # seconds between upstream requests
 
 # ── Geocode proxy ──────────────────────────────────────────────────────────────
 

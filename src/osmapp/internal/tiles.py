@@ -6,7 +6,6 @@ import hashlib
 import logging
 import os
 import tempfile
-import threading
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -18,7 +17,6 @@ from .config import (
     TILE_CACHE_DIR,
     TILE_CACHE_MAX_AGE_DAYS,
     TILE_CACHE_MAX_BYTES,
-    TILE_MIN_INTERVAL,
     TILE_URL_TEMPLATE,
 )
 from .headers import get_headers
@@ -26,9 +24,6 @@ from .responses import error_
 
 logger = logging.getLogger("osm_app")
 bp = Blueprint("tiles", __name__)
-
-_lock = threading.Lock()
-_last_call = 0.0
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -75,13 +70,6 @@ def tiles(z: int, x: int, y: int) -> Response:
     cached = _tile_root() / str(z) / str(x) / f"{y}.png"
     if cached.is_file():
         return _tile_response(cached.read_bytes())
-
-    global _last_call
-    with _lock:
-        wait = TILE_MIN_INTERVAL - (time.monotonic() - _last_call)
-        if wait > 0:
-            time.sleep(wait)
-        _last_call = time.monotonic()
 
     url = TILE_URL_TEMPLATE.format(z=z, x=x, y=y)
     try:
