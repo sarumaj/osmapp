@@ -1,5 +1,8 @@
 # OSM App / Territory Mapper
 
+- [German/Deutsch](#deutsch)
+- [Polish/Polski](#polski)
+
 Split a map area into walkable territories, then print each one as a card.
 
 ## What it does
@@ -11,7 +14,8 @@ the shape into however many pieces you ask for.
 The cuts follow actual streets. That is the whole point: a territory whose edge
 runs down the middle of a street is useless to the person walking it, because
 they cannot tell which houses are theirs. Every boundary here runs _along_ a
-road, so "everything on this side of Kolejowa" is an instruction you can act on.
+road, so "everything on this side of Railway Avenue" is an instruction you can
+act on.
 
 Then you print. Each territory becomes a PDF card showing that territory alone,
 at a zoom level that fits the page, with the boundary drawn on top. You can drop
@@ -57,6 +61,147 @@ is editable by anyone — but it is fixed there, not here.
 
 Available in English, Polish and German. Pick one from the menu, or go straight
 to `/pl` or `/de`.
+
+---
+
+## Deutsch
+
+Teilt einen Kartenbereich in begehbare Gebiete auf und druckt jedes einzelne als
+Karte aus.
+
+### So funktioniert es
+
+Ihr zeichnet eine Form auf einer Karte ein – ein Stadtviertel, ein Dorf, ein paar
+Häuserblocks. Die App lädt die tatsächlichen Straßen und Gebäude innerhalb dieser
+Form aus OpenStreetMap herunter und teilt die Form dann in so viele Teile auf, wie
+ihr wünscht.
+
+Die Aufteilung folgt den tatsächlichen Straßen. Das ist der springende Punkt: Ein
+Gebiet, dessen Grenze in der Mitte einer Straße verläuft, ist für den Fußgänger
+nutzlos, da er nicht erkennen kann, welche Häuser zu ihm gehören. Jede Grenze verläuft
+hier _entlang_ einer Straße, sodass „alles auf dieser Seite der Bahnstraße“ eine
+Anweisung ist, nach der man handeln kann.
+
+Dann druckst du. Jedes Gebiet wird zu einer PDF-Karte, die nur dieses Gebiet zeigt,
+in einer Zoomstufe, die auf die Seite passt, mit der darüber eingezeichneten Grenze.
+Du kannst diese auf ein vorgedrucktes Formular – eine vorhandene Kartenvorlage –
+ziehen, sodass die Karte genau in das Feld passt, das die Vorlage dafür vorsieht.
+
+### Für wen ist es gedacht
+
+Jeder, der ein geografisches Gebiet in Aufgabenbereiche unterteilt und diese an
+Personen vor Ort verteilt: Gemeindedienst, Wahlwerbung, Flugblattverteilung, Umfragen,
+Gemeindebesuche, Auslieferungsrunden.
+
+### Was du konkret tust
+
+1. **Zeichne das Gebiet ein.** Verwende das Polygon-Werkzeug und klicke entlang
+   der Ränder der Region, die dich interessiert. Doppelklicke, um sie zu schließen.
+2. **Warten Sie auf die Daten.** Straßen und Gebäude werden aus OpenStreetMap geladen.
+   Bei einer größeren Stadt dauert es ein paar Sekunden; bei einer Großstadt etwas
+   länger.
+3. **Teilen Sie das Gebiet auf.** Wählen Sie entweder eine Anzahl von Gebieten
+   („40 bitte“) oder eine Zielgröße („jeweils etwa 25 Gebäude“) und lassen Sie das
+   Programm laufen. Größere Gebiete und höhere Stückzahlen dauern länger – ein paar
+   hundert Gebiete brauchen ein paar Minuten.
+4. **Passen Sie die Gebiete manuell an.** Füge zwei Gebiete zusammen, die zu klein
+   geworden sind, teile eines auf, das zu groß geworden ist, verschiebe eine Grenze
+   oder lösche ein Gebiet komplett. Mit Strg+Z kannst du den Vorgang rückgängig
+   machen.
+5. **Drucken.** Klicke mit der rechten Maustaste auf ein Gebiet und wähle „Drucken“.
+   Lege die Linienfarbe und -stärke fest, drehe oder zoome die Karte innerhalb des
+   Rahmens, lösche Teile der Umrandung, die etwas verdecken, das du lesen musst,
+   und exportiere die PDF-Datei.
+
+Deine Arbeit wird im Browser gespeichert, sodass sie durch eine Aktualisierung oder
+das versehentliche Schließen des Tabs nicht verloren geht. Du kannst auch alles in
+eine Datei exportieren und später auf einem anderen Rechner wieder laden.
+
+### Was es nicht ist
+
+Es weiß nicht, wer wo wohnt, verfolgt keine Besuche und speichert keine
+Informationen über Einwohner. Es zeichnet Grenzen und druckt Karten. Alles, was
+die Menschen innerhalb dieser Grenzen betrifft, bleibt dort, wo du es bereits aufbewahrst.
+
+Es erfindet auch keine Straßendaten. Alles stammt aus OpenStreetMap; wenn also
+eine neue Wohnsiedlung dort fehlt, fehlt sie auch hier. Das lässt sich beheben –
+OpenStreetMap kann von jedem bearbeitet werden –, aber es wird dort korrigiert,
+nicht hier.
+
+### Sprache
+
+Verfügbar auf Englisch, Polnisch und Deutsch. Wähle eine Sprache aus dem Menü
+aus oder gehe direkt zu `/pl` oder `/de`.
+
+---
+
+## Polski
+
+Podziel obszar mapy na terytoria, po których można się poruszać pieszo, a
+następnie wydrukuj każde z nich jako kartę.
+
+### Jak to działa
+
+Rysujesz na mapie kształt — dzielnicę, wieś, kilka przecznic. Aplikacja
+pobiera z OpenStreetMap rzeczywiste ulice i budynki znajdujące się w jego
+obrębie, a następnie dzieli
+ten kształt na tyle części, ile zlecisz.
+
+Podział przebiega wzdłuż rzeczywistych ulic. I o to właśnie chodzi: obszar,
+którego granica biegnie środkiem ulicy, jest bezużyteczny dla osoby poruszającej
+się pieszo, ponieważ nie jest w stanie rozpoznać, które domy należą do niej.
+Każda granica przebiega tutaj _wzdłuż_ drogi, więc „wszystko po tej stronie Kolejowej”
+to wskazówka, którą można wykorzystać w praktyce.
+
+Następnie drukujesz. Każdy obszar staje się kartą w formacie PDF przedstawiającą
+wyłącznie ten obszar, w powiększeniu dopasowanym do strony, z narysowaną na wierzchu
+granicą. Możesz umieścić je na wcześniej wydrukowanym formularzu — istniejącym
+szablonie karty — tak, aby mapa znalazła się w polu przeznaczonym dla niej w szablonie.
+
+### Dla kogo to jest
+
+Każdy, kto dzieli obszar geograficzny na zadania i przydziela je osobom
+poruszającym się pieszo: służba terenowa zboru, akcje informacyjne, rozdawanie ulotek,
+prace ankietowe, wizyty parafialne, trasy dostawcze.
+
+### Co faktycznie robisz
+
+1. **Narysuj obszar.** Użyj narzędzia wielokąta i klikaj wzdłuż krawędzi
+   regionu, który Cię interesuje. Kliknij dwukrotnie, aby go zamknąć.
+2. **Poczekaj na dane.** Ulice i budynki są pobierane z OpenStreetMap. W przypadku
+   dużego miasteczka zajmuje to kilka sekund; w przypadku miasta trwa to dłużej.
+3. **Podziel obszar.** Wybierz liczbę terytoriów („daj mi 40”) lub
+   docelową wielkość („około 25 budynków na każde”) i uruchom proces. Większe
+   obszary i większa liczba terytoriów zajmują więcej czasu — kilkaset terytoriów
+   to kilka minut.
+4. **Dopasuj ręcznie.** Połącz dwa obszary, które okazały się zbyt małe, podziel
+  jeden, który okazał się zbyt duży, przeciągnij granicę lub całkowicie usuń jeden
+  z nich. Ctrl+Z cofa zmianę.
+5. **Wydrukuj.** Kliknij prawym przyciskiem myszy na obszar i wybierz opcję „Drukuj”.
+   Ustaw kolor i grubość linii, obróć lub powiększ mapę w ramce, usuń fragmenty
+   obramowania zasłaniające tekst, który chcesz odczytać, a następnie wyeksportuj
+   plik PDF.
+
+Twoja praca jest zapisywana w przeglądarce, więc odświeżenie strony lub przypadkowe
+zamknięcie karty nie spowoduje jej utraty. Możesz również wyeksportować wszystko
+do pliku i załadować go później na innym komputerze.
+
+### Czym to nie jest
+
+Narzędzie to nie wie, kto gdzie mieszka, nie śledzi wizyt ani nie przechowuje
+żadnych danych dotyczących mieszkańców. Wyznacza granice i drukuje mapy. Wszystkie
+informacje o osobach znajdujących się w obrębie tych granic pozostają tam, gdzie
+je przechowujesz.
+
+Narzędzie to nie tworzy również danych dotyczących ulic. Wszystkie informacje
+pochodzą z OpenStreetMap, więc jeśli brakuje tam nowego osiedla, nie ma go również
+tutaj. Można to naprawić — OpenStreetMap może edytować każdy — ale zostanie to
+poprawione tam, a nie tutaj.
+
+### Język
+
+Dostępne w języku angielskim, polskim i niemieckim. Wybierz jeden z menu lub
+przejdź bezpośrednio do `/pl` lub `/de`.
 
 ---
 
