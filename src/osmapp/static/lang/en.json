@@ -147,6 +147,7 @@
     "detailHint": "The label size is approximate. It depends on the map scale and the territory's shape.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Sharpen the map",
+    "contrast": "Increase contrast",
     "grayscale": "Grayscale the map",
     "basemap": "Basemap"
   },

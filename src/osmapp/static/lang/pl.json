@@ -152,6 +152,7 @@
     "detailHint": "Wielkość napisów jest przybliżona. Zależy od skali mapy i kształtu terenu.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Wyostrzenie mapy",
+    "contrast": "Zwiększ kontrast",
     "grayscale": "Mapa w odcieniach szarości",
     "basemap": "Mapa podstawowa"
   },

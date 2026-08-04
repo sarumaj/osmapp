@@ -1,655 +1,458 @@
 <!doctype html>
 <html lang="{{ lang }}">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OSM App / Territory Mapper</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
-    {% for code, path in lang_paths.items() -%}
-    <link rel="alternate" hreflang="{{ code }}" href="{{ path }}" />
-    {% endfor -%}
-    <link rel="alternate" hreflang="x-default" href="{{ lang_paths['en'] }}" />
-    <script>
-      // The server picks the language from the URL and inlines the dictionary,
-      // so there is no fetch waterfall and no untranslated first paint.
-      window.APP_LANG = {{ lang | tojson }};
-      window.LANG_PATHS = {{ lang_paths | tojson }};
-      window.I18N_BUNDLE = {{ i18n_bundle | tojson }};
-      // Kept as a fallback for the in-place switch path.
-      window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
-    </script>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}"
-    />
-    <script src="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/cdnjs.cloudflare.com/ajax/libs/font-awesome@7.3.0/css/all.min.css') }}"
-    />
-  </head>
 
-  <body>
-    <!-- Unsharp mask for the print preview's basemap tiles. Referenced by
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OSM App / Territory Mapper</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+  {% for code, path in lang_paths.items() -%}
+  <link rel="alternate" hreflang="{{ code }}" href="{{ path }}" />
+  {% endfor -%}
+  <link rel="alternate" hreflang="x-default" href="{{ lang_paths['en'] }}" />
+  <script>
+    // The server picks the language from the URL and inlines the dictionary,
+    // so there is no fetch waterfall and no untranslated first paint.
+    window.APP_LANG = {{ lang | tojson }};
+    window.LANG_PATHS = {{ lang_paths | tojson }};
+    window.I18N_BUNDLE = {{ i18n_bundle | tojson }};
+    // Kept as a fallback for the in-place switch path.
+    window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
+  </script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}" />
+  <script src="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
+  <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
+  <link rel="stylesheet"
+    href="{{ url_for('static', filename='cdn/cdnjs.cloudflare.com/ajax/libs/font-awesome@7.3.0/css/all.min.css') }}" />
+</head>
+
+<body>
+  <!-- Unsharp mask for the print preview's basemap tiles. Referenced by
          ctx.filter in print.js; the kernel sums to 1 so brightness is
          unchanged. Never applied to the border or attribution, which are
          drawn as vectors and are already sharp. -->
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-      <filter id="tile-sharpen" color-interpolation-filters="sRGB">
-        <feConvolveMatrix
-          order="3"
-          preserveAlpha="true"
-          kernelMatrix="0 -0.4 0  -0.4 2.6 -0.4  0 -0.4 0"
-        />
-      </filter>
-    </svg>
+  <filter id="tile-sharpen" color-interpolation-filters="sRGB">
+    <feConvolveMatrix order="3" preserveAlpha="true" kernelMatrix="-0.125 -0.125 -0.125
+                  -0.125  2     -0.125
+                  -0.125 -0.125 -0.125" />
+  </filter>
 
-    <!-- Grayscale filter for the print preview's basemap tiles. Referenced by
+  <!-- Contrast filter for the print preview's basemap tiles. Referenced by
+       ctx.filter in print.js. -->
+  <filter id="tile-contrast" color-interpolation-filters="sRGB">
+    <feComponentTransfer>
+      <!-- Gentle S-curve on R, G, B; leave alpha alone -->
+      <feFuncR type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
+      <feFuncG type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
+      <feFuncB type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
+    </feComponentTransfer>
+  </filter>
+
+  <!-- Grayscale filter for the print preview's basemap tiles. Referenced by
      ctx.filter in print.js. Uses ITU-R BT.709 luminance coefficients,
      matching the CSS grayscale(100%) spec exactly. Alpha is preserved.
      Never applied to the border or attribution, which are
      drawn as vectors. -->
-    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-      <filter id="tile-grayscale" color-interpolation-filters="sRGB">
-        <feColorMatrix
-          type="matrix"
-          values="0.2126 0.7152 0.0722 0 0
+  <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+    <filter id="tile-grayscale" color-interpolation-filters="sRGB">
+      <feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0
               0.2126 0.7152 0.0722 0 0
               0.2126 0.7152 0.0722 0 0
-              0      0      0      1 0"
-        />
-      </filter>
-    </svg>
+              0      0      0      1 0" />
+    </filter>
+  </svg>
 
-    <div id="map"></div>
+  <div id="map"></div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════════════════
          LIVE UI  — structure only, no content built in JS strings
          ═══════════════════════════════════════════════════════════════ -->
 
-    <div id="loading-overlay" data-mode="simple" hidden>
-      <div id="loading-box" role="status" aria-live="polite">
-        <div class="spinner" aria-hidden="true"></div>
-        <p class="loading__text" data-role="text">Downloading OSM data…</p>
-        <p class="loading__status" data-role="status">Connecting to Overpass</p>
-        <div class="loading__phases" data-role="phases"></div>
-        <button
-          type="button"
-          class="btn btn--ghost loading__cancel"
-          data-role="cancel"
-          data-i18n="loading.cancel"
-        >
-          Cancel
-        </button>
-      </div>
+  <div id="loading-overlay" data-mode="simple" hidden>
+    <div id="loading-box" role="status" aria-live="polite">
+      <div class="spinner" aria-hidden="true"></div>
+      <p class="loading__text" data-role="text">Downloading OSM data…</p>
+      <p class="loading__status" data-role="status">Connecting to Overpass</p>
+      <div class="loading__phases" data-role="phases"></div>
+      <button type="button" class="btn btn--ghost loading__cancel" data-role="cancel" data-i18n="loading.cancel">
+        Cancel
+      </button>
     </div>
+  </div>
 
-    <aside id="info-panel">
-      <p class="info-panel__title" data-role="title" data-i18n="info.prompt">
-        Draw a polygon to load data.
-      </p>
-      <!-- The stat labels are static; the values come from App.ui.setInfo(). -->
-      <dl class="info-panel__stats" data-role="stats" hidden>
-        <div class="info-panel__stat">
-          <dt data-i18n="info.streets">Streets</dt>
-          <dd data-role="streets">0</dd>
-        </div>
-        <div class="info-panel__stat">
-          <dt data-i18n="info.buildings">Buildings</dt>
-          <dd data-role="buildings">0</dd>
-        </div>
-        <div class="info-panel__stat" data-role="clusters-row" hidden>
-          <dt data-i18n="info.clusters">Clusters</dt>
-          <dd data-role="clusters">0</dd>
-        </div>
-      </dl>
-      <p class="info-panel__hint" data-role="hint" hidden></p>
-    </aside>
+  <aside id="info-panel">
+    <p class="info-panel__title" data-role="title" data-i18n="info.prompt">
+      Draw a polygon to load data.
+    </p>
+    <!-- The stat labels are static; the values come from App.ui.setInfo(). -->
+    <dl class="info-panel__stats" data-role="stats" hidden>
+      <div class="info-panel__stat">
+        <dt data-i18n="info.streets">Streets</dt>
+        <dd data-role="streets">0</dd>
+      </div>
+      <div class="info-panel__stat">
+        <dt data-i18n="info.buildings">Buildings</dt>
+        <dd data-role="buildings">0</dd>
+      </div>
+      <div class="info-panel__stat" data-role="clusters-row" hidden>
+        <dt data-i18n="info.clusters">Clusters</dt>
+        <dd data-role="clusters">0</dd>
+      </div>
+    </dl>
+    <p class="info-panel__hint" data-role="hint" hidden></p>
+  </aside>
 
-    <!-- ═══════════════════════════════════════════════════════════════════
+  <!-- ═══════════════════════════════════════════════════════════════════
          TEMPLATES — cloned by App.dom.render(), never string-concatenated
          ═══════════════════════════════════════════════════════════════ -->
 
-    <template id="tpl-language-control">
-      <div class="leaflet-bar tb-bar lang-bar">
-        <select
-          class="lang-select"
-          data-role="lang"
-          data-i18n-attrs="aria-label=toolbar.language"
-        ></select>
+  <template id="tpl-language-control">
+    <div class="leaflet-bar tb-bar lang-bar">
+      <select class="lang-select" data-role="lang" data-i18n-attrs="aria-label=toolbar.language"></select>
+    </div>
+  </template>
+
+  <template id="tpl-phase-item">
+    <div class="phase-item">
+      <span class="phase-icon" aria-hidden="true"></span>
+      <span class="phase-label"></span>
+    </div>
+  </template>
+
+  <template id="tpl-cluster-dialog">
+    <div class="app-dialog cluster-dialog" role="dialog" aria-modal="true" aria-label="Auto-partition settings">
+      <h2 class="app-dialog__title" data-i18n="partition.title">
+        Auto-partition
+      </h2>
+      <p class="app-dialog__hint" data-i18n="partition.hint">
+        Choose how the area is divided.
+      </p>
+
+      <div class="app-dialog__group" role="radiogroup">
+        <label class="app-dialog__option" data-role="label-buildings">
+          <input type="radio" name="cluster-mode" value="buildings" />
+          <span>
+            <strong data-i18n="partition.byBuildings">By building count</strong>
+            <em data-i18n="partition.byBuildingsHint">
+              Each territory gets roughly N buildings.
+            </em>
+          </span>
+        </label>
+        <label class="app-dialog__option">
+          <input type="radio" name="cluster-mode" value="area" />
+          <span>
+            <strong data-i18n="partition.byCount">By territory count</strong>
+            <em data-i18n="partition.byCountHint">
+              Territories of roughly equal area.
+            </em>
+          </span>
+        </label>
       </div>
-    </template>
 
-    <template id="tpl-phase-item">
-      <div class="phase-item">
-        <span class="phase-icon" aria-hidden="true"></span>
-        <span class="phase-label"></span>
-      </div>
-    </template>
+      <p class="app-dialog__row" data-role="row-buildings" hidden>
+        <label>
+          <span data-i18n="partition.buildingsPer">Buildings per territory</span>
+          <input type="number" data-role="input-buildings" min="1" step="1" />
+        </label>
+      </p>
+      <p class="app-dialog__row" data-role="row-area" hidden>
+        <label>
+          <span data-i18n="partition.count">Number of territories</span>
+          <input type="number" data-role="input-k" min="2" max="50" step="1" value="5" />
+        </label>
+      </p>
 
-    <template id="tpl-cluster-dialog">
-      <div
-        class="app-dialog cluster-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Auto-partition settings"
-      >
-        <h2 class="app-dialog__title" data-i18n="partition.title">
-          Auto-partition
-        </h2>
-        <p class="app-dialog__hint" data-i18n="partition.hint">
-          Choose how the area is divided.
-        </p>
+      <p class="app-dialog__calc" data-role="calc" aria-live="polite"></p>
 
-        <div class="app-dialog__group" role="radiogroup">
-          <label class="app-dialog__option" data-role="label-buildings">
-            <input type="radio" name="cluster-mode" value="buildings" />
-            <span>
-              <strong data-i18n="partition.byBuildings"
-                >By building count</strong
-              >
-              <em data-i18n="partition.byBuildingsHint">
-                Each territory gets roughly N buildings.
-              </em>
-            </span>
-          </label>
-          <label class="app-dialog__option">
-            <input type="radio" name="cluster-mode" value="area" />
-            <span>
-              <strong data-i18n="partition.byCount">By territory count</strong>
-              <em data-i18n="partition.byCountHint">
-                Territories of roughly equal area.
-              </em>
-            </span>
-          </label>
-        </div>
-
-        <p class="app-dialog__row" data-role="row-buildings" hidden>
-          <label>
-            <span data-i18n="partition.buildingsPer"
-              >Buildings per territory</span
-            >
-            <input type="number" data-role="input-buildings" min="1" step="1" />
-          </label>
-        </p>
-        <p class="app-dialog__row" data-role="row-area" hidden>
-          <label>
-            <span data-i18n="partition.count">Number of territories</span>
-            <input
-              type="number"
-              data-role="input-k"
-              min="2"
-              max="50"
-              step="1"
-              value="5"
-            />
-          </label>
-        </p>
-
-        <p class="app-dialog__calc" data-role="calc" aria-live="polite"></p>
-
-        <div class="app-dialog__actions">
-          <button
-            type="button"
-            class="btn btn--ghost"
-            data-role="cancel"
-            data-i18n="partition.cancel"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn--primary"
-            data-role="submit"
-            data-i18n="partition.submit"
-          >
-            Split
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <template id="tpl-merge-toolbar">
-      <div class="merge-toolbar" role="toolbar" aria-label="Merge clusters">
-        <span class="merge-toolbar__count" data-role="count" aria-live="polite">
-          0 selected
-        </span>
-        <button
-          type="button"
-          class="btn btn--primary"
-          data-role="merge"
-          data-i18n="merge.action"
-        >
-          Merge
-        </button>
-        <button
-          type="button"
-          class="btn btn--ghost"
-          data-role="cancel"
-          data-i18n="merge.cancel"
-        >
+      <div class="app-dialog__actions">
+        <button type="button" class="btn btn--ghost" data-role="cancel" data-i18n="partition.cancel">
           Cancel
         </button>
-      </div>
-    </template>
-
-    <template id="tpl-draw-hint">
-      <div class="draw-hint" role="status" data-i18n="draw.hint">
-        Click to place vertices · Double-click to finish · Esc to cancel
-      </div>
-    </template>
-
-    <template id="tpl-polygon-menu">
-      <div class="polygon-context-menu" role="menu">
-        <button
-          type="button"
-          class="polygon-context-menu-item"
-          data-role="zoom"
-          role="menuitem"
-        >
-          <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
-          <span data-i18n="menu.zoom">Zoom to</span>
-        </button>
-        <button
-          type="button"
-          class="polygon-context-menu-item"
-          data-role="print"
-          role="menuitem"
-        >
-          <i class="fa-solid fa-print" aria-hidden="true"></i>
-          <span data-i18n="menu.print">Print</span>
-        </button>
-        <div class="polygon-context-menu-divider" role="separator"></div>
-        <button
-          type="button"
-          class="polygon-context-menu-item delete"
-          data-role="delete"
-          role="menuitem"
-        >
-          <i class="fa-solid fa-trash" aria-hidden="true"></i>
-          <span data-i18n="menu.delete">Delete</span>
+        <button type="button" class="btn btn--primary" data-role="submit" data-i18n="partition.submit">
+          Split
         </button>
       </div>
-    </template>
+    </div>
+  </template>
 
-    <template id="tpl-print-dialog">
-      <div
-        class="app-dialog print-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Print territory card"
-      >
-        <h2 class="app-dialog__title" data-i18n="print.title">
-          Print territory card
-        </h2>
+  <template id="tpl-merge-toolbar">
+    <div class="merge-toolbar" role="toolbar" aria-label="Merge clusters">
+      <span class="merge-toolbar__count" data-role="count" aria-live="polite">
+        0 selected
+      </span>
+      <button type="button" class="btn btn--primary" data-role="merge" data-i18n="merge.action">
+        Merge
+      </button>
+      <button type="button" class="btn btn--ghost" data-role="cancel" data-i18n="merge.cancel">
+        Cancel
+      </button>
+    </div>
+  </template>
 
-        <div class="print-dialog__body">
-          <div class="print-preview">
-            <canvas data-role="canvas"></canvas>
-            <div class="erase-cursor" data-role="erase-cursor" hidden></div>
-            <p class="print-preview__status" data-role="status">
-              <span
-                class="spinner spinner--sm"
-                data-role="status-spinner"
-                aria-hidden="true"
-              ></span>
-              <span data-role="status-text">Loading map tiles…</span>
-            </p>
-          </div>
+  <template id="tpl-draw-hint">
+    <div class="draw-hint" role="status" data-i18n="draw.hint">
+      Click to place vertices · Double-click to finish · Esc to cancel
+    </div>
+  </template>
 
-          <div class="print-controls">
-            <fieldset class="print-controls__group">
-              <legend data-i18n="print.frame">Frame</legend>
+  <template id="tpl-polygon-menu">
+    <div class="polygon-context-menu" role="menu">
+      <button type="button" class="polygon-context-menu-item" data-role="zoom" role="menuitem">
+        <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+        <span data-i18n="menu.zoom">Zoom to</span>
+      </button>
+      <button type="button" class="polygon-context-menu-item" data-role="print" role="menuitem">
+        <i class="fa-solid fa-print" aria-hidden="true"></i>
+        <span data-i18n="menu.print">Print</span>
+      </button>
+      <div class="polygon-context-menu-divider" role="separator"></div>
+      <button type="button" class="polygon-context-menu-item delete" data-role="delete" role="menuitem">
+        <i class="fa-solid fa-trash" aria-hidden="true"></i>
+        <span data-i18n="menu.delete">Delete</span>
+      </button>
+    </div>
+  </template>
 
-              <label class="print-controls__field">
-                <span data-i18n="print.zoom">Zoom</span>
-                <input type="range" data-role="zoom" />
-                <button
-                  type="button"
-                  class="btn btn--ghost print-fit"
-                  data-role="fit"
-                  data-i18n="print.fit"
-                >
-                  Fit
-                </button>
-              </label>
+  <template id="tpl-print-dialog">
+    <div class="app-dialog print-dialog" role="dialog" aria-modal="true" aria-label="Print territory card">
+      <h2 class="app-dialog__title" data-i18n="print.title">
+        Print territory card
+      </h2>
 
-              <label class="print-controls__field">
-                <span data-i18n="print.rotation">Rotation</span>
-                <input
-                  type="range"
-                  data-role="rotation"
-                  min="-180"
-                  max="180"
-                  step="1"
-                  value="0"
-                />
-                <output data-role="rotation-out"></output>
-              </label>
-              <div class="print-controls__row">
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="rotate-ccw"
-                  data-i18n-attrs="title=print.rotateCcw;aria-label=print.rotateCcw"
-                >
-                  <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="rotate-reset"
-                  data-i18n-attrs="title=print.rotateReset;aria-label=print.rotateReset"
-                >
-                  0°
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="rotate-cw"
-                  data-i18n-attrs="title=print.rotateCw;aria-label=print.rotateCw"
-                >
-                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
-                </button>
-              </div>
-
-              <p class="print-controls__hint" data-i18n="print.frameHint">
-                Drag the map to move it, scroll to zoom. Hold Alt while dragging
-                the rotation slider for angles off the 15° marks.
-              </p>
-            </fieldset>
-
-            <fieldset class="print-controls__group">
-              <legend data-i18n="print.basemap">Basemap</legend>
-              <label class="print-controls__field">
-                <span data-i18n="print.detail">Detail</span>
-                <input
-                  type="range"
-                  data-role="detail"
-                  min="90"
-                  max="200"
-                  step="5"
-                  value="110"
-                />
-                <output data-role="detail-out"></output>
-              </label>
-              <label class="print-controls__check">
-                <input type="checkbox" data-role="sharpen" checked />
-                <span data-i18n="print.sharpen">Sharpen the map</span>
-              </label>
-              <label class="print-controls__check">
-                <input type="checkbox" data-role="grayscale" />
-                <span data-i18n="print.grayscale">Grayscale the map</span>
-              </label>
-              <p class="print-controls__hint" data-i18n="print.detailHint">
-                Left means larger street names on a softer map. The readout
-                shows the printed text height and the tile zoom in use.
-              </p>
-            </fieldset>
-
-            <fieldset class="print-controls__group">
-              <legend data-i18n="print.border">Border</legend>
-              <label class="print-controls__field">
-                <span data-i18n="print.color">Color</span>
-                <input type="color" data-role="color" value="#d40000" />
-              </label>
-              <label class="print-controls__field">
-                <span data-i18n="print.thickness">Thickness</span>
-                <input
-                  type="range"
-                  data-role="width"
-                  min="0.5"
-                  max="8"
-                  step="0.5"
-                  value="2"
-                />
-                <output data-role="width-out"></output>
-              </label>
-              <label class="print-controls__field">
-                <span data-i18n="print.opacity">Opacity</span>
-                <input
-                  type="range"
-                  data-role="opacity"
-                  min="10"
-                  max="100"
-                  step="5"
-                  value="100"
-                />
-                <output data-role="opacity-out"></output>
-              </label>
-            </fieldset>
-
-            <fieldset class="print-controls__group">
-              <legend data-i18n="print.eraser">Eraser</legend>
-              <label class="print-controls__check">
-                <input type="checkbox" data-role="erase" />
-                <span data-i18n="print.eraseToggle"
-                  >Erase parts of the border</span
-                >
-              </label>
-              <label class="print-controls__field">
-                <span data-i18n="print.brush">Brush</span>
-                <input
-                  type="range"
-                  data-role="erase-size"
-                  min="2"
-                  max="40"
-                  step="1"
-                  value="8"
-                />
-                <output data-role="erase-size-out"></output>
-              </label>
-              <div class="print-controls__row">
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="undo"
-                  data-i18n="print.undo"
-                >
-                  Undo
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="redo"
-                  data-i18n="print.redo"
-                >
-                  Redo
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="clear-erase"
-                  data-i18n="print.restore"
-                >
-                  Restore all
-                </button>
-              </div>
-            </fieldset>
-
-            <fieldset class="print-controls__group">
-              <legend data-i18n="print.card">Card</legend>
-              <label class="print-controls__field">
-                <span data-i18n="print.locality">Locality</span>
-                <input type="text" data-role="locality" />
-              </label>
-              <label class="print-controls__field">
-                <span data-i18n="print.territoryNo">Territory no.</span>
-                <input type="text" data-role="territory" />
-              </label>
-              <label class="print-controls__field">
-                <span data-i18n="print.template">PDF template</span>
-                <input
-                  type="file"
-                  data-role="template"
-                  accept="application/pdf"
-                />
-              </label>
-              <p
-                class="print-controls__hint"
-                data-role="template-name"
-                data-i18n="print.noTemplate"
-              >
-                No template — the map prints on its own.
-              </p>
-              <div class="print-controls__row">
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="clear-template"
-                  data-i18n="print.clearTemplate"
-                  hidden
-                >
-                  Clear template
-                </button>
-                <button
-                  type="button"
-                  class="btn btn--ghost"
-                  data-role="adjust-template"
-                  data-i18n="print.adjustTemplate"
-                  hidden
-                >
-                  Adjust map area
-                </button>
-              </div>
-            </fieldset>
-          </div>
+      <div class="print-dialog__body">
+        <div class="print-preview">
+          <canvas data-role="canvas"></canvas>
+          <div class="erase-cursor" data-role="erase-cursor" hidden></div>
+          <p class="print-preview__status" data-role="status">
+            <span class="spinner spinner--sm" data-role="status-spinner" aria-hidden="true"></span>
+            <span data-role="status-text">Loading map tiles…</span>
+          </p>
         </div>
 
-        <div class="app-dialog__actions">
-          <a
-            class="btn btn--ghost"
-            data-role="open-pdf"
-            target="_blank"
-            rel="noopener"
-            data-i18n="print.openPdf"
-            hidden
-          >
-            Open PDF
-          </a>
-          <button
-            type="button"
-            class="btn btn--ghost"
-            data-role="cancel"
-            data-i18n="print.cancel"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn--primary"
-            data-role="print"
-            data-i18n="print.print"
-          >
-            Print
-          </button>
-        </div>
-      </div>
-    </template>
+        <div class="print-controls">
+          <fieldset class="print-controls__group">
+            <legend data-i18n="print.frame">Frame</legend>
 
-    <template id="tpl-place-dialog">
-      <div
-        class="app-dialog place-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Position the map"
-        tabindex="-1"
-      >
-        <h2 class="app-dialog__title" data-i18n="place.title">
-          Position the map
-        </h2>
-        <p class="app-dialog__hint" data-i18n="place.hint">
-          Drag the frame over the part of the card where the map should print.
-        </p>
-        <p class="app-dialog__hint" data-i18n="place.keys">
-          Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
-          resize · Enter to accept
-        </p>
+            <label class="print-controls__field">
+              <span data-i18n="print.zoom">Zoom</span>
+              <input type="range" data-role="zoom" />
+              <button type="button" class="btn btn--ghost print-fit" data-role="fit" data-i18n="print.fit">
+                Fit
+              </button>
+            </label>
 
-        <div class="place-stage" data-role="stage">
-          <img class="place-page" data-role="page" alt="" />
-          <div class="place-box" data-role="box">
-            <span class="place-handle" data-h="nw"></span>
-            <span class="place-handle" data-h="ne"></span>
-            <span class="place-handle" data-h="se"></span>
-            <span class="place-handle" data-h="sw"></span>
-          </div>
-
-          <div class="place-loupe" data-role="loupe" hidden>
-            <div class="place-loupe__inner" data-role="loupe-inner">
-              <div class="place-loupe__box" data-role="loupe-box"></div>
+            <label class="print-controls__field">
+              <span data-i18n="print.rotation">Rotation</span>
+              <input type="range" data-role="rotation" min="-180" max="180" step="1" value="0" />
+              <output data-role="rotation-out"></output>
+            </label>
+            <div class="print-controls__row">
+              <button type="button" class="btn btn--ghost" data-role="rotate-ccw"
+                data-i18n-attrs="title=print.rotateCcw;aria-label=print.rotateCcw">
+                <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="btn btn--ghost" data-role="rotate-reset"
+                data-i18n-attrs="title=print.rotateReset;aria-label=print.rotateReset">
+                0°
+              </button>
+              <button type="button" class="btn btn--ghost" data-role="rotate-cw"
+                data-i18n-attrs="title=print.rotateCw;aria-label=print.rotateCw">
+                <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+              </button>
             </div>
-            <div class="place-loupe__cross" aria-hidden="true"></div>
-          </div>
-        </div>
 
-        <output class="place-readout" data-role="readout"></output>
-        <p
-          class="place-notice"
-          data-role="notice"
-          role="status"
-          aria-live="polite"
-          hidden
-        ></p>
+            <p class="print-controls__hint" data-i18n="print.frameHint">
+              Drag the map to move it, scroll to zoom. Hold Alt while dragging
+              the rotation slider for angles off the 15° marks.
+            </p>
+          </fieldset>
 
-        <div class="app-dialog__actions">
-          <button
-            type="button"
-            class="btn btn--ghost"
-            data-role="snap"
-            data-i18n="place.snap"
-          >
-            Snap to detected box
-          </button>
-          <button
-            type="button"
-            class="btn btn--ghost"
-            data-role="cancel"
-            data-i18n="place.cancel"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            class="btn btn--primary"
-            data-role="save"
-            data-i18n="place.save"
-          >
-            Use this area
-          </button>
+          <fieldset class="print-controls__group">
+            <legend data-i18n="print.basemap">Basemap</legend>
+            <label class="print-controls__field">
+              <span data-i18n="print.detail">Detail</span>
+              <input type="range" data-role="detail" min="90" max="200" step="5" value="110" />
+              <output data-role="detail-out"></output>
+            </label>
+            <label class="print-controls__check">
+              <input type="checkbox" data-role="sharpen" checked />
+              <span data-i18n="print.sharpen">Sharpen the map</span>
+            </label>
+            <label class="print-controls__check">
+              <input type="checkbox" data-role="contrast" />
+              <span data-i18n="print.contrast">Increase contrast</span>
+            </label>
+            <label class="print-controls__check">
+              <input type="checkbox" data-role="grayscale" />
+              <span data-i18n="print.grayscale">Grayscale the map</span>
+            </label>
+            <p class="print-controls__hint" data-i18n="print.detailHint">
+              Left means larger street names on a softer map. The readout
+              shows the printed text height and the tile zoom in use.
+            </p>
+          </fieldset>
+
+          <fieldset class="print-controls__group">
+            <legend data-i18n="print.border">Border</legend>
+            <label class="print-controls__field">
+              <span data-i18n="print.color">Color</span>
+              <input type="color" data-role="color" value="#d40000" />
+            </label>
+            <label class="print-controls__field">
+              <span data-i18n="print.thickness">Thickness</span>
+              <input type="range" data-role="width" min="0.5" max="8" step="0.5" value="2" />
+              <output data-role="width-out"></output>
+            </label>
+            <label class="print-controls__field">
+              <span data-i18n="print.opacity">Opacity</span>
+              <input type="range" data-role="opacity" min="10" max="100" step="5" value="100" />
+              <output data-role="opacity-out"></output>
+            </label>
+          </fieldset>
+
+          <fieldset class="print-controls__group">
+            <legend data-i18n="print.eraser">Eraser</legend>
+            <label class="print-controls__check">
+              <input type="checkbox" data-role="erase" />
+              <span data-i18n="print.eraseToggle">Erase parts of the border</span>
+            </label>
+            <label class="print-controls__field">
+              <span data-i18n="print.brush">Brush</span>
+              <input type="range" data-role="erase-size" min="2" max="40" step="1" value="8" />
+              <output data-role="erase-size-out"></output>
+            </label>
+            <div class="print-controls__row">
+              <button type="button" class="btn btn--ghost" data-role="undo" data-i18n="print.undo">
+                Undo
+              </button>
+              <button type="button" class="btn btn--ghost" data-role="redo" data-i18n="print.redo">
+                Redo
+              </button>
+              <button type="button" class="btn btn--ghost" data-role="clear-erase" data-i18n="print.restore">
+                Restore all
+              </button>
+            </div>
+          </fieldset>
+
+          <fieldset class="print-controls__group">
+            <legend data-i18n="print.card">Card</legend>
+            <label class="print-controls__field">
+              <span data-i18n="print.locality">Locality</span>
+              <input type="text" data-role="locality" />
+            </label>
+            <label class="print-controls__field">
+              <span data-i18n="print.territoryNo">Territory no.</span>
+              <input type="text" data-role="territory" />
+            </label>
+            <label class="print-controls__field">
+              <span data-i18n="print.template">PDF template</span>
+              <input type="file" data-role="template" accept="application/pdf" />
+            </label>
+            <p class="print-controls__hint" data-role="template-name" data-i18n="print.noTemplate">
+              No template — the map prints on its own.
+            </p>
+            <div class="print-controls__row">
+              <button type="button" class="btn btn--ghost" data-role="clear-template" data-i18n="print.clearTemplate"
+                hidden>
+                Clear template
+              </button>
+              <button type="button" class="btn btn--ghost" data-role="adjust-template" data-i18n="print.adjustTemplate"
+                hidden>
+                Adjust map area
+              </button>
+            </div>
+          </fieldset>
         </div>
       </div>
-    </template>
 
-    <!-- Vendor -->
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-editable@1.3.0/src/Leaflet.Editable.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-path-drag@1.9.5/dist/index.js') }}"></script>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css') }}"
-    />
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.min.js') }}"></script>
+      <div class="app-dialog__actions">
+        <a class="btn btn--ghost" data-role="open-pdf" target="_blank" rel="noopener" data-i18n="print.openPdf" hidden>
+          Open PDF
+        </a>
+        <button type="button" class="btn btn--ghost" data-role="cancel" data-i18n="print.cancel">
+          Cancel
+        </button>
+        <button type="button" class="btn btn--primary" data-role="print" data-i18n="print.print">
+          Print
+        </button>
+      </div>
+    </div>
+  </template>
 
-    <!-- App modules — order matters (state first, main last) -->
-    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/store.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/data.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/session.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/editing.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/print.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/history.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/controls.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-  </body>
+  <template id="tpl-place-dialog">
+    <div class="app-dialog place-dialog" role="dialog" aria-modal="true" aria-label="Position the map" tabindex="-1">
+      <h2 class="app-dialog__title" data-i18n="place.title">
+        Position the map
+      </h2>
+      <p class="app-dialog__hint" data-i18n="place.hint">
+        Drag the frame over the part of the card where the map should print.
+      </p>
+      <p class="app-dialog__hint" data-i18n="place.keys">
+        Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
+        resize · Enter to accept
+      </p>
+
+      <div class="place-stage" data-role="stage">
+        <img class="place-page" data-role="page" alt="" />
+        <div class="place-box" data-role="box">
+          <span class="place-handle" data-h="nw"></span>
+          <span class="place-handle" data-h="ne"></span>
+          <span class="place-handle" data-h="se"></span>
+          <span class="place-handle" data-h="sw"></span>
+        </div>
+
+        <div class="place-loupe" data-role="loupe" hidden>
+          <div class="place-loupe__inner" data-role="loupe-inner">
+            <div class="place-loupe__box" data-role="loupe-box"></div>
+          </div>
+          <div class="place-loupe__cross" aria-hidden="true"></div>
+        </div>
+      </div>
+
+      <output class="place-readout" data-role="readout"></output>
+      <p class="place-notice" data-role="notice" role="status" aria-live="polite" hidden></p>
+
+      <div class="app-dialog__actions">
+        <button type="button" class="btn btn--ghost" data-role="snap" data-i18n="place.snap">
+          Snap to detected box
+        </button>
+        <button type="button" class="btn btn--ghost" data-role="cancel" data-i18n="place.cancel">
+          Cancel
+        </button>
+        <button type="button" class="btn btn--primary" data-role="save" data-i18n="place.save">
+          Use this area
+        </button>
+      </div>
+    </div>
+  </template>
+
+  <!-- Vendor -->
+  <script
+    src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-editable@1.3.0/src/Leaflet.Editable.min.js') }}"></script>
+  <script
+    src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-path-drag@1.9.5/dist/index.js') }}"></script>
+  <link rel="stylesheet"
+    href="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css') }}" />
+  <script
+    src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.min.js') }}"></script>
+
+  <!-- App modules — order matters (state first, main last) -->
+  <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/state.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/store.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/data.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/session.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/editing.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/print.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/history.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/controls.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
 </html>

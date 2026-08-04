@@ -147,6 +147,7 @@
     "detailHint": "Die Schriftgröße ist ungefähr. Sie hängt von der Karten-Skala und der Form des Gebiets ab.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Karte schärfen",
+    "contast": "Kontrast erhöhen",
     "grayscale": "Karte in Graustufen",
     "basemap": "Hintergrundkarte"
   },

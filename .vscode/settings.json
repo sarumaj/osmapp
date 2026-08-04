@@ -1,6 +1,7 @@
 {
   "cSpell.language": "en,de,pl",
   "cSpell.words": [
+    "addressdetails",
     "adminer",
     "aspnet",
     "boaform",
@@ -21,6 +22,7 @@
     "Laravel",
     "nextcloud",
     "noding",
+    "Nominatim",
     "owncloud",
     "phpinfo",
     "phpmyadmin",

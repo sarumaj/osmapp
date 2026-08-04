@@ -162,19 +162,20 @@ App.print = (function () {
   // PREFERENCES
   // ══════════════════════════════════════════════════════════════════════
 
-  var PREFERENCES_KEY = "osm.print.prefs.v1";
+  var PREFERENCES_KEY = "osm.print.preferences.v1";
   var PREFERENCES_ROLES = [
     "color",
     "width",
     "opacity",
     "detail",
     "sharpen",
+    "contrast",
     "grayscale",
     "erase-size",
     "locality",
   ];
 
-  function _readPrefs() {
+  function _readPreferences() {
     try {
       return JSON.parse(window.localStorage.getItem(PREFERENCES_KEY) || "{}");
     } catch (e) {
@@ -182,16 +183,16 @@ App.print = (function () {
     }
   }
 
-  function _writePrefs(prefs) {
+  function _writePreferences(preferences) {
     try {
-      window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(prefs));
+      window.localStorage.setItem(PREFERENCES_KEY, JSON.stringify(preferences));
     } catch (e) {
       /* private mode: preferences just don't persist */
     }
   }
 
-  function _loadPrefs() {
-    var saved = _readPrefs();
+  function _loadPreferences() {
+    var saved = _readPreferences();
     PREFERENCES_ROLES.forEach(function (role) {
       if (saved[role] === undefined) return;
       var input = D.role(_dialog, role);
@@ -211,18 +212,18 @@ App.print = (function () {
     });
   }
 
-  function _savePrefs() {
+  function _savePreferences() {
     // Merge rather than replace: per-template layouts live in the same record,
     // and rebuilding from PREFERENCES_ROLES alone would drop every one of them
     // on the next slider nudge.
-    var prefs = _readPrefs();
+    var preferences = _readPreferences();
     PREFERENCES_ROLES.forEach(function (role) {
       var input = D.role(_dialog, role);
       if (!input) return;
-      prefs[role] =
+      preferences[role] =
         input.type === "checkbox" ? (input.checked ? "1" : "0") : input.value;
     });
-    _writePrefs(prefs);
+    _writePreferences(preferences);
   }
 
   function _layoutIsCurrent(layout) {
@@ -231,17 +232,17 @@ App.print = (function () {
   }
 
   function _savedLayout(id) {
-    var saved = (_readPrefs().layouts || {})[id];
+    var saved = (_readPreferences().layouts || {})[id];
     return _layoutIsCurrent(saved) ? saved : null;
   }
 
   function _saveLayout(id, layout) {
     if (!id || !layout) return;
     layout.v = LAYOUT_VERSION;
-    var prefs = _readPrefs();
-    prefs.layouts = prefs.layouts || {};
-    prefs.layouts[id] = layout;
-    _writePrefs(prefs);
+    var preferences = _readPreferences();
+    preferences.layouts = preferences.layouts || {};
+    preferences.layouts[id] = layout;
+    _writePreferences(preferences);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -294,9 +295,9 @@ App.print = (function () {
       // Weaker, but enough to tell two templates apart on one machine.
       return Promise.resolve(
         "n" +
-          [file.name, file.size, file.lastModified]
-            .join(":")
-            .replace(/\W+/g, "_"),
+        [file.name, file.size, file.lastModified]
+          .join(":")
+          .replace(/\W+/g, "_"),
       );
     }
     return file.arrayBuffer().then(function (buf) {
@@ -1315,9 +1316,11 @@ App.print = (function () {
     var missing = 0;
 
     var sharpen = D.role(_dialog, "sharpen");
+    var contrast = D.role(_dialog, "contrast");
     var grayscale = D.role(_dialog, "grayscale");
     var wantSharp = (!sharpen || sharpen.checked) && "filter" in ctx;
-    var wantGrayscale = (!grayscale || grayscale.checked) && "filter" in ctx;
+    var wantContrast = contrast && contrast.checked && "filter" in ctx;
+    var wantGrayscale = grayscale && grayscale.checked && "filter" in ctx;
 
     // Upright frames keep tile edges on the pixel grid, so they need almost no
     // overlap; a rotated or fractionally scaled frame does, or seams show.
@@ -1330,6 +1333,7 @@ App.print = (function () {
       // through the same filter would just add halos.
       var filters = [];
       if (wantSharp) filters.push("url(#tile-sharpen)");
+      if (wantContrast) filters.push("url(#tile-contrast)");
       if (wantGrayscale) filters.push("url(#tile-grayscale)");
       ctx.filter = filters.length ? filters.join(" ") : "none";
 
@@ -1348,7 +1352,8 @@ App.print = (function () {
         }
       });
 
-      if (wantSharp || wantGrayscale) ctx.filter = "none";
+      // ctx.restore() in _withMapTransform resets filter — this is just belt-and-suspenders.
+      if (wantSharp || wantGrayscale || wantContrast) ctx.filter = "none";
     });
 
     _drawAttribution(ctx);
@@ -1518,7 +1523,7 @@ App.print = (function () {
     _borderCanvas = document.createElement("canvas");
 
     _wireControls();
-    _loadPrefs();
+    _loadPreferences();
 
     // Sizes both canvases, fits the view, picks the tile zoom and starts the
     // prefetch — everything downstream of the frame's aspect ratio.
@@ -1537,7 +1542,7 @@ App.print = (function () {
     ["color", "width", "opacity"].forEach(function (role) {
       D.role(_dialog, role).addEventListener("input", function () {
         _syncOutputs();
-        _savePrefs();
+        _savePreferences();
         _schedulePaint();
       });
     });
@@ -1545,10 +1550,10 @@ App.print = (function () {
     D.role(_dialog, "erase-size").addEventListener("input", function () {
       _syncOutputs();
       _sizeEraseCursor();
-      _savePrefs();
+      _savePreferences();
     });
 
-    D.role(_dialog, "locality").addEventListener("change", _savePrefs);
+    D.role(_dialog, "locality").addEventListener("change", _savePreferences);
     D.role(_dialog, "erase").addEventListener("change", _syncEraseMode);
 
     var zoomInput = D.role(_dialog, "zoom");
@@ -1591,14 +1596,22 @@ App.print = (function () {
       detail.addEventListener("input", _syncOutputs);
       detail.addEventListener("change", function () {
         _retile();
-        _savePrefs();
+        _savePreferences();
       });
     }
 
     var sharpen = D.role(_dialog, "sharpen");
     if (sharpen) {
       sharpen.addEventListener("change", function () {
-        _savePrefs();
+        _savePreferences();
+        _schedulePaint();
+      });
+    }
+
+    var contrast = D.role(_dialog, "contrast");
+    if (contrast) {
+      contrast.addEventListener("change", function () {
+        _savePreferences();
         _schedulePaint();
       });
     }
@@ -1606,7 +1619,7 @@ App.print = (function () {
     var grayscale = D.role(_dialog, "grayscale");
     if (grayscale) {
       grayscale.addEventListener("change", function () {
-        _savePrefs();
+        _savePreferences();
         _schedulePaint();
       });
     }
@@ -1817,14 +1830,6 @@ App.print = (function () {
   // ══════════════════════════════════════════════════════════════════════
   // POINTER — erase or pan, depending on the mode
   // ══════════════════════════════════════════════════════════════════════
-
-  function _pointerCanvas(e) {
-    var rect = _preview.getBoundingClientRect();
-    return [
-      ((e.clientX - rect.left) / rect.width) * RENDER_W,
-      ((e.clientY - rect.top) / rect.height) * RENDER_H,
-    ];
-  }
 
   function _pointerCanvas(e) {
     var rect = _preview.getBoundingClientRect();
