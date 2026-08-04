@@ -269,12 +269,69 @@ App.polygons = (function () {
   // EVENTS
   // ══════════════════════════════════════════════════════════════════════
 
-  var TOOLTIP_OPTS = {
-    sticky: true,
-    direction: "top",
-    className: "cluster-tooltip",
-    opacity: 0.95,
+  /**
+   * Tooltip presentation depends on what the pointer is currently for.
+   *
+   *   full     — resting state. Sticky, so it tracks the cursor and reads like
+   *              a label for whatever is under it.
+   *   anchored — merge mode. Same content, but pinned above the shape instead
+   *              of following the pointer, so it never sits on top of the
+   *              territory being clicked.
+   *   off      — cut mode. The pointer is a drawing instrument there; a panel
+   *              chasing it hides the street being snapped to.
+   */
+  var TOOLTIP_MODES = {
+    full: {
+      sticky: true,
+      direction: "top",
+      className: "cluster-tooltip",
+      opacity: 0.95,
+    },
+    anchored: {
+      sticky: false,
+      direction: "top",
+      className: "cluster-tooltip cluster-tooltip--anchored",
+      opacity: 0.95,
+    },
+    off: null,
   };
+
+  var _tooltipMode = "full";
+
+  /**
+   * Rebind every cluster tooltip in a new presentation. Rebinding rather than
+   * opening and closing on each hover avoids the flicker of a tooltip that
+   * appears and is dismissed in the same frame.
+   * @param {"full"|"anchored"|"off"} mode
+   */
+  function setTooltipMode(mode) {
+    if (!(mode in TOOLTIP_MODES) || mode === _tooltipMode) return;
+    _tooltipMode = mode;
+    clusterLayers().forEach(_bindTooltip);
+  }
+
+  function _bindTooltip(layer) {
+    layer.closeTooltip();
+    layer.unbindTooltip();
+    var opts = TOOLTIP_MODES[_tooltipMode];
+    if (opts) layer.bindTooltip(_tooltipContent, opts);
+  }
+
+  /**
+   * Drop any hover highlight still standing. Entering a pointer tool suppresses
+   * mouseover, so without this the shape under the cursor at that moment would
+   * stay lit for as long as the tool is active.
+   */
+  function clearHover() {
+    clusterLayers().forEach(function (layer) {
+      if (!layer._hover) return;
+      layer._hover = false;
+      refreshStyle(layer);
+    });
+    if (s.outerPolygonLayer && s.outerPolygonLayer.setStyle) {
+      s.outerPolygonLayer.setStyle(OUTER_STYLE);
+    }
+  }
 
   /**
    * Tooltip body, resolved when the tooltip opens rather than when the layer is
@@ -317,16 +374,19 @@ App.polygons = (function () {
   function attachClusterEvents(layer, feature) {
     layer.off("mouseover mouseout click contextmenu");
 
-    layer.unbindTooltip();
-    layer.bindTooltip(_tooltipContent, TOOLTIP_OPTS);
+    _bindTooltip(layer);
 
     layer.on("mouseover", function () {
+      // In cut mode the cursor is drawing, not pointing. Highlighting would
+      // also bringToFront() the cluster over the dashed preview line.
+      if (s.editMode) return;
       layer._hover = true;
       refreshStyle(layer);
       if (layer.bringToFront) layer.bringToFront();
     });
 
     layer.on("mouseout", function () {
+      if (!layer._hover) return;
       layer._hover = false;
       refreshStyle(layer);
     });
@@ -359,6 +419,7 @@ App.polygons = (function () {
   function attachOuterEvents(layer) {
     layer.off("mouseover mouseout");
     layer.on("mouseover", function () {
+      if (s.editMode) return;
       layer.setStyle(OUTER_STYLE_HOVER);
     });
     layer.on("mouseout", function () {
@@ -499,6 +560,8 @@ App.polygons = (function () {
 
     attachClusterEvents: attachClusterEvents,
     attachOuterEvents: attachOuterEvents,
+    setTooltipMode: setTooltipMode,
+    clearHover: clearHover,
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,

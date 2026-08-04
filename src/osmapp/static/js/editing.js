@@ -339,6 +339,11 @@ App.editing = (function () {
     _points = [];
     rebuildSnapIndex();
 
+    // The cursor belongs to the split line from here on: no tooltip trailing
+    // it, no hover highlight lifting a cluster over the preview.
+    App.polygons.setTooltipMode("off");
+    App.polygons.clearHover();
+
     _previewLine = L.polyline([], {
       color: "#e74c3c",
       weight: 3,
@@ -371,6 +376,8 @@ App.editing = (function () {
   }
 
   function _stopDraw() {
+    App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
+
     s.leafletMap.off("mousemove", _onDrawMouseMove);
     s.leafletMap.off("click", _onDrawClick);
     s.leafletMap.off("dblclick", _onDrawDblClick);
@@ -626,8 +633,13 @@ App.editing = (function () {
     if (s.mergeMode) {
       if (s.editMode) toggleEditMode();
       s.selectedClusters = [];
+      // Selecting means clicking the shape, so the tooltip is pinned above it
+      // rather than sitting under the pointer — the count still reads, the
+      // click target stays clear.
+      App.polygons.setTooltipMode("anchored");
       _showMergeToolbar();
     } else {
+      App.polygons.setTooltipMode("full");
       _clearSelection();
       _hideMergeToolbar();
     }

@@ -567,6 +567,16 @@ body {
   border-top-color: rgba(28, 28, 30, 0.92);
 }
 
+/* Merge mode: pinned above the shape rather than trailing the cursor, so it
+   reads as a label on the territory instead of a panel in the way. */
+.cluster-tooltip--anchored {
+  background: rgba(28, 28, 30, 0.78);
+}
+
+.cluster-tooltip--anchored::before {
+  border-top-color: rgba(28, 28, 30, 0.78);
+}
+
 /* ═══════════════════════════════════════════════════════════
    Print dialog
    ═══════════════════════════════════════════════════════════ */
