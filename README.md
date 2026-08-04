@@ -3,6 +3,11 @@
 - [German/Deutsch](#deutsch)
 - [Polish/Polski](#polski)
 
+| Screenshots                                                                 |
+| --------------------------------------------------------------------------- |
+| ![Screenshot 1](img/screenshot_1.png) ![Screenshot 2](img/screenshot_2.png) |
+| ![Screenshot 3](img/screenshot_3.png) ![Screenshot 4](img/screenshot_4.png) |
+
 Split a map area into walkable territories, then print each one as a card.
 
 ## What it does
@@ -175,8 +180,8 @@ prace ankietowe, wizyty parafialne, trasy dostawcze.
    obszary i większa liczba terytoriów zajmują więcej czasu — kilkaset terytoriów
    to kilka minut.
 4. **Dopasuj ręcznie.** Połącz dwa obszary, które okazały się zbyt małe, podziel
-  jeden, który okazał się zbyt duży, przeciągnij granicę lub całkowicie usuń jeden
-  z nich. Ctrl+Z cofa zmianę.
+   jeden, który okazał się zbyt duży, przeciągnij granicę lub całkowicie usuń jeden
+   z nich. Ctrl+Z cofa zmianę.
 5. **Wydrukuj.** Kliknij prawym przyciskiem myszy na obszar i wybierz opcję „Drukuj”.
    Ustaw kolor i grubość linii, obróć lub powiększ mapę w ramce, usuń fragmenty
    obramowania zasłaniające tekst, który chcesz odczytać, a następnie wyeksportuj
@@ -217,7 +222,7 @@ osmapp
 All optional, all environment variables.
 
 | Variable           | Default                                          | Why you'd change it                                                                                                                    |
-|--------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
+| ------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | `OSM_MAX_AREA_KM2` | `50`                                             | Polygons above this are refused up front. Overpass on a large area can pull hundreds of megabytes and hang for the full 180 s timeout. |
 | `OVERPASS_URL`     | `https://overpass-api.de/api`                    | Point at a mirror or your own instance.                                                                                                |
 | `TILE_URL`         | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | See _Tile usage_ below.                                                                                                                |
@@ -274,7 +279,7 @@ graph TD
 ```
 
 | Module       | Responsibility                                                        |
-|--------------|-----------------------------------------------------------------------|
+| ------------ | --------------------------------------------------------------------- |
 | `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                   |
 | `state`      | The single mutable store. Everything else reads `App.state`           |
 | `dom`        | Clones `<template>` elements, looks nodes up by `data-role`           |
@@ -383,7 +388,7 @@ translating it makes issue reports harder to read.
 ## HTTP API
 
 | Route                        | Purpose                                             |
-|------------------------------|-----------------------------------------------------|
+| ---------------------------- | --------------------------------------------------- |
 | `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                     |
 | `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out     |
 | `POST /fetch_buildings`      | GeoJSON polygon in, building footprints out         |
@@ -400,7 +405,7 @@ tabs, or any multi-worker deployment, handed users each other's areas.
 ## Keyboard
 
 |                                        |                                                                         |
-|----------------------------------------|-------------------------------------------------------------------------|
+| -------------------------------------- | ----------------------------------------------------------------------- |
 | `Ctrl/Cmd + Z`                         | Undo — territory geometry, or the print eraser when that dialog is open |
 | `Ctrl/Cmd + Y`, `Ctrl/Cmd + Shift + Z` | Redo                                                                    |
 | `Esc`                                  | Cancel drawing, merge mode, or close a dialog                           |
