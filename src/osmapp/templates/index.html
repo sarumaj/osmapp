@@ -657,20 +657,24 @@
           resize · Enter to accept
         </p>
 
-        <div class="place-stage" data-role="stage">
-          <img class="place-page" data-role="page" alt="" />
-          <div class="place-box" data-role="box">
-            <span class="place-handle" data-h="nw"></span>
-            <span class="place-handle" data-h="ne"></span>
-            <span class="place-handle" data-h="se"></span>
-            <span class="place-handle" data-h="sw"></span>
-          </div>
-
-          <div class="place-loupe" data-role="loupe" hidden>
-            <div class="place-loupe__inner" data-role="loupe-inner">
-              <div class="place-loupe__box" data-role="loupe-box"></div>
+        <!-- The wrapper centres; the stage must stay exactly the size of the
+           rendered page image, because .place-box is positioned against it. -->
+        <div class="place-stage-wrap">
+          <div class="place-stage" data-role="stage">
+            <img class="place-page" data-role="page" alt="" />
+            <div class="place-box" data-role="box">
+              <span class="place-handle" data-h="nw"></span>
+              <span class="place-handle" data-h="ne"></span>
+              <span class="place-handle" data-h="se"></span>
+              <span class="place-handle" data-h="sw"></span>
             </div>
-            <div class="place-loupe__cross" aria-hidden="true"></div>
+
+            <div class="place-loupe" data-role="loupe" hidden>
+              <div class="place-loupe__inner" data-role="loupe-inner">
+                <div class="place-loupe__box" data-role="loupe-box"></div>
+              </div>
+              <div class="place-loupe__cross" aria-hidden="true"></div>
+            </div>
           </div>
         </div>
 

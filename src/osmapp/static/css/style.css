@@ -765,9 +765,19 @@ body {
   overflow: auto;
 }
 
+/* Full width, so the flex line spans the dialog and the stage lands in the
+   middle of it. The stage itself must not be stretched: align-items keeps it
+   at its own size. */
+.place-stage-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 100%;
+}
+
 .place-stage {
   position: relative;
-  display: inline-block;
+  display: block;
   max-width: 100%;
   user-select: none;
   touch-action: none;

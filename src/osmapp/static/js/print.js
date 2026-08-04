@@ -95,7 +95,7 @@ App.print = (function () {
   var TILE_MARGIN = 2; // rings of tiles prefetched around the opening view
   var MAX_TILES = 900;
 
-   /**
+  /**
    * How many zoom levels below the display zoom the tiles are fetched from.
    *
    * This is the only knob that exists. Tiles are published at integer zooms
@@ -305,9 +305,9 @@ App.print = (function () {
       // Weaker, but enough to tell two templates apart on one machine.
       return Promise.resolve(
         "n" +
-        [file.name, file.size, file.lastModified]
-          .join(":")
-          .replace(/\W+/g, "_"),
+          [file.name, file.size, file.lastModified]
+            .join(":")
+            .replace(/\W+/g, "_"),
       );
     }
     return file.arrayBuffer().then(function (buf) {
@@ -883,12 +883,19 @@ App.print = (function () {
       );
     }
 
+    var stage = D.role(_placeDialog, "stage");
+
     function rescale() {
       if (!_place) return;
       // clientWidth is 0 until the image has been laid out, which is a frame
       // after load — a zero scale would put the box at infinity.
       var shown = img.clientWidth || img.naturalWidth || _layout.pageWidth;
       _place.scale = shown / _layout.pageWidth;
+      // max-height caps the image's height, so its width comes out of the
+      // aspect ratio and intrinsic sizing cannot be relied on to match it.
+      // Pinning removes the guesswork: stage box === image box, so the origin
+      // .place-box measures from is the page's top-left corner.
+      if (stage && img.clientWidth) stage.style.width = img.clientWidth + "px";
       _drawPlacement();
     }
 
@@ -911,7 +918,6 @@ App.print = (function () {
 
     _bindPlacement(box);
 
-    var stage = D.role(_placeDialog, "stage");
     if (stage) {
       stage.addEventListener("pointermove", function (e) {
         var rect = img.getBoundingClientRect();
@@ -1144,9 +1150,7 @@ App.print = (function () {
    * zoom slider. Showing the computed value keeps the readout honest.
    */
   function _labelPt(ez, tileZoom) {
-    return (
-      ((TILE_LABEL_PX * PT_PER_INCH) / DPI) * Math.pow(2, ez - tileZoom)
-    );
+    return ((TILE_LABEL_PX * PT_PER_INCH) / DPI) * Math.pow(2, ez - tileZoom);
   }
 
   /**
@@ -1789,11 +1793,7 @@ App.print = (function () {
     );
     // Below TILE_ZOOM_WARN, OSM stops naming minor roads — going softer
     // deletes the labels rather than enlarging them.
-    D.toggleClass(
-      D.role(_dialog, "detail-out"),
-      "is-warn",
-      z < TILE_ZOOM_WARN,
-    );
+    D.toggleClass(D.role(_dialog, "detail-out"), "is-warn", z < TILE_ZOOM_WARN);
   }
 
   function _syncEraseMode() {
