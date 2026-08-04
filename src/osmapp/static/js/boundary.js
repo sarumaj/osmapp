@@ -319,9 +319,19 @@ App.boundary = (function () {
     s.outerPolygonDrawn = true;
     App.polygons.attachOuterEvents(layer);
 
-    // The territories that existed belonged to the previous boundary, and
-    // displayResults() is about to drop them, so there is nothing coherent to
-    // undo back to.
+    // The territories, streets and buildings that existed belonged to the
+    // previous boundary. displayResults() drops them on a successful fetch, but
+    // a fetch that fails — an area over the download limit is the common case —
+    // would otherwise leave the old territory sitting under the new outline.
+    // Clearing up front means the state is coherent either way, and there is
+    // nothing sensible to undo back to.
+    App.polygons.setClusters([], { silent: true });
+    s.cachedStreets = null;
+    s.cachedBuildings = null;
+    s.cachedBounds = null;
+    s.streetSegments = [];
+    App.polygons.renderStreets([]);
+    App.polygons.renderBuildings([]);
     if (App.history) App.history.clear();
 
     try {
@@ -337,8 +347,27 @@ App.boundary = (function () {
     );
 
     App.data.fetchData(poly).then(function () {
-      App.polygons.ensureDefaultCluster();
+      _ensureWholeAreaCluster(poly);
     });
+  }
+
+  /**
+   * Guarantee the whole-area cluster a hand-drawn polygon gets for free.
+   *
+   * ensureDefaultCluster() reads the geometry back out of the Leaflet layer and
+   * bails quietly on anything it cannot normalize, which leaves a territory
+   * with an outline but nothing to print or export. Here the feature that was
+   * just installed is still in hand, so a bail-out can fall back to it directly
+   * instead of ending up with no cluster at all.
+   */
+  function _ensureWholeAreaCluster(poly) {
+    if (s.clusters.length > 0) return;
+    if (App.polygons.ensureDefaultCluster()) return;
+
+    App.polygons.setClusters([
+      { type: "Feature", geometry: poly.geometry, properties: { auto: true } },
+    ]);
+    console.log(">>> Whole area set as a single cluster (from the boundary)");
   }
 
   // ══════════════════════════════════════════════════════════════════════
