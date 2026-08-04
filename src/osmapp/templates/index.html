@@ -48,6 +48,23 @@
       </filter>
     </svg>
 
+    <!-- Grayscale filter for the print preview's basemap tiles. Referenced by
+     ctx.filter in print.js. Uses ITU-R BT.709 luminance coefficients,
+     matching the CSS grayscale(100%) spec exactly. Alpha is preserved.
+     Never applied to the border or attribution, which are
+     drawn as vectors. -->
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <filter id="tile-grayscale" color-interpolation-filters="sRGB">
+        <feColorMatrix
+          type="matrix"
+          values="0.2126 0.7152 0.0722 0 0
+              0.2126 0.7152 0.0722 0 0
+              0.2126 0.7152 0.0722 0 0
+              0      0      0      1 0"
+        />
+      </filter>
+    </svg>
+
     <div id="map"></div>
 
     <!-- ═══════════════════════════════════════════════════════════════════
@@ -363,6 +380,10 @@
               <label class="print-controls__check">
                 <input type="checkbox" data-role="sharpen" checked />
                 <span data-i18n="print.sharpen">Sharpen the map</span>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="grayscale" />
+                <span data-i18n="print.grayscale">Grayscale the map</span>
               </label>
               <p class="print-controls__hint" data-i18n="print.detailHint">
                 Left means larger street names on a softer map. The readout

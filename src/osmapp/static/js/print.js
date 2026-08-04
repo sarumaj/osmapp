@@ -169,6 +169,7 @@ App.print = (function () {
     "opacity",
     "detail",
     "sharpen",
+    "grayscale",
     "erase-size",
     "locality",
   ];
@@ -1314,7 +1315,9 @@ App.print = (function () {
     var missing = 0;
 
     var sharpen = D.role(_dialog, "sharpen");
+    var grayscale = D.role(_dialog, "grayscale");
     var wantSharp = (!sharpen || sharpen.checked) && "filter" in ctx;
+    var wantGrayscale = (!grayscale || grayscale.checked) && "filter" in ctx;
 
     // Upright frames keep tile edges on the pixel grid, so they need almost no
     // overlap; a rotated or fractionally scaled frame does, or seams show.
@@ -1325,7 +1328,10 @@ App.print = (function () {
       // Applied to the basemap only. The border and attribution are drawn as
       // vectors at full canvas resolution and are already sharp — running them
       // through the same filter would just add halos.
-      if (wantSharp) ctx.filter = "url(#tile-sharpen)";
+      var filters = [];
+      if (wantSharp) filters.push("url(#tile-sharpen)");
+      if (wantGrayscale) filters.push("url(#tile-grayscale)");
+      ctx.filter = filters.length ? filters.join(" ") : "none";
 
       result.jobs.forEach(function (job) {
         var entry = _tile(job.x, job.y);
@@ -1342,7 +1348,7 @@ App.print = (function () {
         }
       });
 
-      if (wantSharp) ctx.filter = "none";
+      if (wantSharp || wantGrayscale) ctx.filter = "none";
     });
 
     _drawAttribution(ctx);
@@ -1592,6 +1598,14 @@ App.print = (function () {
     var sharpen = D.role(_dialog, "sharpen");
     if (sharpen) {
       sharpen.addEventListener("change", function () {
+        _savePrefs();
+        _schedulePaint();
+      });
+    }
+
+    var grayscale = D.role(_dialog, "grayscale");
+    if (grayscale) {
+      grayscale.addEventListener("change", function () {
         _savePrefs();
         _schedulePaint();
       });
