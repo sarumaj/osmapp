@@ -1698,11 +1698,17 @@ App.print = (function () {
     });
     D.onRole(_dialog, "cancel", close);
     D.onRole(_dialog, "print", _print);
-    // The href is rewritten per composition, but clearing the saved-message is
-    // a one-time binding — the link's own navigation still happens.
-    D.onRole(_dialog, "open-pdf", function () {
-      _setStatus("");
-    });
+    // Bound directly rather than through D.onRole: that helper calls
+    // preventDefault() on every click, which is right for the <button>s but
+    // cancels an <a>'s navigation — the Open PDF link did nothing at all.
+    // The dialog container already has disableClickPropagation, so the map
+    // never sees this click either way.
+    var openPdf = D.role(_dialog, "open-pdf");
+    if (openPdf) {
+      openPdf.addEventListener("click", function () {
+        _setStatus("");
+      });
+    }
 
     _preview.addEventListener("pointerdown", _onPointerDown);
     _preview.addEventListener("pointermove", _onPointerMove);
