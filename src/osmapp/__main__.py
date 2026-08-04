@@ -9,7 +9,7 @@ from waitress import serve
 
 from . import create_app
 from .internal.config import MAX_UPLOAD_BYTES
-from .internal.headers import refresh_headers
+from .internal.headers import refresh_random_osmnx_headers
 from .internal.threads import execute_in_thread
 from .internal.tiles import prune_tiles
 
@@ -26,10 +26,10 @@ def main() -> None:
     )
 
     _ = execute_in_thread(
-        refresh_headers,
+        refresh_random_osmnx_headers,
         cancel,
         1800,  # every 30 min
-        "refresh_headers",
+        "refresh_random_osmnx_headers",
     )
 
     host = os.environ.get("HOST", "0.0.0.0")

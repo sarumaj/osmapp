@@ -73,10 +73,9 @@ def tiles(z: int, x: int, y: int) -> Response:
 
     url = TILE_URL_TEMPLATE.format(z=z, x=x, y=y)
     try:
-        h = get_headers()
         resp = requests.get(
             url,
-            headers={"User-Agent": h["User-Agent"], "Referer": h["Referer"]},
+            headers=get_headers(False),
             timeout=10,
         )
         resp.raise_for_status()

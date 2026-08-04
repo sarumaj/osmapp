@@ -133,6 +133,7 @@ App.print = (function () {
   var _feature = null;
   var _preview = null;
   var _borderCanvas = null;
+  var _filterCanvas = null; // tiles are mosaicked here, then filtered in one go
   var _eraseCursor = null;
   var _eraseRO = null;
 
@@ -279,6 +280,8 @@ App.print = (function () {
     _preview.height = RENDER_H;
     _borderCanvas.width = RENDER_W;
     _borderCanvas.height = RENDER_H;
+    _filterCanvas.width = RENDER_W;
+    _filterCanvas.height = RENDER_H;
 
     _view = _fitViewFor(_feature, _view ? _view.rotation : 0);
     _desiredEz = _view.ez;
@@ -1338,20 +1341,34 @@ App.print = (function () {
     var upright = Math.abs(_wrap180(_view.rotation) % 90) < 0.01;
     var bleed = upright ? 0.05 : 0.5;
 
-    _withMapTransform(ctx, _view, function () {
-      // Applied to the basemap only. The border and attribution are drawn as
-      // vectors at full canvas resolution and are already sharp — running them
-      // through the same filter would just add halos.
-      var filters = [];
-      if (wantSharp) filters.push("url(#tile-sharpen)");
-      if (wantContrast) filters.push("url(#tile-contrast)");
-      if (wantGrayscale) filters.push("url(#tile-grayscale)");
-      ctx.filter = filters.length ? filters.join(" ") : "none";
+    // Applied to the basemap only. The border and attribution are drawn as
+    // vectors at full canvas resolution and are already sharp — running them
+    // through the same filter would just add halos.
+    var filters = [];
+    if (wantSharp) filters.push("url(#tile-sharpen)");
+    if (wantContrast) filters.push("url(#tile-contrast)");
+    if (wantGrayscale) filters.push("url(#tile-grayscale)");
 
+    // ctx.filter applies per drawing operation, and every filter here samples
+    // neighbouring pixels: a 3x3 convolution at a tile's edge reads the
+    // transparent black outside that single drawImage, not the tile next door.
+    // Filtering tile by tile therefore prints a seam along every tile border.
+    // So the mosaic is assembled unfiltered on a scratch canvas first and the
+    // filter runs once over the finished, seamless image.
+    var mosaic = filters.length ? _filterCanvas : null;
+    var target = mosaic ? mosaic.getContext("2d") : ctx;
+
+    if (mosaic) {
+      target.setTransform(1, 0, 0, 1, 0, 0);
+      target.clearRect(0, 0, RENDER_W, RENDER_H);
+      target.imageSmoothingQuality = "high";
+    }
+
+    _withMapTransform(target, _view, function () {
       result.jobs.forEach(function (job) {
         var entry = _tile(job.x, job.y);
         if (entry.img) {
-          ctx.drawImage(
+          target.drawImage(
             entry.img,
             job.wx,
             job.wy,
@@ -1362,10 +1379,14 @@ App.print = (function () {
           missing++;
         }
       });
-
-      // ctx.restore() in _withMapTransform resets filter — this is just belt-and-suspenders.
-      if (wantSharp || wantGrayscale || wantContrast) ctx.filter = "none";
     });
+
+    if (mosaic) {
+      ctx.save();
+      ctx.filter = filters.join(" ");
+      ctx.drawImage(mosaic, 0, 0);
+      ctx.restore(); // restores filter to "none" along with everything else
+    }
 
     _drawAttribution(ctx);
     _drawBorder();
@@ -1492,7 +1513,7 @@ App.print = (function () {
     _dialog = null;
     _feature = null;
     _eraseCursor = null;
-    _preview = _borderCanvas = null;
+    _preview = _borderCanvas = _filterCanvas = null;
     _view = null;
     _desiredEz = null;
     _tiles = null;
@@ -1532,6 +1553,7 @@ App.print = (function () {
     _preview = D.role(_dialog, "canvas");
     _eraseCursor = D.role(_dialog, "erase-cursor");
     _borderCanvas = document.createElement("canvas");
+    _filterCanvas = document.createElement("canvas");
 
     _wireControls();
     _loadPreferences();

@@ -30,7 +30,7 @@ STREET_FILTER = '["highway"~"^(motorway|trunk|primary|secondary|tertiary|' 'resi
 
 # ── Tile proxy ─────────────────────────────────────────────────────────────────
 
-TILE_URL_TEMPLATE = os.environ.get("TILE_URL", "https://tile.openstreetmap.org/{z}/{x}/{y}.png")
+TILE_URL_TEMPLATE = os.environ.get("TILE_URL", "https://tile.openstreetmap.de/{z}/{x}/{y}.png")
 TILE_CACHE_DIR = Path(os.environ.get("TILE_CACHE_DIR", ".tile_cache"))
 TILE_CACHE_MAX_BYTES = int(os.environ.get("TILE_CACHE_MAX_MB", "500")) * 1024 * 1024
 TILE_CACHE_MAX_AGE_DAYS = int(os.environ.get("TILE_CACHE_MAX_AGE_DAYS", "60"))

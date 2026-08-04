@@ -34,37 +34,34 @@
   </head>
 
   <body>
-    <!-- Unsharp mask for the print preview's basemap tiles. Referenced by
-         ctx.filter in print.js; the kernel sums to 1 so brightness is
-         unchanged. Never applied to the border or attribution, which are
-         drawn as vectors and are already sharp. -->
-    <filter id="tile-sharpen" color-interpolation-filters="sRGB">
-      <feConvolveMatrix
-        order="3"
-        preserveAlpha="true"
-        kernelMatrix="-0.125 -0.125 -0.125
-                  -0.125  2     -0.125
-                  -0.125 -0.125 -0.125"
-      />
-    </filter>
-
-    <!-- Contrast filter for the print preview's basemap tiles. Referenced by
-       ctx.filter in print.js. -->
-    <filter id="tile-contrast" color-interpolation-filters="sRGB">
-      <feComponentTransfer>
-        <!-- Gentle S-curve on R, G, B; leave alpha alone -->
-        <feFuncR type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
-        <feFuncG type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
-        <feFuncB type="gamma" amplitude="1" exponent="0.85" offset="0.02" />
-      </feComponentTransfer>
-    </filter>
-
-    <!-- Grayscale filter for the print preview's basemap tiles. Referenced by
-     ctx.filter in print.js. Uses ITU-R BT.709 luminance coefficients,
-     matching the CSS grayscale(100%) spec exactly. Alpha is preserved.
-     Never applied to the border or attribution, which are
-     drawn as vectors. -->
+    <!-- Filters for the print preview's basemap tiles, referenced by ctx.filter
+       in print.js. They MUST live inside an <svg> root: a bare <filter> in
+       HTML is parsed as an unknown HTML element, not an SVG filter, and
+       url(#id) then resolves to nothing. Never applied to the border or the
+       attribution, which are drawn as vectors and are already sharp. -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <!-- Unsharp mask. The kernel sums to 1, so brightness is unchanged. -->
+      <filter id="tile-sharpen" color-interpolation-filters="sRGB">
+        <feConvolveMatrix
+          order="3"
+          preserveAlpha="true"
+          kernelMatrix=" 0  -0.5  0
+             -0.5  2.5 -0.5
+              0  -0.5  0"
+        />
+      </filter>
+
+      <!-- Gentle S-curve on R, G, B; alpha untouched. -->
+      <filter id="tile-contrast" color-interpolation-filters="sRGB">
+        <feComponentTransfer>
+          <feFuncR type="table" tableValues="0 0.15 0.45 0.55 0.85 1" />
+          <feFuncG type="table" tableValues="0 0.15 0.45 0.55 0.85 1" />
+          <feFuncB type="table" tableValues="0 0.15 0.45 0.55 0.85 1" />
+        </feComponentTransfer>
+      </filter>
+
+      <!-- ITU-R BT.709 luminance coefficients, matching CSS grayscale(100%)
+         exactly. Alpha is preserved. -->
       <filter id="tile-grayscale" color-interpolation-filters="sRGB">
         <feColorMatrix
           type="matrix"
