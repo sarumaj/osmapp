@@ -3,10 +3,16 @@
 - [German/Deutsch](#deutsch)
 - [Polish/Polski](#polski)
 
-| Screenshots                                                                 |
-| --------------------------------------------------------------------------- |
-| ![Screenshot 1](img/screenshot_1.png) ![Screenshot 2](img/screenshot_2.png) |
-| ![Screenshot 3](img/screenshot_3.png) ![Screenshot 4](img/screenshot_4.png) |
+| Screenshots                           |
+| :-----------------------------------: |
+| ![Screenshot 1](img/screenshot_1.png) |
+| Territory clusters                    |
+| ![Screenshot 2](img/screenshot_2.png) |
+| Printing territory card               |
+| ![Screenshot 3](img/screenshot_3.png) |
+| Using card template                   |
+| ![Screenshot 4](img/screenshot_4.png) |
+| Using search to draw territory area   |
 
 Split a map area into walkable territories, then print each one as a card.
 
