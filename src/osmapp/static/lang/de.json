@@ -94,6 +94,27 @@
     "hint": "Klicken setzt Punkte · Doppelklick beendet · Esc bricht ab",
     "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
   },
+  "search": {
+    "placeholder": "Adresse oder Ort suchen…",
+    "notFound": "Nichts gefunden."
+  },
+  "boundary": {
+    "looking": "Grenze wird abgerufen…",
+    "lookingStatus": "OpenStreetMap wird nach dem Umriss von {name} gefragt",
+    "title": "Diese Grenze übernehmen?",
+    "hint": "OpenStreetMap kennt den Umriss dieses Ortes. Verwende ihn, statt die Außengrenze selbst zu zeichnen.",
+    "hintBoxOnly": "OpenStreetMap kennt keinen Umriss dieses Ortes, nur ein umgebendes Rechteck. Verwende es als Ausgangsform und passe sie an.",
+    "adminLevel": "Verwaltungsebene {level}",
+    "area": "{area} km²",
+    "detail": "Detailgrad",
+    "detailValue": "±{metres} m · {points} Punkte",
+    "parts": "{count} getrennte Teile — nur der größte wird verwendet.",
+    "tooBig": "Etwa {area} km², über der Grenze von {max} km². Der Umriss lässt sich trotzdem übernehmen, muss aber vor dem Laden der Daten verkleinert werden.",
+    "useBoundary": "Grenze übernehmen",
+    "useBox": "Rechteck übernehmen",
+    "cancel": "Abbrechen",
+    "unusable": "Diese Grenze enthält kein brauchbares Polygon."
+  },
   "print": {
     "title": "Gebietskarte drucken",
     "border": "Grenze",
@@ -147,7 +168,7 @@
     "detailHint": "Die Schriftgröße ist ungefähr. Sie hängt von der Karten-Skala und der Form des Gebiets ab.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Karte schärfen",
-    "contast": "Kontrast erhöhen",
+    "contrast": "Kontrast erhöhen",
     "grayscale": "Karte in Graustufen",
     "basemap": "Hintergrundkarte"
   },

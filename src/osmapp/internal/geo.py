@@ -54,13 +54,23 @@ def polygon_from_request() -> Polygon:
     return cast(Polygon, geom)
 
 
-def _check_area(geom: Polygon) -> None:
-    """Reject polygons large enough to hang Overpass."""
+def approx_area_km2(geom: BaseGeometry) -> float:
+    """Planar area of a lat/lng geometry, scaled at its mid-latitude.
+
+    Good to a percent or so at the scale this app works at, and cheap. The
+    boundary suggestion endpoint uses it too, so what the dialog shows and what
+    the download guard enforces are the same number.
+    """
     min_lat, max_lat = geom.bounds[1], geom.bounds[3]
     mid_lat = (min_lat + max_lat) / 2
     km_per_deg_lat = 110.574
     km_per_deg_lng = 111.320 * math.cos(math.radians(mid_lat))
-    area_km2 = geom.area * km_per_deg_lat * km_per_deg_lng
+    return geom.area * km_per_deg_lat * km_per_deg_lng
+
+
+def _check_area(geom: Polygon) -> None:
+    """Reject polygons large enough to hang Overpass."""
+    area_km2 = approx_area_km2(geom)
 
     if area_km2 > MAX_AREA_KM2:
         raise BadRequest(

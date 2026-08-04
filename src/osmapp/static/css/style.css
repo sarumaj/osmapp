@@ -320,6 +320,50 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Boundary suggestion dialog
+   ═══════════════════════════════════════════════════════════ */
+.boundary-dialog {
+  max-width: 420px;
+}
+
+.boundary-dialog__name {
+  margin: 0 0 2px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.boundary-dialog__meta {
+  margin: 0 0 10px;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+
+.boundary-dialog__note {
+  margin: 0 0 10px;
+  font-size: var(--ui-fs-sm);
+  color: #666;
+}
+
+.boundary-dialog .app-dialog__row label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.boundary-dialog .app-dialog__row input[type="range"] {
+  flex: 1;
+  width: auto;
+  margin-left: 0;
+}
+
+.boundary-dialog .app-dialog__row output {
+  min-width: 11ch;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+  text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════
    Merge toolbar + draw hint
    ═══════════════════════════════════════════════════════════ */
 .merge-toolbar {

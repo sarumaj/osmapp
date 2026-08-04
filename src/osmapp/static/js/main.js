@@ -28,7 +28,9 @@
     }).addTo(map);
 
     if (typeof L.Editable === "undefined") {
-      console.error(">>> Leaflet.Editable never loaded — drawing is unavailable.");
+      console.error(
+        ">>> Leaflet.Editable never loaded — drawing is unavailable.",
+      );
     }
     _start(map);
   }
@@ -70,10 +72,11 @@
     App.clustering.init();
     App.editing.init();
     App.print.init();
+    App.boundary.init();
     App.controls.init(map);
     App.history.init();
 
-    App._loaded.forEach(element => {
+    App._loaded.forEach((element) => {
       console.log(">>> Module loaded:", element);
     });
 
@@ -100,9 +103,7 @@
         .bindPopup(App.i18n.t("map.youAreHere"));
     });
 
-    console.log(
-      ">>> Ready. Draw an outer polygon to begin.",
-    );
+    console.log(">>> Ready. Draw an outer polygon to begin.");
   }
 
   /**
@@ -207,6 +208,11 @@
   }
 
   // ── Address search, proxied through Flask so Nominatim sees one client ──
+  //
+  // Results carry their OSM identity (osm_type + osm_id) as well as a centre,
+  // because App.boundary uses it to ask /geocode_boundary for the outline of
+  // the place and offer it as the outer polygon. Without those two fields the
+  // search box can only ever pan the map.
   function _setupGeocoder(s) {
     if (
       typeof L.Control === "undefined" ||
@@ -226,17 +232,36 @@
           })
           .then(function (data) {
             if (!Array.isArray(data)) return [];
-            return data.map(function (item) {
-              var bbox = item.boundingbox; // [south, north, west, east]
-              return {
-                name: item.display_name,
-                center: L.latLng(parseFloat(item.lat), parseFloat(item.lon)),
-                bbox: L.latLngBounds(
-                  L.latLng(parseFloat(bbox[0]), parseFloat(bbox[2])),
-                  L.latLng(parseFloat(bbox[1]), parseFloat(bbox[3])),
-                ),
-              };
-            });
+            return data
+              .map(function (item) {
+                var center = L.latLng(
+                  parseFloat(item.lat),
+                  parseFloat(item.lon),
+                );
+                if (isNaN(center.lat) || isNaN(center.lng)) return null;
+
+                var bbox = item.boundingbox; // [south, north, west, east]
+                var bounds =
+                  Array.isArray(bbox) && bbox.length === 4
+                    ? L.latLngBounds(
+                        L.latLng(parseFloat(bbox[0]), parseFloat(bbox[2])),
+                        L.latLng(parseFloat(bbox[1]), parseFloat(bbox[3])),
+                      )
+                    : L.latLngBounds(center, center);
+
+                return {
+                  name: item.display_name,
+                  center: center,
+                  bbox: bounds,
+                  properties: {
+                    osmType: item.osm_type,
+                    osmId: item.osm_id,
+                    category: item.class || item.category,
+                    type: item.type,
+                  },
+                };
+              })
+              .filter(Boolean);
           })
           .catch(function () {
             return [];
@@ -263,20 +288,28 @@
     L.Control.geocoder({
       position: "topright",
       defaultMarkGeocode: false,
-      placeholder: "Search address…",
-      errorMessage: "Nothing found.",
+      placeholder: App.i18n.t("search.placeholder"),
+      errorMessage: App.i18n.t("search.notFound"),
       geocoder: new FlaskNominatim(),
     })
       .on("markgeocode", function (e) {
         s.leafletMap.fitBounds(e.geocode.bbox, { padding: [30, 30] });
-        var marker = L.marker(e.geocode.center)
-          .addTo(s.leafletMap)
-          .bindPopup(e.geocode.name)
-          .openPopup();
-        setTimeout(function () {
-          s.leafletMap.removeLayer(marker);
-        }, 3000);
+        _flashMarker(s, e.geocode);
+        // Fire-and-forget: the outline arrives a moment later and opens its own
+        // dialog, or quietly does not.
+        App.boundary.suggest(e.geocode);
       })
       .addTo(s.leafletMap);
+  }
+
+  /** A marker that names the hit and then gets out of the way. */
+  function _flashMarker(s, geocode) {
+    var marker = L.marker(geocode.center)
+      .addTo(s.leafletMap)
+      .bindPopup(geocode.name)
+      .openPopup();
+    setTimeout(function () {
+      s.leafletMap.removeLayer(marker);
+    }, 3000);
   }
 })();

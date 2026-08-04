@@ -94,6 +94,27 @@
     "hint": "Click to place vertices · Double-click to finish · Esc to cancel",
     "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
   },
+  "search": {
+    "placeholder": "Search for an address or place…",
+    "notFound": "Nothing found."
+  },
+  "boundary": {
+    "looking": "Looking up the boundary…",
+    "lookingStatus": "Asking OpenStreetMap for the outline of {name}",
+    "title": "Use this boundary?",
+    "hint": "OpenStreetMap has an outline for this place. Use it instead of drawing the outer boundary by hand.",
+    "hintBoxOnly": "OpenStreetMap has no outline for this place, only a bounding box. Use it as a starting rectangle and reshape it.",
+    "adminLevel": "admin level {level}",
+    "area": "{area} km²",
+    "detail": "Detail",
+    "detailValue": "±{metres} m · {points} points",
+    "parts": "{count} detached parts — only the largest one is used.",
+    "tooBig": "About {area} km², over the {max} km² download limit. The outline can still be used, but trim it before loading data.",
+    "useBoundary": "Use boundary",
+    "useBox": "Use bounding box",
+    "cancel": "Cancel",
+    "unusable": "That boundary contains no usable polygon."
+  },
   "print": {
     "title": "Print territory card",
     "border": "Border",

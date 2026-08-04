@@ -99,6 +99,32 @@
     "hint": "Klikaj, aby stawiać punkty · Dwuklik kończy · Esc anuluje",
     "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
+  "search": {
+    "placeholder": "Szukaj adresu lub miejscowości…",
+    "notFound": "Nic nie znaleziono."
+  },
+  "boundary": {
+    "looking": "Pobieranie granicy…",
+    "lookingStatus": "Zapytanie do OpenStreetMap o obrys: {name}",
+    "title": "Użyć tej granicy?",
+    "hint": "OpenStreetMap zna obrys tego miejsca. Użyj go zamiast rysować granicę zewnętrzną ręcznie.",
+    "hintBoxOnly": "OpenStreetMap nie ma obrysu tego miejsca, tylko prostokąt otaczający. Użyj go jako punktu wyjścia i popraw kształt.",
+    "adminLevel": "poziom administracyjny {level}",
+    "area": "{area} km²",
+    "detail": "Szczegółowość",
+    "detailValue": "±{metres} m · punktów: {points}",
+    "parts": {
+      "one": "{count} rozłączna część — użyta zostanie tylko największa.",
+      "few": "{count} rozłączne części — użyta zostanie tylko największa.",
+      "many": "{count} rozłącznych części — użyta zostanie tylko największa.",
+      "other": "{count} rozłącznej części — użyta zostanie tylko największa."
+    },
+    "tooBig": "Około {area} km², powyżej limitu {max} km². Obrysu można użyć, ale przed pobraniem danych trzeba go zmniejszyć.",
+    "useBoundary": "Użyj granicy",
+    "useBox": "Użyj prostokąta",
+    "cancel": "Anuluj",
+    "unusable": "Ta granica nie zawiera użytecznego wielokąta."
+  },
   "print": {
     "title": "Drukuj kartę terenu",
     "border": "Granica",
