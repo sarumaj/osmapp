@@ -96,7 +96,7 @@
     "cancel": "Anuluj"
   },
   "draw": {
-    "hint": "Klikaj, aby stawiać punkty · Dwuklik kończy · Esc anuluje",
+    "hint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
     "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
   "search": {
@@ -216,6 +216,7 @@
     "partitionEmpty": "Podział nie dał żadnego wyniku. Spróbuj mniejszej liczby terenów lub większego obszaru.",
     "cutNothing": "Nie ma terenów do cięcia. Najpierw podziel obszar.",
     "cutMissed": "Ta linia nie przecięła żadnej granicy terenu. Spróbuj poprowadzić ją przez wnętrze terenu.",
+    "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
     "cleanupNothing": "Nie ma terenów do uporządkowania.",

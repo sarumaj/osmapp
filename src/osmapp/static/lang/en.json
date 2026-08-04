@@ -91,7 +91,7 @@
     "cancel": "Cancel"
   },
   "draw": {
-    "hint": "Click to place vertices · Double-click to finish · Esc to cancel",
+    "hint": "Click to place vertices · Enter or double-click to finish · Backspace steps back · Esc to cancel",
     "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
   },
   "search": {
@@ -206,6 +206,7 @@
     "partitionEmpty": "Splitting produced nothing. Try fewer territories or a larger area.",
     "cutNothing": "There are no territories to cut. Split the area first.",
     "cutMissed": "That line did not cross any territory boundaries. Try drawing across a territory interior.",
+    "cutNoSeparation": "The line crossed a territory but did not separate it. Draw right across, from one boundary to the other.",
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
     "cleanupNothing": "There are no territories to clean up.",

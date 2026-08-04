@@ -17,6 +17,7 @@ App.editing = (function () {
   var _previewLine = null;
   var _rubberBand = null;
   var _snapDot = null;
+  var _vertexLayer = null;
   var _hintBanner = null;
   var _mergeToolbar = null;
 
@@ -130,13 +131,19 @@ App.editing = (function () {
     })(layer.getLatLngs());
   }
 
+  /**
+   * @returns {{point: L.LatLng, kind: "street"|"edge"|"free"}}
+   *   "free" means nothing was within STREET_SNAP_MAX_M and the point is being
+   *   taken as clicked. The preview dot says so, because a vertex that only
+   *   looks snapped produces a split line that wanders off the street grid.
+   */
   function _snapToStreet(latlng) {
-    if (!_segGrid) return { point: latlng, kind: "street" };
+    if (!_segGrid) return { point: latlng, kind: "free" };
     var hit = _segGrid.nearestSegment(
       [latlng.lng, latlng.lat],
       s.STREET_SNAP_MAX_M,
     );
-    if (!hit) return { point: latlng, kind: "street" };
+    if (!hit) return { point: latlng, kind: "free" };
     return {
       point: L.latLng(hit.coord[1], hit.coord[0]),
       kind: hit.payload.kind || "street",
@@ -366,10 +373,14 @@ App.editing = (function () {
       weight: 2,
     }).addTo(s.leafletMap);
 
+    _vertexLayer = L.layerGroup().addTo(s.leafletMap);
+
     _hintBanner = D.mountOnMap("tpl-draw-hint", s.leafletMap);
 
+    // Dragging stays enabled: Leaflet suppresses the click that follows a drag
+    // (_draggableMoved), so panning cannot place a stray vertex, and a split
+    // line often runs past the edge of the screen.
     s.leafletMap.doubleClickZoom.disable();
-    s.leafletMap.dragging.disable();
     s.leafletMap.on("mousemove", _onDrawMouseMove);
     s.leafletMap.on("click", _onDrawClick);
     s.leafletMap.on("dblclick", _onDrawDblClick);
@@ -384,15 +395,16 @@ App.editing = (function () {
 
     try {
       s.leafletMap.doubleClickZoom.enable();
-      s.leafletMap.dragging.enable();
     } catch (e) {
       /* map may already be gone */
     }
 
-    [_previewLine, _rubberBand, _snapDot].forEach(function (layer) {
-      if (layer) s.leafletMap.removeLayer(layer);
-    });
-    _previewLine = _rubberBand = _snapDot = null;
+    [_previewLine, _rubberBand, _snapDot, _vertexLayer].forEach(
+      function (layer) {
+        if (layer) s.leafletMap.removeLayer(layer);
+      },
+    );
+    _previewLine = _rubberBand = _snapDot = _vertexLayer = null;
     _hintBanner = D.remove(_hintBanner);
     _points = [];
     _pendingMove = null;
@@ -414,9 +426,17 @@ App.editing = (function () {
     var hit = _snapToStreet(latlng);
     if (_snapDot) {
       _snapDot.setLatLng(hit.point);
+      // red on a street, blue on an existing boundary, hollow grey when the
+      // point is free-floating.
       _snapDot.setStyle({
-        color: hit.kind === "edge" ? "#2980b9" : "#e74c3c",
-        fillColor: "#fff",
+        color:
+          hit.kind === "edge"
+            ? "#2980b9"
+            : hit.kind === "free"
+              ? "#95a5a6"
+              : "#e74c3c",
+        fillColor: hit.kind === "free" ? "transparent" : "#fff",
+        dashArray: hit.kind === "free" ? "2 2" : null,
       });
     }
     if (_rubberBand && _points.length > 0) {
@@ -429,9 +449,48 @@ App.editing = (function () {
     L.DomEvent.preventDefault(e);
     var snapped = _snapToStreet(e.latlng).point;
     _points.push({ latlng: snapped, t: Date.now() });
-    if (_previewLine) _previewLine.setLatLngs(_latlngs());
+    _renderPoints();
     if (_points.length === 1 && _rubberBand)
       _rubberBand.setLatLngs([snapped, snapped]);
+  }
+
+  /** Redraw the committed part of the line and its vertex dots. */
+  function _renderPoints() {
+    if (_previewLine) _previewLine.setLatLngs(_latlngs());
+    if (!_vertexLayer) return;
+    _vertexLayer.clearLayers();
+    _points.forEach(function (point, i) {
+      L.circleMarker(point.latlng, {
+        radius: 4,
+        color: "#e74c3c",
+        fillColor: i === _points.length - 1 ? "#e74c3c" : "#fff",
+        fillOpacity: 1,
+        weight: 2,
+        interactive: false,
+      }).addTo(_vertexLayer);
+    });
+  }
+
+  /**
+   * Take back the last vertex. Without this the only ways out of a misplaced
+   * click are finishing a line you do not want or Escaping the whole thing.
+   * @returns {boolean} whether anything was removed
+   */
+  function undoPoint() {
+    if (!s.editMode || _points.length === 0) return false;
+    _points.pop();
+    _renderPoints();
+    if (_rubberBand) {
+      _rubberBand.setLatLngs(
+        _points.length && _pendingMove
+          ? [
+              _points[_points.length - 1].latlng,
+              _snapToStreet(_pendingMove).point,
+            ]
+          : [],
+      );
+    }
+    return true;
   }
 
   function _latlngs() {
@@ -451,14 +510,24 @@ App.editing = (function () {
     L.DomEvent.preventDefault(e);
 
     var now = Date.now();
+    // At most the two trailing clicks belong to this gesture. The old loop
+    // popped everything inside the window, which ate real vertices from anyone
+    // placing points quickly along a street.
+    var popped = 0;
     while (
+      popped < 2 &&
       _points.length &&
       now - _points[_points.length - 1].t < DBLCLICK_MS
     ) {
       _points.pop();
+      popped++;
     }
     _points.push({ latlng: _snapToStreet(e.latlng).point, t: now });
+    _finishLine();
+  }
 
+  /** Close the line and hand it to the splitter. */
+  function _finishLine() {
     var pts = _latlngs();
     s.editMode = false;
     _stopDraw();
@@ -488,12 +557,29 @@ App.editing = (function () {
   }
 
   function _onKeyDown(e) {
-    if (e.key !== "Escape") return;
+    var tag = ((e.target || {}).tagName || "").toUpperCase();
+    var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+
     if (s.editMode) {
-      toggleEditMode();
+      if (e.key === "Escape") {
+        toggleEditMode();
+        return;
+      }
+      // Enter matches the outer-boundary tool, where a double-click is the
+      // fiddliest part of the gesture.
+      if (e.key === "Enter" && !typing) {
+        e.preventDefault();
+        if (_points.length >= 2) _finishLine();
+        return;
+      }
+      if ((e.key === "Backspace" || e.key === "Delete") && !typing) {
+        e.preventDefault();
+        undoPoint();
+      }
       return;
     }
-    if (s.mergeMode) toggleMergeMode();
+
+    if (e.key === "Escape" && s.mergeMode) toggleMergeMode();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -516,6 +602,7 @@ App.editing = (function () {
     var features = App.polygons.clusterFeatures();
     var result = [];
     var splitCount = 0;
+    var touchedCount = 0;
     var index = 0;
 
     function step() {
@@ -533,6 +620,7 @@ App.editing = (function () {
         if (!intersects) {
           result.push(feature);
         } else {
+          touchedCount++;
           var pieces = _cutWithLine(feature, line);
           if (!pieces) {
             result.push(feature);
@@ -572,7 +660,13 @@ App.editing = (function () {
         "total",
       );
       if (splitCount === 0) {
-        alert(T("alert.cutMissed"));
+        // Crossing a territory and separating it are different things: a line
+        // that enters and leaves through the same edge, or that stops short of
+        // the far side, touches without cutting. Saying "did not cross any
+        // boundaries" in that case sends people looking for the wrong mistake.
+        alert(
+          T(touchedCount > 0 ? "alert.cutNoSeparation" : "alert.cutMissed"),
+        );
       }
     }
 
@@ -906,6 +1000,7 @@ App.editing = (function () {
     init: init,
     toggleEditMode: toggleEditMode,
     toggleMergeMode: toggleMergeMode,
+    undoPoint: undoPoint,
     handleClusterSelectClick: handleClusterSelectClick,
     mergeSelectedClusters: mergeSelectedClusters,
     cleanupClusters: cleanupClusters,

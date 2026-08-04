@@ -91,7 +91,7 @@
     "cancel": "Abbrechen"
   },
   "draw": {
-    "hint": "Klicken setzt Punkte · Doppelklick beendet · Esc bricht ab",
+    "hint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
     "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
   },
   "search": {
@@ -168,7 +168,7 @@
     "detailHint": "Die Schriftgröße ist ungefähr. Sie hängt von der Karten-Skala und der Form des Gebiets ab.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Karte schärfen",
-    "contrast": "Kontrast erhöhen",
+    "contast": "Kontrast erhöhen",
     "grayscale": "Karte in Graustufen",
     "basemap": "Hintergrundkarte"
   },
@@ -206,6 +206,7 @@
     "partitionEmpty": "Die Aufteilung hat kein Ergebnis geliefert. Versuche weniger Gebiete oder eine größere Fläche.",
     "cutNothing": "Es gibt keine Gebiete zum Schneiden. Teile die Fläche zuerst auf.",
     "cutMissed": "Diese Linie hat keine Gebietsgrenze gekreuzt. Zeichne sie durch das Innere eines Gebiets.",
+    "cutNoSeparation": "Die Linie hat ein Gebiet gekreuzt, es aber nicht geteilt. Ziehe sie ganz durch, von einer Grenze zur anderen.",
     "mergeTooFew": "Wähle mindestens zwei Gebiete zum Zusammenführen aus.",
     "mergeFailed": "Diese Gebiete konnten nicht zusammengeführt werden.\n\n{message}",
     "cleanupNothing": "Es gibt keine Gebiete zum Bereinigen.",

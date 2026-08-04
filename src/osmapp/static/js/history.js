@@ -129,6 +129,14 @@ App.history = (function () {
         return;
       }
 
+      // While a split line is being drawn, undo belongs to its vertices, the
+      // same way it belongs to the eraser while the print dialog is open.
+      if (s.editMode && key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        App.editing.undoPoint();
+        return;
+      }
+
       if (key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
