@@ -72,7 +72,7 @@ osmapp
 All optional, all environment variables.
 
 | Variable           | Default                                          | Why you'd change it                                                                                                                    |
-| ------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+|--------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `OSM_MAX_AREA_KM2` | `50`                                             | Polygons above this are refused up front. Overpass on a large area can pull hundreds of megabytes and hang for the full 180 s timeout. |
 | `OVERPASS_URL`     | `https://overpass-api.de/api`                    | Point at a mirror or your own instance.                                                                                                |
 | `TILE_URL`         | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | See _Tile usage_ below.                                                                                                                |
@@ -85,7 +85,7 @@ All optional, all environment variables.
 Printing renders the basemap onto a canvas, so tiles are fetched through
 `/tiles/...` rather than by Leaflet. The proxy exists for three reasons: it
 keeps the canvas same-origin so `toBlob()` isn't blocked by tainting, it puts
-one honest User-Agent on the requests, and it caches to disk so reprinting a
+custom User-Agent on the requests, and it caches to disk so reprinting a
 territory costs nothing.
 
 The OSM tile policy discourages proxying and forbids bulk downloads. One card
@@ -129,7 +129,7 @@ graph TD
 ```
 
 | Module       | Responsibility                                                        |
-| ------------ | --------------------------------------------------------------------- |
+|--------------|-----------------------------------------------------------------------|
 | `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                   |
 | `state`      | The single mutable store. Everything else reads `App.state`           |
 | `dom`        | Clones `<template>` elements, looks nodes up by `data-role`           |
@@ -238,7 +238,7 @@ translating it makes issue reports harder to read.
 ## HTTP API
 
 | Route                        | Purpose                                             |
-| ---------------------------- | --------------------------------------------------- |
+|------------------------------|-----------------------------------------------------|
 | `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                     |
 | `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out     |
 | `POST /fetch_buildings`      | GeoJSON polygon in, building footprints out         |
@@ -255,7 +255,7 @@ tabs, or any multi-worker deployment, handed users each other's areas.
 ## Keyboard
 
 |                                        |                                                                         |
-| -------------------------------------- | ----------------------------------------------------------------------- |
+|----------------------------------------|-------------------------------------------------------------------------|
 | `Ctrl/Cmd + Z`                         | Undo — territory geometry, or the print eraser when that dialog is open |
 | `Ctrl/Cmd + Y`, `Ctrl/Cmd + Shift + Z` | Redo                                                                    |
 | `Esc`                                  | Cancel drawing, merge mode, or close a dialog                           |

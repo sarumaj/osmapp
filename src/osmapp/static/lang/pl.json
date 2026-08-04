@@ -149,7 +149,7 @@
     "renderingTemplate": "Renderowanie szablonu…",
     "errTemplatePreview": "Nie można było wyświetlić szablonu: {message}",
     "detail": "Wielkość napisów",
-    "detailHint": "Wielkość napisów jest przybliżona. Zależy od skali mapy i kształtu terenu.",
+    "detailHint": "Trzy stopnie, każdy podwaja wielkość nazw ulic kosztem ostrości. Kafelki istnieją tylko na całych poziomach powiększenia, więc nie ma wartości pośrednich.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Wyostrzenie mapy",
     "contrast": "Zwiększ kontrast",

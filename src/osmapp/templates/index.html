@@ -271,7 +271,12 @@
             <legend data-i18n="print.basemap">Basemap</legend>
             <label class="print-controls__field">
               <span data-i18n="print.detail">Detail</span>
-              <input type="range" data-role="detail" min="90" max="200" step="5" value="110" />
+              <input type="range" data-role="detail" min="0" max="2" step="1" value="1" list="detail-marks" />
+              <datalist id="detail-marks">
+                <option value="0"></option>
+                <option value="1"></option>
+                <option value="2"></option>
+              </datalist>
               <output data-role="detail-out"></output>
             </label>
             <label class="print-controls__check">
@@ -287,8 +292,9 @@
               <span data-i18n="print.grayscale">Grayscale the map</span>
             </label>
             <p class="print-controls__hint" data-i18n="print.detailHint">
-              Left means larger street names on a softer map. The readout
-              shows the printed text height and the tile zoom in use.
+              Three steps, each doubling the size of street names at the cost
+              of sharpness. Tiles only exist at whole zoom levels, so there is
+              nothing in between.
             </p>
           </fieldset>
 

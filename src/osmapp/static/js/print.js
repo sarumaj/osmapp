@@ -95,13 +95,23 @@ App.print = (function () {
   var TILE_MARGIN = 2; // rings of tiles prefetched around the opening view
   var MAX_TILES = 900;
 
-  /**
-   * Effective resolution of the basemap, in dpi. Mirrors the detail slider,
-   * which carries the same value directly — no inversion, so the markup and
-   * these numbers cannot drift out of agreement.
+   /**
+   * How many zoom levels below the display zoom the tiles are fetched from.
+   *
+   * This is the only knob that exists. Tiles are published at integer zooms
+   * only, so label size is quantized: each step doubles it. A continuous
+   * control here was a lie — most of its range mapped to the same integer and
+   * did nothing, and the positions that did change jumped by a factor of two.
+   *
+   * 0 = tiles at display zoom, sharp, labels near 2.6 pt (unreadable in hand)
+   * 1 = one level down, labels near 5.3 pt
+   * 2 = two levels down, labels near 10.6 pt on a visibly soft map
    */
-  var TILE_DPI = 110;
-  // Below this tile zoom OSM stops naming minor roads, so softening further
+  var TILE_ZOOM_OFFSET = 1;
+  var TILE_ZOOM_OFFSET_MAX = 2;
+  var TILE_LABEL_PX = 11; // OSM's street-label height, in tile pixels
+
+  // Below this tile zoom OSM stops naming minor roads, so going softer
   // removes the labels instead of enlarging them.
   var TILE_ZOOM_WARN = 14;
 
@@ -1107,39 +1117,36 @@ App.print = (function () {
     return { tilePx: tilePx, jobs: jobs };
   }
 
-  /**
-   * Tile zoom for a display zoom at a given basemap dpi.
-   *
-   * Takes dpi as an argument so the readout can preview a slider position that
-   * has not been applied yet.
-   */
-  function _tileZoomForDpi(ez, dpi) {
-    var z = Math.round(ez - Math.log(DPI / dpi) / Math.LN2);
-    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z));
+  /** Tile zoom for a display zoom at a given offset. */
+  function _tileZoomForOffset(ez, offset) {
+    return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.round(ez) - offset));
   }
 
   function _tileZoomFor(ez) {
-    return _tileZoomForDpi(ez, TILE_DPI);
+    return _tileZoomForOffset(ez, TILE_ZOOM_OFFSET);
   }
 
-  /** Slider position, which carries the basemap dpi directly. */
-  function _detailDpi() {
+  /** Slider position: the offset itself, 0 to TILE_ZOOM_OFFSET_MAX. */
+  function _detailOffset() {
     var input = _dialog && D.role(_dialog, "detail");
-    if (!input) return TILE_DPI;
-    var v = parseFloat(input.value);
-    return v > 0 ? v : TILE_DPI;
+    if (!input) return TILE_ZOOM_OFFSET;
+    var v = parseInt(input.value, 10);
+    if (isNaN(v)) return TILE_ZOOM_OFFSET;
+    return Math.max(0, Math.min(TILE_ZOOM_OFFSET_MAX, v));
   }
 
   /**
-   * Printed height of a basemap label, in points.
+   * Printed height of a basemap label, in points, for an actual view.
    *
-   * OSM sets label text at about 11 px per tile pixel; upscaling by DPI/dpi
-   * and converting to points collapses to 11 * 72 / dpi. Rounding in
-   * _tileZoomForDpi means the rendered size lands near this rather than
-   * exactly on it, which is why the readout also shows the tile zoom.
+   * Derived from the real upscale factor rather than a nominal one, because
+   * the display zoom is fractional while the tile zoom is not — the same
+   * offset gives a label anywhere within a factor of root-two as you move the
+   * zoom slider. Showing the computed value keeps the readout honest.
    */
-  function _labelPt(dpi) {
-    return (11 * PT_PER_INCH) / dpi;
+  function _labelPt(ez, tileZoom) {
+    return (
+      ((TILE_LABEL_PX * PT_PER_INCH) / DPI) * Math.pow(2, ez - tileZoom)
+    );
   }
 
   /**
@@ -1152,7 +1159,7 @@ App.print = (function () {
   function _retile() {
     if (!_dialog || !_view) return;
 
-    TILE_DPI = _detailDpi();
+    TILE_ZOOM_OFFSET = _detailOffset();
     _tileZoom = _tileZoomFor(_view.ez);
     _tiles = new Map();
     _inFlight = 0;
@@ -1770,23 +1777,22 @@ App.print = (function () {
     );
 
     var detail = D.role(_dialog, "detail");
-    if (!detail) return;
+    if (!detail || !_view) return;
 
-    var dpi = _detailDpi();
-    var z = _view ? _tileZoomForDpi(_view.ez, dpi) : null;
+    // Previews the slider's current position, which may not be applied yet —
+    // the refetch waits for change, the readout follows input.
+    var z = _tileZoomForOffset(_view.ez, _detailOffset());
     D.text(
       _dialog,
       "detail-out",
-      z === null
-        ? T("print.unitPt", { value: _labelPt(dpi).toFixed(1) })
-        : T("print.detailOut", { pt: _labelPt(dpi).toFixed(1), z: z }),
+      T("print.detailOut", { pt: _labelPt(_view.ez, z).toFixed(1), z: z }),
     );
-    // Below TILE_ZOOM_WARN, OSM stops naming minor roads — softening further
+    // Below TILE_ZOOM_WARN, OSM stops naming minor roads — going softer
     // deletes the labels rather than enlarging them.
     D.toggleClass(
       D.role(_dialog, "detail-out"),
       "is-warn",
-      z !== null && z < TILE_ZOOM_WARN,
+      z < TILE_ZOOM_WARN,
     );
   }
 

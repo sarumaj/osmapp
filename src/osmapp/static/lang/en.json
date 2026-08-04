@@ -144,7 +144,7 @@
     "renderingTemplate": "Rendering the template…",
     "errTemplatePreview": "The template could not be shown: {message}",
     "detail": "Label size",
-    "detailHint": "The label size is approximate. It depends on the map scale and the territory's shape.",
+    "detailHint": "Three steps, each doubling the size of street names at the cost of sharpness. Tiles only exist at whole zoom levels, so there is nothing in between.",
     "detailOut": "≈{pt} pt · z{z}",
     "sharpen": "Sharpen the map",
     "contrast": "Increase contrast",
