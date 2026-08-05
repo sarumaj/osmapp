@@ -1350,7 +1350,7 @@ App.print = (function () {
     if (wantGrayscale) filters.push("url(#tile-grayscale)");
 
     // ctx.filter applies per drawing operation, and every filter here samples
-    // neighbouring pixels: a 3x3 convolution at a tile's edge reads the
+    // neighboring pixels: a 3x3 convolution at a tile's edge reads the
     // transparent black outside that single drawImage, not the tile next door.
     // Filtering tile by tile therefore prints a seam along every tile border.
     // So the mosaic is assembled unfiltered on a scratch canvas first and the
