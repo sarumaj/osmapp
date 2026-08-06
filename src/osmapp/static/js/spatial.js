@@ -209,6 +209,38 @@ App.spatial = (function () {
     return best;
   };
 
+  /**
+   * Item indices in every cell the bounding box of segment a-b touches,
+   * widened by `pad` cells. Deduplicated; order is not meaningful.
+   *
+   * nearestSegment answers "what is close to this point"; this answers "what
+   * could this segment possibly cross", which is what an intersection sweep
+   * needs. Without it the only options are a point query per sampled position
+   * along the segment or a linear scan over every item.
+   */
+  Grid.prototype.segmentCandidates = function (a, b, pad) {
+    pad = pad || 0;
+    var c = this.cell;
+    var x0 = Math.floor(Math.min(a[0], b[0]) / c) - pad;
+    var x1 = Math.floor(Math.max(a[0], b[0]) / c) + pad;
+    var y0 = Math.floor(Math.min(a[1], b[1]) / c) - pad;
+    var y1 = Math.floor(Math.max(a[1], b[1]) / c) + pad;
+    var seen = new Set();
+    var out = [];
+    for (var cx = x0; cx <= x1; cx++) {
+      for (var cy = y0; cy <= y1; cy++) {
+        var bucket = this.buckets.get(this._key(cx, cy));
+        if (!bucket) continue;
+        for (var i = 0; i < bucket.length; i++) {
+          if (seen.has(bucket[i])) continue;
+          seen.add(bucket[i]);
+          out.push(bucket[i]);
+        }
+      }
+    }
+    return out;
+  };
+
   /** Item indices in exactly the ring-th cell shell around coord. */
   Grid.prototype.shell = function (coord, ring) {
     var c = this.cell;

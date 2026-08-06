@@ -313,7 +313,64 @@
 
     <template id="tpl-draw-hint">
       <div class="draw-hint" role="status" data-i18n="draw.hint">
-        Click to place vertices · Double-click to finish · Esc to cancel
+        Click to place vertices · Hold Alt to ignore snapping · Enter or
+        double-click to cut · Backspace steps back · Esc to cancel
+      </div>
+    </template>
+
+    <template id="tpl-cut-toolbar">
+      <div class="cut-toolbar" role="toolbar" aria-label="Cut tool">
+        <div class="cut-toolbar__head">
+          <span class="cut-toolbar__count" data-role="count">0 vertices</span>
+          <span
+            class="cut-toolbar__status"
+            data-role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <div class="cut-toolbar__opts">
+          <label class="cut-toolbar__opt">
+            <input type="checkbox" data-role="snap" />
+            <span data-i18n="cut.snap">Snap to streets</span>
+            <kbd>S</kbd>
+          </label>
+          <label class="cut-toolbar__opt">
+            <input type="checkbox" data-role="edges" />
+            <span data-i18n="cut.edges">Snap to territory edges</span>
+            <kbd>B</kbd>
+          </label>
+          <label class="cut-toolbar__opt">
+            <input type="checkbox" data-role="follow" />
+            <span data-i18n="cut.follow">Follow streets between vertices</span>
+            <kbd>F</kbd>
+          </label>
+        </div>
+        <div class="cut-toolbar__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="finish"
+            data-i18n="cut.finish"
+          >
+            Cut
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="undo"
+            data-i18n="cut.undo"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="cancel"
+            data-i18n="cut.cancel"
+          >
+            Cancel
+          </button>
+        </div>
       </div>
     </template>
 

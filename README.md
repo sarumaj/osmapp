@@ -3,16 +3,16 @@
 - [German/Deutsch](#deutsch)
 - [Polish/Polski](#polski)
 
-| Screenshots                           |
-| :-----------------------------------: |
+|              Screenshots              |
+|:-------------------------------------:|
 | ![Screenshot 1](img/screenshot_1.png) |
-| Territory clusters                    |
+|          Territory clusters           |
 | ![Screenshot 2](img/screenshot_2.png) |
-| Printing territory card               |
+|        Printing territory card        |
 | ![Screenshot 3](img/screenshot_3.png) |
-| Using card template                   |
+|          Using card template          |
 | ![Screenshot 4](img/screenshot_4.png) |
-| Using search to draw territory area   |
+|  Using search to draw territory area  |
 
 Split a map area into walkable territories, then print each one as a card.
 
@@ -125,8 +125,8 @@ Gemeindebesuche, Auslieferungsrunden.
    und exportiere die PDF-Datei.
 
 Deine Arbeit wird im Browser gespeichert, sodass sie durch eine Aktualisierung oder
-das versehentliche Schließen des Tabs nicht verloren geht. Du kannst auch alles in
-eine Datei exportieren und später auf einem anderen Rechner wieder laden.
+das versehentliche Schließen des Tabs nicht verloren geht. Du kannst auch alles
+in eine Datei exportieren und später auf einem anderen Rechner wieder laden.
 
 ### Was es nicht ist
 
@@ -228,7 +228,7 @@ osmapp
 All optional, all environment variables.
 
 | Variable           | Default                                          | Why you'd change it                                                                                                                    |
-| ------------------ | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+|--------------------|--------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `OSM_MAX_AREA_KM2` | `50`                                             | Polygons above this are refused up front. Overpass on a large area can pull hundreds of megabytes and hang for the full 180 s timeout. |
 | `OVERPASS_URL`     | `https://overpass-api.de/api`                    | Point at a mirror or your own instance.                                                                                                |
 | `TILE_URL`         | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | See _Tile usage_ below.                                                                                                                |
@@ -285,7 +285,7 @@ graph TD
 ```
 
 | Module       | Responsibility                                                        |
-| ------------ | --------------------------------------------------------------------- |
+|--------------|-----------------------------------------------------------------------|
 | `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                   |
 | `state`      | The single mutable store. Everything else reads `App.state`           |
 | `dom`        | Clones `<template>` elements, looks nodes up by `data-role`           |
@@ -295,7 +295,7 @@ graph TD
 | `polygons`   | Territory lifecycle, hover styling, the filtered street/building view |
 | `data`       | Overpass fetching, rendering, GeoJSON export/import                   |
 | `clustering` | K-Means → Voronoi → street-routed boundaries                          |
-| `editing`    | Cut lines, merging, cleanup                                           |
+| `editing`    | Cut lines and merging                                                 |
 | `print`      | Canvas map rendering, framing, eraser, PDF composition                |
 | `history`    | Undo/redo                                                             |
 | `controls`   | Toolbar, language picker, reset                                       |
@@ -394,7 +394,7 @@ translating it makes issue reports harder to read.
 ## HTTP API
 
 | Route                        | Purpose                                             |
-| ---------------------------- | --------------------------------------------------- |
+|------------------------------|-----------------------------------------------------|
 | `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                     |
 | `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out     |
 | `POST /fetch_buildings`      | GeoJSON polygon in, building footprints out         |
@@ -411,7 +411,7 @@ tabs, or any multi-worker deployment, handed users each other's areas.
 ## Keyboard
 
 |                                        |                                                                         |
-| -------------------------------------- | ----------------------------------------------------------------------- |
+|----------------------------------------|-------------------------------------------------------------------------|
 | `Ctrl/Cmd + Z`                         | Undo — territory geometry, or the print eraser when that dialog is open |
 | `Ctrl/Cmd + Y`, `Ctrl/Cmd + Shift + Z` | Redo                                                                    |
 | `Esc`                                  | Cancel drawing, merge mode, or close a dialog                           |

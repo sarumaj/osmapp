@@ -21,9 +21,8 @@
     "export": "Export everything to GeoJSON",
     "refetch": "Re-download OSM data for the outer boundary",
     "partition": "Split the area into territories",
-    "cut": "Draw a street-snapped split line (double-click to finish)",
+    "cut": "Draw a split line — hold Alt for free placement",
     "merge": "Select and merge territories",
-    "cleanup": "Absorb territories that contain no buildings",
     "reset": "Reset everything",
     "language": "Language",
     "github": "Source code and help resources on GitHub"
@@ -50,10 +49,7 @@
     "cutting": "Cutting territories…",
     "merging": "Merging territories…",
     "dissolving": "Dissolving shared boundaries…",
-    "cleanup": "Cleaning up territories…",
-    "cleanupStatus": "Finding territories with no buildings",
-    "progress": "Territory {index} of {total}",
-    "pass": "Pass {n}"
+    "progress": "Territory {index} of {total}"
   },
   "phase": {
     "samples": "Collecting sample points",
@@ -90,8 +86,21 @@
     "action": "Merge",
     "cancel": "Cancel"
   },
+  "cut": {
+    "snap": "Snap to streets",
+    "edges": "Snap to territory edges",
+    "follow": "Follow streets between vertices",
+    "finish": "Cut",
+    "undo": "Back",
+    "cancel": "Cancel",
+    "vertices": "{n} vertices",
+    "needMore": "Place at least 2 vertices",
+    "willCut": "separates {n} territories",
+    "willTouch": "crosses, but does not separate",
+    "willMiss": "crosses no territory yet"
+  },
   "draw": {
-    "hint": "Click to place vertices · Enter or double-click to finish · Backspace steps back · Esc to cancel",
+    "hint": "Click to place vertices · Hold Alt to ignore snapping · Enter or double-click to cut · Backspace steps back · Esc to cancel",
     "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
   },
   "search": {
@@ -205,12 +214,10 @@
     "partitionNoCells": "No Voronoi cells landed inside the boundary. Try fewer territories or a larger area.",
     "partitionEmpty": "Splitting produced nothing. Try fewer territories or a larger area.",
     "cutNothing": "There are no territories to cut. Split the area first.",
-    "cutMissed": "That line did not cross any territory boundaries. Try drawing across a territory interior.",
-    "cutNoSeparation": "The line crossed a territory but did not separate it. Draw right across, from one boundary to the other.",
+    "cutMissed": "That line did not cross any territory boundaries. Draw it across a territory, or hold Alt to place vertices freely where no streets are nearby.",
+    "cutNoSeparation": "The line crossed a territory but did not separate it. It has to go right across, from one boundary to the other — the toolbar says “separates N territories” once it does.",
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
-    "cleanupNothing": "There are no territories to clean up.",
-    "cleanupNoBuildings": "Cleanup needs building data to decide which territories are empty.",
     "partitionFailed": "The partition failed: {message}"
   },
   "tooltip": {

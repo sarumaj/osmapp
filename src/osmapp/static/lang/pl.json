@@ -21,9 +21,8 @@
     "export": "Zapisz wszystko do GeoJSON",
     "refetch": "Pobierz ponownie dane OSM dla granicy zewnętrznej",
     "partition": "Podziel obszar na tereny",
-    "cut": "Narysuj linię podziału wzdłuż ulic (dwuklik kończy)",
+    "cut": "Narysuj linię cięcia — przytrzymaj Alt, aby stawiać punkty swobodnie",
     "merge": "Zaznacz i połącz tereny",
-    "cleanup": "Wchłoń tereny bez budynków",
     "reset": "Wyczyść wszystko",
     "language": "Język",
     "github": "Kod źródłowy i pomoc na GitHubie"
@@ -50,10 +49,7 @@
     "cutting": "Cięcie terenów…",
     "merging": "Łączenie terenów…",
     "dissolving": "Usuwanie wspólnych granic…",
-    "cleanup": "Porządkowanie terenów…",
-    "cleanupStatus": "Szukanie terenów bez budynków",
-    "progress": "Teren {index} z {total}",
-    "pass": "Przebieg {n}"
+    "progress": "Teren {index} z {total}"
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",
@@ -95,8 +91,21 @@
     "action": "Połącz",
     "cancel": "Anuluj"
   },
+  "cut": {
+    "snap": "Przyciągaj do ulic",
+    "edges": "Przyciągaj do granic terenów",
+    "follow": "Prowadź ulicami między punktami",
+    "finish": "Tnij",
+    "undo": "Cofnij punkt",
+    "cancel": "Anuluj",
+    "vertices": "Punkty: {n}",
+    "needMore": "Postaw co najmniej 2 punkty",
+    "willCut": "rozdziela tereny: {n}",
+    "willTouch": "przecina, ale nie rozdziela",
+    "willMiss": "jeszcze nie przecina terenu"
+  },
   "draw": {
-    "hint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
+    "hint": "Kliknij, aby postawić punkt · Przytrzymaj Alt, aby wyłączyć przyciąganie · Enter lub dwuklik tnie · Backspace cofa · Esc anuluje",
     "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
   "search": {
@@ -215,12 +224,10 @@
     "partitionNoCells": "Żadna komórka Woronoja nie zmieściła się w granicy. Spróbuj mniejszej liczby terenów lub większego obszaru.",
     "partitionEmpty": "Podział nie dał żadnego wyniku. Spróbuj mniejszej liczby terenów lub większego obszaru.",
     "cutNothing": "Nie ma terenów do cięcia. Najpierw podziel obszar.",
-    "cutMissed": "Ta linia nie przecięła żadnej granicy terenu. Spróbuj poprowadzić ją przez wnętrze terenu.",
-    "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
+    "cutMissed": "Ta linia nie przecięła żadnej granicy terenu. Narysuj ją w poprzek terenu albo przytrzymaj Alt, aby stawiać punkty swobodnie, gdy w pobliżu nie ma ulic.",
+    "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Musi przejść na wylot, od jednej granicy do drugiej — pasek pokaże wtedy „rozdziela tereny: N”.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
-    "cleanupNothing": "Nie ma terenów do uporządkowania.",
-    "cleanupNoBuildings": "Do porządkowania potrzebne są dane o budynkach, aby ustalić, które tereny są puste.",
     "partitionFailed": "Podział nie powiódł się: {message}"
   },
   "tooltip": {

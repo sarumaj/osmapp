@@ -109,14 +109,6 @@ App.controls = (function () {
       },
     },
     {
-      icon: "fa-broom",
-      titleKey: "toolbar.cleanup",
-      accent: "green",
-      onClick: function () {
-        App.editing.cleanupClusters();
-      },
-    },
-    {
       icon: "fa-trash",
       titleKey: "toolbar.reset",
       accent: "red",

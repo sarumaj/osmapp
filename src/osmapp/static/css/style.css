@@ -387,6 +387,89 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.cut-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: var(--z-map-ui);
+  background: var(--c-surface);
+  border: 2px solid var(--c-border-strong);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  box-shadow: var(--shadow-md);
+  font: 14px/1.4 var(--ui-font);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 250px;
+}
+
+.cut-toolbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.cut-toolbar__count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* Grey until the line actually separates something, green once it does. The
+   whole point is to answer "will this work" before the cut is committed. */
+.cut-toolbar__status {
+  font-size: 0.87em;
+  color: var(--c-text-muted, #666);
+  text-align: right;
+}
+
+.cut-toolbar.is-ready .cut-toolbar__status {
+  color: #1e8449;
+  font-weight: 600;
+}
+
+.cut-toolbar__opts {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid var(--c-border, #ddd);
+  border-bottom: 1px solid var(--c-border, #ddd);
+  padding: 7px 0;
+}
+
+.cut-toolbar__opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  font-size: 0.9em;
+  user-select: none;
+}
+
+.cut-toolbar__opt span {
+  flex: 1;
+}
+
+.cut-toolbar__opt kbd {
+  font: 0.85em/1 var(--ui-font);
+  border: 1px solid var(--c-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 3px;
+  padding: 2px 5px;
+  background: var(--c-surface-alt, #f4f4f4);
+  color: var(--c-text-muted, #666);
+}
+
+.cut-toolbar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cut-toolbar__actions .btn {
+  flex: 1;
+}
+
 .draw-hint {
   position: absolute;
   bottom: 30px;
