@@ -387,89 +387,6 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.cut-toolbar {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: var(--z-map-ui);
-  background: var(--c-surface);
-  border: 2px solid var(--c-border-strong);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  box-shadow: var(--shadow-md);
-  font: 14px/1.4 var(--ui-font);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 250px;
-}
-
-.cut-toolbar__head {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.cut-toolbar__count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-/* Grey until the line actually separates something, green once it does. The
-   whole point is to answer "will this work" before the cut is committed. */
-.cut-toolbar__status {
-  font-size: 0.87em;
-  color: var(--c-text-muted, #666);
-  text-align: right;
-}
-
-.cut-toolbar.is-ready .cut-toolbar__status {
-  color: #1e8449;
-  font-weight: 600;
-}
-
-.cut-toolbar__opts {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  border-top: 1px solid var(--c-border, #ddd);
-  border-bottom: 1px solid var(--c-border, #ddd);
-  padding: 7px 0;
-}
-
-.cut-toolbar__opt {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  cursor: pointer;
-  font-size: 0.9em;
-  user-select: none;
-}
-
-.cut-toolbar__opt span {
-  flex: 1;
-}
-
-.cut-toolbar__opt kbd {
-  font: 0.85em/1 var(--ui-font);
-  border: 1px solid var(--c-border-strong);
-  border-bottom-width: 2px;
-  border-radius: 3px;
-  padding: 2px 5px;
-  background: var(--c-surface-alt, #f4f4f4);
-  color: var(--c-text-muted, #666);
-}
-
-.cut-toolbar__actions {
-  display: flex;
-  gap: 6px;
-}
-
-.cut-toolbar__actions .btn {
-  flex: 1;
-}
-
 .draw-hint {
   position: absolute;
   bottom: 30px;
@@ -658,6 +575,36 @@ body {
 
 .cluster-tooltip--anchored::before {
   border-top-color: rgba(28, 28, 30, 0.78);
+}
+
+/* Street and building detail. Visually a lighter sibling of the territory
+   tooltip: same shape, cooler and less opaque, so that when the pointer moves
+   from open ground onto a building it is obvious which one is talking. */
+.feature-tooltip {
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(20, 38, 56, 0.9);
+  color: #fff;
+  font: var(--ui-fs-sm) / 1.45 var(--ui-font);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  white-space: nowrap;
+  max-width: 320px;
+}
+
+.feature-tooltip::before {
+  border-top-color: rgba(20, 38, 56, 0.9);
+}
+
+.feature-tooltip strong {
+  font-weight: 600;
+}
+
+/* "No address in OpenStreetMap" is an absence, not a fact about the building,
+   so it is set back rather than sitting at the same weight as a real value. */
+.feature-tooltip em {
+  font-style: normal;
+  opacity: 0.65;
 }
 
 /* ═══════════════════════════════════════════════════════════

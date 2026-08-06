@@ -57,6 +57,26 @@
       }
     }
 
+    // ── Panes ───────────────────────────────────────────────────────────
+    // Stacking used to be a side effect of the order things happened to be
+    // drawn in: setClusters() builds cluster layers and then calls
+    // refreshFilteredData(), so streets and buildings were appended to the SVG
+    // after the territories and ended up on top. That is the order we want —
+    // hovering a building should tell you about the building — but it should
+    // be stated rather than inherited from a call sequence, because whichever
+    // path is topmost is the one that receives pointer events.
+    //
+    // The outer boundary sits at the bottom on purpose: it spans everything,
+    // so anywhere else it would swallow every hover in the working area.
+    [
+      ["outerPane", 405],
+      ["clustersPane", 410],
+      ["streetsPane", 420],
+      ["buildingsPane", 430],
+    ].forEach(function (spec) {
+      if (!map.getPane(spec[0])) map.createPane(spec[0]).style.zIndex = spec[1];
+    });
+
     // ── Layer groups ────────────────────────────────────────────────────
     s.streetsLayerGroup = L.featureGroup().addTo(map);
     s.buildingsLayerGroup = L.featureGroup().addTo(map);

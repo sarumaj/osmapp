@@ -207,11 +207,25 @@ App.geometry = (function () {
    * L.polygon(extractCoordsArray(g)) silently discards all but the largest
    * ring of a MultiPolygon, which is how undo used to lose cluster fragments.
    */
-  function toLayer(geometry, style) {
+  /**
+   * @param {Object} geometry GeoJSON geometry
+   * @param {Object} [style] path style
+   * @param {Object} [options] extra Leaflet layer options, notably `pane`.
+   *   These have to go on the L.GeoJSON options object rather than inside
+   *   `style`: geometryToLayer() passes the layer options to the constructor,
+   *   while `style` is applied afterwards via setStyle(), and `pane` is only
+   *   read at construction time.
+   */
+  function toLayer(geometry, style, options) {
     if (!geometry) return null;
+    var opts = { style: style };
+    if (options)
+      Object.keys(options).forEach(function (key) {
+        opts[key] = options[key];
+      });
     var layers = L.geoJSON(
       { type: "Feature", geometry: geometry, properties: {} },
-      { style: style },
+      opts,
     ).getLayers();
     return layers.length ? layers[0] : null;
   }

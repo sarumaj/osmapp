@@ -90,6 +90,42 @@ App.i18n = (function () {
     return _numbers.format(value);
   }
 
+  /**
+   * Label for a raw OSM tag value, e.g. tag("highway", "living_street").
+   *
+   * Deliberately not t(): OSM has an open vocabulary, so an unknown value is
+   * the normal case rather than a missing-translation bug, and routing these
+   * through t() would fill the console with warnings for tags nobody has got
+   * round to naming yet. Unknown values are prettified instead, which for most
+   * of them reads perfectly well.
+   *
+   * @param {string} group dictionary section, e.g. "highway" or "building"
+   * @param {string} value raw tag value; "a;b" is labelled part by part
+   */
+  function tag(group, value) {
+    if (value == null) return "";
+    var raw = String(value).trim();
+    if (!raw) return "";
+
+    if (raw.indexOf(";") >= 0) {
+      return raw
+        .split(";")
+        .map(function (part) {
+          return tag(group, part);
+        })
+        .filter(Boolean)
+        .join(" / ");
+    }
+
+    var hit = _dig(_dict, group + "." + raw);
+    if (typeof hit !== "string") hit = _dig(_fallback, group + "." + raw);
+    if (typeof hit === "string") return hit;
+
+    return raw.replace(/_/g, " ").replace(/^./, function (c) {
+      return c.toUpperCase();
+    });
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // DOM
   // ══════════════════════════════════════════════════════════════════════
@@ -287,6 +323,7 @@ App.i18n = (function () {
     init: init,
     t: t,
     n: n,
+    tag: tag,
     apply: apply,
     languages: languages,
     current: current,

@@ -67,19 +67,40 @@ App.polygons = (function () {
     fillOpacity: 0.5,
     weight: 1,
   };
+  var BUILDING_STYLE_HOVER = {
+    color: "#2c3e50",
+    fillColor: "#34495e",
+    fillOpacity: 0.75,
+    weight: 2,
+  };
+
+  var PANE = {
+    clusters: "clustersPane",
+    streets: "streetsPane",
+    buildings: "buildingsPane",
+  };
 
   function init() {
     s = App.state;
     G = App.geometry;
     T = App.i18n.t;
 
-    // One delegated pair of handlers for every street, now and in future.
-    s.streetsLayerGroup.on("mouseover", function (e) {
-      if (e.layer && e.layer.setStyle) e.layer.setStyle(STREET_STYLE_HOVER);
-    });
-    s.streetsLayerGroup.on("mouseout", function (e) {
-      if (e.layer && e.layer.setStyle) e.layer.setStyle(STREET_STYLE);
-    });
+    // One delegated set of handlers per group, covering every street and
+    // building now and in future. Binding per feature would mean thousands of
+    // tooltip objects and listener closures for a panel only one of them can
+    // show at a time.
+    _wireFeatureGroup(
+      s.streetsLayerGroup,
+      _streetTooltip,
+      STREET_STYLE_HOVER,
+      STREET_STYLE,
+    );
+    _wireFeatureGroup(
+      s.buildingsLayerGroup,
+      _buildingTooltip,
+      BUILDING_STYLE_HOVER,
+      BUILDING_STYLE,
+    );
     App._loaded.push("polygons");
   }
 
@@ -150,7 +171,9 @@ App.polygons = (function () {
         geometry: geometry,
         properties: (input && input.properties) || {},
       };
-      var layer = G.toLayer(feature.geometry, CLUSTER_STYLE_DIM);
+      var layer = G.toLayer(feature.geometry, CLUSTER_STYLE_DIM, {
+        pane: PANE.clusters,
+      });
       if (!layer) return;
 
       s.innerPolygonsLayerGroup.addLayer(layer);
@@ -307,6 +330,7 @@ App.polygons = (function () {
   function setTooltipMode(mode) {
     if (!(mode in TOOLTIP_MODES) || mode === _tooltipMode) return;
     _tooltipMode = mode;
+    if (!_featureInfoAllowed()) _closeFeatureTooltips();
     clusterLayers().forEach(_bindTooltip);
   }
 
@@ -323,6 +347,7 @@ App.polygons = (function () {
    * stay lit for as long as the tool is active.
    */
   function clearHover() {
+    _closeFeatureTooltips();
     clusterLayers().forEach(function (layer) {
       if (!layer._hover) return;
       layer._hover = false;
@@ -369,6 +394,223 @@ App.polygons = (function () {
     }
 
     return lines.join("<br>");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // STREET AND BUILDING INFO
+  // ══════════════════════════════════════════════════════════════════════
+
+  var FEATURE_TOOLTIP = {
+    sticky: true,
+    direction: "top",
+    className: "feature-tooltip",
+    opacity: 0.95,
+    offset: [0, -4],
+  };
+
+  /**
+   * OSM tag values are arbitrary text from arbitrary contributors and go into
+   * a tooltip via innerHTML, so every one of them is escaped. The cluster
+   * tooltip above gets away without this only because everything in it is
+   * either a translated string or a number this app computed.
+   */
+  var _ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
+
+  function _esc(value) {
+    return String(value).replace(/[&<>"']/g, function (c) {
+      return _ESCAPES[c];
+    });
+  }
+
+  /** One property as trimmed text, or null when it carries nothing. */
+  function _prop(feature, key) {
+    var props = feature && feature.properties;
+    if (!props) return null;
+    var value = props[key];
+    if (value === null || value === undefined) return null;
+    if (Array.isArray(value)) value = value.filter(Boolean).join("; ");
+    var text = String(value).trim();
+    if (!text) return null;
+    var lower = text.toLowerCase();
+    return lower === "nan" || lower === "none" ? null : text;
+  }
+
+  /** OSM's yes/no tags, where the value may also be a subtype like "viaduct". */
+  function _flag(feature, key) {
+    var value = _prop(feature, key);
+    if (!value) return false;
+    var lower = value.toLowerCase();
+    return lower !== "no" && lower !== "false";
+  }
+
+  function _buildingTooltip(layer) {
+    var f = layer.feature;
+    if (!f) return "";
+
+    var name = _prop(f, "name");
+    // addr:place stands in for addr:street where houses are numbered against
+    // the settlement rather than a street, which is common in rural Poland.
+    var street = _prop(f, "addr:street") || _prop(f, "addr:place");
+    var number = _prop(f, "addr:housenumber");
+    var unit = _prop(f, "addr:unit");
+    var kind = _prop(f, "building");
+    var kindLabel = kind && kind !== "yes" ? App.i18n.tag("building", kind) : null;
+
+    var address = [street, number].filter(Boolean).join(" ");
+    if (address && unit) address += "/" + unit;
+    var locality = [_prop(f, "addr:postcode"), _prop(f, "addr:city") || _prop(f, "addr:suburb")]
+      .filter(Boolean)
+      .join(" ");
+
+    var title = name || address || kindLabel || T("feature.building");
+    var lines = ["<strong>" + _esc(title) + "</strong>"];
+
+    if (address && title !== address) lines.push(_esc(address));
+    if (locality) lines.push(_esc(locality));
+    // Which buildings OSM has no address for is itself worth knowing when the
+    // point of the exercise is a card someone has to walk from.
+    if (!address && !locality)
+      lines.push("<em>" + _esc(T("feature.noAddress")) + "</em>");
+    if (kindLabel && title !== kindLabel) lines.push(_esc(kindLabel));
+
+    var levels = _prop(f, "building:levels");
+    if (levels) lines.push(_esc(T("feature.levels", { n: levels })));
+
+    return lines.join("<br>");
+  }
+
+  function _streetTooltip(layer) {
+    var f = layer.feature;
+    if (!f) return "";
+
+    var name = _prop(f, "name");
+    var kind = _prop(f, "highway");
+    var lines = [
+      "<strong>" + _esc(name || T("feature.unnamedStreet")) + "</strong>",
+    ];
+    if (kind) lines.push(_esc(App.i18n.tag("highway", kind)));
+
+    // The compact facts read better on one line than as four short ones.
+    var facts = [];
+    var length = parseFloat(_prop(f, "length"));
+    if (isFinite(length) && length > 0)
+      facts.push(T("feature.length", { n: App.i18n.n(Math.round(length)) }));
+    var lanes = _prop(f, "lanes");
+    if (lanes) facts.push(T("feature.lanes", { n: lanes }));
+    var speed = _prop(f, "maxspeed");
+    // maxspeed is free text: "50", "30 mph", "DE:urban". Only bare numbers get
+    // a unit appended; anything else is shown as tagged.
+    if (speed) facts.push(/^\d+$/.test(speed) ? T("feature.speed", { n: speed }) : speed);
+    if (facts.length) lines.push(_esc(facts.join(" · ")));
+
+    var ref = _prop(f, "ref");
+    if (ref) lines.push(_esc(T("feature.ref", { ref: ref })));
+
+    var surface = _prop(f, "surface");
+    if (surface) lines.push(_esc(App.i18n.tag("surface", surface)));
+
+    var traits = [];
+    if (_flag(f, "oneway")) traits.push(T("feature.oneway"));
+    if (_flag(f, "bridge")) traits.push(T("feature.bridge"));
+    if (_flag(f, "tunnel")) traits.push(T("feature.tunnel"));
+    if (traits.length) lines.push(_esc(traits.join(" · ")));
+
+    return lines.join("<br>");
+  }
+
+  /**
+   * Hover highlight, lazily bound tooltip, and pointer-event forwarding for
+   * one of the feature groups.
+   *
+   * The forwarding is the subtle part. Streets and buildings paint above the
+   * territories, so a right-click on a building never reached the territory
+   * underneath and the context menu did not open — the browser's did. Now the
+   * event is re-fired on whichever territory contains that point, so clicking
+   * a building behaves exactly like clicking the territory around it.
+   */
+  function _wireFeatureGroup(group, contentFn, hoverStyle, restStyle) {
+    group.on("mouseover", function (e) {
+      var layer = e.layer;
+      if (!layer || !layer.setStyle) return;
+      layer.setStyle(hoverStyle);
+      if (!_featureInfoAllowed()) return;
+      if (!layer._infoBound) {
+        layer.bindTooltip(contentFn, FEATURE_TOOLTIP);
+        layer._infoBound = true;
+      }
+      // bindTooltip's own mouseover handler is registered too late to catch
+      // the event currently being dispatched, so the first open is manual.
+      layer.openTooltip(e.latlng);
+    });
+
+    group.on("mouseout", function (e) {
+      var layer = e.layer;
+      if (!layer || !layer.setStyle) return;
+      layer.setStyle(restStyle);
+      if (layer._infoBound) layer.closeTooltip();
+    });
+
+    group.on("click contextmenu", function (e) {
+      var found = clusterAt(e.latlng);
+      if (!found) return;
+      found.entry.layer.fire(e.type, e, true);
+    });
+  }
+
+  /** Territory containing a point, bbox-rejected first. */
+  function clusterAt(latlng) {
+    var point = [latlng.lng, latlng.lat];
+    for (var i = 0; i < s.clusters.length; i++) {
+      var entry = s.clusters[i];
+      try {
+        var box = entry._bbox || (entry._bbox = turf.bbox(entry.feature));
+        if (
+          point[0] < box[0] ||
+          point[0] > box[2] ||
+          point[1] < box[1] ||
+          point[1] > box[3]
+        )
+          continue;
+        if (turf.booleanPointInPolygon(turf.point(point), entry.feature))
+          return { index: i, entry: entry };
+      } catch (e) {
+        /* unusable geometry; try the next territory */
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Feature tooltips follow the cluster tooltip mode. In cut mode the pointer
+   * is a drawing instrument and a panel chasing it would cover the street
+   * being snapped to; in merge mode the extra detail is noise.
+   */
+  function _featureInfoAllowed() {
+    return _tooltipMode === "full" && !s.editMode;
+  }
+
+  function _closeFeatureTooltips() {
+    [s.streetsLayerGroup, s.buildingsLayerGroup].forEach(function (group) {
+      if (!group) return;
+      (function walk(parent) {
+        parent.eachLayer(function (layer) {
+          if (layer.eachLayer) walk(layer);
+          if (layer._infoBound) {
+            layer.closeTooltip();
+            if (layer.setStyle)
+              layer.setStyle(
+                group === s.streetsLayerGroup ? STREET_STYLE : BUILDING_STYLE,
+              );
+          }
+        });
+      })(group);
+    });
   }
 
   function attachClusterEvents(layer, feature) {
@@ -533,7 +775,7 @@ App.polygons = (function () {
     if (!features || features.length === 0) return;
     L.geoJSON(
       { type: "FeatureCollection", features: features },
-      { style: STREET_STYLE },
+      { style: STREET_STYLE, pane: PANE.streets },
     ).addTo(s.streetsLayerGroup);
   }
 
@@ -542,7 +784,7 @@ App.polygons = (function () {
     if (!features || features.length === 0) return;
     L.geoJSON(
       { type: "FeatureCollection", features: features },
-      { style: BUILDING_STYLE },
+      { style: BUILDING_STYLE, pane: PANE.buildings },
     ).addTo(s.buildingsLayerGroup);
   }
 
@@ -562,6 +804,7 @@ App.polygons = (function () {
     attachOuterEvents: attachOuterEvents,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
+    clusterAt: clusterAt,
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,
@@ -575,6 +818,7 @@ App.polygons = (function () {
     CLUSTER_STYLE_SELECTED: CLUSTER_STYLE_SELECTED,
     STREET_STYLE: STREET_STYLE,
     BUILDING_STYLE: BUILDING_STYLE,
+    PANE: PANE,
   };
 })();
 

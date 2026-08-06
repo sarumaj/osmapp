@@ -284,22 +284,22 @@ graph TD
     controls --> main
 ```
 
-| Module       | Responsibility                                                        |
-|--------------|-----------------------------------------------------------------------|
-| `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                   |
-| `state`      | The single mutable store. Everything else reads `App.state`           |
-| `dom`        | Clones `<template>` elements, looks nodes up by `data-role`           |
-| `geometry`   | Turf wrappers, polygon normalization, planar segment noding           |
-| `spatial`    | Uniform grid index, fast planar distance, binary min-heap             |
-| `ui`         | Loading overlay, info panel, context menu, dialogs                    |
-| `polygons`   | Territory lifecycle, hover styling, the filtered street/building view |
-| `data`       | Overpass fetching, rendering, GeoJSON export/import                   |
-| `clustering` | K-Means → Voronoi → street-routed boundaries                          |
-| `editing`    | Cut lines and merging                                                 |
-| `print`      | Canvas map rendering, framing, eraser, PDF composition                |
-| `history`    | Undo/redo                                                             |
-| `controls`   | Toolbar, language picker, reset                                       |
-| `main`       | Boot sequence and map wiring                                          |
+| Module       | Responsibility                                                     |
+|--------------|--------------------------------------------------------------------|
+| `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                |
+| `state`      | The single mutable store. Everything else reads `App.state`        |
+| `dom`        | Clones `<template>` elements, looks nodes up by `data-role`        |
+| `geometry`   | Turf wrappers, polygon normalization, planar segment noding        |
+| `spatial`    | Uniform grid index, fast planar distance, binary min-heap          |
+| `ui`         | Loading overlay, info panel, context menu, dialogs                 |
+| `polygons`   | Territory lifecycle, hover info, the filtered street/building view |
+| `data`       | Overpass fetching, rendering, GeoJSON export/import                |
+| `clustering` | K-Means → Voronoi → street-routed boundaries                       |
+| `editing`    | Cut lines, merging, cleanup                                        |
+| `print`      | Canvas map rendering, framing, eraser, PDF composition             |
+| `history`    | Undo/redo                                                          |
+| `controls`   | Toolbar, language picker, reset                                    |
+| `main`       | Boot sequence and map wiring                                       |
 
 ---
 
@@ -393,14 +393,14 @@ translating it makes issue reports harder to read.
 
 ## HTTP API
 
-| Route                        | Purpose                                             |
-|------------------------------|-----------------------------------------------------|
-| `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                     |
-| `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out     |
-| `POST /fetch_buildings`      | GeoJSON polygon in, building footprints out         |
-| `GET /geocode?q=`            | Nominatim proxy, cached and rate-limited to 1 req/s |
-| `GET /tiles/<z>/<x>/<y>.png` | Tile proxy with disk cache                          |
-| `POST /compose_pdf`          | Template PDF + PNG + placement → composed PDF       |
+| Route                        | Purpose                                                    |
+|------------------------------|------------------------------------------------------------|
+| `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                            |
+| `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out            |
+| `POST /fetch_buildings`      | GeoJSON polygon in, building footprints with addresses out |
+| `GET /geocode?q=`            | Nominatim proxy, cached and rate-limited to 1 req/s        |
+| `GET /tiles/<z>/<x>/<y>.png` | Tile proxy with disk cache                                 |
+| `POST /compose_pdf`          | Template PDF + PNG + placement → composed PDF              |
 
 Both fetch endpoints require the polygon on **every** request. There is no
 server-side geometry cache, deliberately: a module-level one meant two browser

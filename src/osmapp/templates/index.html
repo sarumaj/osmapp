@@ -23,13 +23,13 @@
     </script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}"
+      href="{{ url_for('static', filename='vendor/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}"
     />
-    <script src="{{ url_for('static', filename='cdn/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/cdnjs.cloudflare.com/ajax/libs/font-awesome@7.3.0/css/all.min.css') }}"
+      href="{{ url_for('static', filename='vendor/cdnjs.cloudflare.com/ajax/libs/font-awesome@7.3.0/css/all.min.css') }}"
     />
   </head>
 
@@ -772,13 +772,13 @@
     </template>
 
     <!-- Vendor -->
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-editable@1.3.0/src/Leaflet.Editable.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-path-drag@1.9.5/dist/index.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-editable@1.3.0/src/Leaflet.Editable.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-path-drag@1.9.5/dist/index.js') }}"></script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css') }}"
+      href="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css') }}"
     />
-    <script src="{{ url_for('static', filename='cdn/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.min.js') }}"></script>
 
     <!-- App modules — order matters (state first, main last) -->
     <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
