@@ -7,7 +7,13 @@ permissions:
   contents: write
 
 jobs:
+  # Nothing ships that has not passed the same checks as a push to main.
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
   build_and_release:
+    needs: verify
     concurrency:
       group: deploy-${{ github.event.client_payload.ref }}
       cancel-in-progress: true
