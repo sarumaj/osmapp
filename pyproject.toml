@@ -30,19 +30,9 @@ dependencies = [
     "waitress==3.0.2",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest==9.1.1",
-]
-
 [project.scripts]
 osmapp = "osmapp.__main__:main"
 
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-pythonpath = ["src"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

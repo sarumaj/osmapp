@@ -1,5 +1,24 @@
 /**
- * editing.js — street-snapped split lines, merge mode, cluster cleanup.
+ * editing.js — the cut tool (street-snapped split lines) and merge mode.
+ *
+ * Cut tool design notes
+ * ─────────────────────
+ * The previous version snapped every click to anything within 200 m and only
+ * showed the result of routing and boundary extension after the line was
+ * committed, so the shape that got cut was frequently not the shape that was
+ * drawn. Three rules keep it predictable now:
+ *
+ *   1. Snapping reaches CUT_SNAP_PX pixels, not a fixed number of metres, so
+ *      it grabs what is under the cursor and nothing else. Holding Alt turns
+ *      it off for a single vertex; the toolbar turns it off for good.
+ *   2. Street routing only replaces a segment when both of its vertices
+ *      actually landed on the street network, and only when the detour is
+ *      small. A hand-placed vertex is always joined by a straight line.
+ *   3. Everything that will happen to the line — routing, extension to the
+ *      surrounding boundaries — is drawn live, in green, while you draw. The
+ *      toolbar counts how many territories the line currently separates, so a
+ *      cut that cannot work is visible before it is committed rather than
+ *      after it fails.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -11,43 +30,32 @@ App.editing = (function () {
   var G = null;
   var SP = null;
   var D = null;
+  var T = null;
 
   // ── Draw state ────────────────────────────────────────────────────────
-  var _points = []; // [{ latlng, t }]
-  var _previewLine = null;
-  var _rubberBand = null;
+  var _points = []; // [{ latlng, t, snapped: boolean }]
+  var _previewLine = null; // red dashes: the vertices as clicked
+  var _ghostLine = null; // green: what will actually be cut
   var _snapDot = null;
   var _vertexLayer = null;
   var _hintBanner = null;
+  var _cutToolbar = null;
   var _mergeToolbar = null;
 
   var _pendingMove = null;
   var _moveQueued = false;
+  var _altHeld = false;
+  var _routedPrefix = []; // routed geometry through the committed vertices
+  var _lastCut = null; // the line from the most recent cut, for diagnosis
 
   // ── Snap index ────────────────────────────────────────────────────────
-  var _segments = []; // { p1: LatLng, p2: LatLng, kind }
   var _nodes = Object.create(null); // key -> LatLng
   var _adj = Object.create(null); // key -> [{ key, dist }]
-  var _segGrid = null;
-  var _nodeGrid = null;
+  var _segGrid = null; // street centre-lines
+  var _nodeGrid = null; // street intersections and shape points
+  var _edgeGrid = null; // territory and outer boundary edges, payload { ci }
 
-  var STREET_SNAP_THRESHOLD_M = 30;
   var DBLCLICK_MS = 300;
-
-  // ── Waste segmentation ────────────────────────────────────────────────
-  var WASTE_TOUCH_SLACK_M = 0.5; // adjacency probe width
-  var WASTE_MIN_CONTACT_M2 = 1; // below this is point contact, not an edge
-  var WASTE_MIN_BLOCK_M2 = 200; // ignore slivers
-  var WASTE_MIN_AREA_M2 = 500; // not worth carving a territory for less
-
-  // ── Dwelling detection ────────────────────────────────────────────────
-  // Land is disposable when it holds no dwellings. "No dwellings" is stricter
-  // than "no buildings": a block of barns, garages and silos has plenty of
-  // buildings and not one door to knock on.
-  var WASTE_SMALL_FOOTPRINT_M2 = 45; // under this, an untagged building is an outbuilding
-  var WASTE_MAX_UNSURE_PER_HA = 1.5; // ambiguous buildings this sparse read as a farmstead
-  var WASTE_MIN_LEVELS = 2; // two storeys or more is a dwelling, not a shed
-  var T = null;
 
   function init() {
     s = App.state;
@@ -56,6 +64,7 @@ App.editing = (function () {
     D = App.dom;
     T = App.i18n.t;
     document.addEventListener("keydown", _onKeyDown);
+    document.addEventListener("keyup", _onKeyUp);
     App._loaded.push("editing");
   }
 
@@ -63,10 +72,20 @@ App.editing = (function () {
   // SNAP INDEX
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Streets and boundaries go into separate grids. They used to share one,
+   * which meant a territory outline 150 m away could outrank the street the
+   * cursor was sitting on — and a cut line that snaps onto the outline of the
+   * territory you are trying to cut runs along it instead of across it, which
+   * is the "this cluster will not split at all" symptom.
+   */
   function rebuildSnapIndex() {
-    _segments = [];
     _nodes = Object.create(null);
     _adj = Object.create(null);
+
+    _segGrid = new SP.Grid(120);
+    _nodeGrid = new SP.Grid(120);
+    _edgeGrid = new SP.Grid(120);
 
     if (s.cachedStreets && s.cachedStreets.features) {
       s.cachedStreets.features.forEach(function (feature) {
@@ -80,12 +99,12 @@ App.editing = (function () {
           for (var i = 0; i < line.length - 1; i++) {
             var p1 = L.latLng(line[i][1], line[i][0]);
             var p2 = L.latLng(line[i + 1][1], line[i + 1][0]);
-            var k1 = _nodeKey(p1),
-              k2 = _nodeKey(p2);
+            var k1 = _nodeKey(p1);
+            var k2 = _nodeKey(p2);
             if (k1 === k2) continue;
 
             var d = p1.distanceTo(p2);
-            _segments.push({ p1: p1, p2: p2, kind: "street" });
+            _segGrid.addSegment([p1.lng, p1.lat], [p2.lng, p2.lat], null);
             _nodes[k1] = p1;
             _nodes[k2] = p2;
             (_adj[k1] || (_adj[k1] = [])).push({ key: k2, dist: d });
@@ -95,31 +114,23 @@ App.editing = (function () {
       });
     }
 
-    // Existing cluster and outer boundaries are snap targets too, so split
-    // lines meet them cleanly.
-    App.polygons.clusterLayers().forEach(_addLayerEdges);
-    if (s.outerPolygonLayer) _addLayerEdges(s.outerPolygonLayer);
-
-    _segGrid = new SP.Grid(120);
-    _segments.forEach(function (seg) {
-      _segGrid.addSegment(
-        [seg.p1.lng, seg.p1.lat],
-        [seg.p2.lng, seg.p2.lat],
-        seg,
-      );
-    });
-
-    _nodeGrid = new SP.Grid(120);
     Object.keys(_nodes).forEach(function (key) {
       _nodeGrid.addPoint([_nodes[key].lng, _nodes[key].lat], key);
     });
 
+    App.polygons.clusterLayers().forEach(function (layer, index) {
+      _addLayerEdges(layer, index);
+    });
+    if (s.outerPolygonLayer) _addLayerEdges(s.outerPolygonLayer, -1);
+
     console.log(
       ">>> Snap index:",
-      _segments.length,
-      "segments,",
+      _segGrid.items.length,
+      "street segments,",
       Object.keys(_nodes).length,
-      "nodes",
+      "nodes,",
+      _edgeGrid.items.length,
+      "boundary edges",
     );
   }
 
@@ -127,16 +138,17 @@ App.editing = (function () {
     return latlng.lat.toFixed(5) + "," + latlng.lng.toFixed(5);
   }
 
-  function _addLayerEdges(layer) {
+  /** @param {number} clusterIndex index into s.clusters, or -1 for the outer ring */
+  function _addLayerEdges(layer, clusterIndex) {
     if (!layer || !layer.getLatLngs) return;
     (function walk(arr) {
       if (!Array.isArray(arr) || arr.length === 0) return;
       if (arr[0] instanceof L.LatLng) {
         for (var i = 0; i < arr.length; i++) {
-          _segments.push({
-            p1: arr[i],
-            p2: arr[(i + 1) % arr.length],
-            kind: "edge",
+          var a = arr[i];
+          var b = arr[(i + 1) % arr.length];
+          _edgeGrid.addSegment([a.lng, a.lat], [b.lng, b.lat], {
+            ci: clusterIndex,
           });
         }
       } else {
@@ -145,31 +157,73 @@ App.editing = (function () {
     })(layer.getLatLngs());
   }
 
+  // ── Snapping ──────────────────────────────────────────────────────────
+
   /**
-   * @returns {{point: L.LatLng, kind: "street"|"edge"|"free"}}
-   *   "free" means nothing was within STREET_SNAP_MAX_M and the point is being
-   *   taken as clicked. The preview dot says so, because a vertex that only
-   *   looks snapped produces a split line that wanders off the street grid.
+   * The pixel radius in metres at the current zoom, so the magnet has the
+   * same reach on screen however far in or out the map is.
    */
-  function _snapToStreet(latlng) {
-    if (!_segGrid) return { point: latlng, kind: "free" };
-    var hit = _segGrid.nearestSegment(
-      [latlng.lng, latlng.lat],
-      s.STREET_SNAP_MAX_M,
-    );
-    if (!hit) return { point: latlng, kind: "free" };
-    return {
-      point: L.latLng(hit.coord[1], hit.coord[0]),
-      kind: hit.payload.kind || "street",
-    };
+  function _snapRadiusM() {
+    var map = s.leafletMap;
+    if (!map) return s.CUT_SNAP_MAX_M;
+    try {
+      var center = map.getCenter();
+      var p = map.latLngToContainerPoint(center);
+      var q = map.containerPointToLatLng(L.point(p.x + s.CUT_SNAP_PX, p.y));
+      return Math.min(s.CUT_SNAP_MAX_M, Math.max(2, center.distanceTo(q)));
+    } catch (e) {
+      return s.CUT_SNAP_MAX_M;
+    }
   }
 
-  function _nearestStreetNode(latlng) {
+  /** Alt inverts the toolbar setting for as long as it is held. */
+  function _snapActive() {
+    return _altHeld ? !s.cutSnap : s.cutSnap;
+  }
+
+  /**
+   * @returns {{point: L.LatLng, kind: "node"|"street"|"edge"|"free"}}
+   *   "free" means the point is taken exactly as clicked, which is what makes
+   *   a territory with no usable streets nearby still cuttable.
+   */
+  function _snap(latlng) {
+    if (!_snapActive()) return { point: latlng, kind: "free" };
+
+    var radius = _snapRadiusM();
+    var coord = [latlng.lng, latlng.lat];
+    var best = null;
+
+    function offer(coordinate, kind, distance, weight) {
+      var score = distance * weight;
+      if (best && score >= best.score) return;
+      best = {
+        point: L.latLng(coordinate[1], coordinate[0]),
+        kind: kind,
+        score: score,
+      };
+    }
+
+    // Intersections carry a bonus: landing exactly on a junction is almost
+    // always what was meant, and it gives routing a clean node to start from.
+    var node = _nodeGrid && _nodeGrid.nearestPoint(coord, radius);
+    if (node) offer(node.coord, "node", node.dist, s.CUT_NODE_BONUS);
+
+    var seg = _segGrid && _segGrid.nearestSegment(coord, radius);
+    if (seg) offer(seg.coord, "street", seg.dist, 1);
+
+    if (s.cutSnapEdges) {
+      var edge = _edgeGrid && _edgeGrid.nearestSegment(coord, radius);
+      if (edge) offer(edge.coord, "edge", edge.dist, s.CUT_EDGE_PENALTY);
+    }
+
+    return best
+      ? { point: best.point, kind: best.kind }
+      : { point: latlng, kind: "free" };
+  }
+
+  function _nearestStreetNode(latlng, maxMeters) {
     if (!_nodeGrid) return null;
-    var hit = _nodeGrid.nearestPoint(
-      [latlng.lng, latlng.lat],
-      s.ROUTE_SNAP_MAX_M,
-    );
+    var hit = _nodeGrid.nearestPoint([latlng.lng, latlng.lat], maxMeters);
     if (!hit) return null;
     return { key: hit.payload, latlng: _nodes[hit.payload], dist: hit.dist };
   }
@@ -178,38 +232,53 @@ App.editing = (function () {
   // ROUTING
   // ══════════════════════════════════════════════════════════════════════
 
-  function _dijkstra(startKey, endKey) {
+  /**
+   * A* over the street graph. The old Dijkstra explored the whole reachable
+   * component before giving up, which is affordable once per commit but not
+   * once per animation frame, and the live preview needs the latter. The
+   * straight-line heuristic is admissible, so the path is still optimal.
+   */
+  function _route(startKey, endKey) {
     if (startKey === endKey) return [_nodes[startKey]];
     if (!_adj[startKey] || !_adj[endKey]) return null;
 
-    var dist = Object.create(null);
+    var goal = _nodes[endKey];
+    var goalCoord = [goal.lng, goal.lat];
+
+    var g = Object.create(null);
     var prev = Object.create(null);
     var visited = Object.create(null);
     var heap = new SP.MinHeap();
+    var pops = 0;
+    var budget = s.CUT_ROUTE_MAX_POPS;
+    var found = false;
 
-    dist[startKey] = 0;
+    g[startKey] = 0;
     heap.push({ k: startKey, f: 0 });
 
-    while (heap.size() > 0) {
+    while (heap.size() > 0 && pops++ < budget) {
       var cur = heap.pop().k;
       if (visited[cur]) continue;
       visited[cur] = true;
-      if (cur === endKey) break;
+      if (cur === endKey) {
+        found = true;
+        break;
+      }
 
       var neighbors = _adj[cur] || [];
       for (var i = 0; i < neighbors.length; i++) {
         var nb = neighbors[i];
         if (visited[nb.key]) continue;
-        var alt = dist[cur] + nb.dist;
-        if (dist[nb.key] === undefined || alt < dist[nb.key]) {
-          dist[nb.key] = alt;
-          prev[nb.key] = cur;
-          heap.push({ k: nb.key, f: alt });
-        }
+        var alt = g[cur] + nb.dist;
+        if (g[nb.key] !== undefined && alt >= g[nb.key]) continue;
+        g[nb.key] = alt;
+        prev[nb.key] = cur;
+        var n = _nodes[nb.key];
+        heap.push({ k: nb.key, f: alt + SP.dist([n.lng, n.lat], goalCoord) });
       }
     }
 
-    if (prev[endKey] === undefined && startKey !== endKey) return null;
+    if (!found) return null;
 
     var path = [];
     var node = endKey;
@@ -217,120 +286,215 @@ App.editing = (function () {
       path.unshift(_nodes[node]);
       node = prev[node];
     }
-    return path.length > 0 ? path : null;
+    return path.length >= 2 ? path : null;
   }
 
-  function _routeAlongStreets(points) {
-    if (points.length < 2) return points;
-    var result = [];
+  /**
+   * Replace the straight hop a→b with a street path, but only when doing so
+   * cannot surprise anyone: both ends must have been snapped onto the street
+   * network, both must sit on a graph node within the snap radius, and the
+   * detour must be small. Anything else stays a straight line, because a
+   * vertex placed by hand is a statement about where the cut should go.
+   *
+   * @param {{latlng: L.LatLng, snapped: boolean}} a
+   * @param {{latlng: L.LatLng, snapped: boolean}} b
+   * @returns {L.LatLng[]|null} the intermediate path, or null to go straight
+   */
+  function _routeSegment(a, b) {
+    if (!s.cutFollow) return null;
+    if (!a.snapped || !b.snapped) return null;
 
-    for (var i = 0; i < points.length - 1; i++) {
-      var a = points[i],
-        b = points[i + 1];
-      var nodeA = _nearestStreetNode(a);
-      var nodeB = _nearestStreetNode(b);
-      var straight = a.distanceTo(b);
-      var canRoute =
-        nodeA &&
-        nodeB &&
-        (nodeA.dist < STREET_SNAP_THRESHOLD_M ||
-          nodeB.dist < STREET_SNAP_THRESHOLD_M);
+    var radius = _snapRadiusM();
+    var nodeA = _nearestStreetNode(a.latlng, radius);
+    var nodeB = _nearestStreetNode(b.latlng, radius);
+    if (!nodeA || !nodeB) return null;
 
-      if (canRoute) {
-        var path = _dijkstra(nodeA.key, nodeB.key);
-        if (path && path.length >= 2) {
-          var routed = 0;
-          for (var p = 0; p < path.length - 1; p++)
-            routed += path[p].distanceTo(path[p + 1]);
-          // Reject wild detours; a straight segment is better than a
-          // four-times-longer loop around the block.
-          if (routed <= straight * 4) {
-            for (var j = i === 0 ? 0 : 1; j < path.length; j++)
-              result.push(path[j]);
-            continue;
-          }
-        }
-      }
+    var path = _route(nodeA.key, nodeB.key);
+    if (!path || path.length < 2) return null;
 
-      if (i === 0) result.push(a);
-      result.push(b);
+    var routed = 0;
+    for (var i = 0; i < path.length - 1; i++)
+      routed += path[i].distanceTo(path[i + 1]);
+    var straight = a.latlng.distanceTo(b.latlng);
+
+    // Both a ratio and an absolute cap: the ratio alone lets a 10 m hop turn
+    // into a 17 m loop around a corner, and the cap alone lets a long
+    // cross-town segment wander.
+    if (routed > straight * s.CUT_ROUTE_MAX_DETOUR) return null;
+    if (routed - straight > s.CUT_ROUTE_MAX_EXTRA_M) return null;
+
+    return path;
+  }
+
+  /** Full geometry for a vertex list: routed where allowed, straight otherwise. */
+  function _routeAll(points) {
+    if (points.length < 2)
+      return points.map(function (p) {
+        return p.latlng;
+      });
+
+    var out = [points[0].latlng];
+    for (var i = 0; i < points.length - 1; i++)
+      _appendSegment(out, points[i], points[i + 1]);
+    return out;
+  }
+
+  /** Append the geometry for one hop onto `out`, which already ends at a. */
+  function _appendSegment(out, a, b) {
+    var path = _routeSegment(a, b);
+    if (path) {
+      // The graph path starts and ends on nodes, which may sit a few metres
+      // from the clicked points; keeping the clicked ends avoids a visible
+      // kink at every vertex.
+      for (var j = 1; j < path.length - 1; j++) out.push(path[j]);
     }
-    return result;
+    out.push(b.latlng);
+    return out;
   }
 
   // ── Extend the split line out to the nearest boundaries ───────────────
 
-  function _boundarySegments() {
-    var segments = [];
-    function add(layer) {
-      if (!layer || !layer.getLatLngs) return;
-      (function walk(arr) {
-        if (!Array.isArray(arr) || arr.length === 0) return;
-        if (arr[0] instanceof L.LatLng) {
-          for (var i = 0; i < arr.length; i++)
-            segments.push({ p1: arr[i], p2: arr[(i + 1) % arr.length] });
-        } else {
-          arr.forEach(walk);
-        }
-      })(layer.getLatLngs());
+  /**
+   * A cut only separates a territory if the line crosses right out of it.
+   * Each end is pushed along its own direction until it meets a boundary, and
+   * then a little past it.
+   *
+   * The overshoot is the important part. The old version cast its ray from
+   * the endpoint itself and took the nearest hit, so an endpoint that had
+   * snapped onto a boundary found that boundary at distance zero and did not
+   * move at all — leaving the line terminating exactly on the outline, where
+   * a hairline knife is a coin flip.
+   */
+  function _extendToBoundaries(latlngs) {
+    if (latlngs.length < 2 || !_edgeGrid) return latlngs;
+
+    var reach = 1.0; // degrees; replaced by the real extent when we have one
+    if (s.outerPolygonLayer) {
+      try {
+        var b = s.outerPolygonLayer.getBounds();
+        var dLat = b.getNorth() - b.getSouth();
+        var dLng = b.getEast() - b.getWest();
+        reach = Math.sqrt(dLat * dLat + dLng * dLng) * 1.2;
+      } catch (e) {
+        /* keep the default */
+      }
     }
-    App.polygons.clusterLayers().forEach(add);
-    if (s.outerPolygonLayer) add(s.outerPolygonLayer);
-    return segments;
+
+    var out = latlngs.slice();
+    out[0] = _pushOut(out[1], out[0], reach);
+    out[out.length - 1] = _pushOut(
+      out[out.length - 2],
+      out[out.length - 1],
+      reach,
+    );
+    return out;
   }
 
-  function _extendToBoundaries(points) {
-    if (points.length < 2) return points;
-    var segments = _boundarySegments();
+  function _pushOut(from, to, reach) {
+    var dLat = to.lat - from.lat;
+    var dLng = to.lng - from.lng;
+    var len = Math.sqrt(dLat * dLat + dLng * dLng);
+    if (len === 0) return to;
+    var uLat = dLat / len;
+    var uLng = dLng / len;
 
-    var extDeg = 1.0;
-    if (s.outerPolygonLayer) {
-      var b = s.outerPolygonLayer.getBounds();
-      var dLat = b.getNorth() - b.getSouth();
-      var dLng = b.getEast() - b.getWest();
-      extDeg = Math.sqrt(dLat * dLat + dLng * dLng) * 2;
-    }
+    // Start the ray just past the endpoint so a boundary the endpoint is
+    // already sitting on is not reported as a zero-distance hit.
+    var epsDeg = 0.2 / SP.M_PER_DEG_LAT;
+    var start = L.latLng(to.lat + uLat * epsDeg, to.lng + uLng * epsDeg);
+    var far = L.latLng(to.lat + uLat * reach, to.lng + uLng * reach);
 
-    function extend(from, to) {
-      var dLat = to.lat - from.lat,
-        dLng = to.lng - from.lng;
-      var len = Math.sqrt(dLat * dLat + dLng * dLng);
-      if (len === 0) return to;
-      var far = L.latLng(
-        to.lat + (dLat / len) * extDeg,
-        to.lng + (dLng / len) * extDeg,
+    var best = null;
+    var bestDist = Infinity;
+    var candidates = _edgeGrid.segmentCandidates(
+      [start.lng, start.lat],
+      [far.lng, far.lat],
+    );
+    for (var i = 0; i < candidates.length; i++) {
+      var item = _edgeGrid.items[candidates[i]];
+      if (!item.a) continue;
+      var hit = _segmentIntersection(
+        start,
+        far,
+        L.latLng(item.a[1], item.a[0]),
+        L.latLng(item.b[1], item.b[0]),
       );
-      var bestDist = Infinity,
-        best = null;
-      segments.forEach(function (seg) {
-        var hit = _segmentIntersection(to, far, seg.p1, seg.p2);
-        if (!hit) return;
-        var d = to.distanceTo(hit);
-        if (d < bestDist) {
-          bestDist = d;
-          best = hit;
-        }
-      });
-      return best || to;
+      if (!hit) continue;
+      var d = to.distanceTo(hit);
+      if (d < bestDist) {
+        bestDist = d;
+        best = hit;
+      }
     }
 
-    var out = points.slice();
-    out[0] = extend(out[1], out[0]);
-    out[out.length - 1] = extend(out[out.length - 2], out[out.length - 1]);
-    return out;
+    // Overshoot unconditionally: past the boundary we met, or past the
+    // endpoint itself when there was nothing to meet.
+    var anchor = best || to;
+    var overDeg = s.CUT_EXTEND_OVERSHOOT_M / SP.M_PER_DEG_LAT;
+    return L.latLng(anchor.lat + uLat * overDeg, anchor.lng + uLng * overDeg);
   }
 
   function _segmentIntersection(a, b, c, d) {
     var r = { lat: b.lat - a.lat, lng: b.lng - a.lng };
     var t2 = { lat: d.lat - c.lat, lng: d.lng - c.lng };
     var denom = r.lat * t2.lng - r.lng * t2.lat;
-    if (Math.abs(denom) < 1e-12) return null;
+    if (Math.abs(denom) < 1e-14) return null;
     var diff = { lat: c.lat - a.lat, lng: c.lng - a.lng };
     var t = (diff.lat * t2.lng - diff.lng * t2.lat) / denom;
     var u = (diff.lat * r.lng - diff.lng * r.lat) / denom;
     if (t >= 0 && t <= 1 && u >= 0 && u <= 1)
       return L.latLng(a.lat + t * r.lat, a.lng + t * r.lng);
     return null;
+  }
+
+  // ── Live "will this actually cut anything" check ──────────────────────
+
+  /**
+   * Count boundary crossings per territory. Two or more crossings means the
+   * line goes in one side and out another, which is the necessary condition
+   * for a separation; one crossing means it stops inside.
+   *
+   * This is a cheap approximation — a line that leaves and re-enters through
+   * the same edge also scores two — but it is right often enough to warn
+   * before committing, which is the whole point.
+   *
+   * @returns {{separates: number, touches: number}}
+   */
+  function _crossingReport(latlngs) {
+    if (!_edgeGrid || latlngs.length < 2) return { separates: 0, touches: 0 };
+
+    var counts = Object.create(null);
+    for (var i = 0; i < latlngs.length - 1; i++) {
+      var a = latlngs[i];
+      var b = latlngs[i + 1];
+      var candidates = _edgeGrid.segmentCandidates(
+        [a.lng, a.lat],
+        [b.lng, b.lat],
+      );
+      for (var j = 0; j < candidates.length; j++) {
+        var item = _edgeGrid.items[candidates[j]];
+        if (!item.a) continue;
+        if (item.payload.ci < 0) continue; // the outer ring is not a territory
+        if (
+          !_segmentIntersection(
+            a,
+            b,
+            L.latLng(item.a[1], item.a[0]),
+            L.latLng(item.b[1], item.b[0]),
+          )
+        )
+          continue;
+        counts[item.payload.ci] = (counts[item.payload.ci] || 0) + 1;
+      }
+    }
+
+    var separates = 0;
+    var touches = 0;
+    Object.keys(counts).forEach(function (key) {
+      touches++;
+      if (counts[key] >= 2) separates++;
+    });
+    return { separates: separates, touches: touches };
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -358,6 +522,8 @@ App.editing = (function () {
 
   function _startDraw() {
     _points = [];
+    _routedPrefix = [];
+    _altHeld = false;
     rebuildSnapIndex();
 
     // The cursor belongs to the split line from here on: no tooltip trailing
@@ -365,18 +531,20 @@ App.editing = (function () {
     App.polygons.setTooltipMode("off");
     App.polygons.clearHover();
 
-    _previewLine = L.polyline([], {
-      color: "#e74c3c",
-      weight: 3,
-      dashArray: "6 4",
-      opacity: 0.9,
+    // Drawn first so it sits under the red vertices.
+    _ghostLine = L.polyline([], {
+      color: "#27ae60",
+      weight: 6,
+      opacity: 0.45,
+      interactive: false,
     }).addTo(s.leafletMap);
 
-    _rubberBand = L.polyline([], {
+    _previewLine = L.polyline([], {
       color: "#e74c3c",
       weight: 2,
-      dashArray: "3 6",
-      opacity: 0.6,
+      dashArray: "6 4",
+      opacity: 0.95,
+      interactive: false,
     }).addTo(s.leafletMap);
 
     _snapDot = L.circleMarker([0, 0], {
@@ -385,11 +553,13 @@ App.editing = (function () {
       fillColor: "#fff",
       fillOpacity: 1,
       weight: 2,
+      interactive: false,
     }).addTo(s.leafletMap);
 
     _vertexLayer = L.layerGroup().addTo(s.leafletMap);
 
     _hintBanner = D.mountOnMap("tpl-draw-hint", s.leafletMap);
+    _showCutToolbar();
 
     // Dragging stays enabled: Leaflet suppresses the click that follows a drag
     // (_draggableMoved), so panning cannot place a stray vertex, and a split
@@ -398,6 +568,7 @@ App.editing = (function () {
     s.leafletMap.on("mousemove", _onDrawMouseMove);
     s.leafletMap.on("click", _onDrawClick);
     s.leafletMap.on("dblclick", _onDrawDblClick);
+    s.leafletMap.on("zoomend", _refreshPreview);
   }
 
   function _stopDraw() {
@@ -406,6 +577,7 @@ App.editing = (function () {
     s.leafletMap.off("mousemove", _onDrawMouseMove);
     s.leafletMap.off("click", _onDrawClick);
     s.leafletMap.off("dblclick", _onDrawDblClick);
+    s.leafletMap.off("zoomend", _refreshPreview);
 
     try {
       s.leafletMap.doubleClickZoom.enable();
@@ -413,72 +585,141 @@ App.editing = (function () {
       /* map may already be gone */
     }
 
-    [_previewLine, _rubberBand, _snapDot, _vertexLayer].forEach(
-      function (layer) {
-        if (layer) s.leafletMap.removeLayer(layer);
-      },
-    );
-    _previewLine = _rubberBand = _snapDot = _vertexLayer = null;
+    [_previewLine, _ghostLine, _snapDot, _vertexLayer].forEach(function (
+      layer,
+    ) {
+      if (layer) s.leafletMap.removeLayer(layer);
+    });
+    _previewLine = _ghostLine = _snapDot = _vertexLayer = null;
     _hintBanner = D.remove(_hintBanner);
+    _hideCutToolbar();
     _points = [];
+    _routedPrefix = [];
     _pendingMove = null;
     _moveQueued = false;
+    _altHeld = false;
   }
 
   function _onDrawMouseMove(e) {
     _pendingMove = e.latlng;
+    var alt = !!(e.originalEvent && e.originalEvent.altKey);
+    if (alt !== _altHeld) _altHeld = alt;
     if (_moveQueued) return;
     _moveQueued = true;
     requestAnimationFrame(function () {
       _moveQueued = false;
       if (!s.editMode || !_pendingMove) return;
-      _applySnapPreview(_pendingMove);
+      _refreshPreview();
     });
   }
 
-  function _applySnapPreview(latlng) {
-    var hit = _snapToStreet(latlng);
-    if (_snapDot) {
+  /**
+   * Redraw the snap dot, the committed line and the green preview of the
+   * finished cut. Only the tail segment is routed here; everything up to the
+   * last committed vertex is cached in _routedPrefix, so the cost per frame
+   * is one A* over a short hop rather than one over the whole line.
+   */
+  function _refreshPreview() {
+    if (!s.editMode) return;
+
+    var hit = _pendingMove ? _snap(_pendingMove) : null;
+    if (_snapDot && hit) {
       _snapDot.setLatLng(hit.point);
-      // red on a street, blue on an existing boundary, hollow grey when the
-      // point is free-floating.
-      _snapDot.setStyle({
-        color:
-          hit.kind === "edge"
-            ? "#2980b9"
-            : hit.kind === "free"
-              ? "#95a5a6"
-              : "#e74c3c",
-        fillColor: hit.kind === "free" ? "transparent" : "#fff",
-        dashArray: hit.kind === "free" ? "2 2" : null,
-      });
+      _snapDot.setStyle(_snapDotStyle(hit.kind));
     }
-    if (_rubberBand && _points.length > 0) {
-      _rubberBand.setLatLngs([_points[_points.length - 1].latlng, hit.point]);
+
+    var full = _routedPrefix.slice();
+    if (hit) {
+      if (_points.length === 0) {
+        full = [];
+      } else {
+        _appendSegment(full, _points[_points.length - 1], {
+          latlng: hit.point,
+          snapped: hit.kind !== "free",
+        });
+      }
     }
+
+    if (_previewLine) {
+      var raw = _latlngs();
+      if (hit && raw.length) raw = raw.concat([hit.point]);
+      _previewLine.setLatLngs(raw);
+    }
+
+    var finished = full.length >= 2 ? _extendToBoundaries(full) : [];
+    if (_ghostLine) _ghostLine.setLatLngs(finished);
+    _updateCutStatus(finished);
+  }
+
+  function _snapDotStyle(kind) {
+    if (kind === "node")
+      return {
+        color: "#e67e22",
+        fillColor: "#fff",
+        fillOpacity: 1,
+        dashArray: null,
+        radius: 7,
+      };
+    if (kind === "edge")
+      return {
+        color: "#2980b9",
+        fillColor: "#fff",
+        fillOpacity: 1,
+        dashArray: null,
+        radius: 6,
+      };
+    if (kind === "free")
+      return {
+        color: "#7f8c8d",
+        fillColor: "#fff",
+        fillOpacity: 0,
+        dashArray: "2 2",
+        radius: 5,
+      };
+    return {
+      color: "#e74c3c",
+      fillColor: "#fff",
+      fillOpacity: 1,
+      dashArray: null,
+      radius: 6,
+    };
   }
 
   function _onDrawClick(e) {
     L.DomEvent.stopPropagation(e);
     L.DomEvent.preventDefault(e);
-    var snapped = _snapToStreet(e.latlng).point;
-    _points.push({ latlng: snapped, t: Date.now() });
-    _renderPoints();
-    if (_points.length === 1 && _rubberBand)
-      _rubberBand.setLatLngs([snapped, snapped]);
+    _altHeld = !!(e.originalEvent && e.originalEvent.altKey);
+
+    var hit = _snap(e.latlng);
+    _addPoint(hit.point, hit.kind !== "free");
+    if (!_pendingMove) _pendingMove = e.latlng;
+    _refreshPreview();
   }
 
-  /** Redraw the committed part of the line and its vertex dots. */
-  function _renderPoints() {
-    if (_previewLine) _previewLine.setLatLngs(_latlngs());
+  function _addPoint(latlng, snapped) {
+    var point = { latlng: latlng, t: Date.now(), snapped: !!snapped };
+    if (_points.length === 0) _routedPrefix = [latlng];
+    else _appendSegment(_routedPrefix, _points[_points.length - 1], point);
+    _points.push(point);
+    _renderVertices();
+  }
+
+  /** Recompute the cached routed prefix from scratch, after an undo. */
+  function _rebuildPrefix() {
+    _routedPrefix = _points.length ? _routeAll(_points) : [];
+  }
+
+  function _renderVertices() {
     if (!_vertexLayer) return;
     _vertexLayer.clearLayers();
     _points.forEach(function (point, i) {
       L.circleMarker(point.latlng, {
         radius: 4,
-        color: "#e74c3c",
+        // Hollow means hand-placed: that vertex is joined by straight lines
+        // and will not be re-routed, which is worth being able to see.
+        color: point.snapped ? "#e74c3c" : "#7f8c8d",
         fillColor: i === _points.length - 1 ? "#e74c3c" : "#fff",
-        fillOpacity: 1,
+        fillOpacity: point.snapped ? 1 : 0.35,
         weight: 2,
         interactive: false,
       }).addTo(_vertexLayer);
@@ -493,17 +734,9 @@ App.editing = (function () {
   function undoPoint() {
     if (!s.editMode || _points.length === 0) return false;
     _points.pop();
-    _renderPoints();
-    if (_rubberBand) {
-      _rubberBand.setLatLngs(
-        _points.length && _pendingMove
-          ? [
-              _points[_points.length - 1].latlng,
-              _snapToStreet(_pendingMove).point,
-            ]
-          : [],
-      );
-    }
+    _rebuildPrefix();
+    _renderVertices();
+    _refreshPreview();
     return true;
   }
 
@@ -524,9 +757,9 @@ App.editing = (function () {
     L.DomEvent.preventDefault(e);
 
     var now = Date.now();
-    // At most the two trailing clicks belong to this gesture. The old loop
-    // popped everything inside the window, which ate real vertices from anyone
-    // placing points quickly along a street.
+    // At most the two trailing clicks belong to this gesture. Popping
+    // everything inside the window ate real vertices from anyone placing
+    // points quickly along a street.
     var popped = 0;
     while (
       popped < 2 &&
@@ -536,38 +769,55 @@ App.editing = (function () {
       _points.pop();
       popped++;
     }
-    _points.push({ latlng: _snapToStreet(e.latlng).point, t: now });
+    if (popped) _rebuildPrefix();
+
+    _altHeld = !!(e.originalEvent && e.originalEvent.altKey);
+    var hit = _snap(e.latlng);
+    _addPoint(hit.point, hit.kind !== "free");
     _finishLine();
   }
 
   /** Close the line and hand it to the splitter. */
   function _finishLine() {
-    var pts = _latlngs();
+    if (_points.length < 2) {
+      console.warn(">>> Need at least two vertices to split");
+      return;
+    }
+
+    var cut = _extendToBoundaries(_routeAll(_points));
+    _lastCut = cut;
+
     s.editMode = false;
     _stopDraw();
     var btn = document.querySelector(".tb-btn.edit-mode-btn");
     if (btn) btn.classList.remove("is-active");
 
-    if (pts.length < 2) {
-      console.warn(">>> Need at least two vertices to split");
-      return;
-    }
-
-    var routed = _extendToBoundaries(_routeAlongStreets(pts));
-
-    var preview = L.polyline(routed, {
-      color: "#27ae60",
-      weight: 3,
-      opacity: 0.9,
-    }).addTo(s.leafletMap);
-    setTimeout(function () {
-      s.leafletMap.removeLayer(preview);
-    }, 2000);
-
     App.ui.showBusy(T("loading.cutting"));
     setTimeout(function () {
-      _splitWithLine(routed);
+      _splitWithLine(cut);
     }, 30);
+  }
+
+  /**
+   * Leave the line on the map so a failed cut can be seen rather than
+   * guessed at. Green when it worked, red when it did not, and the failed one
+   * lingers because that is the case worth looking at.
+   */
+  function _flashLine(latlngs, ok) {
+    if (!latlngs || latlngs.length < 2) return;
+    var line = L.polyline(latlngs, {
+      color: ok ? "#27ae60" : "#e74c3c",
+      weight: ok ? 3 : 4,
+      opacity: 0.9,
+      dashArray: ok ? null : "8 5",
+      interactive: false,
+    }).addTo(s.leafletMap);
+    setTimeout(
+      function () {
+        if (s.leafletMap) s.leafletMap.removeLayer(line);
+      },
+      ok ? 2000 : 8000,
+    );
   }
 
   function _onKeyDown(e) {
@@ -575,6 +825,11 @@ App.editing = (function () {
     var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 
     if (s.editMode) {
+      if (e.key === "Alt" && !_altHeld) {
+        _altHeld = true;
+        _refreshPreview();
+        return;
+      }
       if (e.key === "Escape") {
         toggleEditMode();
         return;
@@ -589,11 +844,110 @@ App.editing = (function () {
       if ((e.key === "Backspace" || e.key === "Delete") && !typing) {
         e.preventDefault();
         undoPoint();
+        return;
+      }
+      if (!typing && !e.ctrlKey && !e.metaKey) {
+        var key = e.key.toLowerCase();
+        if (key === "s") {
+          e.preventDefault();
+          _setToggle("cutSnap", !s.cutSnap);
+          return;
+        }
+        if (key === "f") {
+          e.preventDefault();
+          _setToggle("cutFollow", !s.cutFollow);
+          return;
+        }
+        if (key === "b") {
+          e.preventDefault();
+          _setToggle("cutSnapEdges", !s.cutSnapEdges);
+          return;
+        }
       }
       return;
     }
 
     if (e.key === "Escape" && s.mergeMode) toggleMergeMode();
+  }
+
+  function _onKeyUp(e) {
+    if (e.key === "Alt" && _altHeld) {
+      _altHeld = false;
+      if (s.editMode) _refreshPreview();
+    }
+  }
+
+  // ── Cut toolbar ───────────────────────────────────────────────────────
+
+  function _showCutToolbar() {
+    _hideCutToolbar();
+    _cutToolbar = D.mountOnMap("tpl-cut-toolbar", s.leafletMap);
+
+    _wireToggle("snap", "cutSnap");
+    _wireToggle("follow", "cutFollow");
+    _wireToggle("edges", "cutSnapEdges");
+
+    D.onRole(_cutToolbar, "finish", function () {
+      if (_points.length >= 2) _finishLine();
+    });
+    D.onRole(_cutToolbar, "undo", undoPoint);
+    D.onRole(_cutToolbar, "cancel", function () {
+      if (s.editMode) toggleEditMode();
+    });
+
+    _updateCutStatus([]);
+  }
+
+  function _wireToggle(role, flag) {
+    var box = D.role(_cutToolbar, role);
+    if (!box) return;
+    box.checked = !!s[flag];
+    box.addEventListener("change", function () {
+      s[flag] = !!box.checked;
+      // Routing depends on which vertices count as snapped, and that does not
+      // change retroactively — but the geometry between them does, so the
+      // whole prefix has to be rebuilt rather than just the tail.
+      _rebuildPrefix();
+      _refreshPreview();
+    });
+  }
+
+  function _setToggle(flag, value) {
+    s[flag] = value;
+    if (_cutToolbar) {
+      var role = flag === "cutSnap" ? "snap" : flag === "cutFollow" ? "follow" : "edges";
+      var box = D.role(_cutToolbar, role);
+      if (box) box.checked = value;
+    }
+    _rebuildPrefix();
+    _refreshPreview();
+  }
+
+  function _updateCutStatus(finished) {
+    if (!_cutToolbar) return;
+    D.text(_cutToolbar, "count", T("cut.vertices", { n: _points.length }));
+
+    if (_points.length < 2) {
+      D.text(_cutToolbar, "status", T("cut.needMore"));
+      D.toggleClass(_cutToolbar, "is-ready", false);
+      return;
+    }
+
+    var report = _crossingReport(finished || []);
+    D.text(
+      _cutToolbar,
+      "status",
+      report.separates > 0
+        ? T("cut.willCut", { n: report.separates })
+        : report.touches > 0
+          ? T("cut.willTouch")
+          : T("cut.willMiss"),
+    );
+    D.toggleClass(_cutToolbar, "is-ready", report.separates > 0);
+  }
+
+  function _hideCutToolbar() {
+    _cutToolbar = D.remove(_cutToolbar);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -673,6 +1027,9 @@ App.editing = (function () {
         s.clusters.length,
         "total",
       );
+
+      _flashLine(_lastCut, splitCount > 0);
+
       if (splitCount === 0) {
         // Crossing a territory and separating it are different things: a line
         // that enters and leaves through the same edge, or that stops short of
@@ -691,17 +1048,47 @@ App.editing = (function () {
    * Subtract a thin buffer around `line` from every polygonal part of
    * `feature`. Returns geometries only when the part count actually grew —
    * otherwise a MultiPolygon that was merely trimmed would look like a split.
+   *
+   * The knife width escalates on failure. Be honest about what this is: on
+   * synthetic tests — zig-zag lines, 60-vertex irregular cells, lines flush
+   * with an edge — a wider blade never rescued a cut that the 1.5 cm one
+   * missed, and it never should, because every failure there was a line that
+   * did not go all the way across. Escalation is insurance against
+   * floating-point cases nobody has reproduced, it only runs after a real
+   * failure, and it costs one extra difference() on a line that was going to
+   * be reported as broken anyway. If it never fires, delete it.
+   *
+   * The widths are capped below geometry.unionHealed's 1 m healing reach, so
+   * two halves cut apart here can still be merged back together later without
+   * leaving a visible seam. That is the actual constraint on how wide the
+   * blade may get.
    */
   function _cutWithLine(feature, line) {
-    var OFFSET_KM = 0.000015;
     var parts = G.polygonParts(feature);
     if (parts.length === 0) return null;
 
+    var widths = s.CUT_KNIFE_M || [0.25, 1, 3];
+    for (var i = 0; i < widths.length; i++) {
+      var pieces = _cutOnce(parts, line, widths[i]);
+      if (pieces) {
+        if (i > 0)
+          console.log(">>> Cut needed a", widths[i], "m knife to separate");
+        return pieces;
+      }
+    }
+    return null;
+  }
+
+  function _cutOnce(parts, line, meters) {
     var knife;
     try {
-      knife = turf.buffer(G.feat(line), OFFSET_KM, {
-        units: "kilometers",
-        steps: 1,
+      // steps controls the arc resolution of the caps and joins. 8 rounds
+      // them properly rather than collapsing them to a point; on the cases
+      // tested it made no difference to whether a cut succeeded, so this is
+      // correctness for its own sake, not a fix for anything observed.
+      knife = turf.buffer(G.feat(line), meters, {
+        units: "meters",
+        steps: 8,
       });
     } catch (e) {
       console.warn(">>> Could not build the cutting buffer:", e.message);
@@ -710,23 +1097,42 @@ App.editing = (function () {
     if (!knife || !knife.geometry) return null;
 
     var out = [];
-    parts.forEach(function (part) {
+    var grew = false;
+
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
       var cut = null;
       try {
         cut = G.difference(part, knife);
       } catch (e) {
         cut = null;
       }
+      // A null difference means the knife swallowed the part whole. Keeping
+      // the original is the conservative reading; deleting territory is not
+      // something a cut should ever do by accident.
       if (!cut || !cut.geometry) {
         out.push(part.geometry);
-        return;
+        continue;
       }
-      G.polygonParts(cut).forEach(function (piece) {
+
+      var pieces = G.polygonParts(cut).filter(function (piece) {
+        try {
+          return turf.area(piece) >= s.CUT_MIN_PIECE_M2;
+        } catch (e) {
+          return true;
+        }
+      });
+      if (pieces.length === 0) {
+        out.push(part.geometry);
+        continue;
+      }
+      if (pieces.length > 1) grew = true;
+      pieces.forEach(function (piece) {
         out.push(piece.geometry);
       });
-    });
+    }
 
-    return out.length > parts.length ? out : null;
+    return grew && out.length > parts.length ? out : null;
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -852,7 +1258,11 @@ App.editing = (function () {
 
   function _updateMergeCount() {
     if (_mergeToolbar)
-      D.text(_mergeToolbar, "count", s.selectedClusters.length + " selected");
+      D.text(
+        _mergeToolbar,
+        "count",
+        T("merge.selected", { count: s.selectedClusters.length }),
+      );
   }
 
   function _clearSelection() {
@@ -863,813 +1273,13 @@ App.editing = (function () {
     _updateMergeCount();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // WASTE SEGMENTATION
-  //
-  // Rather than eroding a territory's outline geometrically, cut the empty
-  // land out along streets and leave it as its own territory. Two things fall
-  // out of that: the new edge follows a street because the cut lines are
-  // streets, and the empty piece is then just an ordinary building-free
-  // territory, which the cleanup pass below already knows how to dispose of.
-  // ══════════════════════════════════════════════════════════════════════
-
-  /** A point guaranteed to lie inside the feature. */
-  function _repPoint(feature) {
-    try {
-      return turf.pointOnFeature(G.feat(feature));
-    } catch (e) {
-      try {
-        return turf.centroid(G.feat(feature));
-      } catch (e2) {
-        return null;
-      }
-    }
-  }
-
-  function _contactArea(probe, feature) {
-    try {
-      var hit = G.intersect(probe, feature);
-      return hit ? turf.area(hit) : 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-
-  /** Total rings across every part — used to reject newly punched holes. */
-  function _ringCount(feature) {
-    return G.polygonParts(feature).reduce(function (n, part) {
-      return n + part.geometry.coordinates.length;
-    }, 0);
-  }
-
-  /**
-   * A thin band along the outer boundary. Measuring area overlap against this
-   * is far more robust than testing line-polygon intersection at floating
-   * point, where a shared edge may or may not register.
-   */
-  function _outerEdgeBand(outerFeature) {
-    try {
-      return turf.buffer(
-        turf.polygonToLine(outerFeature),
-        WASTE_TOUCH_SLACK_M,
-        { units: "meters" },
-      );
-    } catch (e) {
-      console.warn(">>> Could not build the outer edge band:", e.message);
-      return null;
-    }
-  }
-
-  function _touchesEdge(feature, edgeBand) {
-    if (!edgeBand) return false;
-    var probe;
-    try {
-      probe = turf.buffer(G.feat(feature), WASTE_TOUCH_SLACK_M, {
-        units: "meters",
-      });
-    } catch (e) {
-      return false;
-    }
-    return probe
-      ? _contactArea(probe, edgeBand) >= WASTE_MIN_CONTACT_M2
-      : false;
-  }
-
-  /** Buildings inside a feature — used to report what a discard threw away. */
-  function _buildingsIn(feature) {
-    if (!s.cachedBuildings || !s.cachedBuildings.features.length) return 0;
-    var box;
-    try {
-      box = turf.bbox(G.feat(feature));
-    } catch (e) {
-      return 0;
-    }
-
-    var count = 0;
-    s.cachedBuildings.features.forEach(function (b) {
-      if (!b.geometry) return;
-      var centroid = b._centroid;
-      if (!centroid) {
-        try {
-          centroid = b._centroid = turf.centroid(G.feat(b.geometry));
-        } catch (e) {
-          return;
-        }
-      }
-      var c = centroid.geometry.coordinates;
-      if (c[0] < box[0] || c[0] > box[2] || c[1] < box[1] || c[1] > box[3])
-        return;
-      try {
-        if (turf.booleanPointInPolygon(centroid, G.feat(feature))) count++;
-      } catch (e) {
-        /* malformed territory */
-      }
-    });
-    return count;
-  }
-
-  // ── Dwelling classification ───────────────────────────────────────────
-
-  /** OSM building values that are unambiguously somewhere people live. */
-  var DWELLING_TAGS = {
-    apartments: 1,
-    residential: 1,
-    house: 1,
-    detached: 1,
-    semidetached_house: 1,
-    terrace: 1,
-    terraced_house: 1,
-    bungalow: 1,
-    dormitory: 1,
-    cabin: 1,
-    houseboat: 1,
-    static_caravan: 1,
-    farm: 1, // building=farm is the farmhouse itself
-  };
-
-  /** Values that are unambiguously not. */
-  var NON_DWELLING_TAGS = {
-    garage: 1,
-    garages: 1,
-    carport: 1,
-    shed: 1,
-    hut: 1,
-    barn: 1,
-    stable: 1,
-    sty: 1,
-    cowshed: 1,
-    farm_auxiliary: 1,
-    greenhouse: 1,
-    silo: 1,
-    storage_tank: 1,
-    slurry_tank: 1,
-    digester: 1,
-    bunker: 1,
-    roof: 1,
-    canopy: 1,
-    ruins: 1,
-    construction: 1,
-    transformer_tower: 1,
-    water_tower: 1,
-    service: 1,
-    container: 1,
-    tent: 1,
-    allotment_house: 1,
-    boathouse: 1,
-    kiosk: 1,
-    toilets: 1,
-    shelter: 1,
-  };
-
-  /**
-   * How likely a building is to hold someone's front door.
-   *
-   * @returns {number} 1 = dwelling, 0 = not, 0.5 = unclear
-   *
-   * Most OSM buildings carry nothing but building=yes, so the tag alone
-   * decides only the clear cases. An address is treated as a dwelling even
-   * when it is really a shop: for door-to-door work an address is a door, and
-   * erring that way keeps land rather than discarding it.
-   */
-  function _dwellingScore(building) {
-    if (building._dwelling !== undefined) return building._dwelling;
-
-    var props = building.properties || {};
-    var score;
-
-    if (props["addr:housenumber"]) {
-      score = 1;
-    } else {
-      var tag = String(props.building || "").toLowerCase();
-      if (DWELLING_TAGS[tag]) {
-        score = 1;
-      } else if (NON_DWELLING_TAGS[tag]) {
-        score = 0;
-      } else {
-        var levels = parseFloat(props["building:levels"]);
-        if (!isNaN(levels) && levels >= WASTE_MIN_LEVELS) {
-          score = 1;
-        } else {
-          // Nothing but building=yes. Footprint is the last signal left: a
-          // garage is small, an apartment block is not.
-          var footprint = building._footprint;
-          if (footprint === undefined) {
-            try {
-              footprint = building._footprint = turf.area(G.feat(building.geometry));
-            } catch (e) {
-              footprint = building._footprint = 0;
-            }
-          }
-          score = footprint < WASTE_SMALL_FOOTPRINT_M2 ? 0 : 0.5;
-        }
-      }
-    }
-
-    building._dwelling = score;
-    return score;
-  }
-
-  /**
-   * @returns {{dwellings: number, unsure: number, buildings: number, hectares: number}}
-   */
-  function _dwellingStats(feature) {
-    var stats = { dwellings: 0, unsure: 0, buildings: 0, hectares: 0 };
-    var poly = G.feat(feature);
-
-    try {
-      stats.hectares = turf.area(poly) / 10000;
-    } catch (e) {
-      return stats;
-    }
-    if (!s.cachedBuildings || !s.cachedBuildings.features.length) return stats;
-
-    var box;
-    try {
-      box = turf.bbox(poly);
-    } catch (e) {
-      return stats;
-    }
-
-    s.cachedBuildings.features.forEach(function (b) {
-      if (!b.geometry) return;
-      var centroid = b._centroid;
-      if (!centroid) {
-        try {
-          centroid = b._centroid = turf.centroid(G.feat(b.geometry));
-        } catch (e) {
-          return;
-        }
-      }
-      var c = centroid.geometry.coordinates;
-      if (c[0] < box[0] || c[0] > box[2] || c[1] < box[1] || c[1] > box[3]) return;
-      try {
-        if (!turf.booleanPointInPolygon(centroid, poly)) return;
-      } catch (e) {
-        return;
-      }
-
-      stats.buildings++;
-      var score = _dwellingScore(b);
-      if (score === 1) stats.dwellings++;
-      else if (score === 0.5) stats.unsure++;
-    });
-
-    return stats;
-  }
-
-  /**
-   * Land is disposable when it holds no confirmed dwelling, and any ambiguous
-   * buildings are sparse enough to read as outbuildings rather than a hamlet.
-   *
-   * A confirmed dwelling always wins: no threshold can discard one.
-   */
-  function _isDisposable(stats) {
-    if (stats.dwellings > 0) return false;
-    if (stats.unsure === 0) return true;
-    if (stats.hectares <= 0) return false;
-    return stats.unsure / stats.hectares <= WASTE_MAX_UNSURE_PER_HA;
-  }
-
-  /**
-   * Polygonize the street network plus the outer ring into blocks.
-   *
-   * Done once for the whole area rather than per territory: noding a town's
-   * street network is the expensive part, while assigning the resulting blocks
-   * to territories is a cheap point-in-polygon test.
-   */
-  function _streetBlocks(outerFeature) {
-    if (!s.cachedStreets || !s.cachedStreets.features.length) return [];
-
-    var lines = [];
-    s.cachedStreets.features.forEach(function (f) {
-      if (!f.geometry) return;
-      var parts =
-        f.geometry.type === "MultiLineString"
-          ? f.geometry.coordinates
-          : [f.geometry.coordinates];
-      parts.forEach(function (coords) {
-        if (coords && coords.length >= 2) lines.push(coords);
-      });
-    });
-
-    // Without the ring, blocks at the edge never close and polygonize drops them.
-    var ring = outerFeature.geometry.coordinates[0];
-    for (var i = 0; i < ring.length - 1; i++) lines.push([ring[i], ring[i + 1]]);
-
-    try {
-      var noded = G.nodeLineSegments(lines);
-      var fc = noded
-        .map(function (coords) {
-          var clean = G.dedupCoords(G.roundCoords(coords, 5), 1e-7);
-          if (clean.length < 2) return null;
-          try {
-            return turf.lineString(clean);
-          } catch (e) {
-            return null;
-          }
-        })
-        .filter(Boolean);
-
-      var polygonized = turf.polygonize(turf.featureCollection(fc));
-      return polygonized && polygonized.features ? polygonized.features : [];
-    } catch (e) {
-      console.warn(">>> Block polygonize failed:", e.message);
-      return [];
-    }
-  }
-
-  /**
-   * Index the blocks: who owns each, which touch the outer boundary, and which
-   * are adjacent to which.
-   *
-   * Adjacency is exact rather than geometric. Every block came out of the same
-   * noded planar graph, so two blocks share a boundary exactly when they share
-   * an edge with identical endpoints — a hash lookup instead of a buffer and
-   * intersect per pair. That also makes "borders another territory" free: it
-   * is simply whether a neighboring block has a different owner.
-   *
-   * @returns {Array<{feature, owner, outer, adj: number[], disposable: boolean}>}
-   */
-  function _indexBlocks(blocks, outerRing, features) {
-    var PRECISION = 5;
-
-    function coordKey(c) {
-      return c[0].toFixed(PRECISION) + "," + c[1].toFixed(PRECISION);
-    }
-
-    function edgeKey(a, b) {
-      var ka = coordKey(a),
-        kb = coordKey(b);
-      return ka < kb ? ka + "|" + kb : kb + "|" + ka;
-    }
-
-    var feats = features.map(G.feat);
-    var boxes = feats.map(function (f) {
-      return turf.bbox(f);
-    });
-
-    var meta = [];
-    var edges = Object.create(null); // edgeKey -> [block index]
-
-    blocks.forEach(function (block, i) {
-      var entry = {
-        feature: block,
-        owner: -1,
-        outer: false,
-        adj: [],
-        disposable: false,
-      };
-      meta.push(entry);
-
-      var ring = block.geometry.coordinates[0];
-      var area = 0;
-      try {
-        area = turf.area(block);
-      } catch (e) {
-        return;
-      }
-      if (!ring || ring.length < 3 || area < WASTE_MIN_BLOCK_M2) return;
-
-      for (var e = 0; e < ring.length - 1; e++) {
-        var key = edgeKey(ring[e], ring[e + 1]);
-        (edges[key] || (edges[key] = [])).push(i);
-
-        if (!entry.outer) {
-          var mid = [
-            (ring[e][0] + ring[e + 1][0]) / 2,
-            (ring[e][1] + ring[e + 1][1]) / 2,
-          ];
-          if (G.isOnOuterBoundary(mid, outerRing)) entry.outer = true;
-        }
-      }
-
-      var pt = _repPoint(block);
-      if (!pt) return;
-      var c = pt.geometry.coordinates;
-      for (var t = 0; t < feats.length; t++) {
-        if (c[0] < boxes[t][0] || c[0] > boxes[t][2]) continue;
-        if (c[1] < boxes[t][1] || c[1] > boxes[t][3]) continue;
-        try {
-          if (turf.booleanPointInPolygon(pt, feats[t])) {
-            entry.owner = t;
-            break;
-          }
-        } catch (e2) {
-          /* try the next territory */
-        }
-      }
-
-      if (entry.owner >= 0) {
-        entry.disposable = _isDisposable(_dwellingStats(block));
-      }
-    });
-
-    Object.keys(edges).forEach(function (key) {
-      var shared = edges[key];
-      if (shared.length !== 2) return; // outer edge, or a degenerate overlap
-      meta[shared[0]].adj.push(shared[1]);
-      meta[shared[1]].adj.push(shared[0]);
-    });
-
-    return meta;
-  }
-
-  /**
-   * Carve building-free land out of its parent territory and emit it as
-   * separate features tagged properties.waste.
-   *
-   * The carve is a flood fill running inward from the outer boundary through
-   * disposable blocks of the same territory. Testing each block against the
-   * outer ring on its own only ever shaved one block deep, which left most of
-   * a wide empty margin behind.
-   *
-   * Two invariants keep it safe:
-   *   • the fill starts at the outer boundary and grows only through
-   *     neighbors, so the removed region stays connected to the outside — a
-   *     notch, never an interior hole;
-   *   • a block bordering another territory is never entered, so no seam
-   *     between two territories can be cut. That is self-enforcing: if block X
-   *     of territory A borders block Y of territory B, X sees a different
-   *     owner and the fill stops.
-   *
-   * @returns {{features: Array, carved: number, area: number}}
-   */
-  function _segmentWaste(features, outerFeature, edgeBand) {
-    var unchanged = { features: features, carved: 0, area: 0 };
-
-    var blocks = _streetBlocks(outerFeature);
-    if (blocks.length < 2) return unchanged;
-
-    var outerRing = outerFeature.geometry.coordinates[0];
-    var meta = _indexBlocks(blocks, outerRing, features);
-
-    function bordersAnotherTerritory(i) {
-      var owner = meta[i].owner;
-      for (var n = 0; n < meta[i].adj.length; n++) {
-        var other = meta[meta[i].adj[n]].owner;
-        if (other >= 0 && other !== owner) return true;
-      }
-      return false;
-    }
-
-    function fillable(i) {
-      return (
-        meta[i].disposable && meta[i].owner >= 0 && !bordersAnotherTerritory(i)
-      );
-    }
-
-    var carvedFlags = [];
-    var queue = [];
-    meta.forEach(function (entry, i) {
-      if (entry.outer && fillable(i)) {
-        carvedFlags[i] = true;
-        queue.push(i);
-      }
-    });
-
-    while (queue.length) {
-      var cur = queue.pop();
-      meta[cur].adj.forEach(function (nb) {
-        if (carvedFlags[nb]) return;
-        if (meta[nb].owner !== meta[cur].owner) return;
-        if (!fillable(nb)) return;
-        carvedFlags[nb] = true;
-        queue.push(nb);
-      });
-    }
-
-    var claims = Object.create(null);
-    carvedFlags.forEach(function (flag, i) {
-      if (!flag) return;
-      var owner = meta[i].owner;
-      (claims[owner] || (claims[owner] = [])).push(meta[i].feature);
-    });
-
-    var out = features.slice();
-    var carved = 0;
-    var carvedArea = 0;
-    var waste = [];
-
-    Object.keys(claims).forEach(function (key) {
-      var idx = parseInt(key, 10);
-      var parent = G.feat(out[idx]);
-      var baseParts = G.polygonParts(parent).length;
-      var baseRings = _ringCount(parent);
-      var kept = parent;
-      var taken = [];
-
-      claims[key].forEach(function (block) {
-        var candidate;
-        try {
-          candidate = G.difference(kept, block);
-        } catch (e) {
-          return;
-        }
-        if (!candidate || !candidate.geometry) return;
-
-        // Never split the parent and never punch a hole in it. Both are
-        // possible when a block reaches into a concave shape, and both are
-        // silent corruptions if left unchecked.
-        if (G.polygonParts(candidate).length !== baseParts) return;
-        if (_ringCount(candidate) > baseRings) return;
-        if (turf.area(candidate) <= 0) return;
-
-        kept = candidate;
-        taken.push(block);
-      });
-
-      if (taken.length === 0) return;
-
-      var lump = G.unionAll(taken);
-      if (!lump) return;
-      var lumpArea = 0;
-      try {
-        lumpArea = turf.area(lump);
-      } catch (e) {
-        return;
-      }
-      if (lumpArea < WASTE_MIN_AREA_M2) return;
-
-      out[idx] = {
-        type: "Feature",
-        geometry: kept.geometry,
-        properties: out[idx].properties || {},
-      };
-      carved++;
-      carvedArea += lumpArea;
-
-      // Each disconnected lump becomes its own territory, so the user can see
-      // exactly what is about to be discarded and keep any of it by hand.
-      G.polygonParts(lump).forEach(function (part) {
-        waste.push({
-          type: "Feature",
-          geometry: part.geometry,
-          properties: { waste: true },
-        });
-      });
-    });
-
-    console.log(
-      ">>> Waste fill:",
-      carvedFlags.filter(Boolean).length,
-      "of",
-      blocks.length,
-      "blocks across",
-      carved,
-      "territories",
-    );
-
-    return { features: out.concat(waste), carved: carved, area: carvedArea };
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
-  // CLEANUP — absorb clusters that contain no buildings
-  // ══════════════════════════════════════════════════════════════════════
-
-  function cleanupClusters() {
-    if (s.clusters.length === 0) {
-      alert(T("alert.cleanupNothing"));
-      return;
-    }
-    if (!s.cachedBuildings || s.cachedBuildings.features.length === 0) {
-      alert(T("alert.cleanupNoBuildings"));
-      return;
-    }
-
-    App.ui.showBusy(T("loading.cleanup"), T("loading.cleanupStatus"));
-    setTimeout(function () {
-      // Without this the overlay spins forever on any geometry error and the
-      // app looks hung, with the real cause only in the console.
-      try {
-        _runCleanup();
-      } catch (e) {
-        console.error(">>> Cleanup failed:", e);
-        App.ui.hideOverlay();
-        alert(T("alert.cleanupFailed", { message: e.message }));
-      }
-    }, 30);
-  }
-
-  function _runCleanup() {
-    var outerFeature = null;
-    try {
-      outerFeature = s.outerPolygonLayer
-        ? G.getOuterFeature(s.outerPolygonLayer)
-        : null;
-    } catch (e) {
-      outerFeature = null;
-    }
-
-    var features = App.polygons.clusterFeatures().slice();
-    var edgeBand = outerFeature ? _outerEdgeBand(outerFeature) : null;
-
-    // ── Stage 1: cut empty land at the outer edge into its own territories ──
-    var carved = 0;
-    var carvedArea = 0;
-    if (outerFeature && edgeBand) {
-      App.ui.setOverlayStatus(T("loading.segmenting"));
-      var segmented = _segmentWaste(features, outerFeature, edgeBand);
-      features = segmented.features;
-      carved = segmented.carved;
-      carvedArea = segmented.area;
-    }
-
-    // ── Stage 2: dispose of the empties ────────────────────────────────────
-    // An empty territory touching the outer boundary is discarded outright:
-    // removing it leaves a notch in the outside edge, which is the point.
-    // An empty territory in the interior is absorbed by a neighbor instead,
-    // because deleting that would leave a hole between territories.
-    var discarded = 0;
-    var absorbed = 0;
-    var droppedBuildings = 0;
-
-    App.ui.setOverlayStatus(T("loading.cleanupStatus"));
-
-    // Edge removals are independent of each other, so one sweep is enough.
-    var stats = _territoryStats(features);
-    for (var i = features.length - 1; i >= 0; i--) {
-      if (!_isDisposable(stats[i])) continue;
-      if (features.length <= 1) break;
-      if (!_touchesEdge(features[i], edgeBand)) continue;
-      droppedBuildings += stats[i].buildings;
-      features.splice(i, 1);
-      discarded++;
-    }
-
-    // Absorption changes geometry, so this part has to re-measure each pass.
-    var pass = 0;
-    var MAX_PASSES = 40;
-
-    while (pass < MAX_PASSES && features.length > 1) {
-      pass++;
-      App.ui.setOverlayStatus(T("loading.pass", { n: pass }));
-
-      stats = _territoryStats(features);
-      var emptyIdx = -1;
-      for (var q = 0; q < stats.length; q++) {
-        if (_isDisposable(stats[q])) {
-          emptyIdx = q;
-          break;
-        }
-      }
-      if (emptyIdx < 0) break;
-
-      var empty = G.feat(features[emptyIdx]);
-      var emptyCentroid = _repPoint(empty);
-      if (!emptyCentroid) {
-        features.splice(emptyIdx, 1);
-        discarded++;
-        continue;
-      }
-      var emptyCoords = emptyCentroid.geometry.coordinates;
-
-      // Nearest touching neighbor absorbs it; if nothing touches, drop it.
-      var bestIdx = -1,
-        bestD2 = Infinity;
-      for (var j = 0; j < features.length; j++) {
-        if (j === emptyIdx) continue;
-        var neighbor = G.feat(features[j]);
-        var touches = false;
-        try {
-          touches = !!G.intersect(empty, neighbor);
-        } catch (e) {
-          touches = false;
-        }
-        if (!touches) continue;
-        var seed = _repPoint(neighbor);
-        if (!seed) continue;
-        var d2 = SP.distSq(emptyCoords, seed.geometry.coordinates);
-        if (d2 < bestD2) {
-          bestD2 = d2;
-          bestIdx = j;
-        }
-      }
-
-      if (bestIdx >= 0) {
-        try {
-          var merged = G.union(features[bestIdx], empty);
-          if (merged && outerFeature) {
-            var clipped = G.intersect(merged, outerFeature);
-            if (clipped && clipped.geometry) merged = clipped;
-          }
-          if (merged && merged.geometry) {
-            features[bestIdx] = {
-              type: "Feature",
-              geometry: merged.geometry,
-              properties: features[bestIdx].properties || {},
-            };
-            absorbed++;
-          }
-        } catch (e) {
-          console.warn(">>> Absorb failed:", e.message);
-        }
-      } else {
-        discarded++;
-      }
-
-      features.splice(emptyIdx, 1);
-    }
-
-    if (App.history) App.history.push();
-    App.polygons.setClusters(features);
-    App.ui.hideOverlay();
-
-    console.log(
-      ">>> Cleanup: carved",
-      carved,
-      "| discarded",
-      discarded,
-      "(" + droppedBuildings + " non-dwelling buildings)",
-      "| absorbed",
-      absorbed,
-      "->",
-      features.length,
-      "territories",
-    );
-
-    alert(
-      T("alert.cleanupDone", {
-        carved: carved,
-        discarded: discarded,
-        absorbed: absorbed,
-        saved: Math.round(carvedArea),
-        dropped: droppedBuildings,
-        remaining: features.length,
-      }),
-    );
-  }
-
-  /**
-   * Dwelling stats for every territory in one pass over the buildings, with a
-   * bbox reject first. Replaces the old plain building count: a territory of
-   * barns has buildings but nobody to visit.
-   */
-  function _territoryStats(features) {
-    var feats = features.map(G.feat);
-    var boxes = feats.map(function (f) {
-      return turf.bbox(f);
-    });
-    var out = feats.map(function (f) {
-      var hectares = 0;
-      try {
-        hectares = turf.area(f) / 10000;
-      } catch (e) {
-        hectares = 0;
-      }
-      return { dwellings: 0, unsure: 0, buildings: 0, hectares: hectares };
-    });
-
-    if (!s.cachedBuildings || !s.cachedBuildings.features.length) return out;
-
-    s.cachedBuildings.features.forEach(function (b) {
-      if (!b.geometry) return;
-      var centroid = b._centroid;
-      if (!centroid) {
-        try {
-          centroid = b._centroid = turf.centroid(G.feat(b.geometry));
-        } catch (e) {
-          return;
-        }
-      }
-      var c = centroid.geometry.coordinates;
-
-      for (var i = 0; i < feats.length; i++) {
-        if (c[0] < boxes[i][0] || c[0] > boxes[i][2]) continue;
-        if (c[1] < boxes[i][1] || c[1] > boxes[i][3]) continue;
-        try {
-          if (!turf.booleanPointInPolygon(centroid, feats[i])) continue;
-        } catch (e) {
-          continue;
-        }
-
-        out[i].buildings++;
-        var score = _dwellingScore(b);
-        if (score === 1) out[i].dwellings++;
-        else if (score === 0.5) out[i].unsure++;
-        return;
-      }
-    });
-
-    return out;
-  }
-
   return {
-    // Pure decision logic, exposed for tests. Nothing else should call these;
-    // they are private to the cleanup pipeline.
-    _test: {
-      dwellingScore: _dwellingScore,
-      isDisposable: _isDisposable,
-      indexBlocks: _indexBlocks,
-      ringCount: _ringCount,
-    },
-
     init: init,
     toggleEditMode: toggleEditMode,
     toggleMergeMode: toggleMergeMode,
     undoPoint: undoPoint,
     handleClusterSelectClick: handleClusterSelectClick,
     mergeSelectedClusters: mergeSelectedClusters,
-    cleanupClusters: cleanupClusters,
     rebuildSnapIndex: rebuildSnapIndex,
   };
 })();
