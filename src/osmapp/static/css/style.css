@@ -936,3 +936,67 @@ body {
   height: 1px;
   margin-top: -0.5px;
 }
+
+/* ── PWA: update prompt and offline state ─────────────────────────────────── */
+
+.pwa-update {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font: var(--ui-fs-md) / 1.4 var(--ui-font);
+  color: var(--c-text);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.pwa-update-btn {
+  padding: 5px 12px;
+  font: inherit;
+  color: #fff;
+  cursor: pointer;
+  background: var(--c-accent);
+  border: 0;
+  border-radius: var(--radius-sm);
+}
+
+.pwa-update-dismiss {
+  padding: 0 4px;
+  font-size: var(--ui-fs-lg);
+  line-height: 1;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+.pwa-offline {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-overlay);
+  padding: 4px 12px;
+  font: var(--ui-fs-sm) / 1.4 var(--ui-font);
+  color: #fff;
+  background: var(--c-warn);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Network-dependent controls stay visible but read as unavailable, so the
+   reason a button does nothing is on screen rather than in the console.
+   Driven by a class on <body> so controls cloned out of a <template> after
+   the connection dropped are covered too. */
+.is-offline [data-online-only] {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.45;
+}

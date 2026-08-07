@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Territory Mapper">
+  <rect width="512" height="512" rx="96" fill="#3388ff"/>
+  <g fill="none" stroke="#ffffff" stroke-linejoin="round" stroke-linecap="round">
+    <!-- Street grid, echoing the map underneath a territory. -->
+    <g stroke-width="10" opacity="0.45">
+      <path d="M96 176h320M96 256h320M96 336h320"/>
+      <path d="M176 96v320M256 96v320M336 96v320"/>
+    </g>
+    <!-- The territory outline: a closed, hand-drawn polygon. -->
+    <path d="M150 190 L 262 128 L 386 196 L 356 330 L 214 372 Z" stroke-width="26"/>
+  </g>
+  <!-- Vertex handles, as drawn by the editor. -->
+  <g fill="#ffffff">
+    <circle cx="150" cy="190" r="20"/>
+    <circle cx="262" cy="128" r="20"/>
+    <circle cx="386" cy="196" r="20"/>
+    <circle cx="356" cy="330" r="20"/>
+    <circle cx="214" cy="372" r="20"/>
+  </g>
+</svg>

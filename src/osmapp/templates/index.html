@@ -3,16 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>OSM App / Territory Mapper</title>
+    <title>OSM Territory Mapper</title>
+    <meta name="theme-color" content="#3388ff" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
+      rel="manifest"
+      href="{{ url_for('pwa.manifest', lang=lang) }}"
     />
     <link
       rel="icon"
-      type="image/png"
-      href="{{ url_for('static', filename='img/favicon.png') }}"
-      sizes="512x512"
+      type="image/svg+xml"
+      href="{{ url_for('static', filename='icons/icon.svg') }}"
+    />
+    <link
+      rel="apple-touch-icon"
+      href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
     />
     {% for code, path in lang_paths.items() -%}
     <link rel="alternate" hreflang="{{ code }}" href="{{ path }}" />
@@ -395,6 +405,7 @@
           type="button"
           class="polygon-context-menu-item"
           data-role="print"
+          data-online-only
           role="menuitem"
         >
           <i class="fa-solid fa-print" aria-hidden="true"></i>
@@ -803,6 +814,7 @@
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>
     <script src="{{ url_for('static', filename='js/history.js') }}"></script>
     <script src="{{ url_for('static', filename='js/controls.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   </body>
 </html>

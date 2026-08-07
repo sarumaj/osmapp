@@ -95,6 +95,7 @@
     App.boundary.init();
     App.controls.init(map);
     App.history.init();
+    App.pwa.init();
 
     App._loaded.forEach((element) => {
       console.log(">>> Module loaded:", element);

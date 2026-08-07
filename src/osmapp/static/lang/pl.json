@@ -312,5 +312,15 @@
     "sand": "Piasek",
     "sett": "Kostka kamienna",
     "unpaved": "Nieutwardzona"
+  },
+  "pwa": {
+    "name": "Mapa terenów OSM",
+    "shortName": "Tereny",
+    "description": "Rysuj i zarządzaj wielokątami terenów na danych OpenStreetMap.",
+    "updateReady": "Dostępna jest nowa wersja.",
+    "updateAction": "Odśwież",
+    "updateDismiss": "Później",
+    "offline": "Offline",
+    "offlineHint": "Wymaga połączenia — niedostępne w trybie offline."
   }
 }

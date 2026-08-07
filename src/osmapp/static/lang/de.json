@@ -302,5 +302,15 @@
     "sand": "Sand",
     "sett": "Steinpflaster",
     "unpaved": "Unbefestigt"
+  },
+  "pwa": {
+    "name": "OSM Gebietskarte",
+    "shortName": "Gebiete",
+    "description": "Gebietspolygone auf OpenStreetMap-Daten zeichnen und verwalten.",
+    "updateReady": "Eine neue Version ist verfügbar.",
+    "updateAction": "Neu laden",
+    "updateDismiss": "Später",
+    "offline": "Offline",
+    "offlineHint": "Benötigt eine Verbindung — offline nicht verfügbar."
   }
 }

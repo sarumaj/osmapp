@@ -250,6 +250,76 @@ occasional personal use. **If you print territories in volume, set `TILE_URL`
 to your own or a commercial tile source.** Attribution is burned into every
 rendered image.
 
+## Installing as an app
+
+The app is a PWA: installable from the browser, and usable offline for
+everything that does not need the server.
+
+### What works offline
+
+|                                                       | Offline                                        |
+|-------------------------------------------------------|------------------------------------------------|
+| Open the app, restore the last session from IndexedDB | yes                                            |
+| Pan and zoom over tiles you have already looked at    | yes                                            |
+| Draw, cut, merge, split, undo/redo                    | yes                                            |
+| Export GeoJSON                                        | yes                                            |
+| Fetch streets and buildings (Overpass)                | **no**                                         |
+| Search a place or suggest a boundary (Nominatim)      | **no**                                         |
+| Print a card                                          | **no** — composition happens in `/compose_pdf` |
+
+Printing is the notable gap: `print.js` renders the basemap client-side but
+posts the image to the server, where reportlab and pypdf assemble it onto your
+template. Moving that into the browser would need a client-side PDF library.
+Prepare cards before you leave; use the offline map in the field.
+
+Going offline greys out controls marked `data-online-only` and shows a badge.
+Only the print action is marked so far — the attribute is the hook, add it to
+anything else that turns out to need it.
+
+### How freshness is handled
+
+Nothing under `static/js/` carries a fingerprint, so a service worker that
+cache-firsts those files has no way to notice a deploy. Rather than adding a
+build step to a project that deliberately has none, the cache version is a
+SHA-256 over the contents of every precached file, computed in
+`internal/pwa.py` and interpolated into `sw.js`. Change any asset and the
+worker's own bytes change; browsers byte-compare `sw.js` on every navigation,
+so "an asset changed" becomes "the worker updated" with nothing to bump by
+hand. The digest is memoized against the newest mtime in the tree, the same
+trick `i18n.py` uses, so a container hashes once and a dev edit is still picked
+up without a restart.
+
+Per request type:
+
+| Request                        | Strategy                    | Why                                                                                                                                |
+|--------------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| navigation (`/`, `/pl`, `/de`) | network-first               | The HTML inlines the dictionary and names the assets, so a stale copy is a wrong copy. Cached per path as the offline entry point. |
+| `/static/**`                   | cache-first                 | Freshness comes from the version digest, not from revalidating 42 files on every load.                                             |
+| `/tiles/**`                    | cache-first, capped at 2000 | Effectively immutable, already served with a week of `max-age`. Survives deploys — tiles have nothing to do with the app's assets. |
+| everything else                | network-only                | Overpass, Nominatim and PDF composition need a live server. A cached answer would just be a lie.                                   |
+
+**Updates are never applied silently.** A new worker installs and waits; the
+page offers a reload. The undo stack in `history.js` lives in memory and is not
+part of the IndexedDB session, so activating a new build mid-edit would throw
+it away along with the last second of debounced work.
+
+### Deliberately not done: bulk tile pre-fetch
+
+A "download this territory for offline use" button is the obvious next
+feature and the reason it is missing is policy, not effort. The OSM tile usage
+policy forbids bulk downloading, and the proxy already sits close to the line —
+see _Tile usage_ above. Tiles you actually looked at are cached as a
+side effect of looking at them, which is ordinary browser behavior. Systematically
+walking a bounding box at every zoom is not. If you point `TILE_URL` at your own
+or a commercial tile source, this becomes reasonable, and the service worker
+already has the cache to put them in.
+
+### Icons
+
+`static/icons/` holds an SVG plus generated PNGs. `.gitattributes` tracks
+`*.png` through Git LFS for the map markers, so an exception keeps these few
+kilobytes out of LFS — otherwise a plain clone could not install the app.
+
 ---
 
 ## Layout
@@ -260,7 +330,7 @@ templates/index.html      Page shell + every piece of UI markup as <template>
 static/css/style.css      All styling; design tokens at the top
 static/lang/{en,pl,de}.json
 static/js/                One IIFE module per file, namespaced under window.App
-static/cdn/               Vendored Leaflet plugins and Turf — no CDN at runtime
+static/vendor/            Vendored Leaflet plugins and Turf — no CDN at runtime
 ```
 
 ### Modules

@@ -302,5 +302,15 @@
     "sand": "Sand",
     "sett": "Stone sett",
     "unpaved": "Unpaved"
+  },
+  "pwa": {
+    "name": "OSM Territory Mapper",
+    "shortName": "Territories",
+    "description": "Draw and manage territory polygons on OpenStreetMap data.",
+    "updateReady": "A new version is available.",
+    "updateAction": "Reload",
+    "updateDismiss": "Later",
+    "offline": "Offline",
+    "offlineHint": "Needs a connection — unavailable offline."
   }
 }
