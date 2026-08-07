@@ -1,6 +1,7 @@
 """HTML views: index, health, localized index."""
 
 from flask import Blueprint, redirect, render_template, request, url_for
+from werkzeug.wrappers import Response
 
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, load_dictionary
 
@@ -43,7 +44,7 @@ def health() -> str:
     f"/<any({','.join(SUPPORTED_LANGS)}):lang>",
     strict_slashes=False,
 )
-def index_localized(lang: str):
+def index_localized(lang: str) -> Response | str:
     if lang == DEFAULT_LANG:
         return redirect(url_for("views.index"), code=302)
     if request.path.endswith("/"):

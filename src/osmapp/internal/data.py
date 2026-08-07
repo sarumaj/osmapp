@@ -3,10 +3,11 @@
 import json
 import logging
 import math
-from typing import Any, Sequence, cast
+from collections.abc import Sequence
+from typing import Any, cast
 
 import osmnx as ox
-from flask import Blueprint
+from flask import Blueprint, Response
 
 from .config import STREET_FILTER
 from .geo import polygon_from_request
@@ -128,7 +129,7 @@ def _with_osm_id(gdf: Any) -> Any:
 
 
 @bp.route("/fetch_streets", methods=["POST"])
-def fetch_streets():
+def fetch_streets() -> Response:
     try:
         geom = polygon_from_request()
     except BadRequest as exc:
@@ -155,7 +156,7 @@ def fetch_streets():
 
 
 @bp.route("/fetch_buildings", methods=["POST"])
-def fetch_buildings():
+def fetch_buildings() -> Response:
     try:
         geom = polygon_from_request()
     except BadRequest as exc:

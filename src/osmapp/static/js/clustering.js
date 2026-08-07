@@ -146,7 +146,7 @@ App.clustering = (function () {
         return;
       }
       calc.textContent = byBuildings
-        ? T("partition.calcBuildings", { k: k, each: Math.floor(total / k) })
+        ? T("partition.calcBuildings", { count: k, k: k, each: Math.floor(total / k) })
         : T("partition.calcArea", { k: k, each: Math.round(outerArea / k) });
     }
 

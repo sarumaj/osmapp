@@ -250,6 +250,42 @@ occasional personal use. **If you print territories in volume, set `TILE_URL`
 to your own or a commercial tile source.** Attribution is burned into every
 rendered image.
 
+### Tests
+
+```bash
+pip install -e ".[test]"
+pytest                                # 23 tests
+node --test "tests/js/*.test.mjs"     # 18 tests, no npm install
+```
+
+Deliberately small. A test earns its place only if a failure would be **silent
+and consequential** — anything that breaks loudly (a 404, a startup error, a
+blank page) is not worth the maintenance. That leaves five things:
+
+|                            | Why                                                                                      |
+|----------------------------|------------------------------------------------------------------------------------------|
+| `nodeLineSegments`         | A dropped intersection makes a territory that looks fine until it is cut.                |
+| `spatial.Grid` / `MinHeap` | A wrong nearest segment makes the cut tool snap somewhere plausible but wrong.           |
+| `_clean`                   | Shapes every property in every payload; a mishandled NaN becomes `"nan"` in an export.   |
+| `prune_tiles`              | Deletes files.                                                                           |
+| `inspect_template`         | Picks the wrong rectangle and the map lands in the wrong box on a hundred printed cards. |
+
+Plus three guards that cover a lot of ground for two assertions each:
+dictionary key parity across `en`/`pl`/`de`, every inflecting key being called
+with a `count` (this caught `partition.calcBuildings` shipping English to
+Polish users), and the PWA cache digest actually changing when an asset does.
+
+The JavaScript suite uses Node's built-in runner and has no dependencies, in
+the same spirit as the vendored client. `tests/js/helpers/load.mjs` compiles
+each `static/js/*.js` file into a function whose parameters are the browser
+globals it expects, so the sources run unmodified.
+
+CI (`.github/workflows/ci.yml`) runs both on every push and pull request.
+Deployment is unchanged: `deploy.yml` still triggers manually or by
+`repository_dispatch`. To gate releases on tests, add `needs:` to its job.
+
+---
+
 ## Installing as an app
 
 The app is a PWA: installable from the browser, and usable offline for
@@ -330,7 +366,7 @@ templates/index.html      Page shell + every piece of UI markup as <template>
 static/css/style.css      All styling; design tokens at the top
 static/lang/{en,pl,de}.json
 static/js/                One IIFE module per file, namespaced under window.App
-static/vendor/            Vendored Leaflet plugins and Turf — no CDN at runtime
+static/cdn/               Vendored Leaflet plugins and Turf — no CDN at runtime
 ```
 
 ### Modules

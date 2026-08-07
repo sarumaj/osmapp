@@ -1,22 +1,78 @@
 name: deploy_to_heroku
+
 on:
+  push:
+    branches: ["**"]
+  pull_request:
   workflow_dispatch:
   repository_dispatch:
     types: [deploy-trigger]
+
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build_and_release:
-    concurrency:
-      group: deploy-${{ github.event.client_payload.ref }}
-      cancel-in-progress: true
+  test_python:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-    runs-on: ${{ matrix.os }}
+        python-version: ["3.13", "3.14"]
+    concurrency:
+      group: test-python-${{ matrix.python-version }}-${{ github.event.client_payload.ref || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[test]"
+
+      - name: Test
+        run: pytest
+
+  test_javascript:
+    name: Test (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["22", "24"]
+    concurrency:
+      group: test-js-${{ matrix.node-version }}-${{ github.event.client_payload.ref || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node ${{ matrix.node-version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Test
+        run: node --test "tests/js/*.test.mjs"
+
+  build_and_release:
     name: Deploy OSM App to Heroku
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'repository_dispatch'
+    needs: [test_python, test_javascript]
+    permissions:
+      contents: write
+    concurrency:
+      group: deploy-${{ github.event.client_payload.ref || github.ref }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -31,7 +87,7 @@ jobs:
       - name: Get app url
         uses: akhileshns/heroku-deploy@v3.15.15
         with:
-          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ""
           heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
           justlogin: true
