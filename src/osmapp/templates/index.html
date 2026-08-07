@@ -8,6 +8,12 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='css/style.css') }}"
     />
+    <link
+      rel="icon"
+      type="image/png"
+      href="{{ url_for('static', filename='img/favicon.png') }}"
+      sizes="512x512"
+    />
     {% for code, path in lang_paths.items() -%}
     <link rel="alternate" hreflang="{{ code }}" href="{{ path }}" />
     {% endfor -%}
