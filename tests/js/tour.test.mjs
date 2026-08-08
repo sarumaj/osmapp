@@ -110,6 +110,81 @@ test("the sample block is contiguous", () => {
   assert.equal(runs, 1);
 });
 
+// ── Pairing ──────────────────────────────────────────────────────────────────
+
+test("a screen the app opens is introduced by the control that opens it", () => {
+  // The whole point of `origin`: the step showing the partition dialog names
+  // the Split button, and an earlier step has already spotlighted it. An
+  // origin nobody was shown first is a ring round a button the user has never
+  // been told about.
+  const steps = load().steps();
+  const orphans = [];
+
+  steps.forEach((step, i) => {
+    if (!step.origin) return;
+    const introduced = steps
+      .slice(0, i)
+      .some((earlier) => earlier.target === step.origin);
+    if (!introduced) orphans.push(step.id);
+  });
+
+  assert.deepStrictEqual(orphans, []);
+});
+
+test("an origin ring is only drawn where nothing is dimmed", () => {
+  // On a dim step the spotlight's shadow has already darkened everything but
+  // its own target, so an origin there is an outline round something in the
+  // dark — visible, unreadable, and worse than nothing.
+  const wrong = load()
+    .steps()
+    .filter((step) => step.origin && step.highlight !== "ring")
+    .map((step) => step.id);
+  assert.deepStrictEqual(wrong, []);
+});
+
+test("every toolbar button the tour points at exists in the toolbar", () => {
+  // The tour addresses buttons by the data-action controls.js writes from the
+  // spec id. Renaming an id there is a step that silently loses its target
+  // here, and a step with no target still runs — as a centred card explaining
+  // a button that is not highlighted.
+  const controls = readFileSync(
+    join(ROOT, "src", "osmapp", "static", "js", "controls.js"),
+    "utf8",
+  );
+  const known = new Set(
+    [...controls.matchAll(/\bid:\s*"([\w-]+)"/g)].map((m) => m[1]),
+  );
+
+  const missing = [];
+  for (const step of load().steps()) {
+    for (const selector of [step.target, step.origin]) {
+      const action = selector && selector.match(/\[data-action="([\w-]+)"\]/);
+      if (action && !known.has(action[1])) missing.push(`${step.id} → ${action[1]}`);
+    }
+  }
+  assert.deepStrictEqual(missing, []);
+});
+
+test("offline drops both halves of the print pair", () => {
+  // The print view composes a card from live tiles. Keeping the menu entry
+  // while dropping the view it opens would introduce a button whose screen
+  // never arrives, which is the one thing worse than not mentioning it.
+  const offline = loadApp(["tour.js"], {
+    window: { localStorage: fakeStorage(), location: { search: "" } },
+    navigator: { onLine: false },
+  }).tour;
+
+  const gated = offline
+    .steps()
+    .filter((step) => step.available)
+    .map((step) => [step.id, step.available()]);
+
+  assert.deepStrictEqual(gated, [
+    ["printMenu", false],
+    ["print", false],
+  ]);
+});
+
 // ── Suppression ──────────────────────────────────────────────────────────────
 
 test("the tour opens by itself until it has been seen", () => {

@@ -919,6 +919,10 @@
       <div class="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
         <div class="tour__veil" data-role="veil"></div>
         <div class="tour__spot" data-role="spot" hidden></div>
+        <!-- Second ring, for the button that opened the thing the spot is on.
+             After the spot in the source so that it paints over the dimming,
+             which is the spot's own box-shadow. -->
+        <div class="tour__spot tour__origin" data-role="origin" hidden></div>
 
         <div class="tour__bubble" data-role="bubble" tabindex="-1">
           <div class="tour__head">
@@ -936,7 +940,9 @@
           <h2 class="tour__title" id="tour-title" data-role="title"></h2>
           <p class="tour__body" data-role="body"></p>
 
-          <div class="tour__dots" data-role="dots" aria-hidden="true"></div>
+          <!-- Filled by tour.js with one button per step: progress to look
+               at, and a way back to a step that went past too fast. -->
+          <div class="tour__dots" data-role="dots"></div>
 
           <div class="tour__actions">
             <button

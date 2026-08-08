@@ -30,6 +30,15 @@
  *     card, because a walkthrough that silently loses four steps on a narrow
  *     screen teaches a wrong mental model of what the app has.
  *
+ *   • Every screen that the app opens for you is introduced by the control
+ *     that opens it. A step that shows the partition dialog without ever
+ *     pointing at the Split button has explained what the dialog does and
+ *     left out the only part the user has to reproduce afterwards — and
+ *     "where was that again?" is the question a walkthrough exists to
+ *     prevent. So the modal features come in pairs: one step spotlights the
+ *     button, the next shows what it opened, and that second step keeps a
+ *     quieter ring on the button (`origin`) so the two stay visibly joined.
+ *
  *   • The steps are data. STEPS below is the only place the sequence exists;
  *     tests read it to check that every key it names is in the dictionary.
  *
@@ -57,6 +66,7 @@ App.tour = (function () {
   var _root = null;
   var _bubble = null;
   var _spot = null;
+  var _origin = null;
   var _index = 0;
   var _entered = -1; // index whose enter() has run and whose exit() is owed
   var _steps = [];
@@ -68,7 +78,7 @@ App.tour = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * @type {Array<{id:string, target?:string, placement?:string,
+   * @type {Array<{id:string, target?:string, origin?:string, placement?:string,
    *               highlight?:string, dock?:string, demo?:boolean,
    *               skipIfNoTarget?:boolean, reopenIfGone?:boolean,
    *               available?:Function, enter?:Function, exit?:Function}>}
@@ -76,6 +86,12 @@ App.tour = (function () {
    *   target      CSS selector, resolved at the moment the step is shown — so
    *               a control rebuilt by a language change is still found, and a
    *               dialog this step's own enter() just opened is too.
+   *   origin      CSS selector for the control that opened what `target`
+   *               points at. Drawn as a second, quieter ring, so the answer to
+   *               "and how do I get back here?" is on screen rather than in
+   *               the prose. Only meaningful on "ring" steps: on a dimmed one
+   *               the origin would be a ring round something the dim has
+   *               already put in the dark.
    *   highlight   "dim" (default) cuts the target out of a darkened screen;
    *               "ring" outlines it and dims nothing. Dialog steps use the
    *               ring: a print dialog that fills the viewport has nothing to
@@ -89,6 +105,10 @@ App.tour = (function () {
    */
   var STEPS = [
     { id: "welcome" },
+    // Named before anything inside it is pointed at. Nine of the steps below
+    // spotlight one button in this panel, and a lit rectangle is much easier
+    // to place once the thing it is cut out of has been introduced.
+    { id: "toolbar", target: ".tb-panel", placement: "right" },
     {
       id: "search",
       target: ".leaflet-control-geocoder",
@@ -103,13 +123,25 @@ App.tour = (function () {
     // Everything from here to "restore" runs on a village that does not
     // exist. Whatever the user had is snapshotted on the way in and put back
     // on the way out — including when the tour is abandoned mid-block.
+    //
+    // The pairs start here. Each of the four things the app opens for you —
+    // the partition dialog, the cut bar, the merge bar, the print view — is
+    // preceded by the control that opens it, and then keeps a ring on that
+    // control while the screen itself is being explained.
     { id: "sample", demo: true },
+    {
+      id: "partitionButton",
+      demo: true,
+      target: '[data-action="partition"]',
+      placement: "right",
+    },
     {
       id: "partition",
       demo: true,
       target: ".cluster-dialog",
       placement: "right",
       highlight: "ring",
+      origin: '[data-action="partition"]',
       enter: function () {
         App.clustering.showClusterDialog();
       },
@@ -118,11 +150,20 @@ App.tour = (function () {
       },
     },
     {
+      id: "cutButton",
+      demo: true,
+      target: '[data-action="cut"]',
+      placement: "right",
+    },
+    {
       id: "cut",
       demo: true,
       target: ".cut-toolbar",
       placement: "top",
       highlight: "ring",
+      // The same button, now lit: the ring is what connects "I pressed that"
+      // to "this bar appeared", and it is also where you press to leave.
+      origin: '[data-action="cut"]',
       enter: function () {
         if (!App.state.editMode) App.editing.toggleEditMode();
       },
@@ -131,11 +172,18 @@ App.tour = (function () {
       },
     },
     {
+      id: "mergeButton",
+      demo: true,
+      target: '[data-action="merge"]',
+      placement: "right",
+    },
+    {
       id: "merge",
       demo: true,
       target: ".merge-toolbar",
       placement: "top",
       highlight: "ring",
+      origin: '[data-action="merge"]',
       enter: function () {
         if (!App.state.mergeMode) App.editing.toggleMergeMode();
       },
@@ -158,6 +206,23 @@ App.tour = (function () {
       },
     },
     {
+      // The print view is the one screen with no button in the toolbar, so
+      // without this step it arrives from nowhere. The menu is already open
+      // from the step before; this one narrows the ring to the entry that
+      // opens the card.
+      id: "printMenu",
+      demo: true,
+      target: '.polygon-context-menu-item[data-role="print"]',
+      placement: "right",
+      highlight: "ring",
+      reopenIfGone: true,
+      available: _online,
+      enter: _openSampleMenu,
+      exit: function () {
+        App.ui.closeContextMenu();
+      },
+    },
+    {
       id: "print",
       demo: true,
       target: ".print-controls",
@@ -165,9 +230,7 @@ App.tour = (function () {
       highlight: "ring",
       // The preview composes itself from live tiles. Offline it would open on
       // an error message, which teaches the wrong thing about the feature.
-      available: function () {
-        return navigator.onLine !== false;
-      },
+      available: _online,
       enter: function () {
         var entry = App.demo.firstCluster();
         if (entry) App.print.printCluster(entry.feature);
@@ -175,6 +238,16 @@ App.tour = (function () {
       exit: function () {
         if (App.print.isOpen()) App.print.close();
       },
+    },
+    {
+      // Follows the print step because that is where the green fill and the
+      // tick were just explained. The sample ships with one territory already
+      // marked, so the button is live rather than greyed out while the step
+      // that describes it is on screen.
+      id: "clearPrinted",
+      demo: true,
+      target: '[data-action="clear-printed"]',
+      placement: "right",
     },
     { id: "restore" },
     // ── back to the user's own map ──────────────────────────────────────
@@ -188,11 +261,25 @@ App.tour = (function () {
     },
     { id: "info", target: "#info-panel", placement: "left" },
     { id: "files", target: '[data-action="export"]', placement: "right" },
+    // Export and Import were one step pointing at Export, which is half a
+    // step: the half that gets you a file, not the half that gets it back.
+    { id: "importFiles", target: '[data-action="import"]', placement: "right" },
     { id: "reset", target: '[data-action="reset"]', placement: "right" },
     { id: "language", target: ".tb-item--select", placement: "right" },
     { id: "offline" },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
+
+  /**
+   * Steps that would open on an error message rather than on the feature.
+   *
+   * Both the print entry in the context menu and the print view itself need
+   * tiles to compose a card, so offline they are dropped together — leaving
+   * one of the pair in would introduce a button whose screen never comes.
+   */
+  function _online() {
+    return navigator.onLine !== false;
+  }
 
   /** Right-click a sample territory, without anybody having to right-click. */
   function _openSampleMenu() {
@@ -319,6 +406,7 @@ App.tour = (function () {
     _root = D.mount("tpl-tour", document.body);
     _bubble = D.role(_root, "bubble");
     _spot = D.role(_root, "spot");
+    _origin = D.role(_root, "origin");
 
     // Icon-only buttons are a poor thing to point at while explaining what
     // they do. The previous state is put back on the way out.
@@ -383,6 +471,7 @@ App.tour = (function () {
     _root = D.remove(_root);
     _bubble = null;
     _spot = null;
+    _origin = null;
     _steps = [];
     _index = 0;
     _entered = -1;
@@ -507,6 +596,11 @@ App.tour = (function () {
     return App.demo.enter();
   }
 
+  function _isBubbleControl(node) {
+    if (!node || !_bubble || !_bubble.contains(node)) return false;
+    return /^(BUTTON|INPUT|A|SELECT)$/.test(node.tagName || "");
+  }
+
   function _onKeyDown(e) {
     if (!_root) return;
     if (e.key === "Escape") {
@@ -516,6 +610,10 @@ App.tour = (function () {
       return;
     }
     if (e.key === "ArrowRight" || e.key === "Enter") {
+      // Enter on a focused control means that control — the dot you tabbed
+      // to, Back, the checkbox — not "next step". Anywhere else it is the
+      // fastest way through the tour and stays that way.
+      if (e.key === "Enter" && _isBubbleControl(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       _next();
@@ -533,8 +631,11 @@ App.tour = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function _resolve(step) {
-    if (!step.target) return null;
-    var node = document.querySelector(step.target);
+    return step.target ? _find(step.target) : null;
+  }
+
+  function _find(selector) {
+    var node = document.querySelector(selector);
     if (!node || !node.getBoundingClientRect) return null;
     var rect = node.getBoundingClientRect();
     // A control that is present but has no box — a collapsed panel, a
@@ -571,17 +672,50 @@ App.tour = (function () {
     _reposition();
   }
 
+  /**
+   * Progress, and a way back to a step that went past too fast.
+   *
+   * The dots were decoration until the walkthrough grew a step for every
+   * button; at this length "wait, what was the one before the dialog?" is a
+   * fair question, and answering it with six presses of Back is not an
+   * answer. Each dot carries its step's title as a tooltip, so the row also
+   * doubles as a table of contents. Jumping goes through _show() like
+   * everything else, so the sample is loaded or dropped and the dialogs are
+   * opened or closed on the way, however far the jump reaches.
+   */
   function _renderDots() {
     var host = D.role(_root, "dots");
     if (!host) return;
+
+    // Every dot is replaced on each render, so a jump made from the keyboard
+    // would otherwise drop focus onto <body> and leave Tab starting over.
+    var wasFocused = host.contains(document.activeElement);
+
     host.textContent = "";
     for (var i = 0; i < _steps.length; i++) {
-      var dot = document.createElement("span");
-      dot.className =
-        "tour__dot" +
-        (i === _index ? " is-current" : i < _index ? " is-done" : "");
-      host.appendChild(dot);
+      host.appendChild(_makeDot(i));
     }
+    if (wasFocused && host.children[_index]) host.children[_index].focus();
+  }
+
+  function _makeDot(index) {
+    var dot = document.createElement("button");
+    dot.type = "button";
+    dot.className =
+      "tour__dot" +
+      (index === _index ? " is-current" : index < _index ? " is-done" : "");
+
+    var title = T(_titleKey(_steps[index]));
+    dot.title = title;
+    dot.setAttribute("aria-label", title);
+    if (index === _index) dot.setAttribute("aria-current", "step");
+
+    dot.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (index !== _index) _show(index, index > _index ? 1 : -1);
+    });
+    return dot;
   }
 
   function _reposition() {
@@ -603,7 +737,31 @@ App.tour = (function () {
 
     var rect = node ? node.getBoundingClientRect() : null;
     _placeSpot(rect, step);
+    _placeOrigin(step);
     _placeBubble(rect, step);
+  }
+
+  /**
+   * The second ring: the control that opened what this step is describing.
+   *
+   * Deliberately quieter than the spotlight — it is context, not the subject,
+   * and two rings of equal weight would just be two things to look at. Absent
+   * when the step names no origin, and absent when it names one that is not on
+   * screen, which is the case for a toolbar hidden behind the print view.
+   */
+  function _placeOrigin(step) {
+    if (!_origin) return;
+    var node = step.origin ? _find(step.origin) : null;
+    if (!node) {
+      D.toggle(_origin, false);
+      return;
+    }
+    var rect = node.getBoundingClientRect();
+    _origin.style.left = Math.max(0, rect.left - PAD) + "px";
+    _origin.style.top = Math.max(0, rect.top - PAD) + "px";
+    _origin.style.width = rect.width + PAD * 2 + "px";
+    _origin.style.height = rect.height + PAD * 2 + "px";
+    D.toggle(_origin, true);
   }
 
   /**

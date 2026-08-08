@@ -436,6 +436,10 @@
         "title": "Witaj",
         "body": "Ta aplikacja zamienia fragment OpenStreetMap w gotowe do druku karty terenu. W skrócie: znajdź miejscowość, pobierz ulice i budynki, podziel obszar na tereny i wydrukuj kartę dla każdego z nich. Za chwilę kilka krótkich kroków — Esc kończy przewodnik w każdej chwili."
       },
+      "toolbar": {
+        "title": "Wszystkie narzędzia w jednym panelu",
+        "body": "Wszystko, co aplikacja potrafi, jest tutaj, pogrupowane według przeznaczenia: obszar, tereny, historia, plik i sama aplikacja. Narzędzie, którego nie można jeszcze użyć, jest wyszarzone, a nie ukryte, a jego podpowiedź mówi, czego brakuje. Strzałka u góry chowa podpisy, gdy mapa potrzebuje miejsca."
+      },
       "search": {
         "title": "Zacznij od wyszukiwania",
         "body": "Wpisz miejscowość, dzielnicę lub ulicę. Jeśli OpenStreetMap zna oficjalny obrys tego miejsca, aplikacja zaproponuje go jako granicę zewnętrzną — szybciej i dokładniej niż obrysowywanie ręczne."
@@ -456,33 +460,53 @@
         "title": "Przykład do obejrzenia",
         "body": "Kolejne widoki istnieją dopiero wtedy, gdy wczytany jest jakiś obszar, więc aplikacja pożycza na chwilę zmyśloną wieś — ulice nazywają się „Ulica Przykładowa“ nie bez powodu. Twoje dane pozostają nietknięte: to, co było na mapie, wróci na koniec, a nic z tego nie jest zapisywane."
       },
+      "partitionButton": {
+        "title": "Przycisk „Podziel“",
+        "body": "Tutaj zaczynają się tereny. Przycisk uaktywnia się, gdy jest już granica z pobranymi danymi — wcześniej jest szary i sam mówi, czego brakuje. Kliknięcie otwiera okno z następnego kroku."
+      },
       "partition": {
         "title": "Podziel na tereny",
-        "body": "To prawdziwe okno, otwarte na przykładowym obszarze. Dzieli obszar automatycznie — albo na tereny po mniej więcej N budynków, albo na ustaloną liczbę terenów o zbliżonej wielkości. Cięcia biegną wzdłuż rzeczywistych ulic, a nie po liniach prostych. Otwiera je przycisk „Podziel“ na pasku narzędzi."
+        "body": "To prawdziwe okno, otwarte na przykładowym obszarze przez przycisk, który pozostaje obrysowany z tyłu. Dzieli obszar automatycznie — albo na tereny po mniej więcej N budynków, albo na ustaloną liczbę terenów o zbliżonej wielkości. Cięcia biegną wzdłuż rzeczywistych ulic, a nie po liniach prostych."
+      },
+      "cutButton": {
+        "title": "Przycisk „Tnij“",
+        "body": "Włącza narzędzie cięcia do ręcznych poprawek i świeci przez cały czas, gdy narzędzie jest włączone — ponowne kliknięcie to jedno z wyjść. Potrzebuje co najmniej jednego terenu."
       },
       "cut": {
         "title": "Popraw podział ręcznie",
-        "body": "Narzędzie cięcia jest teraz włączone. Linia poprowadzona w poprzek terenu rozdziela go; przyciąga się do skrzyżowań, ulic i istniejących granic, S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
+        "body": "Przycisk świeci, a narzędzie jest włączone: tym paskiem na dole mapy się je obsługuje. Linia poprowadzona w poprzek terenu rozdziela go; przyciąga się do skrzyżowań, ulic i istniejących granic, S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
+      },
+      "mergeButton": {
+        "title": "Przycisk „Połącz“",
+        "body": "Kierunek odwrotny: dwa tereny, które powinny być jednym. Potrzebuje co najmniej dwóch terenów i tak samo jak „Tnij“ świeci przez cały czas trwania trybu."
       },
       "merge": {
         "title": "Połącz tereny",
-        "body": "Tryb łączenia jest teraz włączony. Kliknij dwa lub więcej sąsiadujących terenów, a ten pasek połączy je w jeden, usuwając wspólne granice."
-      },
-      "history": {
-        "title": "Cofnij cokolwiek",
-        "body": "Cofnij i Ponów przechodzą przez zmiany granic, cięcia i połączenia; działa też Ctrl+Z. W narzędziu cięcia i w gumce cofają zamiast tego punkty i pociągnięcia, więc cofnięcie zawsze dotyczy tego, co zrobiono ostatnio."
+        "body": "Tryb łączenia jest włączony, a przycisk świeci. Kliknij dwa lub więcej sąsiadujących terenów, a ten pasek połączy je w jeden, usuwając wspólne granice."
       },
       "territory": {
         "title": "Każdy teren ma menu",
         "body": "To pojawia się po kliknięciu terenu prawym przyciskiem: przybliż, wydrukuj, oznacz jako zrobiony albo usuń. Najechanie na ulicę lub budynek pokazuje z kolei, co wie o nich OpenStreetMap — nazwę, adres, nawierzchnię."
       },
+      "printMenu": {
+        "title": "Stąd zaczyna się druk",
+        "body": "Na pasku narzędzi nie ma przycisku drukowania, bo karta zawsze dotyczy jednego konkretnego terenu — druk zaczyna się więc w menu tego terenu. Ta pozycja otwiera widok karty dla terenu klikniętego prawym przyciskiem."
+      },
       "print": {
         "title": "Karta terenu",
         "body": "Podgląd po lewej można przesuwać, przybliżać i obracać; kolumna po prawej ustawia wielkość podpisów, kolor i grubość obramowania, wymazuje odcinki granicy biegnące przez dom oraz przyjmuje miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się zielone i dostają znacznik — od razu widać, co zostało."
       },
+      "clearPrinted": {
+        "title": "Następna runda",
+        "body": "Zielone wypełnienie i znacznik to oznaczenia, a nie geometria, więc powtórzenie obszaru to te same tereny z wyczyszczonymi oznaczeniami. Ten przycisk czyści wszystkie naraz; pojedynczy teren odznaczysz w jego własnym menu. Aplikacja najpierw pyta, a Ctrl+Z tego nie przywróci."
+      },
       "restore": {
         "title": "Powrót do własnej mapy",
         "body": "Przykład zniknął, a Twoja praca wróciła dokładnie taka, jaka była. Wcześniejsze zamknięcie przewodnika robi to samo — nie ma więc złego momentu na Esc."
+      },
+      "history": {
+        "title": "Cofnij cokolwiek",
+        "body": "Cofnij i Ponów przechodzą przez zmiany granic, cięcia i połączenia; działa też Ctrl+Z. W narzędziu cięcia i w gumce cofają zamiast tego punkty i pociągnięcia, więc cofnięcie zawsze dotyczy tego, co zrobiono ostatnio."
       },
       "layers": {
         "title": "Co jest widoczne",
@@ -494,7 +518,11 @@
       },
       "files": {
         "title": "Zabierz pracę ze sobą",
-        "body": "Zapis zapisuje granicę, pobrane dane i wszystkie tereny do jednego pliku GeoJSON, a wczytanie przywraca je z powrotem. Tak praca przenosi się między urządzeniami i tak powstaje kopia zapasowa."
+        "body": "Zapis zapisuje granicę, pobrane dane i wszystkie tereny do jednego pliku GeoJSON. Tak powstaje kopia zapasowa — i pierwsza połowa drogi między urządzeniami."
+      },
+      "importFiles": {
+        "title": "… i przywróć ją z powrotem",
+        "body": "Wczytanie odczytuje taki plik z powrotem, zastępując to, co jest na mapie. Tak samo przenosi się na telefon pracę zaczętą na komputerze."
       },
       "reset": {
         "title": "Zacznij od nowa",

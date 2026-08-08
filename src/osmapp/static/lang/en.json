@@ -409,6 +409,10 @@
         "title": "Welcome",
         "body": "This app turns an area of OpenStreetMap into printable territory cards. The short version: find a place, download its streets and buildings, split it into territories, print one card each. A few short steps follow — Esc leaves at any point."
       },
+      "toolbar": {
+        "title": "One panel for the tools",
+        "body": "Everything the app does is in here, grouped by what it is for: the area, the territories, undo and redo, files, the app itself. A tool you cannot use yet is greyed out rather than hidden, and its tooltip says what is missing. The arrow at the top hides the labels when the map needs the room."
+      },
       "search": {
         "title": "Start with a search",
         "body": "Type a town, a district or a street. When OpenStreetMap has an official outline for the place, the app offers it as your outer boundary — faster and more accurate than tracing one by hand."
@@ -429,33 +433,53 @@
         "title": "A sample to work on",
         "body": "The next few screens only exist once there is an area loaded, so the app has borrowed a made-up village for a minute — the streets are called \"Sample street\" for a reason. Nothing of yours has been touched: whatever was on the map is put back at the end, and none of this is saved."
       },
+      "partitionButton": {
+        "title": "The Split button",
+        "body": "Territories start here. The button wakes up once there is a boundary with data inside it — until then it is grey and says why. Pressing it opens the dialog on the next step."
+      },
       "partition": {
         "title": "Split into territories",
-        "body": "This is the real dialog, opened on the sample. It divides the area automatically — either into territories of roughly N buildings each, or into a fixed number of roughly equal size. The cuts follow real streets rather than straight lines. The Split button in the toolbar is what opens it."
+        "body": "This is the real dialog, opened on the sample by the button still outlined behind it. It divides the area automatically — either into territories of roughly N buildings each, or into a fixed number of roughly equal size. The cuts follow real streets rather than straight lines."
+      },
+      "cutButton": {
+        "title": "The Cut button",
+        "body": "Turns on the cut tool for correcting a split by hand, and stays lit for as long as the tool is on — pressing it again is one of the ways back out. It needs at least one territory to work on."
       },
       "cut": {
         "title": "Correct a split by hand",
-        "body": "The cut tool is now on. You draw a line across a territory and it divides; the line snaps to junctions, streets and existing edges, S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
+        "body": "The button is lit and the tool is on: this bar at the bottom of the map is the tool. You draw a line across a territory and it divides; the line snaps to junctions, streets and existing edges, S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
+      },
+      "mergeButton": {
+        "title": "The Merge button",
+        "body": "The other direction: two territories that should have been one. It needs at least two to choose between, and like Cut it stays lit for as long as the mode is running."
       },
       "merge": {
         "title": "Join territories",
-        "body": "Merge mode is now on. Click two or more neighboring territories and this bar merges them into one, dissolving the edges they shared."
-      },
-      "history": {
-        "title": "Undo anything",
-        "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool and the eraser they take back points and strokes instead, so undo always means whatever you last did."
+        "body": "Merge mode is on and the button is lit. Click two or more neighboring territories and this bar merges them into one, dissolving the edges they shared."
       },
       "territory": {
         "title": "Every territory has a menu",
         "body": "This is what a right-click on a territory gives you: zoom to it, print it, mark it as done, or delete it. Hovering over a street or a building instead shows what OpenStreetMap knows about it — the name, the address, the surface."
       },
+      "printMenu": {
+        "title": "Printing starts here",
+        "body": "There is no print button in the toolbar, because a card is always the card of one particular territory — so printing starts in that territory's own menu. This entry opens the card view for the one you right-clicked."
+      },
       "print": {
         "title": "The card",
         "body": "The preview on the left can be panned, zoomed and rotated; the column on the right sets the label size, the border color and thickness, erases the stretches of border that run through a house, and takes the locality and territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and carry a tick, so what is left is visible at a glance."
       },
+      "clearPrinted": {
+        "title": "The next round",
+        "body": "The green fill and the tick are marks, not geometry, so doing an area again is the same territories with the marks cleared. This button clears them all at once; a single territory is unmarked from its own menu. It asks first, and Ctrl+Z will not bring the marks back."
+      },
       "restore": {
         "title": "And back to your own map",
         "body": "The sample is gone and your own work is back exactly as it was. Leaving the tour early does the same thing, so there is never a wrong moment to press Escape."
+      },
+      "history": {
+        "title": "Undo anything",
+        "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool and the eraser they take back points and strokes instead, so undo always means whatever you last did."
       },
       "layers": {
         "title": "What is shown",
@@ -467,7 +491,11 @@
       },
       "files": {
         "title": "Take your work with you",
-        "body": "Export writes the boundary, the downloaded data and every territory to one GeoJSON file, and Import reads it back. That is how work moves between devices, and how it gets backed up."
+        "body": "Export writes the boundary, the downloaded data and every territory to one GeoJSON file. That is how work gets backed up, and the first half of how it moves between devices."
+      },
+      "importFiles": {
+        "title": "… and bring it back",
+        "body": "Import reads such a file back in, replacing whatever is on the map. It is also how work started on a desktop is picked up on a phone."
       },
       "reset": {
         "title": "Start over",

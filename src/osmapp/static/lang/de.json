@@ -409,6 +409,10 @@
         "title": "Willkommen",
         "body": "Diese App macht aus einem Ausschnitt von OpenStreetMap druckfertige Gebietskarten. Kurz gefasst: Ort suchen, Straßen und Gebäude laden, die Fläche in Gebiete aufteilen, pro Gebiet eine Karte drucken. Es folgen ein paar kurze Schritte — Esc beendet die Tour jederzeit."
       },
+      "toolbar": {
+        "title": "Alle Werkzeuge in einer Leiste",
+        "body": "Alles, was die App kann, steht hier, gruppiert nach Zweck: Fläche, Gebiete, Verlauf, Datei und die App selbst. Was noch nicht benutzbar ist, wird ausgegraut statt versteckt, und der Tooltip sagt, was dafür fehlt. Der Pfeil oben blendet die Beschriftungen aus, wenn die Karte den Platz braucht."
+      },
       "search": {
         "title": "Mit der Suche anfangen",
         "body": "Ort, Stadtteil oder Straße eingeben. Wenn OpenStreetMap eine amtliche Umrisslinie dafür kennt, bietet die App sie als Außengrenze an — schneller und genauer, als sie von Hand nachzuzeichnen."
@@ -429,33 +433,53 @@
         "title": "Ein Beispiel zum Anschauen",
         "body": "Die nächsten Ansichten gibt es erst, wenn ein Gebiet geladen ist — deshalb borgt sich die App für einen Moment ein erfundenes Dorf; die Straßen heißen nicht ohne Grund „Musterstraße“. An Ihren Daten ändert das nichts: Was vorher auf der Karte war, kommt am Ende zurück, und gespeichert wird nichts davon."
       },
+      "partitionButton": {
+        "title": "Der Knopf „Aufteilen“",
+        "body": "Hier fangen die Gebiete an. Der Knopf wird aktiv, sobald eine Grenze mit geladenen Daten da ist — vorher ist er grau und sagt auch, warum. Ein Klick darauf öffnet den Dialog aus dem nächsten Schritt."
+      },
       "partition": {
         "title": "In Gebiete aufteilen",
-        "body": "Das ist der echte Dialog, geöffnet auf dem Beispiel. Er teilt die Fläche automatisch auf — entweder in Gebiete mit jeweils etwa N Gebäuden oder in eine feste Anzahl etwa gleich großer Gebiete. Die Schnitte folgen echten Straßen statt geraden Linien. Geöffnet wird er über „Aufteilen“ in der Werkzeugleiste."
+        "body": "Das ist der echte Dialog, geöffnet auf dem Beispiel — von dem Knopf, der dahinter umrandet bleibt. Er teilt die Fläche automatisch auf — entweder in Gebiete mit jeweils etwa N Gebäuden oder in eine feste Anzahl etwa gleich großer Gebiete. Die Schnitte folgen echten Straßen statt geraden Linien."
+      },
+      "cutButton": {
+        "title": "Der Knopf „Schneiden“",
+        "body": "Schaltet das Schneidewerkzeug für Korrekturen von Hand ein und bleibt hell, solange es an ist — ein zweiter Klick ist einer der Wege wieder hinaus. Dafür wird mindestens ein Gebiet gebraucht."
       },
       "cut": {
         "title": "Aufteilung von Hand korrigieren",
-        "body": "Das Schneidewerkzeug ist jetzt aktiv. Eine Linie quer durch ein Gebiet trennt es auf; sie rastet an Kreuzungen, Straßen und vorhandenen Grenzen ein, S, B und F schalten die drei Arten der Ausrichtung um, Alt setzt einen freien Punkt, Enter führt den Schnitt aus."
+        "body": "Der Knopf leuchtet, das Werkzeug ist an: diese Leiste unten auf der Karte ist es. Eine Linie quer durch ein Gebiet trennt es auf; sie rastet an Kreuzungen, Straßen und vorhandenen Grenzen ein, S, B und F schalten die drei Arten der Ausrichtung um, Alt setzt einen freien Punkt, Enter führt den Schnitt aus."
+      },
+      "mergeButton": {
+        "title": "Der Knopf „Verbinden“",
+        "body": "Die Gegenrichtung: zwei Gebiete, die eines sein sollten. Dafür werden mindestens zwei Gebiete gebraucht, und wie beim Schneiden bleibt der Knopf hell, solange der Modus läuft."
       },
       "merge": {
         "title": "Gebiete verbinden",
-        "body": "Der Verbinden-Modus ist jetzt aktiv. Zwei oder mehr benachbarte Gebiete anklicken, und diese Leiste führt sie zu einem zusammen — die gemeinsamen Grenzen dazwischen verschwinden."
-      },
-      "history": {
-        "title": "Alles rückgängig machen",
-        "body": "Zurück und Erneut gehen durch Grenzänderungen, Schnitte und Zusammenführungen; Strg+Z funktioniert ebenfalls. Im Schneidewerkzeug und im Radierer nehmen sie stattdessen Punkte und Striche zurück — rückgängig heißt also immer das, was zuletzt getan wurde."
+        "body": "Der Verbinden-Modus ist an, der Knopf leuchtet. Zwei oder mehr benachbarte Gebiete anklicken, und diese Leiste führt sie zu einem zusammen — die gemeinsamen Grenzen dazwischen verschwinden."
       },
       "territory": {
         "title": "Jedes Gebiet hat ein Menü",
         "body": "Das erscheint bei einem Rechtsklick auf ein Gebiet: heranzoomen, drucken, als erledigt markieren oder löschen. Wer stattdessen mit der Maus über eine Straße oder ein Gebäude fährt, sieht, was OpenStreetMap darüber weiß — Name, Adresse, Belag."
       },
+      "printMenu": {
+        "title": "Gedruckt wird von hier aus",
+        "body": "In der Werkzeugleiste gibt es keinen Druckknopf, denn eine Karte gehört immer zu genau einem Gebiet — der Druck beginnt also im Menü dieses Gebiets. Dieser Eintrag öffnet die Kartenansicht für das angeklickte Gebiet."
+      },
       "print": {
         "title": "Die Karte",
         "body": "Die Vorschau links lässt sich verschieben, zoomen und drehen; in der Spalte rechts werden Schriftgröße, Randfarbe und Randstärke eingestellt, Randstücke wegradiert, die mitten durch ein Haus laufen, und Ort und Gebietsnummer eingetragen. Ein eigenes PDF-Formular kann geladen werden, dann wird die Karte dort hineingesetzt. Gebiete, deren Karte fertig ist, werden grün und bekommen ein Häkchen — so ist auf einen Blick zu sehen, was noch offen ist."
       },
+      "clearPrinted": {
+        "title": "Die nächste Runde",
+        "body": "Die grüne Füllung und das Häkchen sind Markierungen, keine Geometrie — eine neue Runde sind also dieselben Gebiete mit gelöschten Marken. Dieser Knopf löscht alle auf einmal; ein einzelnes Gebiet wird über sein eigenes Menü zurückgesetzt. Es wird vorher gefragt, und Strg+Z holt die Marken nicht zurück."
+      },
       "restore": {
         "title": "Zurück zur eigenen Karte",
         "body": "Das Beispiel ist weg, die eigene Arbeit ist wieder genau so da wie vorher. Ein vorzeitiges Beenden der Tour macht dasselbe — es gibt also keinen falschen Moment für Esc."
+      },
+      "history": {
+        "title": "Alles rückgängig machen",
+        "body": "Zurück und Erneut gehen durch Grenzänderungen, Schnitte und Zusammenführungen; Strg+Z funktioniert ebenfalls. Im Schneidewerkzeug und im Radierer nehmen sie stattdessen Punkte und Striche zurück — rückgängig heißt also immer das, was zuletzt getan wurde."
       },
       "layers": {
         "title": "Was angezeigt wird",
@@ -467,7 +491,11 @@
       },
       "files": {
         "title": "Die Arbeit mitnehmen",
-        "body": "Speichern schreibt Grenze, geladene Daten und alle Gebiete in eine GeoJSON-Datei, Laden liest sie wieder ein. So wandert die Arbeit zwischen Geräten — und so entsteht eine Sicherung."
+        "body": "Speichern schreibt Grenze, geladene Daten und alle Gebiete in eine GeoJSON-Datei. So entsteht eine Sicherung — und die erste Hälfte des Wegs zwischen zwei Geräten."
+      },
+      "importFiles": {
+        "title": "… und wieder zurückholen",
+        "body": "Laden liest so eine Datei wieder ein und ersetzt damit, was auf der Karte ist. Genauso wird auf dem Telefon fortgesetzt, was am Rechner angefangen wurde."
       },
       "reset": {
         "title": "Von vorn anfangen",
