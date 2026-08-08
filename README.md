@@ -1,4 +1,4 @@
-# OSM App / Territory Mapper
+# OSM Territory Mapper
 
 - [German/Deutsch](#deutsch)
 - [Polish/Polski](#polski)
