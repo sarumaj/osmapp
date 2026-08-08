@@ -65,7 +65,9 @@
     "needsTerritories": "Créez d'abord au moins un territoire",
     "needsTwoTerritories": "La fusion nécessite au moins deux territoires",
     "needsPrinted": "Aucun territoire n'est marqué comme imprimé",
-    "needsAnything": "Rien à réinitialiser"
+    "needsAnything": "Rien à réinitialiser",
+    "labelNumbers": "Numéros",
+    "numbers": "Afficher un numéro sur chaque territoire"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -78,7 +80,9 @@
     "hintLoaded": "Divisez la zone, puis coupez, fusionnez ou exportez.",
     "hintFiltered": "Clic droit sur un territoire pour les actions. Ctrl+Z annule la dernière modification.",
     "notLoaded": "Limite définie",
-    "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger."
+    "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger.",
+    "clustersHelp": "Afficher la liste des territoires",
+    "clustersWarn": "Certains territoires sont difficiles à repérer — ouvrir la liste"
   },
   "loading": {
     "cancel": "Annuler",
@@ -276,6 +280,22 @@
     "areaKm": "Superficie : {value} km²",
     "noData": "Aucune donnée chargée",
     "printed": "Imprimé le {date}"
+  },
+  "list": {
+    "title": "Territoires",
+    "total": {
+      "one": "{count} territoire, numéroté sur la carte.",
+      "other": "{count} territoires, numérotés sur la carte."
+    },
+    "showNumbers": "Afficher les numéros sur la carte",
+    "close": "Fermer",
+    "empty": "Aucun territoire pour l'instant.",
+    "areaUnknown": "Superficie inconnue",
+    "warnTiny": "Trop petits à ce niveau de zoom : {n}.",
+    "warnSplit": "En plusieurs morceaux : {n}.",
+    "flagPrinted": "Carte déjà imprimée",
+    "flagSplit": "En {n} morceaux séparés",
+    "flagTiny": "Trop petit à ce niveau de zoom"
   },
   "feature": {
     "building": "Bâtiment",

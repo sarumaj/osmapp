@@ -133,7 +133,28 @@
         </div>
         <div class="info-panel__stat" data-role="clusters-row" hidden>
           <dt data-i18n="info.clusters">Clusters</dt>
-          <dd data-role="clusters">0</dd>
+          <dd>
+            <!-- The one stat that is a control: it opens the territory list,
+                 because "14" is not an answer to "which fourteen?". -->
+            <button
+              type="button"
+              class="info-panel__count"
+              data-role="clusters-btn"
+              data-i18n-attrs="title=info.clustersHelp"
+            >
+              <i
+                class="fa-solid fa-triangle-exclamation info-panel__warn"
+                data-role="clusters-warn"
+                aria-hidden="true"
+                hidden
+              ></i>
+              <span data-role="clusters">0</span>
+              <i
+                class="fa-solid fa-list-ul info-panel__count-icon"
+                aria-hidden="true"
+              ></i>
+            </button>
+          </dd>
         </div>
         <div class="info-panel__stat" data-role="printed-row" hidden>
           <dt data-i18n="info.printed">Printed</dt>
@@ -215,6 +236,57 @@
           </button>
         </div>
       </div>
+    </template>
+
+    <!-- ── Territory list ───────────────────────────────────────────────
+         Opened from the territory count in the info panel. One row per
+         counted territory; clicking one zooms to it and flashes it. -->
+
+    <template id="tpl-territory-list">
+      <div
+        class="app-dialog territory-list"
+        role="dialog"
+        aria-modal="true"
+        tabindex="-1"
+      >
+        <h2 class="app-dialog__title" data-i18n="list.title">Territories</h2>
+        <p class="app-dialog__hint" data-role="total"></p>
+        <p class="territory-list__notes" data-role="notes" hidden></p>
+        <label class="territory-list__toggle">
+          <input type="checkbox" data-role="show-numbers" />
+          <span data-i18n="list.showNumbers">Show numbers on the map</span>
+        </label>
+        <div class="territory-list__rows" data-role="rows"></div>
+        <p
+          class="app-dialog__hint"
+          data-role="empty"
+          data-i18n="list.empty"
+          hidden
+        >
+          No territories yet.
+        </p>
+        <div class="app-dialog__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="close"
+            data-i18n="list.close"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-territory-row">
+      <button type="button" class="territory-row">
+        <span class="territory-row__num" data-role="num"></span>
+        <span class="territory-row__body">
+          <span class="territory-row__main" data-role="main"></span>
+          <span class="territory-row__meta" data-role="meta"></span>
+        </span>
+        <span class="territory-row__flags" data-role="flags"></span>
+      </button>
     </template>
 
     <template id="tpl-phase-item">
@@ -990,6 +1062,7 @@
     <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
     <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data.js') }}"></script>
     <script src="{{ url_for('static', filename='js/session.js') }}"></script>
     <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>

@@ -65,7 +65,9 @@
     "needsTerritories": "Create at least one territory first",
     "needsTwoTerritories": "Merging needs at least two territories",
     "needsPrinted": "No territory is marked as printed",
-    "needsAnything": "Nothing to reset"
+    "needsAnything": "Nothing to reset",
+    "labelNumbers": "Numbers",
+    "numbers": "Show a number on every territory"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -78,7 +80,9 @@
     "hintLoaded": "Split the area, then cut, merge, or export.",
     "hintFiltered": "Right-click a territory for actions. Ctrl+Z undoes the last change.",
     "notLoaded": "Boundary set",
-    "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it."
+    "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it.",
+    "clustersHelp": "Show the list of territories",
+    "clustersWarn": "Some territories are hard to spot on the map — open the list"
   },
   "loading": {
     "cancel": "Cancel",
@@ -276,6 +280,22 @@
     "areaKm": "Area: {value} km²",
     "noData": "No data loaded",
     "printed": "Printed {date}"
+  },
+  "list": {
+    "title": "Territories",
+    "total": {
+      "one": "{count} territory, numbered on the map.",
+      "other": "{count} territories, numbered on the map."
+    },
+    "showNumbers": "Show the numbers on the map",
+    "close": "Close",
+    "empty": "No territories yet.",
+    "areaUnknown": "Area unknown",
+    "warnTiny": "Too small to see at this zoom: {n}.",
+    "warnSplit": "Drawn in separate pieces: {n}.",
+    "flagPrinted": "Card already printed",
+    "flagSplit": "In {n} separate pieces",
+    "flagTiny": "Too small to see at this zoom"
   },
   "feature": {
     "building": "Building",

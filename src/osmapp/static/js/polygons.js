@@ -75,9 +75,9 @@ App.polygons = (function () {
    *
    * color cannot carry it alone — a green wash and a purple one are close for
    * a red-green color blind reader and identical in a greyscale screenshot —
-   * so every printed territory also gets a check badge at its centre. Shape
-   * beats a dash pattern at this: it survives being small, being overlapped,
-   * and being printed.
+   * so every printed territory also carries a check, on its number chip. See
+   * labels.js. Shape beats a dash pattern at this: it survives being small,
+   * being overlapped, and being printed.
    */
   var CLUSTER_STYLE_PRINTED = {
     color: "#1e8449",
@@ -156,6 +156,10 @@ App.polygons = (function () {
   function selectCluster(layer, selected) {
     layer._selected = !!selected;
     refreshStyle(layer);
+    // The number chip is a second handle on the same territory, so it has to
+    // show the same state — a selected shape with an unselected number on it
+    // reads as two different things.
+    if (App.labels) App.labels.setSelected(layer, layer._selected);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -260,7 +264,8 @@ App.polygons = (function () {
     // Cached on the layer so _styleFor stays O(1) — it runs on every hover.
     entry.layer._printed = !!next;
     refreshStyle(entry.layer);
-    _syncBadge(entry);
+    // Rebuilds this territory's chips in green, with the check on them.
+    if (App.labels) App.labels.refresh();
     _syncPrintedCount();
 
     if (App.session) App.session.markDirty();
@@ -276,11 +281,11 @@ App.polygons = (function () {
       delete entry.feature.properties.printed;
       entry.layer._printed = false;
       refreshStyle(entry.layer);
-      _dropBadge(entry);
       cleared++;
     });
     if (cleared === 0) return 0;
 
+    if (App.labels) App.labels.refresh();
     _syncPrintedCount();
     if (App.session) App.session.markDirty();
     if (App.controls) App.controls.refresh();
@@ -291,81 +296,24 @@ App.polygons = (function () {
     if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
   }
 
-  // ── The check badge ───────────────────────────────────────────────────
+  // ── Where the check went ──────────────────────────────────────────────
   //
-  // The second, non-color channel. It lives in innerPolygonsLayerGroup with
-  // the territories themselves, which buys three things for free: the layer
-  // switcher's Territories toggle covers it, setClusters' clearLayers()
-  // disposes of it, and it cannot drift out of sync with a rebuild.
+  // There used to be a second marker here: a green check in a circle, dropped
+  // at each printed territory's interior point, existing purely as a
+  // non-color channel — a green wash and a purple one are the same wash to a
+  // red-green color blind reader and identical in a greyscale screenshot.
   //
-  // Non-interactive on purpose. A marker that swallowed clicks would put a
-  // 22 px hole in the middle of every finished territory where the context
-  // menu stops opening — and the middle is exactly where people click.
-
-  var BADGE_ICON = null;
-
-  function _badgeIcon() {
-    if (!BADGE_ICON) {
-      BADGE_ICON = L.divIcon({
-        className: "printed-badge",
-        html: '<i class="fa-solid fa-check" aria-hidden="true"></i>',
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      });
-    }
-    return BADGE_ICON;
-  }
-
-  /**
-   * A point guaranteed to be inside the shape.
-   *
-   * Not the centroid: a C-shaped or a doughnut territory puts its centroid in
-   * the hole, and a tick floating in a neighbor's area is worse than none.
-   * pointOnFeature promises interior; the bounds centre is the fallback for
-   * geometry turf cannot handle at all.
-   */
-  function _badgeAnchor(entry) {
-    try {
-      var point = turf.pointOnFeature(entry.feature);
-      var c = point.geometry.coordinates;
-      return L.latLng(c[1], c[0]);
-    } catch (e) {
-      try {
-        return entry.layer.getBounds().getCenter();
-      } catch (e2) {
-        return null;
-      }
-    }
-  }
-
-  function _syncBadge(entry) {
-    if (!entry) return;
-
-    if (!isPrinted(entry.feature)) {
-      if (entry.badge) {
-        s.innerPolygonsLayerGroup.removeLayer(entry.badge);
-        entry.badge = null;
-      }
-      return;
-    }
-    if (entry.badge) return;
-
-    var at = _badgeAnchor(entry);
-    if (!at) return;
-    entry.badge = L.marker(at, {
-      icon: _badgeIcon(),
-      interactive: false,
-      keyboard: false,
-      zIndexOffset: 500,
-    });
-    s.innerPolygonsLayerGroup.addLayer(entry.badge);
-  }
-
-  function _dropBadge(entry) {
-    if (!entry || !entry.badge) return;
-    s.innerPolygonsLayerGroup.removeLayer(entry.badge);
-    entry.badge = null;
-  }
+  // The number chip is now that channel. It is already anchored at the same
+  // interior point, already rebuilt on every mark and unmark, and it already
+  // turns green; giving it the check costs one glyph and removes a whole
+  // second marker that had to be created, anchored, tracked on the entry,
+  // torn down in three places and kept from stacking on top of the number
+  // sitting in the same spot. See labels.js.
+  //
+  // The tiny-territory case makes the merge worth more than the code it
+  // saves: a speck's chip is red rather than green, so on the one territory
+  // where color was already spoken for, the check is the only thing saying
+  // "done".
 
   /**
    * Replace every cluster. Accepts GeoJSON Features or bare geometries.
@@ -396,15 +344,17 @@ App.polygons = (function () {
 
       s.innerPolygonsLayerGroup.addLayer(layer);
       attachClusterEvents(layer, feature);
-      var entry = { feature: feature, layer: layer, count: null, badge: null };
+      var entry = { feature: feature, layer: layer, count: null };
       s.clusters.push(entry);
       // After addLayer: a path has no rendered element to restyle before it
       // is on the map, so a style applied earlier would be dropped.
-      if (layer._printed) {
-        refreshStyle(layer);
-        _syncBadge(entry);
-      }
+      if (layer._printed) refreshStyle(layer);
     });
+
+    // Before refreshFilteredData: that repaints the info panel, and the info
+    // panel asks labels.js whether any of the territories it is about to
+    // count are too small or too scattered to find.
+    if (App.labels) App.labels.refresh();
 
     if (!opts || !opts.silent) refreshFilteredData();
     if (App.session) App.session.markDirty();
@@ -483,7 +433,15 @@ App.polygons = (function () {
       } catch (e) {
         remainder = null;
       }
-      if (remainder && remainder.geometry && turf.area(remainder) > 1) {
+      // Not `> 1`: a square metre of leftover became a full territory —
+      // counted in the info panel, printable as a card, and invisible at any
+      // zoom anyone works at. Below the floor the scrap belongs to nobody,
+      // which is the honest outcome for a scrap.
+      if (
+        remainder &&
+        remainder.geometry &&
+        turf.area(remainder) >= (s.MIN_REMAINDER_M2 || 1)
+      ) {
         next.push({
           type: "Feature",
           geometry: remainder.geometry,
@@ -510,11 +468,11 @@ App.polygons = (function () {
     if (!hit) return false;
     if (App.history) App.history.push();
     if (layer.disableEdit) layer.disableEdit();
-    // Before the splice: _dropBadge reads the entry, and the group holds the
-    // marker independently of the polygon it belongs to.
-    _dropBadge(hit.entry);
     s.innerPolygonsLayerGroup.removeLayer(layer);
     s.clusters.splice(hit.index, 1);
+    // Every territory after this one is renumbered, so the chips are rebuilt
+    // rather than patched.
+    if (App.labels) App.labels.refresh();
     refreshFilteredData();
     // The one cluster mutation that does not go through setClusters().
     if (App.controls) App.controls.refresh();
@@ -564,14 +522,30 @@ App.polygons = (function () {
     if (!(mode in TOOLTIP_MODES) || mode === _tooltipMode) return;
     _tooltipMode = mode;
     if (!_featureInfoAllowed()) _closeFeatureTooltips();
-    clusterLayers().forEach(_bindTooltip);
+    clusterLayers().forEach(function (layer) {
+      _bindTooltip(layer);
+    });
+    // Chips carry the same tooltip and, in cut mode, stop taking the pointer
+    // altogether — a clickable number sitting on the map is one more thing
+    // for the knife to catch on.
+    if (App.labels) App.labels.refresh();
   }
 
-  function _bindTooltip(layer) {
-    layer.closeTooltip();
-    layer.unbindTooltip();
+  /**
+   * @param {L.Layer} target what the pointer touches
+   * @param {L.Layer} [source] the cluster layer the text describes, when the
+   *   two are not the same thing — a number chip is a target that stands for
+   *   a territory it is not.
+   */
+  function _bindTooltip(target, source) {
+    source = source || target;
+    target.closeTooltip();
+    target.unbindTooltip();
     var opts = TOOLTIP_MODES[_tooltipMode];
-    if (opts) layer.bindTooltip(_tooltipContent, opts);
+    if (opts)
+      target.bindTooltip(function () {
+        return _tooltipContent(source);
+      }, opts);
   }
 
   /**
@@ -866,49 +840,95 @@ App.polygons = (function () {
     });
   }
 
-  function attachClusterEvents(layer, feature) {
-    layer.off("mouseover mouseout click contextmenu");
+  /**
+   * Everything a territory does when you point at it, bound to `target` but
+   * acting on `layer`.
+   *
+   * The two are the same object for the polygon itself. They differ for the
+   * number chip, which is a small, always-findable handle on a shape that may
+   * be a couple of pixels wide — the case the chips exist for in the first
+   * place. Splitting target from layer rather than copying these four
+   * handlers into labels.js is the point: two implementations of "click a
+   * territory" would drift, and the one on the chip would be the one nobody
+   * remembered to update.
+   *
+   * @param {Function} [onHover] told when the highlight goes on and off, so a
+   *   proxy can light itself up alongside the shape it stands for.
+   */
+  function _bindClusterBehavior(target, layer, feature, onHover) {
+    // Remove exactly what this function bound last time, by reference.
+    //
+    // `off("mouseover mouseout click contextmenu")` with no handler is a
+    // blanket removal: it takes every listener for those types off the layer,
+    // and bindTooltip's own mouseover/mouseout are listeners for those types.
+    // Which meant this was silently order-dependent — bind the tooltip first
+    // and it was wiped a line later, with no error and no clue. An event map
+    // keyed on the handlers we actually own cannot do that to anything else,
+    // whichever order the two binders are called in.
+    if (target._clusterHandlers) target.off(target._clusterHandlers);
 
-    _bindTooltip(layer);
-
-    layer.on("mouseover", function () {
-      // In cut mode the cursor is drawing, not pointing. Highlighting would
-      // also bringToFront() the cluster over the dashed preview line.
-      if (s.editMode) return;
-      layer._hover = true;
+    function hover(on) {
+      layer._hover = on;
       refreshStyle(layer);
-      if (layer.bringToFront) layer.bringToFront();
-    });
+      if (onHover) onHover(on);
+    }
 
-    layer.on("mouseout", function () {
-      if (!layer._hover) return;
-      layer._hover = false;
-      refreshStyle(layer);
-    });
+    var handlers = {
+      mouseover: function () {
+        // In cut mode the cursor is drawing, not pointing. Highlighting would
+        // also bringToFront() the cluster over the dashed preview line.
+        if (s.editMode) return;
+        hover(true);
+        if (layer.bringToFront) layer.bringToFront();
+      },
 
-    layer.on("click", function (e) {
-      if (s.mergeMode) {
+      mouseout: function () {
+        if (!layer._hover) return;
+        hover(false);
+      },
+
+      click: function (e) {
+        if (s.mergeMode) {
+          L.DomEvent.stopPropagation(e);
+          App.editing.handleClusterSelectClick(layer, feature);
+          return;
+        }
+        // In draw mode let the event through so Leaflet.Editable's vertex
+        // handles and the draw tool's map click both still work.
+        if (s.editMode) return;
+
         L.DomEvent.stopPropagation(e);
-        App.editing.handleClusterSelectClick(layer, feature);
-        return;
-      }
-      // In draw mode let the event through so Leaflet.Editable's vertex
-      // handles and the draw tool's map click both still work.
-      if (s.editMode) return;
+        App.ui.closeContextMenu();
+        s.leafletMap.fitBounds(layer.getBounds(), {
+          padding: [50, 50],
+          maxZoom: 18,
+        });
+      },
 
-      L.DomEvent.stopPropagation(e);
-      App.ui.closeContextMenu();
-      s.leafletMap.fitBounds(layer.getBounds(), {
-        padding: [50, 50],
-        maxZoom: 18,
-      });
-    });
+      contextmenu: function (e) {
+        L.DomEvent.stopPropagation(e);
+        if (s.editMode || s.mergeMode) return;
+        App.ui.showPolygonContextMenu(e.containerPoint, layer, feature);
+      },
+    };
 
-    layer.on("contextmenu", function (e) {
-      L.DomEvent.stopPropagation(e);
-      if (s.editMode || s.mergeMode) return;
-      App.ui.showPolygonContextMenu(e.containerPoint, layer, feature);
-    });
+    target._clusterHandlers = handlers;
+    target.on(handlers);
+  }
+
+  function attachClusterEvents(layer, feature) {
+    _bindTooltip(layer);
+    _bindClusterBehavior(layer, layer, feature);
+  }
+
+  /**
+   * Make something that is not the territory behave like it — same tooltip,
+   * same hover, same click, same context menu. Used by labels.js for the
+   * number chips.
+   */
+  function attachProxyEvents(proxy, layer, feature, onHover) {
+    _bindTooltip(proxy, layer);
+    _bindClusterBehavior(proxy, layer, feature, onHover);
   }
 
   function attachOuterEvents(layer) {
@@ -1060,6 +1080,7 @@ App.polygons = (function () {
     deleteCluster: deleteCluster,
 
     attachClusterEvents: attachClusterEvents,
+    attachProxyEvents: attachProxyEvents,
     attachOuterEvents: attachOuterEvents,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,

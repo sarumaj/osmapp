@@ -65,7 +65,9 @@
     "needsTerritories": "Zuerst mindestens ein Gebiet anlegen",
     "needsTwoTerritories": "Zum Verbinden werden mindestens zwei Gebiete gebraucht",
     "needsPrinted": "Kein Gebiet ist als gedruckt markiert",
-    "needsAnything": "Nichts zurückzusetzen"
+    "needsAnything": "Nichts zurückzusetzen",
+    "labelNumbers": "Nummern",
+    "numbers": "Jedes Gebiet mit seiner Nummer beschriften"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -78,7 +80,9 @@
     "hintLoaded": "Fläche aufteilen, dann schneiden, zusammenführen oder exportieren.",
     "hintFiltered": "Rechtsklick auf ein Gebiet öffnet die Aktionen. Strg+Z macht die letzte Änderung rückgängig.",
     "notLoaded": "Grenze gesetzt",
-    "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen."
+    "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen.",
+    "clustersHelp": "Liste der Gebiete anzeigen",
+    "clustersWarn": "Einige Gebiete sind auf der Karte schwer zu finden — Liste öffnen"
   },
   "loading": {
     "cancel": "Abbrechen",
@@ -276,6 +280,22 @@
     "areaKm": "Fläche: {value} km²",
     "noData": "Keine Daten geladen",
     "printed": "Gedruckt am {date}"
+  },
+  "list": {
+    "title": "Gebiete",
+    "total": {
+      "one": "{count} Gebiet, auf der Karte nummeriert.",
+      "other": "{count} Gebiete, auf der Karte nummeriert."
+    },
+    "showNumbers": "Nummern auf der Karte anzeigen",
+    "close": "Schließen",
+    "empty": "Noch keine Gebiete.",
+    "areaUnknown": "Fläche unbekannt",
+    "warnTiny": "Bei dieser Zoomstufe zu klein: {n}.",
+    "warnSplit": "Aus mehreren Teilen: {n}.",
+    "flagPrinted": "Karte bereits gedruckt",
+    "flagSplit": "Besteht aus {n} Teilen",
+    "flagTiny": "Bei dieser Zoomstufe zu klein"
   },
   "feature": {
     "building": "Gebäude",

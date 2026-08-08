@@ -1029,23 +1029,276 @@ body {
   opacity: 0.65;
 }
 
-/* The "this one is done" tick, dropped at a point guaranteed to be inside
-   each printed territory. Deliberately not subtle: it is the channel that has
-   to work when the green fill does not — small screen, color blindness, a
-   greyscale print of the map. Non-interactive, so the territory underneath
-   still answers every click. */
-.printed-badge {
+/* ═══════════════════════════════════════════════════════════
+   Territory numbers
+   ═══════════════════════════════════════════════════════════ */
+/* One chip per polygon part, all parts of a territory sharing a number. The
+   wrapper is a zero-size divIcon dropped exactly on the anchor point, so the
+   chip can be any width and still centre itself over its own territory — a
+   fixed iconAnchor would push "142" off to one side. The stem runs from the
+   bottom of the chip back down to the point, which is what keeps a chip
+   readable above a speck it is bigger than. */
+/* The wrapper is never the hit target — it has no size. The chip inside it
+   is, and the click bubbles up to the wrapper, which is where Leaflet put the
+   marker's listeners. */
+.territory-label-wrap {
+  width: 0 !important;
+  height: 0 !important;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.territory-label {
+  position: absolute;
+  pointer-events: auto;
+  cursor: pointer;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, calc(-100% - 9px));
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  box-sizing: border-box;
   border: 2px solid #fff;
-  background: #1e8449;
+  border-radius: 11px;
+  background: #6c3483;
   color: #fff;
-  font-size: 11px;
-  line-height: 1;
+  font: bold var(--ui-fs-sm) / 1 var(--ui-font);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+}
+
+/* The stem down to the anchor. */
+.territory-label::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  width: 2px;
+  height: 9px;
+  margin-left: -1px;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+/* Same green as the printed fill — done is one color. The check beside the
+   number is the channel that has to work when the green does not: a small
+   screen, color blindness, a greyscale print of the map, or a chip that is
+   already red because the territory is too small to see. */
+.territory-label--printed {
+  background: #1e8449;
+}
+
+.territory-label__check {
+  margin-right: 4px;
+  font-size: 0.9em;
+}
+
+/* A second (or third) piece of the same territory. Dashed rather than a
+   different number: the number is the truth, the dashes say "and this one
+   too", which is the whole explanation for a map showing more shapes than
+   the info panel counts. */
+.territory-label--part {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
+/* Cut mode. The chip stays readable but stops taking the pointer: the cursor
+   is a drawing instrument there, and a clickable number sitting on the map is
+   one more thing for the knife to catch on. */
+.territory-label--static {
   pointer-events: none;
+  cursor: default;
+}
+
+/* Hover and selection mirror the shape's own states, because the chip is a
+   second handle on the same territory rather than a label about it. Orange is
+   already the app's selection color (CLUSTER_STYLE_SELECTED). */
+.territory-label--hover {
+  transform: translate(-50%, calc(-100% - 11px)) scale(1.08);
+}
+.territory-label--selected {
+  background: #f39c12;
+  color: #4d3200;
+}
+
+/* Too small to see at this zoom. The ring is drawn at the anchor point, so
+   there is something finger-sized to aim at where the territory itself is a
+   couple of pixels. */
+.territory-label--tiny {
+  background: #c0392b;
+}
+.territory-label--selected.territory-label--printed,
+.territory-label--selected.territory-label--tiny {
+  background: #f39c12;
+}
+
+.territory-label--tiny::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 4px);
+  width: 16px;
+  height: 16px;
+  margin-left: -8px;
+  border: 2px solid #c0392b;
+  border-radius: 50%;
+  background: rgba(192, 57, 43, 0.22);
+}
+
+/* The flash after jumping to a territory from the list. The fill is
+   brightened from JS (works with any renderer); this animates the outline on
+   top of it, because a map that has just finished moving is exactly when a
+   static highlight is easiest to miss. */
+.territory-pulse {
+  animation: territory-pulse 0.8s ease-in-out 3;
+}
+
+@keyframes territory-pulse {
+  0%,
+  100% {
+    stroke-width: 3;
+    stroke-opacity: 1;
+  }
+  50% {
+    stroke-width: 9;
+    stroke-opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .territory-pulse {
+    animation: none;
+    stroke-width: 6;
+  }
+}
+
+/* ── The count as a button ─────────────────────────────────────────────── */
+.info-panel__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+  margin: -2px -4px;
+  border: 0;
+  border-radius: var(--radius-sm, 4px);
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.info-panel__count:hover,
+.info-panel__count:focus-visible {
+  background: rgba(155, 89, 182, 0.14);
+}
+.info-panel__count-icon {
+  font-size: 0.8em;
+  color: var(--c-text-dim);
+}
+.info-panel__warn {
+  font-size: 0.85em;
+  color: #c0392b;
+}
+
+/* ── The list ──────────────────────────────────────────────────────────── */
+.territory-list {
+  min-width: 320px;
+  max-width: 380px;
+}
+
+.territory-list__notes {
+  margin: 4px 0 0;
+  font-size: var(--ui-fs-sm);
+  color: #c0392b;
+}
+
+.territory-list__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 6px;
+  font-size: var(--ui-fs-sm);
+  cursor: pointer;
+}
+
+/* Capped rather than unbounded: 200 territories is a legal partition and a
+   dialog taller than the screen is not. */
+.territory-list__rows {
+  max-height: min(44vh, 340px);
+  overflow-y: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.territory-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-bottom: 1px solid var(--c-border);
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.territory-row:last-child {
+  border-bottom: 0;
+}
+.territory-row:hover,
+.territory-row:focus-visible {
+  background: rgba(155, 89, 182, 0.12);
+}
+
+/* The same chip as on the map, so the row and the number over the territory
+   read as the same object. */
+.territory-row__num {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: #6c3483;
+  color: #fff;
+  font: bold var(--ui-fs-sm) / 1 var(--ui-font);
+  font-variant-numeric: tabular-nums;
+}
+
+.territory-row__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.territory-row__main {
+  display: block;
+}
+.territory-row__meta {
+  display: block;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+
+.territory-row__flags {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+}
+.territory-row__flag.is-printed {
+  color: #1e8449;
+}
+.territory-row__flag.is-split {
+  color: #b9770e;
+}
+.territory-row__flag.is-tiny {
+  color: #c0392b;
 }
 
 /* ═══════════════════════════════════════════════════════════

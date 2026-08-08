@@ -164,6 +164,25 @@ App.controls = (function () {
           },
         },
         {
+          // The count in the info panel is a number people check against the
+          // map by eye, and they lose. This puts the same number *on* each
+          // territory, so counting is reading rather than searching.
+          id: "numbers",
+          icon: "fa-hashtag",
+          labelKey: "toolbar.labelNumbers",
+          titleKey: "toolbar.numbers",
+          disabledTitleKey: "toolbar.needsTerritories",
+          accent: "purple",
+          enabled: hasClusters,
+          active: function () {
+            return App.labels.isVisible();
+          },
+          onClick: function () {
+            App.labels.setVisible(!App.labels.isVisible());
+            refresh();
+          },
+        },
+        {
           // Doing a territory again next round means the same shapes with a
           // clean slate of marks, which is otherwise a right-click per
           // territory. Disabled — not hidden — when there is nothing marked,
@@ -344,6 +363,8 @@ App.controls = (function () {
     overlays[T("layers.outer")] = s.outerPolygonLayerGroup;
     overlays[T("layers.streets")] = s.streetsLayerGroup;
     overlays[T("layers.buildings")] = s.buildingsLayerGroup;
+    // The number chips ride along in this one: they are territories, not a
+    // separate kind of thing to switch on and off.
     overlays[T("layers.clusters")] = s.innerPolygonsLayerGroup;
 
     _layerControl = L.control

@@ -88,6 +88,9 @@
     //    redo buttons exist when their state is first synced ─────────────
     App.ui.init();
     App.polygons.init();
+    // After polygons: it reads isPrinted off it, and its chips go into the
+    // same layer group as the territories themselves.
+    App.labels.init();
     App.data.init();
     App.session.init();
     App.clustering.init();

@@ -63,9 +63,18 @@ App.ui = (function () {
       _docKeyBound = true;
     }
 
-    App.i18n.onChange(function () {
-      if (_lastInfo) setInfo(_lastInfo);
-    });
+    // The territory count is a button. It is the one number in the panel
+    // people try to reconcile against the map by eye, and the answer to
+    // "where are they?" is a list you can click, not a bigger number.
+    var count = D.role(_panel, "clusters-btn");
+    if (count) {
+      count.addEventListener("click", function (e) {
+        e.preventDefault();
+        if (App.labels) App.labels.openList();
+      });
+    }
+
+    App.i18n.onChange(refreshInfo);
 
     App._loaded.push("ui");
   }
@@ -187,7 +196,10 @@ App.ui = (function () {
       D.text(_panel, "buildings", info.buildings || 0);
       var hasClusters = info.clusters != null;
       D.toggleRole(_panel, "clusters-row", hasClusters);
-      if (hasClusters) D.text(_panel, "clusters", info.clusters);
+      if (hasClusters) {
+        D.text(_panel, "clusters", info.clusters);
+        _syncClusterWarning();
+      }
 
       // Shown from the first territory onwards, not from the first card:
       // "0 of 12" is the number that makes the round legible, and a row that
@@ -200,6 +212,31 @@ App.ui = (function () {
     var hint = info.hintKey ? App.i18n.t(info.hintKey) : info.hint || "";
     D.text(_panel, "hint", hint);
     D.toggleRole(_panel, "hint", !!hint);
+  }
+
+  /**
+   * A quiet mark next to the count when it is going to disagree with what the
+   * map shows — territories too small to see at this zoom, or drawn in more
+   * than one piece. Without it the number looks wrong; with it the number
+   * looks explained, and the explanation is one click away.
+   */
+  function _syncClusterWarning() {
+    var warn = App.labels ? App.labels.warnings() : null;
+    var flagged = !!(warn && warn.total > 0);
+    D.toggleRole(_panel, "clusters-warn", flagged);
+    var button = D.role(_panel, "clusters-btn");
+    if (button) {
+      button.setAttribute(
+        "title",
+        App.i18n.t(flagged ? "info.clustersWarn" : "info.clustersHelp"),
+      );
+    }
+  }
+
+  /** Re-render the panel from the last payload — after a language change or
+   *  a zoom that changed which territories count as too small to see. */
+  function refreshInfo() {
+    if (_lastInfo) setInfo(_lastInfo);
   }
 
   /**
@@ -425,6 +462,7 @@ App.ui = (function () {
 
     // info panel
     setInfo: setInfo,
+    refreshInfo: refreshInfo,
     setInfoDefault: setInfoDefault,
     setInfoLoaded: setInfoLoaded,
     setInfoFiltered: setInfoFiltered,

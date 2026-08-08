@@ -1978,6 +1978,7 @@ App.print = (function () {
     // something else, and should hear it here rather than off the printer.
     D.toggleRole(_dialog, "osm-only", App.basemap.isAid());
     _loadPreferences();
+    _suggestTerritoryNumber();
     // After _loadPreferences, so a preference saved in a browser that could
     // sharpen does not come back checked in one that cannot.
     _applyFilterSupport();
@@ -1988,6 +1989,27 @@ App.print = (function () {
 
     // May replace the layout a moment later, which redoes all of the above.
     _restoreTemplate();
+  }
+
+  /**
+   * Offer the number the map is already showing as the territory number.
+   *
+   * Not a preference, unlike Locality: the locality is the same on every card
+   * of a round and the number is different on every one, which is why it was
+   * the one field you retyped each time — from the tooltip, or by counting.
+   * The chip on the shape says 7, so the field says 7.
+   *
+   * A suggestion rather than a fact. It is an editable text field and stays
+   * one: the number is this session's index into s.clusters, and a
+   * congregation's S-13 numbering is its own thing that no partitioner knows
+   * about. Anything already typed wins, so a language switch — which reopens
+   * nothing, but a future caller might — cannot overwrite an answer.
+   */
+  function _suggestTerritoryNumber() {
+    var input = D.role(_dialog, "territory");
+    if (!input || input.value.trim()) return;
+    var number = App.labels ? App.labels.numberOf(_feature) : null;
+    if (number) input.value = App.i18n.n(number);
   }
 
   function close() {

@@ -67,6 +67,17 @@ App.state = {
   CUT_MIN_PIECE_M2: 5, // discard crumbs the knife shaves off
 
   MAX_PARTITIONS: 200,
+
+  // A territory whose bounding box is shorter than this on screen is flagged
+  // as one you cannot reasonably see. 24 px is roughly the size of the number
+  // chip itself: below that the label is bigger than the thing it labels,
+  // which is exactly the case worth pointing at.
+  TINY_TERRITORY_PX: 24,
+
+  // Carving a hand-drawn polygon out of the whole-area cluster leaves a
+  // remainder. Below this it is dropped instead of becoming a territory in
+  // its own right — see polygons.addInnerPolygon.
+  MIN_REMAINDER_M2: 50,
 };
 
 window.App = App;
