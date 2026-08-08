@@ -2524,7 +2524,7 @@ App.print = (function () {
         _pdfUrl = URL.createObjectURL(pdf);
         var name =
           "territory_map" +
-          (p.locality
+          (o.locality
             ? "-" + o.locality.replace(/\s+/g, "_")
             : ""
           ) +
