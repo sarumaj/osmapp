@@ -33,9 +33,11 @@
     "partition": "Fläche in Gebiete aufteilen",
     "cut": "Trennlinie entlang der Straßen zeichnen (Doppelklick beendet)",
     "merge": "Gebiete auswählen und zusammenführen",
+    "clearPrinted": "Druckmarkierungen aller Gebiete entfernen",
     "reset": "Alles zurücksetzen",
     "language": "Sprache",
     "github": "Quellcode und Hilfestellung auf GitHub",
+    "help": "Geführte Tour anzeigen",
     "collapse": "Beschriftungen ausblenden",
     "expand": "Beschriftungen einblenden",
     "groupArea": "Fläche",
@@ -49,6 +51,7 @@
     "labelPartition": "Aufteilen",
     "labelCut": "Schneiden",
     "labelMerge": "Verbinden",
+    "labelClearPrinted": "Marken",
     "labelUndo": "Zurück",
     "labelRedo": "Erneut",
     "labelImport": "Laden",
@@ -56,10 +59,12 @@
     "labelReset": "Reset",
     "labelLanguage": "Sprache",
     "labelGithub": "GitHub",
+    "labelHelp": "Hilfe",
     "needsBoundary": "Zuerst eine Außengrenze zeichnen oder suchen",
     "needsData": "Zuerst die OSM-Daten laden",
     "needsTerritories": "Zuerst mindestens ein Gebiet anlegen",
     "needsTwoTerritories": "Zum Verbinden werden mindestens zwei Gebiete gebraucht",
+    "needsPrinted": "Kein Gebiet ist als gedruckt markiert",
     "needsAnything": "Nichts zurückzusetzen"
   },
   "info": {
@@ -69,6 +74,7 @@
     "streets": "Straßen",
     "buildings": "Gebäude",
     "clusters": "Gebiete",
+    "printed": "Gedruckt",
     "hintLoaded": "Fläche aufteilen, dann schneiden, zusammenführen oder exportieren.",
     "hintFiltered": "Rechtsklick auf ein Gebiet öffnet die Aktionen. Strg+Z macht die letzte Änderung rückgängig.",
     "notLoaded": "Grenze gesetzt",
@@ -102,6 +108,8 @@
   "menu": {
     "zoom": "Heranzoomen",
     "print": "Drucken",
+    "markPrinted": "Als gedruckt markieren",
+    "unmarkPrinted": "Markierung entfernen",
     "delete": "Löschen"
   },
   "partition": {
@@ -173,6 +181,7 @@
     "openPdf": "PDF öffnen",
     "cancel": "Abbrechen",
     "print": "Drucken",
+    "printHint": "PDF erzeugen (Strg+Enter)",
     "loadingTiles": "Kartenkacheln werden geladen…",
     "loadingProgress": "Kartenkacheln werden geladen… {done} / {total}",
     "buildingPdf": "PDF wird erstellt…",
@@ -253,7 +262,11 @@
     "cutNoSeparation": "Die Linie hat ein Gebiet gekreuzt, es aber nicht geteilt. Ziehe sie ganz durch, von einer Grenze zur anderen.",
     "mergeTooFew": "Wähle mindestens zwei Gebiete zum Zusammenführen aus.",
     "mergeFailed": "Diese Gebiete konnten nicht zusammengeführt werden.\n\n{message}",
-    "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}"
+    "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}",
+    "clearPrintedConfirm": {
+      "one": "Die Druckmarkierung von {count} Gebiet entfernen? Das lässt sich nicht rückgängig machen.",
+      "other": "Die Druckmarkierungen von {count} Gebieten entfernen? Das lässt sich nicht rückgängig machen."
+    }
   },
   "tooltip": {
     "territory": "Gebiet {n}",
@@ -261,7 +274,8 @@
     "streets": "Straßen: {count}",
     "areaM": "Fläche: {value} m²",
     "areaKm": "Fläche: {value} km²",
-    "noData": "Keine Daten geladen"
+    "noData": "Keine Daten geladen",
+    "printed": "Gedruckt am {date}"
   },
   "feature": {
     "building": "Gebäude",
@@ -366,7 +380,9 @@
     "replaceOuterTitle": "Grenze ersetzen?",
     "replace": "Ersetzen",
     "resetTitle": "Alles zurücksetzen?",
-    "reset": "Zurücksetzen"
+    "reset": "Zurücksetzen",
+    "clearPrintedTitle": "Druckmarkierungen entfernen?",
+    "clearPrinted": "Entfernen"
   },
   "cut": {
     "vertices": "{count} Punkte",
@@ -380,5 +396,87 @@
     "finish": "Schneiden",
     "undo": "Zurück",
     "cancel": "Abbrechen"
+  },
+  "tour": {
+    "next": "Weiter",
+    "back": "Zurück",
+    "finish": "Fertig",
+    "skip": "Tour schließen",
+    "dontShow": "Nicht automatisch anzeigen",
+    "progress": "Schritt {index} von {total}",
+    "steps": {
+      "welcome": {
+        "title": "Willkommen",
+        "body": "Diese App macht aus einem Ausschnitt von OpenStreetMap druckfertige Gebietskarten. Kurz gefasst: Ort suchen, Straßen und Gebäude laden, die Fläche in Gebiete aufteilen, pro Gebiet eine Karte drucken. Es folgen ein paar kurze Schritte — Esc beendet die Tour jederzeit."
+      },
+      "search": {
+        "title": "Mit der Suche anfangen",
+        "body": "Ort, Stadtteil oder Straße eingeben. Wenn OpenStreetMap eine amtliche Umrisslinie dafür kennt, bietet die App sie als Außengrenze an — schneller und genauer, als sie von Hand nachzuzeichnen."
+      },
+      "draw": {
+        "title": "Oder die Grenze zeichnen",
+        "body": "Klicken setzt die Eckpunkte, Enter oder ein Doppelklick schließt die Fläche. Alles Weitere passiert innerhalb dieser Außengrenze."
+      },
+      "locate": {
+        "title": "Standort finden",
+        "body": "Zentriert die Karte auf die aktuelle Position — praktisch, wenn man in der Gegend anfängt, in der man gerade steht."
+      },
+      "refetch": {
+        "title": "Kartendaten laden",
+        "body": "Holt die Straßen und Gebäudegrundrisse innerhalb der Grenze von OpenStreetMap. Nach dem Zeichnen wird einmal automatisch gefragt; dieser Knopf wiederholt es, wenn die Grenze sich geändert hat."
+      },
+      "partition": {
+        "title": "In Gebiete aufteilen",
+        "body": "Teilt die Fläche automatisch auf — entweder in Gebiete mit jeweils etwa N Gebäuden oder in eine feste Anzahl etwa gleich großer Gebiete. Die Schnitte folgen echten Straßen statt geraden Linien."
+      },
+      "cut": {
+        "title": "Aufteilung von Hand korrigieren",
+        "body": "Eine Linie quer durch ein Gebiet trennt es auf. Sie rastet an Kreuzungen, Straßen und vorhandenen Grenzen ein; S, B und F schalten die drei Arten der Ausrichtung um, Alt setzt einen freien Punkt, Enter führt den Schnitt aus."
+      },
+      "merge": {
+        "title": "Gebiete verbinden",
+        "body": "Zwei oder mehr benachbarte Gebiete auswählen und zu einem zusammenführen. Die gemeinsamen Grenzen dazwischen verschwinden."
+      },
+      "history": {
+        "title": "Alles rückgängig machen",
+        "body": "Zurück und Erneut gehen durch Grenzänderungen, Schnitte und Zusammenführungen; Strg+Z funktioniert ebenfalls. Im Schneidewerkzeug und im Radierer nehmen sie stattdessen Punkte und Striche zurück — rückgängig heißt also immer das, was zuletzt getan wurde."
+      },
+      "territory": {
+        "title": "Jedes Gebiet hat ein Menü",
+        "body": "Rechtsklick auf ein Gebiet: heranzoomen, drucken oder löschen. Wer mit der Maus über eine Straße oder ein Gebäude fährt, sieht, was OpenStreetMap darüber weiß — Name, Adresse, Belag."
+      },
+      "print": {
+        "title": "Die Karte",
+        "body": "Drucken öffnet eine Vorschau, die sich verschieben, zoomen und drehen lässt. Dort werden Schriftgröße, Randfarbe und Randstärke eingestellt, Randstücke wegradiert, die mitten durch ein Haus laufen, und Ort und Gebietsnummer eingetragen. Ein eigenes PDF-Formular kann geladen werden, dann wird die Karte dort hineingesetzt. Gebiete, deren Karte fertig ist, werden auf der Karte grün und gestrichelt — so ist auf einen Blick zu sehen, was noch offen ist."
+      },
+      "layers": {
+        "title": "Was angezeigt wird",
+        "body": "Hintergrund zwischen Karte, Luftbild und Gelände umschalten und Straßen, Gebäude und Gebiete ein- und ausblenden. Die Hilfsebenen gelten nur für den Bildschirm — gedruckt wird immer auf der OpenStreetMap-Ebene."
+      },
+      "info": {
+        "title": "Wo man gerade steht",
+        "body": "Wie viele Straßen, Gebäude und Gebiete geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt."
+      },
+      "files": {
+        "title": "Die Arbeit mitnehmen",
+        "body": "Speichern schreibt Grenze, geladene Daten und alle Gebiete in eine GeoJSON-Datei, Laden liest sie wieder ein. So wandert die Arbeit zwischen Geräten — und so entsteht eine Sicherung."
+      },
+      "reset": {
+        "title": "Von vorn anfangen",
+        "body": "Löscht die Grenze, die geladenen Daten und alle Gebiete. Es wird vorher gefragt, und es lässt sich nicht rückgängig machen."
+      },
+      "language": {
+        "title": "Drei Sprachen",
+        "body": "Englisch, Polnisch und Deutsch. Die Wahl steht in der Adresse, ein geteilter Link öffnet sich also in der Sprache, in der man gearbeitet hat."
+      },
+      "offline": {
+        "title": "Funktioniert offline",
+        "body": "Die App lässt sich wie eine native installieren und arbeitet ohne Verbindung weiter: Grenze, Daten und Gebiete überstehen einen Neuladen, bereits gesehene Kartenkacheln bleiben gespeichert. Neue Daten laden und PDFs erzeugen brauchen weiterhin das Netz."
+      },
+      "done": {
+        "title": "Das war alles",
+        "body": "Über diesen Knopf lässt sich die Tour jederzeit wieder öffnen. Bleibt das Kästchen unten angehakt, startet sie nicht mehr von selbst."
+      }
+    }
   }
 }

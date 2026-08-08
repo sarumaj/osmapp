@@ -347,7 +347,7 @@ App.print = (function () {
    * order the SVG chain would.
    *
    * @param {Uint8ClampedArray} data RGBA, un-premultiplied, as getImageData
-   *   hands it over — which is the colour space feConvolveMatrix works in when
+   *   hands it over — which is the color space feConvolveMatrix works in when
    *   preserveAlpha is true.
    * @param {number} width
    * @param {number} height
@@ -571,9 +571,9 @@ App.print = (function () {
       // Weaker, but enough to tell two templates apart on one machine.
       return Promise.resolve(
         "n" +
-          [file.name, file.size, file.lastModified]
-            .join(":")
-            .replace(/\W+/g, "_"),
+        [file.name, file.size, file.lastModified]
+          .join(":")
+          .replace(/\W+/g, "_"),
       );
     }
     return file.arrayBuffer().then(function (buf) {
@@ -2024,6 +2024,16 @@ App.print = (function () {
     });
     D.onRole(_dialog, "cancel", close);
     D.onRole(_dialog, "print", _print);
+
+    // Ctrl+Enter (Cmd+Enter on a Mac) prints. Plain Enter deliberately does
+    // not: the Card group holds two text fields, and submitting a job from
+    // inside one of them is exactly the accident this avoids. Escape is
+    // already handled globally by ui.js.
+    _dialog.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey)) return;
+      e.preventDefault();
+      if (!_busy) _print();
+    });
     // Bound directly rather than through D.onRole: that helper calls
     // preventDefault() on every click, which is right for the <button>s but
     // cancels an <a>'s navigation — the Open PDF link did nothing at all.
@@ -2389,6 +2399,11 @@ App.print = (function () {
 
   function _print() {
     if (!_view || _busy) return;
+    // Captured now rather than read later: Escape closes the dialog even
+    // mid-composition, and the teardown nulls _feature before this chain
+    // resolves. markPrinted() looks the feature up in the cluster list and
+    // shrugs if it has since been cut, merged or deleted.
+    var target = _feature;
     _setBusy(true);
 
     _setStatus(T("print.waitingTiles"));
@@ -2404,6 +2419,21 @@ App.print = (function () {
         if (!_templateFile) return _printImage(blob);
         _setStatus(T("print.buildingPdf"));
         return _composePdf(blob);
+      })
+      .then(function (ok) {
+        // _composePdf reports its own failures and resolves false rather than
+        // throwing, so that the status pill keeps the specific "could not
+        // build the PDF" wording instead of the generic one. That means the
+        // success path has to be tested here rather than assumed from the
+        // absence of a throw.
+        if (ok === false) return;
+
+        // On the no-template path this is optimistic: the browser's own print
+        // dialog is fire-and-forget and we never hear whether it was
+        // cancelled. Optimistic is the right way round, though — a territory
+        // wrongly marked is one right-click away from being un-marked, while
+        // one wrongly left unmarked is a card printed twice.
+        App.polygons.markPrinted(target, true);
       })
       .catch(function (err) {
         _setStatus(err.message, false);
@@ -2492,13 +2522,19 @@ App.print = (function () {
       .then(function (pdf) {
         _releasePdf();
         _pdfUrl = URL.createObjectURL(pdf);
-
         var name =
           "territory_map" +
+          (p.locality
+            ? "-" + o.locality.replace(/\s+/g, "_")
+            : ""
+          ) +
           (o.territory
             ? "-" + o.territory.replace(/\s+/g, "_")
             : "-" + Math.floor(Date.now() / 1000)) +
           ".pdf";
+
+        // make sure name contains only filename-safe characters
+        name = name.replace(/[^a-zA-Z0-9_\-\.]/g, "_").toLowerCase();
 
         var link = document.createElement("a");
         link.href = _pdfUrl;
@@ -2515,10 +2551,14 @@ App.print = (function () {
           // the file is downloaded and the Open button waits for a real click.
           _setStatus(T("print.saved", { name: name }), false);
         }
+        return true;
       })
       .catch(function (err) {
         console.error(">>> PDF composition failed:", err);
         _setStatus(T("print.errPdf", { message: err.message }), false);
+        // Reported, not rethrown — the caller needs to know this failed
+        // without the outer handler overwriting the specific message above.
+        return false;
       });
   }
 

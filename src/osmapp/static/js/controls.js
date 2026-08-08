@@ -163,6 +163,22 @@ App.controls = (function () {
             App.editing.toggleMergeMode();
           },
         },
+        {
+          // Doing a territory again next round means the same shapes with a
+          // clean slate of marks, which is otherwise a right-click per
+          // territory. Disabled — not hidden — when there is nothing marked,
+          // so the counter in the info panel has a visible companion.
+          id: "clear-printed",
+          icon: "fa-list-check",
+          labelKey: "toolbar.labelClearPrinted",
+          titleKey: "toolbar.clearPrinted",
+          disabledTitleKey: "toolbar.needsPrinted",
+          accent: "green",
+          enabled: function () {
+            return App.polygons.printedCount() > 0;
+          },
+          onClick: _clearPrinted,
+        },
       ],
     },
     {
@@ -244,6 +260,19 @@ App.controls = (function () {
       key: "app",
       titleKey: "toolbar.groupApp",
       buttons: [
+        {
+          // The way back into the walkthrough. It only ever opens by itself
+          // once, so without a button the tour would be a thing that happened
+          // to you rather than a thing you can consult.
+          id: "help",
+          icon: "fa-circle-question",
+          labelKey: "toolbar.labelHelp",
+          titleKey: "toolbar.help",
+          accent: "blue",
+          onClick: function () {
+            App.tour.start();
+          },
+        },
         { id: "language", custom: _mountLanguagePicker },
         {
           // fa-brands, not fa-solid: the GitHub mark lives in a separate
@@ -581,6 +610,30 @@ App.controls = (function () {
     App.data.confirmAndFetch(s.outerPolygonLayer.toGeoJSON(), { force: true });
   }
 
+  /**
+   * Wipe the printed marks after confirming.
+   *
+   * Confirmed because it is not undoable: the marks are not document geometry
+   * and history.push() does not record them, so there is nothing for Ctrl+Z
+   * to put back. The count goes in the question rather than in the tooltip,
+   * because "clear 23 marks" and "clear 1 mark" deserve different amounts of
+   * hesitation.
+   */
+  function _clearPrinted() {
+    var count = App.polygons.printedCount();
+    if (count === 0) return;
+    App.ui
+      .confirm({
+        titleKey: "confirm.clearPrintedTitle",
+        message: T("alert.clearPrintedConfirm", { count: count }),
+        okKey: "confirm.clearPrinted",
+        danger: true,
+      })
+      .then(function (ok) {
+        if (ok) App.polygons.clearPrinted();
+      });
+  }
+
   // ── Locate ────────────────────────────────────────────────────────────
 
   function _locate(node) {
@@ -718,10 +771,21 @@ App.controls = (function () {
     s.leafletMap.setView([47.3769, 8.5417], 13);
   }
 
+  function isCollapsed() {
+    return !!(_panel && _panel.classList.contains("is-collapsed"));
+  }
+
+  /** Public so the tour can expand the panel while it points at buttons. */
+  function setCollapsed(collapsed) {
+    if (_panel) _setCollapsed(!!collapsed);
+  }
+
   return {
     init: init,
     refresh: refresh,
     setActive: setActive,
+    setCollapsed: setCollapsed,
+    isCollapsed: isCollapsed,
     resetAll: resetAll,
   };
 })();

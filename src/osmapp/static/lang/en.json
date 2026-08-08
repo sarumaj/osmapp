@@ -33,9 +33,11 @@
     "partition": "Split the area into territories",
     "cut": "Draw a street-snapped split line (double-click to finish)",
     "merge": "Select and merge territories",
+    "clearPrinted": "Clear the printed marks on all territories",
     "reset": "Reset everything",
     "language": "Language",
     "github": "Source code and help resources on GitHub",
+    "help": "Show the guided tour",
     "collapse": "Hide the labels",
     "expand": "Show the labels",
     "groupArea": "Area",
@@ -49,6 +51,7 @@
     "labelPartition": "Split",
     "labelCut": "Cut",
     "labelMerge": "Merge",
+    "labelClearPrinted": "Marks",
     "labelUndo": "Undo",
     "labelRedo": "Redo",
     "labelImport": "Import",
@@ -56,10 +59,12 @@
     "labelReset": "Reset",
     "labelLanguage": "Language",
     "labelGithub": "GitHub",
+    "labelHelp": "Help",
     "needsBoundary": "Draw or search for an outer boundary first",
     "needsData": "Load the OSM data first",
     "needsTerritories": "Create at least one territory first",
     "needsTwoTerritories": "Merging needs at least two territories",
+    "needsPrinted": "No territory is marked as printed",
     "needsAnything": "Nothing to reset"
   },
   "info": {
@@ -69,6 +74,7 @@
     "streets": "Streets",
     "buildings": "Buildings",
     "clusters": "Territories",
+    "printed": "Printed",
     "hintLoaded": "Split the area, then cut, merge, or export.",
     "hintFiltered": "Right-click a territory for actions. Ctrl+Z undoes the last change.",
     "notLoaded": "Boundary set",
@@ -102,6 +108,8 @@
   "menu": {
     "zoom": "Zoom to",
     "print": "Print",
+    "markPrinted": "Mark as printed",
+    "unmarkPrinted": "Mark as not printed",
     "delete": "Delete"
   },
   "partition": {
@@ -173,6 +181,7 @@
     "openPdf": "Open PDF",
     "cancel": "Cancel",
     "print": "Print",
+    "printHint": "Build the PDF (Ctrl+Enter)",
     "loadingTiles": "Loading map tiles…",
     "loadingProgress": "Loading map tiles… {done} / {total}",
     "buildingPdf": "Building the PDF…",
@@ -253,7 +262,11 @@
     "cutNoSeparation": "The line crossed a territory but did not separate it. Draw right across, from one boundary to the other.",
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
-    "partitionFailed": "The partition failed: {message}"
+    "partitionFailed": "The partition failed: {message}",
+    "clearPrintedConfirm": {
+      "one": "Clear the printed mark on {count} territory? This cannot be undone.",
+      "other": "Clear the printed marks on {count} territories? This cannot be undone."
+    }
   },
   "tooltip": {
     "territory": "Territory {n}",
@@ -261,7 +274,8 @@
     "streets": "Streets: {count}",
     "areaM": "Area: {value} m²",
     "areaKm": "Area: {value} km²",
-    "noData": "No data loaded"
+    "noData": "No data loaded",
+    "printed": "Printed {date}"
   },
   "feature": {
     "building": "Building",
@@ -366,7 +380,9 @@
     "replaceOuterTitle": "Replace the boundary?",
     "replace": "Replace",
     "resetTitle": "Reset everything?",
-    "reset": "Reset"
+    "reset": "Reset",
+    "clearPrintedTitle": "Clear the printed marks?",
+    "clearPrinted": "Clear"
   },
   "cut": {
     "vertices": "{count} vertices",
@@ -380,5 +396,87 @@
     "finish": "Cut",
     "undo": "Back",
     "cancel": "Cancel"
+  },
+  "tour": {
+    "next": "Next",
+    "back": "Back",
+    "finish": "Done",
+    "skip": "Close the tour",
+    "dontShow": "Don't show this automatically",
+    "progress": "Step {index} of {total}",
+    "steps": {
+      "welcome": {
+        "title": "Welcome",
+        "body": "This app turns an area of OpenStreetMap into printable territory cards. The short version: find a place, download its streets and buildings, split it into territories, print one card each. A few short steps follow — Esc leaves at any point."
+      },
+      "search": {
+        "title": "Start with a search",
+        "body": "Type a town, a district or a street. When OpenStreetMap has an official outline for the place, the app offers it as your outer boundary — faster and more accurate than tracing one by hand."
+      },
+      "draw": {
+        "title": "Or draw the boundary",
+        "body": "Click to place corners, then press Enter or double-click to close the shape. Everything else the app does happens inside this outer boundary."
+      },
+      "locate": {
+        "title": "Find yourself",
+        "body": "Centres the map on your current position — handy when you are starting in the neighborhood you are standing in."
+      },
+      "refetch": {
+        "title": "Download the map data",
+        "body": "Fetches the streets and building footprints inside the boundary from OpenStreetMap. You are asked once automatically after drawing; this button repeats it after you change the boundary."
+      },
+      "partition": {
+        "title": "Split into territories",
+        "body": "Divides the area automatically — either into territories of roughly N buildings each, or into a fixed number of roughly equal size. The cuts follow real streets rather than straight lines."
+      },
+      "cut": {
+        "title": "Correct a split by hand",
+        "body": "Draw a line across a territory to divide it. It snaps to junctions, streets and existing edges; S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
+      },
+      "merge": {
+        "title": "Join territories",
+        "body": "Pick two or more neighboring territories and merge them into one. The edges they shared are dissolved."
+      },
+      "history": {
+        "title": "Undo anything",
+        "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool and the eraser they take back points and strokes instead, so undo always means whatever you last did."
+      },
+      "territory": {
+        "title": "Every territory has a menu",
+        "body": "Right-click a territory on the map to zoom to it, print it or delete it. Hovering over a street or a building shows what OpenStreetMap knows about it — the name, the address, the surface."
+      },
+      "print": {
+        "title": "The card",
+        "body": "Printing opens a preview you can pan, zoom and rotate. Set the label size, the border color and thickness, erase the stretches of border that run through a house, and fill in the locality and the territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and dashed on the map, so what is left is visible at a glance."
+      },
+      "layers": {
+        "title": "What is shown",
+        "body": "Switch the background between the map, aerial imagery and terrain, and turn streets, buildings and territories on and off. The aid layers are for the screen only — cards are always printed on the OpenStreetMap layer."
+      },
+      "info": {
+        "title": "Where you stand",
+        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step."
+      },
+      "files": {
+        "title": "Take your work with you",
+        "body": "Export writes the boundary, the downloaded data and every territory to one GeoJSON file, and Import reads it back. That is how work moves between devices, and how it gets backed up."
+      },
+      "reset": {
+        "title": "Start over",
+        "body": "Clears the boundary, the downloaded data and every territory. It asks first, and it cannot be undone."
+      },
+      "language": {
+        "title": "Three languages",
+        "body": "English, Polish and German. The choice is part of the address, so a link you share opens in the language you were using."
+      },
+      "offline": {
+        "title": "Works offline",
+        "body": "The app can be installed like a native one and keeps working without a connection: your boundary, data and territories survive a reload, and map tiles you have already seen stay cached. Downloading new data and building PDFs still need the network."
+      },
+      "done": {
+        "title": "That is everything",
+        "body": "This button reopens the tour whenever you want it. Leave the box below ticked and it will not open by itself again."
+      }
+    }
   }
 }

@@ -33,9 +33,11 @@
     "partition": "Podziel obszar na tereny",
     "cut": "Narysuj linię podziału wzdłuż ulic (dwuklik kończy)",
     "merge": "Zaznacz i połącz tereny",
+    "clearPrinted": "Usuń oznaczenia wydruku ze wszystkich terenów",
     "reset": "Wyczyść wszystko",
     "language": "Język",
     "github": "Kod źródłowy i pomoc na GitHubie",
+    "help": "Pokaż przewodnik po aplikacji",
     "collapse": "Ukryj podpisy",
     "expand": "Pokaż podpisy",
     "groupArea": "Obszar",
@@ -49,6 +51,7 @@
     "labelPartition": "Podziel",
     "labelCut": "Tnij",
     "labelMerge": "Połącz",
+    "labelClearPrinted": "Znaczniki",
     "labelUndo": "Cofnij",
     "labelRedo": "Ponów",
     "labelImport": "Wczytaj",
@@ -56,10 +59,12 @@
     "labelReset": "Wyczyść",
     "labelLanguage": "Język",
     "labelGithub": "GitHub",
+    "labelHelp": "Pomoc",
     "needsBoundary": "Najpierw narysuj lub wyszukaj granicę zewnętrzną",
     "needsData": "Najpierw wczytaj dane OSM",
     "needsTerritories": "Najpierw utwórz co najmniej jeden teren",
     "needsTwoTerritories": "Do połączenia potrzebne są co najmniej dwa tereny",
+    "needsPrinted": "Żaden teren nie jest oznaczony jako wydrukowany",
     "needsAnything": "Nie ma czego czyścić"
   },
   "info": {
@@ -69,6 +74,7 @@
     "streets": "Ulice",
     "buildings": "Budynki",
     "clusters": "Tereny",
+    "printed": "Wydrukowane",
     "hintLoaded": "Podziel obszar, a potem tnij, łącz lub eksportuj.",
     "hintFiltered": "Kliknij teren prawym przyciskiem, aby zobaczyć opcje. Ctrl+Z cofa ostatnią zmianę.",
     "notLoaded": "Granica ustawiona",
@@ -107,6 +113,8 @@
   "menu": {
     "zoom": "Powiększ",
     "print": "Drukuj",
+    "markPrinted": "Oznacz jako wydrukowany",
+    "unmarkPrinted": "Usuń oznaczenie wydruku",
     "delete": "Usuń"
   },
   "partition": {
@@ -188,6 +196,7 @@
     "openPdf": "Otwórz PDF",
     "cancel": "Anuluj",
     "print": "Drukuj",
+    "printHint": "Utwórz PDF (Ctrl+Enter)",
     "loadingTiles": "Wczytywanie kafelków mapy…",
     "loadingProgress": "Wczytywanie kafelków mapy… {done} / {total}",
     "buildingPdf": "Tworzenie pliku PDF…",
@@ -268,7 +277,13 @@
     "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
-    "partitionFailed": "Podział nie powiódł się: {message}"
+    "partitionFailed": "Podział nie powiódł się: {message}",
+    "clearPrintedConfirm": {
+      "one": "Usunąć oznaczenie wydruku z {count} terenu? Tej operacji nie można cofnąć.",
+      "few": "Usunąć oznaczenia wydruku z {count} terenów? Tej operacji nie można cofnąć.",
+      "many": "Usunąć oznaczenia wydruku z {count} terenów? Tej operacji nie można cofnąć.",
+      "other": "Usunąć oznaczenia wydruku z {count} terenu? Tej operacji nie można cofnąć."
+    }
   },
   "tooltip": {
     "territory": "Teren {n}",
@@ -276,7 +291,8 @@
     "streets": "Ulice: {count}",
     "areaM": "Powierzchnia: {value} m²",
     "areaKm": "Powierzchnia: {value} km²",
-    "noData": "Brak wczytanych danych"
+    "noData": "Brak wczytanych danych",
+    "printed": "Wydrukowano {date}"
   },
   "feature": {
     "building": "Budynek",
@@ -381,7 +397,9 @@
     "replaceOuterTitle": "Zastąpić granicę?",
     "replace": "Zastąp",
     "resetTitle": "Wyczyścić wszystko?",
-    "reset": "Wyczyść"
+    "reset": "Wyczyść",
+    "clearPrintedTitle": "Usunąć oznaczenia wydruku?",
+    "clearPrinted": "Usuń"
   },
   "cut": {
     "vertices": {
@@ -405,5 +423,87 @@
     "finish": "Tnij",
     "undo": "Cofnij",
     "cancel": "Anuluj"
+  },
+  "tour": {
+    "next": "Dalej",
+    "back": "Wstecz",
+    "finish": "Gotowe",
+    "skip": "Zamknij przewodnik",
+    "dontShow": "Nie pokazuj automatycznie",
+    "progress": "Krok {index} z {total}",
+    "steps": {
+      "welcome": {
+        "title": "Witaj",
+        "body": "Ta aplikacja zamienia fragment OpenStreetMap w gotowe do druku karty terenu. W skrócie: znajdź miejscowość, pobierz ulice i budynki, podziel obszar na tereny i wydrukuj kartę dla każdego z nich. Za chwilę kilka krótkich kroków — Esc kończy przewodnik w każdej chwili."
+      },
+      "search": {
+        "title": "Zacznij od wyszukiwania",
+        "body": "Wpisz miejscowość, dzielnicę lub ulicę. Jeśli OpenStreetMap zna oficjalny obrys tego miejsca, aplikacja zaproponuje go jako granicę zewnętrzną — szybciej i dokładniej niż obrysowywanie ręczne."
+      },
+      "draw": {
+        "title": "Albo narysuj granicę",
+        "body": "Klikaj, aby stawiać narożniki, a potem naciśnij Enter lub kliknij dwukrotnie, żeby zamknąć kształt. Wszystko pozostałe dzieje się wewnątrz tej granicy zewnętrznej."
+      },
+      "locate": {
+        "title": "Znajdź siebie",
+        "body": "Centruje mapę na bieżącej pozycji — przydatne, gdy zaczynasz od okolicy, w której właśnie stoisz."
+      },
+      "refetch": {
+        "title": "Pobierz dane mapy",
+        "body": "Pobiera z OpenStreetMap ulice i obrysy budynków leżące wewnątrz granicy. Po narysowaniu granicy pytanie pojawia się raz automatycznie; ten przycisk powtarza pobranie po zmianie granicy."
+      },
+      "partition": {
+        "title": "Podziel na tereny",
+        "body": "Dzieli obszar automatycznie — albo na tereny po mniej więcej N budynków, albo na ustaloną liczbę terenów o zbliżonej wielkości. Cięcia biegną wzdłuż rzeczywistych ulic, a nie po liniach prostych."
+      },
+      "cut": {
+        "title": "Popraw podział ręcznie",
+        "body": "Linia poprowadzona w poprzek terenu rozdziela go. Przyciąga się do skrzyżowań, ulic i istniejących granic; S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
+      },
+      "merge": {
+        "title": "Połącz tereny",
+        "body": "Zaznacz dwa lub więcej sąsiadujących terenów i połącz je w jeden. Wspólne granice między nimi znikają."
+      },
+      "history": {
+        "title": "Cofnij cokolwiek",
+        "body": "Cofnij i Ponów przechodzą przez zmiany granic, cięcia i połączenia; działa też Ctrl+Z. W narzędziu cięcia i w gumce cofają zamiast tego punkty i pociągnięcia, więc cofnięcie zawsze dotyczy tego, co zrobiono ostatnio."
+      },
+      "territory": {
+        "title": "Każdy teren ma menu",
+        "body": "Kliknij teren prawym przyciskiem, aby przybliżyć, wydrukować lub usunąć. Najechanie na ulicę lub budynek pokazuje, co wie o nich OpenStreetMap — nazwę, adres, nawierzchnię."
+      },
+      "print": {
+        "title": "Karta terenu",
+        "body": "Drukowanie otwiera podgląd, który można przesuwać, przybliżać i obracać. Ustawisz tam wielkość podpisów, kolor i grubość obramowania, wymażesz odcinki granicy biegnące przez dom oraz wpiszesz miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się na mapie zielone i obrysowane linią przerywaną — od razu widać, co zostało."
+      },
+      "layers": {
+        "title": "Co jest widoczne",
+        "body": "Przełączaj tło między mapą, zdjęciami lotniczymi i terenem oraz włączaj i wyłączaj ulice, budynki i tereny. Warstwy pomocnicze służą tylko do pracy na ekranie — karty zawsze drukują się na warstwie OpenStreetMap."
+      },
+      "info": {
+        "title": "Gdzie jesteś",
+        "body": "Ile ulic, budynków i terenów jest wczytanych, wraz z podpowiedzią, jaki krok ma teraz sens."
+      },
+      "files": {
+        "title": "Zabierz pracę ze sobą",
+        "body": "Zapis zapisuje granicę, pobrane dane i wszystkie tereny do jednego pliku GeoJSON, a wczytanie przywraca je z powrotem. Tak praca przenosi się między urządzeniami i tak powstaje kopia zapasowa."
+      },
+      "reset": {
+        "title": "Zacznij od nowa",
+        "body": "Usuwa granicę, pobrane dane i wszystkie tereny. Aplikacja najpierw pyta, a operacji nie da się cofnąć."
+      },
+      "language": {
+        "title": "Trzy języki",
+        "body": "Angielski, polski i niemiecki. Wybór jest częścią adresu, więc udostępniony odnośnik otworzy się w tym samym języku, w którym pracowałeś."
+      },
+      "offline": {
+        "title": "Działa offline",
+        "body": "Aplikację można zainstalować jak zwykłą i pracować bez połączenia: granica, dane i tereny przetrwają przeładowanie strony, a obejrzane kafelki mapy zostają w pamięci podręcznej. Pobieranie nowych danych i tworzenie PDF-ów nadal wymaga sieci."
+      },
+      "done": {
+        "title": "To wszystko",
+        "body": "Tym przyciskiem otworzysz przewodnik ponownie, kiedy zechcesz. Zostaw poniższe pole zaznaczone, a nie uruchomi się już sam."
+      }
+    }
   }
 }

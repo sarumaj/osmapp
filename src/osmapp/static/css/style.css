@@ -31,6 +31,10 @@
   --z-menu: 1100;
   --z-dialog: 2000;
   --z-overlay: 10000;
+  /* Above the loading overlay: the tour explains the overlay too, and a
+     walkthrough that can be covered by the thing it is describing is worse
+     than no walkthrough. */
+  --z-tour: 12000;
 }
 
 /* `hidden` must beat every display rule below it */
@@ -78,7 +82,7 @@ body {
   filter: brightness(1.08);
 }
 
-/* Destructive confirmations. The colour is the warning: "Replace" and "Reset"
+/* Destructive confirmations. The color is the warning: "Replace" and "Reset"
    read identically to "Download" otherwise, and they are the two that lose
    work. */
 .btn--danger {
@@ -344,7 +348,7 @@ body {
 }
 
 /* The message is the question, not a footnote, so it is set at body weight
-   rather than inheriting the muted .app-dialog__hint colour. */
+   rather than inheriting the muted .app-dialog__hint color. */
 .confirm-dialog__message {
   margin-bottom: 8px;
   font-size: var(--ui-fs-md);
@@ -568,7 +572,7 @@ body {
 
    The aid basemaps are photographs and shaded relief, and everything the app
    actually draws — territory outlines, streets, buildings — sits on top of
-   them as thin coloured vectors. Left alone, a purple 2 px outline over dark
+   them as thin colored vectors. Left alone, a purple 2 px outline over dark
    tree canopy is close to invisible.
 
    Rather than restyle every overlay for one background, the background is
@@ -668,7 +672,7 @@ body {
   .leaflet-control-geocoder-form
   input::placeholder {
   color: var(--c-text-dim);
-  opacity: 1; /* Firefox dims placeholders again on top of the colour */
+  opacity: 1; /* Firefox dims placeholders again on top of the color */
 }
 
 /* Results drop below the field, spanning it. Vendor pins these to 272 px too,
@@ -1025,6 +1029,25 @@ body {
   opacity: 0.65;
 }
 
+/* The "this one is done" tick, dropped at a point guaranteed to be inside
+   each printed territory. Deliberately not subtle: it is the channel that has
+   to work when the green fill does not — small screen, color blindness, a
+   greyscale print of the map. Non-interactive, so the territory underneath
+   still answers every click. */
+.printed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #1e8449;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
 /* ═══════════════════════════════════════════════════════════
    Print dialog
    ═══════════════════════════════════════════════════════════ */
@@ -1033,10 +1056,16 @@ body {
 
    It used to be one scrolling block. With five groups in a 270 px column that
    meant reaching Border or Card scrolled the map off the top — you adjusted a
-   colour and a thickness while looking at a fieldset, then scrolled back to
+   color and a thickness while looking at a fieldset, then scrolled back to
    see what you had done. The preview is the whole point of the dialog and it
-   should never leave the screen. */
-.print-dialog {
+   should never leave the screen.
+
+   The placement dialog is built the same way, and says so by sharing these
+   rules rather than copying them: it is the same kind of thing — a big
+   picture you manipulate, with two buttons that end the job — and two dialogs
+   in one workflow that behave differently is a difference nobody asked for. */
+.print-dialog,
+.place-dialog {
   width: min(1500px, 96vw);
   max-width: 96vw;
   max-height: 92vh;
@@ -1044,6 +1073,12 @@ body {
   flex-direction: column;
   gap: 12px;
   overflow: hidden;
+}
+
+/* Sized by its page image rather than by a column of controls. */
+.place-dialog {
+  width: auto;
+  min-width: min(560px, 96vw);
 }
 
 .print-dialog__body {
@@ -1059,6 +1094,72 @@ body {
 
 .print-preview {
   align-self: start;
+}
+
+/* The footer band.
+
+   Being the last flex child already keeps it on screen; what it was missing
+   was any sign that it is a different kind of thing from the settings. Three
+   buttons at the shared .btn size, floating under a fieldset in a dialog that
+   is 1500 px wide at the top end, read as the least important controls on
+   screen — when in fact they are the only ones that finish or abandon the job.
+
+   Centred rather than right-aligned: the dialog is as wide as the viewport
+   allows and the thing being looked at is the preview in the middle of it, so
+   a right-aligned pair ends up in a corner a long way from where the eye
+   already is. In the corner they also sit directly under the settings column
+   and read as the last two settings.
+
+   The negative margins cancel the dialog's own padding, so the rule runs edge
+   to edge and the bar sits on the floor rather than floating 16 px above it.
+   Shared with the placement dialog, which ends the same kind of job. */
+.print-dialog__actions,
+.place-dialog__actions {
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0 -20px -16px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--c-border);
+  background: var(--c-surface);
+  /* Only does anything in the narrow layout below, where the dialog goes back
+     to scrolling as one piece — there the bar pins itself to the bottom of
+     the scrollport instead of sitting under a screen and a half of settings.
+     Inert while the dialog does not scroll. */
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}
+
+.print-dialog__actions .btn,
+.place-dialog__actions .btn {
+  padding: 8px 18px;
+  font-size: var(--ui-fs-lg);
+}
+
+/* The one button the whole dialog exists to reach. */
+.print-dialog__go,
+.place-dialog__go {
+  min-width: 132px;
+  font-weight: 600;
+}
+
+/* Phone: full-width targets, with the link on its own line above the two
+   buttons rather than squeezing three onto one. */
+@media (max-width: 560px) {
+  .print-dialog__actions,
+  .place-dialog__actions {
+    flex-wrap: wrap;
+  }
+
+  .print-dialog__actions .btn,
+  .place-dialog__actions .btn {
+    flex: 1 1 auto;
+  }
+
+  .print-dialog__pdf {
+    flex-basis: 100%;
+  }
 }
 
 .print-controls {
@@ -1179,7 +1280,7 @@ body {
   margin-bottom: 0;
 }
 
-/* Sliders, checkboxes and the colour swatch all pick up the app's accent
+/* Sliders, checkboxes and the color swatch all pick up the app's accent
    rather than each browser's own blue, which is what made the panel look
    assembled from parts. One line, and it degrades to the default where
    accent-color is unsupported. */
@@ -1192,7 +1293,7 @@ body {
   outline-offset: 1px;
 }
 
-/* A bare colour input renders as an unlabelled grey button in most browsers
+/* A bare color input renders as an unlabelled grey button in most browsers
    and reads as broken next to the sliders. Sized and framed, it reads as the
    swatch it is. */
 .print-controls__field input[type="color"] {
@@ -1269,7 +1370,7 @@ body {
 }
 
 /* Reads as a limitation of the browser, not as a hint about how to use the
-   control — hence the warning colour and the rule tying it to the group. */
+   control — hence the warning color and the rule tying it to the group. */
 .print-controls__note {
   margin: 8px 0 0;
   padding-left: 8px;
@@ -1326,10 +1427,19 @@ body {
 /* ═══════════════════════════════════════════════════════════
    Map placement dialog
    ═══════════════════════════════════════════════════════════ */
-.place-dialog {
-  max-width: 96vw;
-  max-height: 92vh;
+/* The column itself is shared with .print-dialog above; this is the body
+   band, which is the only part that differs — one image rather than a preview
+   and a settings column. */
+.place-dialog__body {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+}
+
+.place-dialog__body .app-dialog__hint:last-of-type {
+  margin-bottom: 10px;
 }
 
 /* Full width, so the flex line spans the dialog and the stage lands in the
@@ -1472,6 +1582,165 @@ body {
   right: 0;
   height: 1px;
   margin-top: -0.5px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Guided tour
+
+   The dimming is done by the spotlight's own box-shadow rather than by four
+   panels or an SVG mask: one element, no seams, and the highlighted control
+   keeps its real colors because nothing is drawn over it. A shadow is not
+   hit-testable, though, so the clicks have to be caught by a separate
+   transparent veil underneath.
+   ═══════════════════════════════════════════════════════════ */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-tour);
+  font: var(--ui-fs-md) / 1.5 var(--ui-font);
+}
+
+.tour__veil {
+  position: absolute;
+  inset: 0;
+  /* Transparent on purpose — the spot's shadow supplies the dim. This layer
+     exists only to keep clicks off the map while the tour is running. */
+  background: transparent;
+  cursor: default;
+}
+
+.tour__spot {
+  position: fixed;
+  border-radius: var(--radius-md);
+  box-shadow:
+    0 0 0 3px var(--c-accent),
+    0 0 0 9999px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transition:
+    top 0.2s ease,
+    left 0.2s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+}
+
+/* No target for this step: dim the whole screen instead of nothing. The spot
+   is still the element doing it, so there is only one code path. */
+.tour__spot--none {
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour__spot {
+    transition: none;
+  }
+}
+
+.tour__bubble {
+  position: fixed;
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px 16px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--c-surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--c-text);
+}
+
+.tour__bubble:focus {
+  outline: none;
+}
+
+.tour__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.tour__count {
+  font-size: var(--ui-fs-sm);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-text-dim);
+}
+
+.tour__close {
+  margin-left: auto;
+  padding: 2px 6px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--c-text-dim);
+  font-size: var(--ui-fs-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.tour__close:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-text);
+}
+
+.tour__title {
+  margin: 0 0 6px;
+  font-size: var(--ui-fs-lg);
+}
+
+.tour__body {
+  margin: 0 0 10px;
+  color: #444;
+}
+
+/* Progress as dots rather than a bar: the point is "a handful of steps, you
+   are here", and a bar at step 3 of 18 mostly communicates "this is long". */
+.tour__dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.tour__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-border);
+}
+
+.tour__dot.is-done {
+  background: var(--c-text-dim);
+}
+
+.tour__dot.is-current {
+  background: var(--c-accent);
+  transform: scale(1.4);
+}
+
+.tour__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.tour__actions .btn {
+  padding: 6px 16px;
+}
+
+/* Last, small, and never in the way of Next — the checkbox is an escape
+   hatch, not a question the user has to answer to continue. */
+.tour__mute {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+  cursor: pointer;
+}
+
+.tour__mute input {
+  accent-color: var(--c-accent);
 }
 
 /* ── PWA: update prompt and offline state ─────────────────────────────────── */

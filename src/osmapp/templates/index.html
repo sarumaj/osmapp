@@ -135,6 +135,10 @@
           <dt data-i18n="info.clusters">Clusters</dt>
           <dd data-role="clusters">0</dd>
         </div>
+        <div class="info-panel__stat" data-role="printed-row" hidden>
+          <dt data-i18n="info.printed">Printed</dt>
+          <dd data-role="printed">0</dd>
+        </div>
       </dl>
       <p class="info-panel__hint" data-role="hint" hidden></p>
     </aside>
@@ -476,6 +480,23 @@
           <i class="fa-solid fa-print" aria-hidden="true"></i>
           <span data-i18n="menu.print">Print</span>
         </button>
+        <!-- Label and icon are set by App.ui.showPolygonContextMenu(), which
+             knows whether this territory is already marked. -->
+        <button
+          type="button"
+          class="polygon-context-menu-item"
+          data-role="printed"
+          role="menuitem"
+        >
+          <i
+            class="fa-solid fa-circle-check"
+            data-role="printed-icon"
+            aria-hidden="true"
+          ></i>
+          <span data-role="printed-label" data-i18n="menu.markPrinted">
+            Mark as printed
+          </span>
+        </button>
         <div class="polygon-context-menu-divider" role="separator"></div>
         <button
           type="button"
@@ -761,9 +782,15 @@
           </div>
         </div>
 
-        <div class="app-dialog__actions">
+        <!-- The footer band. It is a flex sibling of the body rather than the
+             last thing inside the scrolling settings column, so the two
+             buttons that finish or abandon the job cannot be scrolled away —
+             and it is full-bleed with a rule above it, so it reads as the
+             floor of the dialog rather than as three more grey rectangles at
+             the end of a fieldset. -->
+        <div class="app-dialog__actions print-dialog__actions">
           <a
-            class="btn btn--ghost"
+            class="btn btn--ghost print-dialog__pdf"
             data-role="open-pdf"
             target="_blank"
             rel="noopener"
@@ -782,9 +809,10 @@
           </button>
           <button
             type="button"
-            class="btn btn--primary"
+            class="btn btn--primary print-dialog__go"
             data-role="print"
             data-i18n="print.print"
+            data-i18n-attrs="title=print.printHint"
           >
             Print
           </button>
@@ -803,45 +831,53 @@
         <h2 class="app-dialog__title" data-i18n="place.title">
           Position the map
         </h2>
-        <p class="app-dialog__hint" data-i18n="place.hint">
-          Drag the frame over the part of the card where the map should print.
-        </p>
-        <p class="app-dialog__hint" data-i18n="place.keys">
-          Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
-          resize · Enter to accept
-        </p>
 
-        <!-- The wrapper centres; the stage must stay exactly the size of the
-           rendered page image, because .place-box is positioned against it. -->
-        <div class="place-stage-wrap">
-          <div class="place-stage" data-role="stage">
-            <img class="place-page" data-role="page" alt="" />
-            <div class="place-box" data-role="box">
-              <span class="place-handle" data-h="nw"></span>
-              <span class="place-handle" data-h="ne"></span>
-              <span class="place-handle" data-h="se"></span>
-              <span class="place-handle" data-h="sw"></span>
-            </div>
+        <!-- Same three bands as the print dialog: a fixed title, a body that
+             takes whatever is left and scrolls, and an action bar that cannot
+             be scrolled away. On a laptop the page image alone is most of the
+             viewport, so before this the Use-this-area button sat below the
+             fold on exactly the templates that needed the most adjusting. -->
+        <div class="place-dialog__body">
+          <p class="app-dialog__hint" data-i18n="place.hint">
+            Drag the frame over the part of the card where the map should print.
+          </p>
+          <p class="app-dialog__hint" data-i18n="place.keys">
+            Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
+            resize · Enter to accept
+          </p>
 
-            <div class="place-loupe" data-role="loupe" hidden>
-              <div class="place-loupe__inner" data-role="loupe-inner">
-                <div class="place-loupe__box" data-role="loupe-box"></div>
+          <!-- The wrapper centres; the stage must stay exactly the size of the
+             rendered page image, because .place-box is positioned against it. -->
+          <div class="place-stage-wrap">
+            <div class="place-stage" data-role="stage">
+              <img class="place-page" data-role="page" alt="" />
+              <div class="place-box" data-role="box">
+                <span class="place-handle" data-h="nw"></span>
+                <span class="place-handle" data-h="ne"></span>
+                <span class="place-handle" data-h="se"></span>
+                <span class="place-handle" data-h="sw"></span>
               </div>
-              <div class="place-loupe__cross" aria-hidden="true"></div>
+
+              <div class="place-loupe" data-role="loupe" hidden>
+                <div class="place-loupe__inner" data-role="loupe-inner">
+                  <div class="place-loupe__box" data-role="loupe-box"></div>
+                </div>
+                <div class="place-loupe__cross" aria-hidden="true"></div>
+              </div>
             </div>
           </div>
+
+          <output class="place-readout" data-role="readout"></output>
+          <p
+            class="place-notice"
+            data-role="notice"
+            role="status"
+            aria-live="polite"
+            hidden
+          ></p>
         </div>
 
-        <output class="place-readout" data-role="readout"></output>
-        <p
-          class="place-notice"
-          data-role="notice"
-          role="status"
-          aria-live="polite"
-          hidden
-        ></p>
-
-        <div class="app-dialog__actions">
+        <div class="app-dialog__actions place-dialog__actions">
           <button
             type="button"
             class="btn btn--ghost"
@@ -860,12 +896,71 @@
           </button>
           <button
             type="button"
-            class="btn btn--primary"
+            class="btn btn--primary place-dialog__go"
             data-role="save"
             data-i18n="place.save"
           >
             Use this area
           </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── Guided tour ──────────────────────────────────────────────────
+         One template for the whole thing. The veil swallows clicks, the spot
+         is a transparent box whose enormous box-shadow *is* the dimming (so
+         the highlighted control stays at full brightness without cutting a
+         hole in anything), and the bubble carries the text.
+
+         Mounted on <body> rather than the map container, because several of
+         the things it points at — the search field, the layer switcher — are
+         Leaflet controls that sit above anything mounted inside the map. -->
+    <template id="tpl-tour">
+      <div class="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
+        <div class="tour__veil" data-role="veil"></div>
+        <div class="tour__spot" data-role="spot" hidden></div>
+
+        <div class="tour__bubble" data-role="bubble" tabindex="-1">
+          <div class="tour__head">
+            <span class="tour__count" data-role="counter"></span>
+            <button
+              type="button"
+              class="tour__close"
+              data-role="skip"
+              data-i18n-attrs="title=tour.skip;aria-label=tour.skip"
+            >
+              <i class="fa-solid fa-xmark" aria-hidden="true"></i>
+            </button>
+          </div>
+
+          <h2 class="tour__title" id="tour-title" data-role="title"></h2>
+          <p class="tour__body" data-role="body"></p>
+
+          <div class="tour__dots" data-role="dots" aria-hidden="true"></div>
+
+          <div class="tour__actions">
+            <button
+              type="button"
+              class="btn btn--ghost tour__back"
+              data-role="back"
+              data-i18n="tour.back"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              class="btn btn--primary tour__next"
+              data-role="next"
+              data-i18n="tour.next"
+            >
+              Next
+            </button>
+          </div>
+
+          <label class="tour__mute">
+            <input type="checkbox" data-role="mute" checked />
+            <span data-i18n="tour.dontShow">Don't show this automatically</span>
+          </label>
         </div>
       </div>
     </template>
@@ -897,6 +992,7 @@
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>
     <script src="{{ url_for('static', filename='js/history.js') }}"></script>
     <script src="{{ url_for('static', filename='js/controls.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tour.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   </body>

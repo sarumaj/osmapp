@@ -169,7 +169,7 @@ App.ui = (function () {
 
   /**
    * @param {{title?:string, streets?:number, buildings?:number,
-   *          clusters?:number|null, hint?:string}} info
+   *          clusters?:number|null, printed?:number|null, hint?:string}} info
    */
   function setInfo(info) {
     info = _lastInfo = info || {};
@@ -188,11 +188,31 @@ App.ui = (function () {
       var hasClusters = info.clusters != null;
       D.toggleRole(_panel, "clusters-row", hasClusters);
       if (hasClusters) D.text(_panel, "clusters", info.clusters);
+
+      // Shown from the first territory onwards, not from the first card:
+      // "0 of 12" is the number that makes the round legible, and a row that
+      // only appears once you have already done the thing it counts teaches
+      // nobody that the counter exists.
+      D.toggleRole(_panel, "printed-row", hasClusters);
+      if (hasClusters) D.text(_panel, "printed", info.printed || 0);
     }
 
     var hint = info.hintKey ? App.i18n.t(info.hintKey) : info.hint || "";
     D.text(_panel, "hint", hint);
     D.toggleRole(_panel, "hint", !!hint);
+  }
+
+  /**
+   * Patch just the printed tally.
+   *
+   * Marking one territory does not change a street or a building count, and
+   * recomputing those means re-running every point-in-polygon test in the
+   * area — seconds of work to move one number by one.
+   */
+  function setPrintedCount(count) {
+    if (!_lastInfo || _lastInfo.clusters == null) return;
+    _lastInfo.printed = count;
+    setInfo(_lastInfo);
   }
 
   function setInfoDefault() {
@@ -208,12 +228,13 @@ App.ui = (function () {
     });
   }
 
-  function setInfoFiltered(streets, buildings, clusters) {
+  function setInfoFiltered(streets, buildings, clusters, printed) {
     setInfo({
       titleKey: "info.filtered",
       streets: streets,
       buildings: buildings,
       clusters: clusters,
+      printed: printed || 0,
       hintKey: "info.hintFiltered",
     });
   }
@@ -350,6 +371,28 @@ App.ui = (function () {
       App.print.printCluster(feature);
     });
 
+    // The mark is set for you when a card is produced, so this exists for the
+    // two cases the automatic path cannot see: a card printed from somewhere
+    // else, and a round starting over. Labelled by current state rather than
+    // rendered as a checkbox — a menu item that says what it will do needs no
+    // second glance to read.
+    var printed = App.polygons.isPrinted(feature);
+    var markKey = printed ? "menu.unmarkPrinted" : "menu.markPrinted";
+    var markLabel = D.role(menu, "printed-label");
+    if (markLabel) {
+      markLabel.setAttribute("data-i18n", markKey);
+      markLabel.textContent = App.i18n.t(markKey);
+    }
+    var markIcon = D.role(menu, "printed-icon");
+    if (markIcon) {
+      markIcon.className =
+        "fa-solid " + (printed ? "fa-rotate-left" : "fa-circle-check");
+    }
+    D.onRole(menu, "printed", function () {
+      closeContextMenu();
+      App.polygons.markPrinted(feature, !printed);
+    });
+
     D.onRole(menu, "delete", function () {
       closeContextMenu();
       App.polygons.deleteCluster(layer);
@@ -385,6 +428,7 @@ App.ui = (function () {
     setInfoDefault: setInfoDefault,
     setInfoLoaded: setInfoLoaded,
     setInfoFiltered: setInfoFiltered,
+    setPrintedCount: setPrintedCount,
 
     // chrome
     confirm: confirm,

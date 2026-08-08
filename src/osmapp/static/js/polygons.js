@@ -59,6 +59,38 @@ App.polygons = (function () {
     fillOpacity: 0.3,
     weight: 3,
   };
+
+  /**
+   * Territories whose card has already been produced.
+   *
+   * The first attempt at this made them *quieter* than the rest — pale fill,
+   * dashed outline — on the theory that the interesting part of the map is
+   * what is left. That was wrong in the way that matters: a thin dashed
+   * outline around a barely-there fill is what a deleted or provisional shape
+   * looks like, so marking a territory read as losing it.
+   *
+   * So printed territories are now the more emphatic of the two: a heavier
+   * solid outline and a stronger fill, in green because that is already the
+   * app's "done" colour. Done is a state worth seeing, not worth hiding.
+   *
+   * Colour cannot carry it alone — a green wash and a purple one are close for
+   * a red-green colour blind reader and identical in a greyscale screenshot —
+   * so every printed territory also gets a check badge at its centre. Shape
+   * beats a dash pattern at this: it survives being small, being overlapped,
+   * and being printed.
+   */
+  var CLUSTER_STYLE_PRINTED = {
+    color: "#1e8449",
+    fillColor: "#27ae60",
+    fillOpacity: 0.28,
+    weight: 3,
+  };
+  var CLUSTER_STYLE_PRINTED_HOVER = {
+    color: "#145a32",
+    fillColor: "#27ae60",
+    fillOpacity: 0.42,
+    weight: 4,
+  };
   var STREET_STYLE = { color: "#e74c3c", weight: 4, opacity: 0.25 };
   var STREET_STYLE_HOVER = { color: "#e74c3c", weight: 4, opacity: 1 };
   var BUILDING_STYLE = {
@@ -111,8 +143,10 @@ App.polygons = (function () {
   /** Selected beats hover beats resting, so hovering a selection is stable. */
   function _styleFor(layer) {
     if (layer._selected) return CLUSTER_STYLE_SELECTED;
-    if (layer._hover) return CLUSTER_STYLE_HOVER;
-    return CLUSTER_STYLE_DIM;
+    if (layer._printed) {
+      return layer._hover ? CLUSTER_STYLE_PRINTED_HOVER : CLUSTER_STYLE_PRINTED;
+    }
+    return layer._hover ? CLUSTER_STYLE_HOVER : CLUSTER_STYLE_DIM;
   }
 
   function refreshStyle(layer) {
@@ -151,6 +185,188 @@ App.polygons = (function () {
     return !!(feature && feature.properties && feature.properties.auto);
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // PRINT STATE
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // A territory carries properties.printed — the ISO timestamp of the card
+  // that was last produced from it, or nothing at all.
+  //
+  // A timestamp rather than a boolean because the question people actually
+  // ask is "did I do this one *this* round?", and because it costs the same.
+  // It lives in properties, which means it rides along with everything that
+  // already moves a territory around: setClusters copies properties through,
+  // buildPayload spreads them into the export, and the session store is that
+  // same payload. Nothing new had to learn about it.
+  //
+  // PAYLOAD_VERSION is deliberately *not* bumped. The field is optional in
+  // both directions — an old export simply has no marks, and an old build
+  // reading a new export ignores a property it does not know. Bumping would
+  // throw away every saved session on the planet to add a field nobody's
+  // existing data was missing.
+  //
+  // Cutting and merging drop the mark, and that is correct rather than
+  // incidental: editing.js builds the resulting pieces with `properties: {}`,
+  // so a territory whose shape changed no longer claims a card that no longer
+  // matches it. Territories a cut passed through untouched keep theirs,
+  // because the same feature object is carried forward.
+
+  /** @returns {string|null} ISO timestamp of the last card, or null. */
+  function printedAt(feature) {
+    var props = feature && feature.properties;
+    var value = props && props.printed;
+    return typeof value === "string" && value ? value : null;
+  }
+
+  function isPrinted(feature) {
+    return printedAt(feature) !== null;
+  }
+
+  function printedCount() {
+    return s.clusters.filter(function (entry) {
+      return isPrinted(entry.feature);
+    }).length;
+  }
+
+  /**
+   * Flag or unflag one territory and repaint it.
+   *
+   * @param {Object} feature the cluster feature, not the layer — print.js
+   *   holds one of these across an async composition and has no layer.
+   * @param {boolean} printed
+   * @param {{at?: string}} [opts] override the timestamp, for an import that
+   *   is replaying somebody else's marks.
+   * @returns {boolean} whether anything changed
+   */
+  function markPrinted(feature, printed, opts) {
+    var entry = null;
+    for (var i = 0; i < s.clusters.length; i++) {
+      if (s.clusters[i].feature === feature) {
+        entry = s.clusters[i];
+        break;
+      }
+    }
+    // Not a failure worth shouting about: the territory may have been cut,
+    // merged or deleted while a PDF was being composed.
+    if (!entry) return false;
+
+    var next = printed ? (opts && opts.at) || new Date().toISOString() : null;
+    if (printedAt(entry.feature) === next) return false;
+
+    entry.feature.properties = entry.feature.properties || {};
+    if (next) entry.feature.properties.printed = next;
+    else delete entry.feature.properties.printed;
+
+    // Cached on the layer so _styleFor stays O(1) — it runs on every hover.
+    entry.layer._printed = !!next;
+    refreshStyle(entry.layer);
+    _syncBadge(entry);
+    _syncPrintedCount();
+
+    if (App.session) App.session.markDirty();
+    if (App.controls) App.controls.refresh();
+    return true;
+  }
+
+  /** Wipe every mark — the start of a new round of the territory. */
+  function clearPrinted() {
+    var cleared = 0;
+    s.clusters.forEach(function (entry) {
+      if (!isPrinted(entry.feature)) return;
+      delete entry.feature.properties.printed;
+      entry.layer._printed = false;
+      refreshStyle(entry.layer);
+      _dropBadge(entry);
+      cleared++;
+    });
+    if (cleared === 0) return 0;
+
+    _syncPrintedCount();
+    if (App.session) App.session.markDirty();
+    if (App.controls) App.controls.refresh();
+    return cleared;
+  }
+
+  function _syncPrintedCount() {
+    if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
+  }
+
+  // ── The check badge ───────────────────────────────────────────────────
+  //
+  // The second, non-colour channel. It lives in innerPolygonsLayerGroup with
+  // the territories themselves, which buys three things for free: the layer
+  // switcher's Territories toggle covers it, setClusters' clearLayers()
+  // disposes of it, and it cannot drift out of sync with a rebuild.
+  //
+  // Non-interactive on purpose. A marker that swallowed clicks would put a
+  // 22 px hole in the middle of every finished territory where the context
+  // menu stops opening — and the middle is exactly where people click.
+
+  var BADGE_ICON = null;
+
+  function _badgeIcon() {
+    if (!BADGE_ICON) {
+      BADGE_ICON = L.divIcon({
+        className: "printed-badge",
+        html: '<i class="fa-solid fa-check" aria-hidden="true"></i>',
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      });
+    }
+    return BADGE_ICON;
+  }
+
+  /**
+   * A point guaranteed to be inside the shape.
+   *
+   * Not the centroid: a C-shaped or a doughnut territory puts its centroid in
+   * the hole, and a tick floating in a neighbour's area is worse than none.
+   * pointOnFeature promises interior; the bounds centre is the fallback for
+   * geometry turf cannot handle at all.
+   */
+  function _badgeAnchor(entry) {
+    try {
+      var point = turf.pointOnFeature(entry.feature);
+      var c = point.geometry.coordinates;
+      return L.latLng(c[1], c[0]);
+    } catch (e) {
+      try {
+        return entry.layer.getBounds().getCenter();
+      } catch (e2) {
+        return null;
+      }
+    }
+  }
+
+  function _syncBadge(entry) {
+    if (!entry) return;
+
+    if (!isPrinted(entry.feature)) {
+      if (entry.badge) {
+        s.innerPolygonsLayerGroup.removeLayer(entry.badge);
+        entry.badge = null;
+      }
+      return;
+    }
+    if (entry.badge) return;
+
+    var at = _badgeAnchor(entry);
+    if (!at) return;
+    entry.badge = L.marker(at, {
+      icon: _badgeIcon(),
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 500,
+    });
+    s.innerPolygonsLayerGroup.addLayer(entry.badge);
+  }
+
+  function _dropBadge(entry) {
+    if (!entry || !entry.badge) return;
+    s.innerPolygonsLayerGroup.removeLayer(entry.badge);
+    entry.badge = null;
+  }
+
   /**
    * Replace every cluster. Accepts GeoJSON Features or bare geometries.
    * @param {Array} features
@@ -176,9 +392,18 @@ App.polygons = (function () {
       });
       if (!layer) return;
 
+      layer._printed = isPrinted(feature);
+
       s.innerPolygonsLayerGroup.addLayer(layer);
       attachClusterEvents(layer, feature);
-      s.clusters.push({ feature: feature, layer: layer, count: null });
+      var entry = { feature: feature, layer: layer, count: null, badge: null };
+      s.clusters.push(entry);
+      // After addLayer: a path has no rendered element to restyle before it
+      // is on the map, so a style applied earlier would be dropped.
+      if (layer._printed) {
+        refreshStyle(layer);
+        _syncBadge(entry);
+      }
     });
 
     if (!opts || !opts.silent) refreshFilteredData();
@@ -285,6 +510,9 @@ App.polygons = (function () {
     if (!hit) return false;
     if (App.history) App.history.push();
     if (layer.disableEdit) layer.disableEdit();
+    // Before the splice: _dropBadge reads the entry, and the group holds the
+    // marker independently of the polygon it belongs to.
+    _dropBadge(hit.entry);
     s.innerPolygonsLayerGroup.removeLayer(layer);
     s.clusters.splice(hit.index, 1);
     refreshFilteredData();
@@ -398,7 +626,27 @@ App.polygons = (function () {
       );
     }
 
+    // Last, and only when true. The colour already says "printed"; this says
+    // when, which is the part that decides whether it counts for this round.
+    var stamp = printedAt(entry.feature);
+    if (stamp) lines.push(T("tooltip.printed", { date: _formatDate(stamp) }));
+
     return lines.join("<br>");
+  }
+
+  /** Locale-formatted day, falling back to the raw ISO date if unparseable. */
+  function _formatDate(iso) {
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return String(iso).slice(0, 10);
+    try {
+      return date.toLocaleDateString(App.i18n.current(), {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch (e) {
+      return date.toISOString().slice(0, 10);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -772,6 +1020,7 @@ App.polygons = (function () {
       filteredStreets.length,
       filteredBuildings.length,
       s.clusters.length,
+      printedCount(),
     );
   }
 
@@ -800,6 +1049,11 @@ App.polygons = (function () {
     clusterLayers: clusterLayers,
     findCluster: findCluster,
     isAuto: isAuto,
+    printedAt: printedAt,
+    isPrinted: isPrinted,
+    printedCount: printedCount,
+    markPrinted: markPrinted,
+    clearPrinted: clearPrinted,
     setClusters: setClusters,
     ensureDefaultCluster: ensureDefaultCluster,
     addInnerPolygon: addInnerPolygon,
@@ -821,6 +1075,8 @@ App.polygons = (function () {
     CLUSTER_STYLE_DIM: CLUSTER_STYLE_DIM,
     CLUSTER_STYLE_HOVER: CLUSTER_STYLE_HOVER,
     CLUSTER_STYLE_SELECTED: CLUSTER_STYLE_SELECTED,
+    CLUSTER_STYLE_PRINTED: CLUSTER_STYLE_PRINTED,
+    CLUSTER_STYLE_PRINTED_HOVER: CLUSTER_STYLE_PRINTED_HOVER,
     STREET_STYLE: STREET_STYLE,
     BUILDING_STYLE: BUILDING_STYLE,
     PANE: PANE,

@@ -100,6 +100,7 @@
     _setupGeocoder(s);
     App.controls.init(map);
     App.history.init();
+    App.tour.init();
     App.pwa.init();
 
     App._loaded.forEach((element) => {
@@ -156,7 +157,24 @@
       })
       .catch(function (err) {
         console.warn(">>> Could not restore the session:", err && err.message);
-      });
+      })
+      .then(_offerTour);
+  }
+
+  /**
+   * The walkthrough, on a first visit only.
+   *
+   * After the session restore rather than before it, because restoring can
+   * open the boundary dialog and two modal things at once is worse than
+   * neither; App.tour.maybeAutoStart() checks for exactly that and leaves the
+   * flag alone if it backs off, so the next visit tries again. The delay lets
+   * Leaflet finish placing its controls — the tour points at their boxes, and
+   * measuring one mid-layout puts the spotlight in the wrong place.
+   */
+  function _offerTour() {
+    setTimeout(function () {
+      App.tour.maybeAutoStart();
+    }, 700);
   }
 
   /**
