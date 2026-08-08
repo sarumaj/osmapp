@@ -7,7 +7,7 @@ import CleanCSS from "clean-css";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, "..");
-const nm  = (pkg)      => resolve(root, "node_modules", pkg);
+const nm = (pkg) => resolve(root, "node_modules", pkg);
 const dest = (...parts) => resolve(root, "src", "osmapp", "static", "vendor", ...parts);
 
 function ver(pkg) {
@@ -52,30 +52,30 @@ function copyRaw(src, dst) {
 
 // --- main ---
 const versions = {
-  leaflet:  ver("leaflet"),
+  leaflet: ver("leaflet"),
   geocoder: ver("leaflet-control-geocoder"),
   editable: ver("leaflet-editable"),
   pathDrag: ver("leaflet-path-drag"),
-  turf:     ver("@turf/turf"),
-  fa:       ver("@fortawesome/fontawesome-free"),
+  turf: ver("@turf/turf"),
+  fa: ver("@fortawesome/fontawesome-free"),
 };
 
 console.log("Copying vendor files...\n", versions, "\n");
 
 // --- unpkg.com/leaflet ---
 const leafletDest = dest("unpkg.com", `leaflet@${versions.leaflet}`, "dist");
-await copyMinJS (nm("leaflet/dist/leaflet-src.js"),  resolve(leafletDest, "leaflet.js"));
-await copyMinCSS(nm("leaflet/dist/leaflet.css"),      resolve(leafletDest, "leaflet.css"));
-copyDir(nm("leaflet/dist/images"),                    resolve(leafletDest, "images"));
+await copyMinJS(nm("leaflet/dist/leaflet-src.js"), resolve(leafletDest, "leaflet.js"));
+await copyMinCSS(nm("leaflet/dist/leaflet.css"), resolve(leafletDest, "leaflet.css"));
+copyDir(nm("leaflet/dist/images"), resolve(leafletDest, "images"));
 
 // --- cdn.jsdelivr.net/npm/leaflet-control-geocoder ---
 const geocoderDest = dest(
   "cdn.jsdelivr.net", "npm", `leaflet-control-geocoder@${versions.geocoder}`, "dist"
 );
-await copyMinJS (nm("leaflet-control-geocoder/dist/Control.Geocoder.js"),     resolve(geocoderDest, "Control.Geocoder.min.js"));
-await copyMinCSS(nm("leaflet-control-geocoder/dist/Control.Geocoder.css"),    resolve(geocoderDest, "Control.Geocoder.css"));
+await copyMinJS(nm("leaflet-control-geocoder/dist/Control.Geocoder.js"), resolve(geocoderDest, "Control.Geocoder.min.js"));
+await copyMinCSS(nm("leaflet-control-geocoder/dist/Control.Geocoder.css"), resolve(geocoderDest, "Control.Geocoder.css"));
 // source map kept as-is (it references the original, not needed at runtime)
-copyRaw(nm("leaflet-control-geocoder/dist/Control.Geocoder.js.map"),          resolve(geocoderDest, "Control.Geocoder.js.map"));
+copyRaw(nm("leaflet-control-geocoder/dist/Control.Geocoder.js.map"), resolve(geocoderDest, "Control.Geocoder.js.map"));
 
 // --- cdn.jsdelivr.net/npm/leaflet-editable ---
 const editableDest = dest(
@@ -96,8 +96,8 @@ copyRaw(nm("@turf/turf/turf.min.js"), resolve(turfDest, "turf.min.js"));
 
 // --- cdnjs.cloudflare.com / font-awesome ---
 const faDest = dest("cdnjs.cloudflare.com", "ajax", "libs", `font-awesome@${versions.fa}`);
-await copyMinCSS(nm("@fortawesome/fontawesome-free/css/all.css"),                    resolve(faDest, "css", "all.min.css"));
-copyRaw(nm("@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2"),            resolve(faDest, "webfonts", "fa-brands-400.woff2"));
-copyRaw(nm("@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2"),             resolve(faDest, "webfonts", "fa-solid-900.woff2"));
+await copyMinCSS(nm("@fortawesome/fontawesome-free/css/all.css"), resolve(faDest, "css", "all.min.css"));
+copyRaw(nm("@fortawesome/fontawesome-free/webfonts/fa-brands-400.woff2"), resolve(faDest, "webfonts", "fa-brands-400.woff2"));
+copyRaw(nm("@fortawesome/fontawesome-free/webfonts/fa-solid-900.woff2"), resolve(faDest, "webfonts", "fa-solid-900.woff2"));
 
 console.log("\nDone.");
