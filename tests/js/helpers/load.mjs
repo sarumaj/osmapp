@@ -30,7 +30,7 @@ export function loadApp(files, stubs = {}) {
   const env = {
     window: win,
     // Overridable: anything that feature-detects the browser has to be driven
-    // against more than one browser's behaviour to be worth testing.
+    // against more than one browser's behavior to be worth testing.
     document: stubs.document ?? {},
     navigator: stubs.navigator ?? {},
     turf: stubs.turf,

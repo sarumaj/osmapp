@@ -71,10 +71,10 @@ App.polygons = (function () {
    *
    * So printed territories are now the more emphatic of the two: a heavier
    * solid outline and a stronger fill, in green because that is already the
-   * app's "done" colour. Done is a state worth seeing, not worth hiding.
+   * app's "done" color. Done is a state worth seeing, not worth hiding.
    *
-   * Colour cannot carry it alone — a green wash and a purple one are close for
-   * a red-green colour blind reader and identical in a greyscale screenshot —
+   * color cannot carry it alone — a green wash and a purple one are close for
+   * a red-green color blind reader and identical in a greyscale screenshot —
    * so every printed territory also gets a check badge at its centre. Shape
    * beats a dash pattern at this: it survives being small, being overlapped,
    * and being printed.
@@ -293,7 +293,7 @@ App.polygons = (function () {
 
   // ── The check badge ───────────────────────────────────────────────────
   //
-  // The second, non-colour channel. It lives in innerPolygonsLayerGroup with
+  // The second, non-color channel. It lives in innerPolygonsLayerGroup with
   // the territories themselves, which buys three things for free: the layer
   // switcher's Territories toggle covers it, setClusters' clearLayers()
   // disposes of it, and it cannot drift out of sync with a rebuild.
@@ -320,7 +320,7 @@ App.polygons = (function () {
    * A point guaranteed to be inside the shape.
    *
    * Not the centroid: a C-shaped or a doughnut territory puts its centroid in
-   * the hole, and a tick floating in a neighbour's area is worse than none.
+   * the hole, and a tick floating in a neighbor's area is worse than none.
    * pointOnFeature promises interior; the bounds centre is the fallback for
    * geometry turf cannot handle at all.
    */
@@ -626,7 +626,7 @@ App.polygons = (function () {
       );
     }
 
-    // Last, and only when true. The colour already says "printed"; this says
+    // Last, and only when true. The color already says "printed"; this says
     // when, which is the part that decides whether it counts for this round.
     var stamp = printedAt(entry.feature);
     if (stamp) lines.push(T("tooltip.printed", { date: _formatDate(stamp) }));

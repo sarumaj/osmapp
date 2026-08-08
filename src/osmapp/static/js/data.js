@@ -25,7 +25,7 @@ App.data = (function () {
   //
   // Overpass is a shared, free, frequently overloaded service. A download that
   // fails is far more often "come back in ten seconds" than "this will never
-  // work", and the old behaviour — one attempt, then an alert — turned a
+  // work", and the old behavior — one attempt, then an alert — turned a
   // transient 504 into lost work and a user who has to find the re-download
   // button and guess how long to wait.
   //

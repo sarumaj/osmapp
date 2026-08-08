@@ -65,7 +65,7 @@ const TILE_TRIM_TO = 1600;
  * Aerial imagery runs two to three times the size of an OSM tile and is worth
  * far less offline: nothing is printed from it, and a card can be produced
  * without it. A smaller cache of its own is the whole point — one shared
- * budget would let a look around the neighbourhood on satellite quietly evict
+ * budget would let a look around the neighborhood on satellite quietly evict
  * the basemap someone needs.
  */
 const AID_TILE_LIMIT = 500;
