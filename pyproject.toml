@@ -15,7 +15,15 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python :: 3.12",
-    "Operating System :: OS Independent"
+    "Programming Language :: JavaScript",
+    "Operating System :: OS Independent",
+    "Environment :: Web Environment",
+    "Framework :: Flask",
+    "Natural Language :: German",
+    "Natural Language :: English",
+    "Natural Language :: Polish",
+    "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+    "Topic :: Internet :: WWW/HTTP :: WSGI :: Application",
 ]
 dependencies = [
     # Line-separator

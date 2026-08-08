@@ -1,0 +1,41 @@
+{
+  "name": "osmapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A web application for editing OpenStreetMap data with clustering and session management.",
+  "keywords": [
+    "k-means-clustering",
+    "leaflet-map",
+    "location",
+    "location-services",
+    "machine-learning"
+  ],
+  "homepage": "https://github.com/sarumaj/osmapp#readme",
+  "bugs": {
+    "url": "https://github.com/sarumaj/osmapp/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sarumaj/osmapp.git"
+  },
+  "license": "BSD-3-Clause",
+  "author": "Dawid Ciepiela",
+  "type": "module",
+  "main": "main.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "vendor": "node scripts/copy-vendor.js"
+  },
+  "devDependencies": {
+    "@fortawesome/fontawesome-free": "7.3.0",
+    "@turf/turf": "6.5.0",
+    "clean-css": "^5.3.3",
+    "leaflet": "1.9.4",
+    "leaflet-control-geocoder": "4.0.0",
+    "leaflet-editable": "1.3.0",
+    "leaflet-path-drag": "1.9.5",
+    "terser": "^5.49.2"
+  }
+}
