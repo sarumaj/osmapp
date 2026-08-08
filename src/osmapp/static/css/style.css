@@ -78,14 +78,25 @@ body {
   filter: brightness(1.08);
 }
 
+/* Destructive confirmations. The colour is the warning: "Replace" and "Reset"
+   read identically to "Download" otherwise, and they are the two that lose
+   work. */
+.btn--danger {
+  border: 1px solid var(--c-danger);
+  background: var(--c-danger);
+  color: #fff;
+}
+.btn--danger:hover {
+  filter: brightness(1.08);
+}
+
 .btn.is-disabled {
   opacity: 0.45;
   pointer-events: none;
 }
 
 .btn:focus-visible,
-.polygon-context-menu-item:focus-visible,
-.tb-btn:focus-visible {
+.polygon-context-menu-item:focus-visible {
   outline: 2px solid var(--c-accent);
   outline-offset: 2px;
 }
@@ -155,9 +166,15 @@ body {
 }
 
 /* Mode switch: the overlay drives phase-list + cancel visibility,
-   so JS never touches inline display for these. */
+   so JS never touches inline display for these.
+
+   simple      — spinner only, no way out. For work measured in seconds.
+   cancelable  — spinner and Cancel, no checklist. For a download that may sit
+                 in backoff for a minute and must stay escapable.
+   phases      — spinner, checklist and Cancel. The partitioner. */
 #loading-overlay[data-mode="simple"] .loading__phases,
-#loading-overlay[data-mode="simple"] .loading__cancel {
+#loading-overlay[data-mode="simple"] .loading__cancel,
+#loading-overlay[data-mode="cancelable"] .loading__phases {
   display: none;
 }
 
@@ -320,6 +337,27 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Confirm dialog
+   ═══════════════════════════════════════════════════════════ */
+.confirm-dialog {
+  max-width: 380px;
+}
+
+/* The message is the question, not a footnote, so it is set at body weight
+   rather than inheriting the muted .app-dialog__hint colour. */
+.confirm-dialog__message {
+  margin-bottom: 8px;
+  font-size: var(--ui-fs-md);
+  color: var(--c-text);
+}
+
+.confirm-dialog__detail {
+  margin: 0 0 14px;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════
    Boundary suggestion dialog
    ═══════════════════════════════════════════════════════════ */
 .boundary-dialog {
@@ -364,19 +402,64 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Merge toolbar + draw hint
+   Mode bars (cut + merge) + draw hint
+
+   Both of these say "you are in a mode now, and here is how to get out".
+   They used to say it in two different places and one of them said it with
+   no stylesheet at all:
+
+     • .merge-toolbar sat top-right, which is where Leaflet already puts the
+       layer control and the geocoder. A small white box among other small
+       white boxes in the busiest corner of the screen is invisible.
+     • .cut-toolbar had no rules whatsoever, so it laid itself out as an
+       unstyled block in the top-left of the map container, under the
+       toolbar panel.
+
+   Now they share one treatment, anchored bottom-centre where the eye ends up
+   after a click on the map, with the accent of the toolbar button that turned
+   the mode on — purple for Cut, amber for Merge — so the bar and the lit
+   button read as the same thing.
    ═══════════════════════════════════════════════════════════ */
+.cut-toolbar,
 .merge-toolbar {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: var(--z-map-ui);
   background: var(--c-surface);
   border: 2px solid var(--c-border-strong);
+  border-top-width: 4px;
   border-radius: var(--radius-md);
   padding: 8px 12px;
-  box-shadow: var(--shadow-md);
-  font: 14px/1.4 var(--ui-font);
+  box-shadow: var(--shadow-lg);
+  font: var(--ui-fs-md) / 1.4 var(--ui-font);
+  max-width: min(420px, calc(100vw - 24px));
+  animation: mode-bar-in 0.18s ease-out;
+}
+
+@keyframes mode-bar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cut-toolbar,
+  .merge-toolbar {
+    animation: none;
+  }
+}
+
+/* Cut mode also shows the hint banner, which owns bottom: 30px. */
+.cut-toolbar {
+  bottom: 76px;
+  border-top-color: var(--c-cluster);
+}
+
+.merge-toolbar {
+  bottom: 30px;
+  border-top-color: var(--c-warn);
   display: flex;
   gap: 8px;
   align-items: center;
@@ -385,6 +468,75 @@ body {
 .merge-toolbar__count {
   margin-right: 8px;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Cut toolbar internals ─────────────────────────────────────────────── */
+.cut-toolbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.cut-toolbar__count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cut-toolbar__status {
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+  text-align: right;
+}
+
+/* The line is ready to cut — say so where the eye already is. */
+.cut-toolbar.is-ready .cut-toolbar__status {
+  color: var(--c-success);
+  font-weight: 600;
+}
+
+.cut-toolbar__opts {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.cut-toolbar__opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ui-fs-sm);
+  cursor: pointer;
+}
+
+.cut-toolbar__opt span {
+  flex: 1;
+}
+
+.cut-toolbar__opt kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.cut-toolbar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.cut-toolbar__actions .btn {
+  flex: 1;
+}
+
+/* Until the line separates something, Cut is not the obvious next move. */
+.cut-toolbar:not(.is-ready) .btn--primary {
+  opacity: 0.55;
 }
 
 .draw-hint {
@@ -399,111 +551,221 @@ body {
   border-radius: 20px;
   font: var(--ui-fs-md) / 1.4 var(--ui-font);
   pointer-events: none;
-  white-space: nowrap;
+  max-width: calc(100vw - 24px);
+  text-align: center;
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Toolbar buttons
+   Toolbar panel
+
+   One panel, grouped sections, labelled buttons. The old version was a
+   column of a dozen identical 30×26 icon squares, each its own leaflet-bar,
+   which is why nothing was findable: there was no visual difference between
+   "split the area" and "reset everything" beyond a glyph.
+
+   .is-collapsed drops the labels and section titles for an icon-only strip,
+   for phones and for anyone who has learned the icons.
    ═══════════════════════════════════════════════════════════ */
-.tb-bar.leaflet-bar {
-  border: 2px solid var(--c-border-strong) !important;
-  border-radius: 4px !important;
-  box-shadow: none !important;
-  margin-top: 12px !important;
-  background-clip: padding-box !important;
+.tb-panel {
+  background: var(--c-surface);
+  border: 2px solid var(--c-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font: var(--ui-fs-sm) / 1.3 var(--ui-font);
+  padding: 4px;
+  position: relative;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-.tb-btn {
-  display: block !important;
-  width: 30px !important;
-  height: 26px !important;
-  line-height: 26px !important;
-  text-align: center !important;
-  color: var(--c-text) !important;
-  text-decoration: none !important;
-  background: var(--c-surface) !important;
-  border-bottom: 1px solid var(--c-border) !important;
-  border-radius: 4px !important;
-  cursor: pointer !important;
-  box-sizing: border-box !important;
+.tb-panel__collapse {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--c-text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  line-height: 1;
+  z-index: 1;
+}
+.tb-panel__collapse:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-text);
+}
+
+.tb-panel__groups {
+  display: flex;
+  flex-direction: column;
+}
+
+/* A rule between sections rather than around them: the groups need to read as
+   separate without turning the panel into a stack of boxes. */
+.tb-group + .tb-group {
+  border-top: 1px solid var(--c-border);
+  margin-top: 4px;
+  padding-top: 4px;
+}
+
+.tb-group__title {
+  margin: 0 0 2px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-dim);
+}
+
+/* The first title would otherwise sit under the collapse chevron. */
+.tb-group:first-child .tb-group__title {
+  padding-right: 22px;
+}
+
+.tb-group__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.tb-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 52px;
+  padding: 5px 2px;
+  border-radius: var(--radius-sm);
+  color: var(--c-text);
+  text-decoration: none;
+  cursor: pointer;
+  box-sizing: border-box;
   transition:
     background-color 0.15s,
-    color 0.15s !important;
+    color 0.15s;
 }
 
-.tb-btn.leaflet-draw-toolbar-button {
-  background-image: none !important;
+.tb-item__icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
-.tb-btn i {
-  font-size: var(--ui-fs-md) !important;
-  line-height: 26px !important;
+.tb-item__label {
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tb-btn:hover {
-  background-color: var(--c-surface-hover) !important;
+.tb-item:hover {
+  background-color: var(--c-surface-hover);
 }
 
-.tb-btn.is-active {
-  background: var(--c-cluster) !important;
-  color: #fff !important;
+.tb-item.is-active {
+  background: var(--c-cluster);
+  color: #fff;
+}
+.tb-item.is-active:hover {
+  background: var(--c-cluster);
+  color: #fff;
 }
 
-/* Disabled state — replaces history.js's inline opacity/cursor writes */
-.tb-btn.is-disabled {
-  opacity: 0.4 !important;
-  cursor: default !important;
+/* Unavailable, not absent. The button keeps its place so the workflow stays
+   legible, and its title says what is missing. */
+.tb-item.is-disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.tb-item.is-disabled:hover {
+  background: none;
 }
 
-.tb-btn[data-accent="red"]:hover {
-  color: var(--c-danger) !important;
-}
-.tb-btn[data-accent="blue"]:hover {
-  color: #3498db !important;
-}
-.tb-btn[data-accent="green"]:hover {
-  color: var(--c-success) !important;
-}
-.tb-btn[data-accent="orange"]:hover {
-  color: #e67e22 !important;
-}
-.tb-btn[data-accent="purple"]:hover {
-  color: var(--c-cluster) !important;
-}
-.tb-btn[data-accent="yellow"]:hover {
-  color: var(--c-warn) !important;
+.tb-item:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
 }
 
-.tb-bar.export-toolbar {
-  display: none !important;
+.tb-item[data-accent="red"]:not(.is-disabled):not(.is-active):hover {
+  color: var(--c-danger);
 }
-.tb-bar.export-toolbar.visible {
-  display: block !important;
+.tb-item[data-accent="blue"]:not(.is-disabled):not(.is-active):hover {
+  color: #3498db;
 }
-.tb-bar.fetch-toolbar {
-  display: block !important;
+.tb-item[data-accent="green"]:not(.is-disabled):not(.is-active):hover {
+  color: var(--c-success);
+}
+.tb-item[data-accent="orange"]:not(.is-disabled):not(.is-active):hover {
+  color: #e67e22;
+}
+.tb-item[data-accent="purple"]:not(.is-disabled):not(.is-active):hover {
+  color: var(--c-cluster);
+}
+.tb-item[data-accent="yellow"]:not(.is-disabled):not(.is-active):hover {
+  color: var(--c-warn);
 }
 
-/* Language picker (toolbar) */
-.tb-bar.lang-bar {
-  background: var(--c-surface);
-  padding: 2px;
+/* ── Collapsed: icons only, one column ─────────────────────────────────── */
+.tb-panel.is-collapsed .tb-group__title,
+.tb-panel.is-collapsed .tb-item__label {
+  display: none;
+}
+
+.tb-panel.is-collapsed .tb-group__items {
+  flex-direction: column;
+}
+
+.tb-panel.is-collapsed .tb-item {
+  width: 30px;
+  padding: 5px 0;
+}
+
+/* Room for the chevron above the first icon. */
+.tb-panel.is-collapsed .tb-panel__groups {
+  padding-top: 20px;
+}
+
+/* ── Language picker ───────────────────────────────────────────────────── */
+/* The select is stretched over the whole tile and made invisible; the flag
+   and the label underneath are plain spans. That way the label, the flag and
+   the padding are one click target, instead of only the 17 px strip the
+   select used to occupy — a labelled control whose label does nothing is
+   worse than no label. */
+.tb-item--select {
+  position: relative;
 }
 
 .lang-select {
-  width: 30px;
-  height: 26px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
   border: 0;
-  background: transparent;
-  font: var(--ui-fs-sm) / 26px var(--ui-font);
-  color: var(--c-text);
+  opacity: 0;
   cursor: pointer;
-  text-align: center;
-  text-align-last: center;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.lang-select:hover {
+.tb-item--select:hover {
   background: var(--c-surface-hover);
+}
+
+/* The select carries the focus, so the ring has to be drawn on the tile. */
+.tb-item--select:focus-within {
+  outline: 2px solid var(--c-accent);
+  outline-offset: -2px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -752,6 +1014,24 @@ body {
   margin-bottom: 8px;
   font-size: var(--ui-fs-md);
   cursor: pointer;
+}
+
+/* A filter this browser cannot run. Greyed rather than removed, so the
+   feature is still visible as something that exists elsewhere. */
+.print-controls__check.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Reads as a limitation of the browser, not as a hint about how to use the
+   control — hence the warning colour and the rule tying it to the group. */
+.print-controls__note {
+  margin: 8px 0 0;
+  padding-left: 8px;
+  border-left: 3px solid var(--c-warn);
+  font-size: var(--ui-fs-sm);
+  line-height: 1.4;
+  color: var(--c-text);
 }
 
 .print-controls__row {

@@ -125,6 +125,35 @@
     });
 
     console.log(">>> Ready. Draw an outer polygon to begin.");
+
+    _restoreSession(s);
+  }
+
+  /**
+   * Bring back whatever the last visit left behind.
+   *
+   * session.js has been writing to IndexedDB on every edit since it landed,
+   * and nothing ever read it back — so every reload silently discarded the
+   * boundary, the downloaded streets and the territories. Language switching
+   * used to be a reload, which is why it felt like the language was losing the
+   * work; it was the navigation, and it took F5 and every PWA relaunch with it.
+   *
+   * The view is applied last. applyPayload fits the whole territory, which is
+   * the right default with nothing better to go on, but wrong when the last
+   * thing the user did was zoom into one corner of it.
+   */
+  function _restoreSession(s) {
+    App.session
+      .restore()
+      .then(function (restored) {
+        if (restored) {
+          console.log(">>> Session restored —", s.clusters.length, "clusters");
+        }
+        App.session.restoreView();
+      })
+      .catch(function (err) {
+        console.warn(">>> Could not restore the session:", err && err.message);
+      });
   }
 
   /**
@@ -218,9 +247,13 @@
       s.outerPolygonLayer = layer;
       s.outerPolygonDrawn = true;
       App.polygons.attachOuterEvents(layer);
-      // The whole area becomes one cluster straight away, so the territory is
-      // printable and exportable without running the partitioner.
-      App.data.fetchData(geojson).then(function () {
+      App.controls.refresh();
+
+      // The download is offered, not assumed: the double-click that ends a
+      // drawing is about the drawing. The whole area becomes one cluster
+      // either way, so the boundary is printable and exportable without the
+      // partitioner — and without OSM data, if that is declined.
+      App.data.confirmAndFetch(geojson).then(function () {
         App.polygons.ensureDefaultCluster();
       });
     } else {
@@ -306,7 +339,7 @@
       },
     });
 
-    L.Control.geocoder({
+    var geocoder = L.Control.geocoder({
       position: "topright",
       defaultMarkGeocode: false,
       placeholder: App.i18n.t("search.placeholder"),
@@ -321,6 +354,16 @@
         App.boundary.suggest(e.geocode);
       })
       .addTo(s.leafletMap);
+
+    // The plugin reads its strings once, at construction. That was harmless
+    // while switching language meant a page load; now that the page survives
+    // the switch, an English placeholder would sit in a Polish UI until the
+    // next reload.
+    App.i18n.onChange(function () {
+      geocoder.options.errorMessage = App.i18n.t("search.notFound");
+      var input = geocoder.getContainer().querySelector("input");
+      if (input) input.placeholder = App.i18n.t("search.placeholder");
+    });
   }
 
   /** A marker that names the hit and then gets out of the way. */

@@ -46,6 +46,7 @@ App.editing = (function () {
   var _moveQueued = false;
   var _altHeld = false;
   var _routedPrefix = []; // routed geometry through the committed vertices
+  var _undonePoints = []; // vertices taken back, newest last — the redo stack
   var _lastCut = null; // the line from the most recent cut, for diagnosis
 
   // ── Snap index ────────────────────────────────────────────────────────
@@ -513,8 +514,7 @@ App.editing = (function () {
     }
 
     s.editMode = next;
-    var btn = document.querySelector(".tb-btn.edit-mode-btn");
-    if (btn) btn.classList.toggle("is-active", next);
+    App.controls.setActive("cut", next);
 
     if (next) _startDraw();
     else _stopDraw();
@@ -523,7 +523,9 @@ App.editing = (function () {
   function _startDraw() {
     _points = [];
     _routedPrefix = [];
+    _undonePoints = [];
     _altHeld = false;
+    App.history.pushScope(CUT_SCOPE);
     rebuildSnapIndex();
 
     // The cursor belongs to the split line from here on: no tooltip trailing
@@ -595,6 +597,8 @@ App.editing = (function () {
     _hideCutToolbar();
     _points = [];
     _routedPrefix = [];
+    _undonePoints = [];
+    App.history.popScope("cut");
     _pendingMove = null;
     _moveQueued = false;
     _altHeld = false;
@@ -701,7 +705,11 @@ App.editing = (function () {
     if (_points.length === 0) _routedPrefix = [latlng];
     else _appendSegment(_routedPrefix, _points[_points.length - 1], point);
     _points.push(point);
+    // A new vertex branches off the timeline, exactly as a new edit does for
+    // cluster geometry.
+    _undonePoints = [];
     _renderVertices();
+    App.history.sync();
   }
 
   /** Recompute the cached routed prefix from scratch, after an undo. */
@@ -733,12 +741,56 @@ App.editing = (function () {
    */
   function undoPoint() {
     if (!s.editMode || _points.length === 0) return false;
-    _points.pop();
+    _undonePoints.push(_points.pop());
     _rebuildPrefix();
     _renderVertices();
     _refreshPreview();
+    App.history.sync();
     return true;
   }
+
+  /**
+   * Put back a vertex undoPoint() removed.
+   *
+   * The point is restored verbatim rather than re-snapped: `snapped` decides
+   * whether the segment is routed along streets or drawn straight, so
+   * re-deriving it from the latlng would silently change the line's shape
+   * when the redone vertex happened to be an Alt-placed free one.
+   *
+   * @returns {boolean} whether anything was restored
+   */
+  function redoPoint() {
+    if (!s.editMode || _undonePoints.length === 0) return false;
+    var point = _undonePoints.pop();
+    if (_points.length === 0) _routedPrefix = [point.latlng];
+    else _appendSegment(_routedPrefix, _points[_points.length - 1], point);
+    _points.push(point);
+    _renderVertices();
+    _refreshPreview();
+    App.history.sync();
+    return true;
+  }
+
+  /** Undo/redo belong to the split line while one is being drawn. */
+  var CUT_SCOPE = {
+    id: "cut",
+    undo: undoPoint,
+    redo: redoPoint,
+    canUndo: function () {
+      return _points.length > 0;
+    },
+    canRedo: function () {
+      return _undonePoints.length > 0;
+    },
+    undoDepth: function () {
+      return _points.length;
+    },
+    redoDepth: function () {
+      return _undonePoints.length;
+    },
+    undoKey: "toolbar.undoVertex",
+    redoKey: "toolbar.redoVertex",
+  };
 
   function _latlngs() {
     return _points.map(function (p) {
@@ -767,6 +819,7 @@ App.editing = (function () {
       now - _points[_points.length - 1].t < DBLCLICK_MS
     ) {
       _points.pop();
+      _undonePoints = [];
       popped++;
     }
     if (popped) _rebuildPrefix();
@@ -789,8 +842,7 @@ App.editing = (function () {
 
     s.editMode = false;
     _stopDraw();
-    var btn = document.querySelector(".tb-btn.edit-mode-btn");
-    if (btn) btn.classList.remove("is-active");
+    App.controls.setActive("cut", false);
 
     App.ui.showBusy(T("loading.cutting"));
     setTimeout(function () {
@@ -925,7 +977,7 @@ App.editing = (function () {
 
   function _updateCutStatus(finished) {
     if (!_cutToolbar) return;
-    D.text(_cutToolbar, "count", T("cut.vertices", { n: _points.length }));
+    D.text(_cutToolbar, "count", T("cut.vertices", { count: _points.length }));
 
     if (_points.length < 2) {
       D.text(_cutToolbar, "status", T("cut.needMore"));
@@ -938,7 +990,7 @@ App.editing = (function () {
       _cutToolbar,
       "status",
       report.separates > 0
-        ? T("cut.willCut", { n: report.separates })
+        ? T("cut.willCut", { count: report.separates })
         : report.touches > 0
           ? T("cut.willTouch")
           : T("cut.willMiss"),
@@ -1141,8 +1193,7 @@ App.editing = (function () {
 
   function toggleMergeMode() {
     s.mergeMode = !s.mergeMode;
-    var btn = document.querySelector(".tb-btn.merge-mode-btn");
-    if (btn) btn.classList.toggle("is-active", s.mergeMode);
+    App.controls.setActive("merge", s.mergeMode);
 
     if (s.mergeMode) {
       if (s.editMode) toggleEditMode();
@@ -1278,6 +1329,7 @@ App.editing = (function () {
     toggleEditMode: toggleEditMode,
     toggleMergeMode: toggleMergeMode,
     undoPoint: undoPoint,
+    redoPoint: redoPoint,
     handleClusterSelectClick: handleClusterSelectClick,
     mergeSelectedClusters: mergeSelectedClusters,
     rebuildSnapIndex: rebuildSnapIndex,

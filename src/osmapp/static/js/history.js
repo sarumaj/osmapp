@@ -1,7 +1,49 @@
 /**
- * history.js — undo / redo for cluster geometry.
+ * history.js — undo / redo, routed to whatever the user is currently doing.
  *
  * Shortcuts: Ctrl/Cmd+Z undo, Ctrl+Y or Ctrl+Shift+Z redo.
+ *
+ * ── Scopes ────────────────────────────────────────────────────────────────
+ *
+ * "Undo" is not one thing. Halfway through drawing a split line it means
+ * "take back that vertex"; with the print dialog open it means "take back that
+ * eraser stroke"; the rest of the time it means "take back that edit to the
+ * territories". Undoing a merge because someone hit Ctrl+Z while placing a
+ * vertex is not a smaller version of the right answer, it is the wrong one.
+ *
+ * That routing used to live in the keyboard handler alone, which had two
+ * consequences worth naming, because they are exactly what a scope stack
+ * fixes:
+ *
+ *   • The toolbar Undo button called history.undo() directly and so ignored
+ *     the routing completely. Ctrl+Z and the button that means Ctrl+Z did
+ *     different things.
+ *   • Cut mode intercepted undo but not redo, so Ctrl+Y mid-draw fell through
+ *     to the cluster stack and restored old geometry underneath a split line
+ *     that was still being drawn.
+ *
+ * Now a mode pushes a scope when it starts and pops it when it ends, and every
+ * entry point — keyboard, toolbar, the cut toolbar's Back button — goes through
+ * the same delegation. The base scope, the one that is always at the bottom of
+ * the stack, is the cluster geometry stack that push() writes to.
+ *
+ * A scope is:
+ *
+ *   {
+ *     id:        string,     unique; pop() takes the id, not the object
+ *     undo():    void
+ *     redo():    void
+ *     canUndo(): boolean
+ *     canRedo(): boolean
+ *     undoDepth(): number    for the tooltip
+ *     redoDepth(): number
+ *     undoKey:   string      i18n prefix, expects <key>Count and <key>None
+ *     redoKey:   string
+ *   }
+ *
+ * Modes never call push(). push() records document state, and a half-drawn
+ * split line or an eraser stroke is not document state — it is the gesture
+ * that will eventually produce one.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -14,59 +56,152 @@ App.history = (function () {
   var _redo = [];
   var MAX = 30;
 
+  /** Innermost last. The base scope is not on it; see _active(). */
+  var _scopes = [];
+
+  // ══════════════════════════════════════════════════════════════════════
+  // BASE SCOPE — cluster geometry
+  // ══════════════════════════════════════════════════════════════════════
+
+  var BASE = {
+    id: "clusters",
+    undo: _undoClusters,
+    redo: _redoClusters,
+    canUndo: function () {
+      return _undo.length > 0;
+    },
+    canRedo: function () {
+      return _redo.length > 0;
+    },
+    undoDepth: function () {
+      return _undo.length;
+    },
+    redoDepth: function () {
+      return _redo.length;
+    },
+    undoKey: "toolbar.undo",
+    redoKey: "toolbar.redo",
+  };
+
   function init() {
     s = App.state;
     _bindKeyboard();
-    _updateButtons();
-    App.i18n.onChange(_updateButtons);
+    sync();
+    App.i18n.onChange(sync);
     App._loaded.push("history");
+  }
+
+  function _active() {
+    return _scopes.length ? _scopes[_scopes.length - 1] : BASE;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SCOPE STACK
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Take over undo/redo until popScope(id). Pushing an id that is already on
+   * the stack replaces it rather than stacking a duplicate, so a mode that
+   * restarts without a clean teardown cannot leak a scope and strand undo in
+   * a tool that has closed.
+   */
+  function pushScope(scope) {
+    if (!scope || !scope.id) return;
+    popScope(scope.id);
+    _scopes.push(scope);
+    sync();
+  }
+
+  function popScope(id) {
+    for (var i = _scopes.length - 1; i >= 0; i--) {
+      if (_scopes[i].id === id) {
+        _scopes.splice(i, 1);
+        sync();
+        return;
+      }
+    }
+  }
+
+  /** Which scope is answering right now — for tests and for debugging. */
+  function scopeId() {
+    return _active().id;
   }
 
   // ══════════════════════════════════════════════════════════════════════
   // PUBLIC
   // ══════════════════════════════════════════════════════════════════════
 
-  /** Call before any mutation that should be undoable. */
+  /**
+   * Record cluster geometry before a mutation that should be undoable.
+   * Always targets the base scope, whatever mode happens to be active.
+   */
   function push() {
     _undo.push(_snapshot());
     if (_undo.length > MAX) _undo.shift();
     _redo = []; // a new action branches off the timeline
-    _updateButtons();
+    sync();
   }
 
   function undo() {
-    if (_undo.length === 0) return;
-    _redo.push(_snapshot());
-    if (_redo.length > MAX) _redo.shift();
-    _restore(_undo.pop());
-    _updateButtons();
+    var scope = _active();
+    if (!scope.canUndo()) return;
+    scope.undo();
+    sync();
   }
 
   function redo() {
-    if (_redo.length === 0) return;
-    _undo.push(_snapshot());
-    if (_undo.length > MAX) _undo.shift();
-    _restore(_redo.pop());
-    _updateButtons();
+    var scope = _active();
+    if (!scope.canRedo()) return;
+    scope.redo();
+    sync();
   }
 
   function clear() {
     _undo = [];
     _redo = [];
-    _updateButtons();
+    sync();
   }
 
   function canUndo() {
-    return _undo.length > 0;
+    return _active().canUndo();
   }
 
   function canRedo() {
-    return _redo.length > 0;
+    return _active().canRedo();
+  }
+
+  function undoDepth() {
+    return _active().undoDepth();
+  }
+
+  function redoDepth() {
+    return _active().redoDepth();
+  }
+
+  /** i18n prefix for the active scope; controls.js appends Count / None. */
+  function undoKey() {
+    return _active().undoKey;
+  }
+
+  function redoKey() {
+    return _active().redoKey;
   }
 
   // ══════════════════════════════════════════════════════════════════════
   // SNAPSHOT / RESTORE
   // ══════════════════════════════════════════════════════════════════════
+
+  function _undoClusters() {
+    _redo.push(_snapshot());
+    if (_redo.length > MAX) _redo.shift();
+    _restore(_undo.pop());
+  }
+
+  function _redoClusters() {
+    _undo.push(_snapshot());
+    if (_undo.length > MAX) _undo.shift();
+    _restore(_redo.pop());
+  }
 
   function _snapshot() {
     return JSON.stringify(App.polygons.clusterFeatures());
@@ -88,19 +223,13 @@ App.history = (function () {
   // BUTTONS
   // ══════════════════════════════════════════════════════════════════════
 
-  function _updateButtons() {
-    _syncButton(".tb-btn.undo-btn", _undo.length, "undo");
-    _syncButton(".tb-btn.redo-btn", _redo.length, "redo");
-  }
-
-  function _syncButton(selector, depth, kind) {
-    var btn = document.querySelector(selector);
-    if (!btn) return;
-    btn.classList.toggle("is-disabled", depth === 0);
-    btn.title =
-      depth > 0
-        ? App.i18n.t("toolbar." + kind + "Count", { count: depth })
-        : App.i18n.t("toolbar." + kind + "None");
+  /**
+   * Re-read the active scope's depth into the toolbar. Scopes call this after
+   * mutating, so the buttons follow the mode without either side knowing how
+   * the other renders.
+   */
+  function sync() {
+    if (App.controls) App.controls.refresh();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -112,31 +241,11 @@ App.history = (function () {
       var tag = (e.target || e.srcElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
-      var ctrl = e.ctrlKey || e.metaKey;
-      if (!ctrl) return;
+      if (!(e.ctrlKey || e.metaKey)) return;
       var key = e.key.toLowerCase();
 
-      // While the print dialog is open, undo belongs to its eraser, not to
-      // cluster geometry.
-      if (App.print && App.print.isOpen()) {
-        if (key === "z" && !e.shiftKey) {
-          e.preventDefault();
-          App.print.undo();
-        } else if (key === "y" || (key === "z" && e.shiftKey)) {
-          e.preventDefault();
-          App.print.redo();
-        }
-        return;
-      }
-
-      // While a split line is being drawn, undo belongs to its vertices, the
-      // same way it belongs to the eraser while the print dialog is open.
-      if (s.editMode && key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        App.editing.undoPoint();
-        return;
-      }
-
+      // No mode checks here any more: _active() already knows which stack the
+      // keystroke belongs to, and so does the toolbar button beside it.
       if (key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -155,6 +264,14 @@ App.history = (function () {
     clear: clear,
     canUndo: canUndo,
     canRedo: canRedo,
+    undoDepth: undoDepth,
+    redoDepth: redoDepth,
+    undoKey: undoKey,
+    redoKey: redoKey,
+    pushScope: pushScope,
+    popScope: popScope,
+    scopeId: scopeId,
+    sync: sync,
   };
 })();
 

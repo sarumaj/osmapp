@@ -12,8 +12,8 @@
  *      dialog offering a detail slider, the bounding box as a fallback, and the
  *      area measured the same way the download guard measures it.
  *   4. Accepting installs it exactly the way a hand-drawn polygon is installed
- *      (see _adoptPolygon in main.js): outer layer, then fetch, then the
- *      whole-area default cluster.
+ *      (see _adoptPolygon in main.js): outer layer, then a second prompt
+ *      offering the download, then the whole-area default cluster.
  *
  * Simplification is client-side and one-directional. The server already trims
  * at BOUNDARY_THRESHOLD (~11 m), so the slider only ever goes coarser — asking
@@ -295,8 +295,24 @@ App.boundary = (function () {
       return;
     }
 
-    if (s.outerPolygonDrawn && !confirm(T("alert.replaceOuter"))) return;
+    // Opening a second dialog closes this one, and its teardown clears the
+    // preview — so by the time the answer arrives there is nothing of the
+    // suggestion left on the map either way.
+    var asked = s.outerPolygonDrawn
+      ? App.ui.confirm({
+          titleKey: "confirm.replaceOuterTitle",
+          messageKey: "alert.replaceOuter",
+          okKey: "confirm.replace",
+          danger: true,
+        })
+      : Promise.resolve(true);
 
+    asked.then(function (ok) {
+      if (ok) _install(poly);
+    });
+  }
+
+  function _install(poly) {
     App.ui.closeDialog(); // teardown clears the preview
 
     var layer = G.toLayer(poly.geometry, App.polygons.OUTER_STYLE);
@@ -346,7 +362,13 @@ App.boundary = (function () {
       "points",
     );
 
-    App.data.fetchData(poly).then(function () {
+    App.controls.refresh();
+
+    // A search is often just a way to pan the map, and an administrative
+    // boundary can be far larger than anything anyone meant to download, so
+    // the fetch is offered rather than assumed. Declining still leaves a
+    // usable outer boundary and a whole-area territory.
+    App.data.confirmAndFetch(poly).then(function () {
       _ensureWholeAreaCluster(poly);
     });
   }

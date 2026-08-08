@@ -152,7 +152,7 @@ def fetch_streets() -> Response:
         return error_("No streets found in that area.", 404)
     except Exception:
         logger.exception("fetch_streets failed")
-        return error_("Could not download streets. Overpass may be busy.", 502)
+        return error_("Could not download streets. Overpass may be busy.", 502, retryable=True)
 
 
 @bp.route("/fetch_buildings", methods=["POST"])
@@ -203,4 +203,4 @@ def fetch_buildings() -> Response:
         return json_(empty)
     except Exception:
         logger.exception("fetch_buildings failed")
-        return error_("Could not download buildings. Overpass may be busy.", 502)
+        return error_("Could not download buildings. Overpass may be busy.", 502, retryable=True)

@@ -1,12 +1,34 @@
 /**
- * controls.js — custom Leaflet toolbar controls, the language picker and
- * resetAll().
+ * controls.js — the toolbar, the language picker and resetAll().
+ *
+ * The toolbar used to be a dozen separate L.Control instances, each rendering
+ * its own one-button leaflet-bar. That is where the "which icon does what?"
+ * problem came from: twelve identical grey squares in a column, distinguished
+ * only by a glyph and a tooltip nobody hovers long enough to read. It is now a
+ * single panel built from GROUPS below, where each group is a titled section
+ * with labelled buttons, and the collapse toggle trades the labels back for
+ * screen space when the map matters more than the chrome.
+ *
+ * Availability is declarative. Every button may carry:
+ *
+ *   enabled()   — false disables the button rather than hiding it, so the
+ *                 action stays discoverable and the tooltip explains what is
+ *                 missing. This is why Export is always on screen: a button
+ *                 that vanishes teaches nothing, a greyed one with
+ *                 "Draw or search for an outer boundary first" does.
+ *   active()    — toggle state, for the modal cut and merge tools.
+ *   titleFn()   — a tooltip that has to be recomputed (undo/redo depth).
+ *
+ * refresh() re-evaluates all three for every button and is called from the few
+ * places that change the answers: a fetch, a cluster change, a history push, a
+ * mode toggle, a reset. Modules no longer reach into the DOM for a button —
+ * setActive() and refresh() are the seam.
  *
  * Translation notes:
- *   • Button tooltips carry data-i18n-attrs, so App.i18n.apply(document.body)
- *     refreshes them on a language change without this module tracking them.
- *   • The undo and redo buttons deliberately have no titleKey: history.js owns
- *     their tooltips because the text includes the stack depth.
+ *   • Labels and static tooltips carry data-i18n / data-i18n-attrs, so
+ *     App.i18n.apply(document.body) refreshes them on a language change.
+ *     Computed titles (undo depth, disabled reasons) are re-applied by
+ *     refresh(), which is registered as an i18n listener.
  *   • Leaflet's layer control has no API for renaming entries, so it is
  *     rebuilt when the language changes. With URL routing a change is a page
  *     load, so this only matters for an in-place switch.
@@ -19,123 +41,243 @@ App.controls = (function () {
 
   var s = null;
   var T = null;
+  var D = null;
   var _map = null;
   var _layerControl = null;
+  var _panel = null;
 
-  var BUTTONS = [
+  /** id → { spec, node } for every rendered button. */
+  var _items = {};
+
+  var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
+  var NARROW_PX = 720;
+
+  // ── Availability predicates ───────────────────────────────────────────
+  //
+  // Named functions rather than inline closures so that two buttons meaning
+  // the same thing cannot drift apart, and so a spec reads as a sentence.
+
+  function hasBoundary() {
+    return !!s.outerPolygonLayer;
+  }
+
+  function hasData() {
+    return !!(s.cachedStreets && s.cachedStreets.features);
+  }
+
+  function hasClusters() {
+    return !!(s.clusters && s.clusters.length > 0);
+  }
+
+  function hasTwoClusters() {
+    return !!(s.clusters && s.clusters.length >= 2);
+  }
+
+  function hasAnything() {
+    return hasBoundary() || hasClusters();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // TOOLBAR CONTENT
+  // ══════════════════════════════════════════════════════════════════════
+
+  var GROUPS = [
     {
-      icon: "fa-draw-polygon",
-      titleKey: "toolbar.draw",
-      accent: "blue",
-      onClick: function () {
-        if (s.outerPolygonDrawn && !confirm(T("alert.replaceOuter"))) return;
-        s.leafletMap.editTools.startPolygon();
-      },
+      key: "area",
+      titleKey: "toolbar.groupArea",
+      buttons: [
+        {
+          id: "draw",
+          icon: "fa-draw-polygon",
+          labelKey: "toolbar.labelDraw",
+          titleKey: "toolbar.draw",
+          accent: "blue",
+          onClick: _draw,
+        },
+        {
+          id: "locate",
+          icon: "fa-location-crosshairs",
+          labelKey: "toolbar.labelLocate",
+          titleKey: "toolbar.locate",
+          accent: "blue",
+          onClick: _locate,
+        },
+        {
+          id: "refetch",
+          icon: "fa-cloud-arrow-down",
+          labelKey: "toolbar.labelRefetch",
+          titleKey: "toolbar.refetch",
+          disabledTitleKey: "toolbar.needsBoundary",
+          accent: "blue",
+          enabled: hasBoundary,
+          onClick: _refetch,
+        },
+      ],
     },
     {
-      icon: "fa-rotate-left",
-      accent: "red",
-      btnClass: "undo-btn",
-      onClick: function () {
-        App.history.undo();
-      },
+      key: "territories",
+      titleKey: "toolbar.groupTerritories",
+      buttons: [
+        {
+          id: "partition",
+          icon: "fa-shapes",
+          labelKey: "toolbar.labelPartition",
+          titleKey: "toolbar.partition",
+          disabledTitleKey: "toolbar.needsData",
+          accent: "purple",
+          enabled: function () {
+            return hasBoundary() && hasData();
+          },
+          onClick: function () {
+            App.clustering.showClusterDialog();
+          },
+        },
+        {
+          id: "cut",
+          icon: "fa-scissors",
+          labelKey: "toolbar.labelCut",
+          titleKey: "toolbar.cut",
+          disabledTitleKey: "toolbar.needsTerritories",
+          accent: "purple",
+          enabled: hasClusters,
+          active: function () {
+            return !!s.editMode;
+          },
+          onClick: function () {
+            App.editing.toggleEditMode();
+          },
+        },
+        {
+          id: "merge",
+          icon: "fa-code-merge",
+          labelKey: "toolbar.labelMerge",
+          titleKey: "toolbar.merge",
+          disabledTitleKey: "toolbar.needsTwoTerritories",
+          accent: "yellow",
+          enabled: hasTwoClusters,
+          active: function () {
+            return !!s.mergeMode;
+          },
+          onClick: function () {
+            App.editing.toggleMergeMode();
+          },
+        },
+      ],
     },
     {
-      icon: "fa-rotate-right",
-      accent: "blue",
-      btnClass: "redo-btn",
-      onClick: function () {
-        App.history.redo();
-      },
+      key: "history",
+      titleKey: "toolbar.groupHistory",
+      buttons: [
+        {
+          id: "undo",
+          icon: "fa-rotate-left",
+          labelKey: "toolbar.labelUndo",
+          accent: "red",
+          enabled: function () {
+            return App.history.canUndo();
+          },
+          titleFn: function () {
+            return _depthTitle(App.history.undoKey(), App.history.undoDepth());
+          },
+          onClick: function () {
+            App.history.undo();
+          },
+        },
+        {
+          id: "redo",
+          icon: "fa-rotate-right",
+          labelKey: "toolbar.labelRedo",
+          accent: "blue",
+          enabled: function () {
+            return App.history.canRedo();
+          },
+          titleFn: function () {
+            return _depthTitle(App.history.redoKey(), App.history.redoDepth());
+          },
+          onClick: function () {
+            App.history.redo();
+          },
+        },
+      ],
     },
     {
-      icon: "fa-location-crosshairs",
-      titleKey: "toolbar.locate",
-      accent: "blue",
-      onClick: _locate,
+      key: "file",
+      titleKey: "toolbar.groupFile",
+      buttons: [
+        {
+          id: "import",
+          icon: "fa-file-import",
+          labelKey: "toolbar.labelImport",
+          titleKey: "toolbar.import",
+          accent: "green",
+          setup: _setupImportButton,
+        },
+        {
+          // Always rendered. Disabled until there is something worth writing
+          // out, with a tooltip that says what is missing — a button that
+          // disappears teaches nothing about why.
+          id: "export",
+          icon: "fa-file-export",
+          labelKey: "toolbar.labelExport",
+          titleKey: "toolbar.export",
+          disabledTitleKey: "toolbar.needsBoundary",
+          accent: "orange",
+          enabled: hasBoundary,
+          onClick: function () {
+            App.data.exportData();
+          },
+        },
+        {
+          id: "reset",
+          icon: "fa-trash",
+          labelKey: "toolbar.labelReset",
+          titleKey: "toolbar.reset",
+          disabledTitleKey: "toolbar.needsAnything",
+          accent: "red",
+          enabled: hasAnything,
+          onClick: resetAll,
+        },
+      ],
     },
     {
-      icon: "fa-file-import",
-      titleKey: "toolbar.import",
-      accent: "green",
-      setup: _setupImportButton,
-    },
-    {
-      icon: "fa-file-export",
-      titleKey: "toolbar.export",
-      accent: "orange",
-      barClass: "export-toolbar",
-      onClick: function () {
-        App.data.exportData();
-      },
-    },
-    {
-      icon: "fa-cloud-arrow-down",
-      titleKey: "toolbar.refetch",
-      accent: "blue",
-      barClass: "fetch-toolbar",
-      onClick: function () {
-        if (!s.outerPolygonLayer) {
-          alert(T("alert.drawFirst"));
-          return;
-        }
-        App.data.fetchData(s.outerPolygonLayer.toGeoJSON(), true);
-      },
-    },
-    {
-      icon: "fa-shapes",
-      titleKey: "toolbar.partition",
-      accent: "purple",
-      onClick: function () {
-        App.clustering.showClusterDialog();
-      },
-    },
-    {
-      icon: "fa-scissors",
-      titleKey: "toolbar.cut",
-      accent: "purple",
-      btnClass: "edit-mode-btn",
-      onClick: function () {
-        App.editing.toggleEditMode();
-      },
-    },
-    {
-      icon: "fa-code-merge",
-      titleKey: "toolbar.merge",
-      accent: "yellow",
-      btnClass: "merge-mode-btn",
-      onClick: function () {
-        App.editing.toggleMergeMode();
-      },
-    },
-    {
-      icon: "fa-trash",
-      titleKey: "toolbar.reset",
-      accent: "red",
-      onClick: resetAll,
-    },
-    {
-      // fa-brands, not fa-solid: the GitHub mark lives in a separate webfont.
-      icon: "fa-github",
-      iconClass: "fa-brands",
-      titleKey: "toolbar.github",
-      accent: "purple",
-      href: "https://github.com/sarumaj/osmapp",
+      key: "app",
+      titleKey: "toolbar.groupApp",
+      buttons: [
+        { id: "language", custom: _mountLanguagePicker },
+        {
+          // fa-brands, not fa-solid: the GitHub mark lives in a separate
+          // webfont.
+          id: "github",
+          icon: "fa-github",
+          iconClass: "fa-brands",
+          labelKey: "toolbar.labelGithub",
+          titleKey: "toolbar.github",
+          accent: "purple",
+          href: "https://github.com/sarumaj/osmapp",
+        },
+      ],
     },
   ];
+
+  // ══════════════════════════════════════════════════════════════════════
+  // LIFECYCLE
+  // ══════════════════════════════════════════════════════════════════════
 
   function init(leafletMap) {
     s = App.state;
     T = App.i18n.t;
+    D = App.dom;
     _map = leafletMap;
 
     _buildLayerControl();
-    BUTTONS.forEach(function (spec) {
-      _makeButton(spec).addTo(leafletMap);
-    });
-    _makeLanguagePicker().addTo(leafletMap);
+    _makePanel().addTo(leafletMap);
 
-    App.i18n.onChange(_buildLayerControl);
+    App.i18n.onChange(function () {
+      _buildLayerControl();
+      refresh();
+    });
+
+    refresh();
     App._loaded.push("controls");
   }
 
@@ -153,114 +295,256 @@ App.controls = (function () {
       .addTo(_map);
   }
 
-  // ── Button factory ────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+  // PANEL
+  // ══════════════════════════════════════════════════════════════════════
 
-  /**
-   * @param {{icon:string, iconClass?:string, titleKey?:string, accent:string,
-   *          onClick?:Function, setup?:Function, href?:string,
-   *          barClass?:string, btnClass?:string}} spec
-   *   href turns the button into a real external link. disableClickPropagation
-   *   stops the map seeing the click but does not preventDefault, so navigation
-   *   still happens.
-   */
-  function _makeButton(spec) {
+  function _makePanel() {
     var Control = L.Control.extend({
       options: { position: "topleft" },
       onAdd: function () {
-        var container = L.DomUtil.create(
-          "div",
-          "leaflet-bar tb-bar" + (spec.barClass ? " " + spec.barClass : ""),
-        );
-        var link = L.DomUtil.create(
-          "a",
-          "tb-btn" + (spec.btnClass ? " " + spec.btnClass : ""),
-          container,
-        );
-        if (spec.href) {
-          link.href = spec.href;
-          link.target = "_blank";
-          link.rel = "noopener noreferrer";
-        } else {
-          link.href = "#";
-          link.setAttribute("role", "button");
-        }
-        link.setAttribute("data-accent", spec.accent);
+        _panel = D.render("tpl-toolbar-panel");
+        var groups = D.role(_panel, "groups");
 
-        if (spec.titleKey) {
-          link.title = T(spec.titleKey);
-          link.setAttribute("aria-label", link.title);
-          link.setAttribute(
-            "data-i18n-attrs",
-            "title=" + spec.titleKey + ";aria-label=" + spec.titleKey,
-          );
-        }
+        GROUPS.forEach(function (group) {
+          var section = D.mount("tpl-toolbar-group", groups);
+          section.dataset.group = group.key;
 
-        var icon = L.DomUtil.create(
-          "i",
-          (spec.iconClass || "fa-solid") + " " + spec.icon,
-          link,
-        );
-        icon.setAttribute("aria-hidden", "true");
+          var title = D.role(section, "title");
+          title.setAttribute("data-i18n", group.titleKey);
+          title.textContent = T(group.titleKey);
 
-        if (spec.onClick) {
-          L.DomEvent.on(link, "click", function (e) {
-            L.DomEvent.preventDefault(e);
-            L.DomEvent.stopPropagation(e);
-            spec.onClick(link, container);
+          var host = D.role(section, "items");
+          group.buttons.forEach(function (spec) {
+            if (spec.custom) {
+              spec.custom(host);
+              return;
+            }
+            _items[spec.id] = { spec: spec, node: _makeButton(spec, host) };
           });
-        }
-        if (spec.setup) spec.setup(link, container);
+        });
 
-        L.DomEvent.disableClickPropagation(container);
-        return container;
+        D.onRole(_panel, "collapse", function () {
+          _setCollapsed(!_panel.classList.contains("is-collapsed"));
+        });
+        _setCollapsed(_initialCollapsed());
+
+        L.DomEvent.disableClickPropagation(_panel);
+        L.DomEvent.disableScrollPropagation(_panel);
+        return _panel;
       },
     });
     return new Control();
   }
 
-  // ── Language picker ───────────────────────────────────────────────────
+  /**
+   * @param {{id:string, icon:string, iconClass?:string, labelKey:string,
+   *          titleKey?:string, disabledTitleKey?:string, accent?:string,
+   *          onClick?:Function, setup?:Function, href?:string}} spec
+   *   href turns the button into a real external link: click propagation is
+   *   stopped so the map does not see it, but nothing is prevented, so
+   *   navigation still happens.
+   */
+  function _makeButton(spec, host) {
+    var node = D.mount("tpl-toolbar-button", host);
+    node.dataset.action = spec.id;
+    if (spec.accent) node.setAttribute("data-accent", spec.accent);
 
-  function _makeLanguagePicker() {
-    var Control = L.Control.extend({
-      options: { position: "topleft" },
-      onAdd: function () {
-        var container = App.dom.render("tpl-language-control");
-        var select = App.dom.role(container, "lang");
+    var icon = D.role(node, "icon");
+    icon.className =
+      "tb-item__icon " + (spec.iconClass || "fa-solid") + " " + spec.icon;
 
-        App.i18n.languages().forEach(function (lang) {
-          var option = document.createElement("option");
-          option.value = lang.code;
-          option.textContent = lang.label;
-          select.appendChild(option);
-        });
-        select.value = App.i18n.current();
+    var label = D.role(node, "label");
+    label.setAttribute("data-i18n", spec.labelKey);
+    label.textContent = T(spec.labelKey);
 
-        // setLanguage navigates to that language's URL (/ , /pl, /de) so the
-        // choice is shareable and bookmarkable. Pass { navigate: false } for an
-        // in-place swap instead.
-        select.addEventListener("change", function () {
-          App.i18n.setLanguage(select.value);
-        });
+    if (spec.href) {
+      node.href = spec.href;
+      node.target = "_blank";
+      node.rel = "noopener noreferrer";
+      node.removeAttribute("role");
+    } else {
+      node.href = "#";
+    }
 
-        L.DomEvent.disableClickPropagation(container);
-        return container;
-      },
+    if (spec.onClick) {
+      L.DomEvent.on(node, "click", function (e) {
+        L.DomEvent.preventDefault(e);
+        L.DomEvent.stopPropagation(e);
+        if (_isDisabled(node)) return;
+        spec.onClick(node);
+      });
+    }
+    if (spec.setup) spec.setup(node);
+
+    return node;
+  }
+
+  /**
+   * A greyed-out anchor is still clickable, and on touch there is no hover to
+   * reveal the tooltip explaining why it should not be. Swallowing the click
+   * is what makes "disabled" mean disabled.
+   */
+  function _isDisabled(node) {
+    return node.getAttribute("aria-disabled") === "true";
+  }
+
+  // ── Collapse ──────────────────────────────────────────────────────────
+
+  /**
+   * Labels cost roughly 90 px of map width. That is a fair trade on a desktop
+   * and a bad one on a phone, so narrow screens start collapsed unless the
+   * user has already said otherwise.
+   */
+  function _initialCollapsed() {
+    var stored = null;
+    try {
+      stored = window.localStorage.getItem(COLLAPSE_KEY);
+    } catch (e) {
+      /* private mode: fall through to the width heuristic */
+    }
+    if (stored === "1") return true;
+    if (stored === "0") return false;
+    return window.innerWidth < NARROW_PX;
+  }
+
+  function _setCollapsed(collapsed) {
+    _panel.classList.toggle("is-collapsed", collapsed);
+
+    var toggle = D.role(_panel, "collapse");
+    var key = collapsed ? "toolbar.expand" : "toolbar.collapse";
+    toggle.setAttribute(
+      "data-i18n-attrs",
+      "title=" + key + ";aria-label=" + key,
+    );
+    toggle.title = T(key);
+    toggle.setAttribute("aria-label", toggle.title);
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+
+    var chevron = toggle.querySelector("i");
+    if (chevron) {
+      chevron.className =
+        "fa-solid " + (collapsed ? "fa-chevron-right" : "fa-chevron-left");
+    }
+
+    try {
+      window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
+    } catch (e) {
+      /* not being able to remember the choice is not worth an error */
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // BUTTON STATE
+  // ══════════════════════════════════════════════════════════════════════
+
+  /** Re-evaluate enabled / active / tooltip for every button. */
+  function refresh() {
+    if (!_panel) return;
+    Object.keys(_items).forEach(function (id) {
+      var item = _items[id];
+      var spec = item.spec;
+      var node = item.node;
+
+      var on = spec.enabled ? !!spec.enabled() : true;
+      node.classList.toggle("is-disabled", !on);
+      node.setAttribute("aria-disabled", String(!on));
+
+      if (spec.active) {
+        var active = !!spec.active();
+        node.classList.toggle("is-active", active);
+        node.setAttribute("aria-pressed", String(active));
+      }
+
+      _applyTitle(node, spec, on);
     });
-    return new Control();
+  }
+
+  /**
+   * A computed title (undo depth, or the reason a button is unavailable) must
+   * survive the next App.i18n.apply() pass, so the declarative mapping is
+   * removed while one is in force and restored when it is not.
+   */
+  function _applyTitle(node, spec, enabled) {
+    var computed = spec.titleFn
+      ? spec.titleFn()
+      : !enabled && spec.disabledTitleKey
+        ? T(spec.disabledTitleKey)
+        : null;
+
+    if (computed) {
+      node.removeAttribute("data-i18n-attrs");
+      node.title = computed;
+      node.setAttribute("aria-label", computed);
+      return;
+    }
+    if (!spec.titleKey) return;
+    node.setAttribute(
+      "data-i18n-attrs",
+      "title=" + spec.titleKey + ";aria-label=" + spec.titleKey,
+    );
+    node.title = T(spec.titleKey);
+    node.setAttribute("aria-label", node.title);
+  }
+
+  /** Force a toggle button's visual state, e.g. when a mode ends by itself. */
+  function setActive(id, active) {
+    var item = _items[id];
+    if (!item) return;
+    item.node.classList.toggle("is-active", !!active);
+    item.node.setAttribute("aria-pressed", String(!!active));
+  }
+
+  /**
+   * @param {string} prefix i18n key the active history scope asked for, e.g.
+   *   "toolbar.undoVertex". Every scope supplies a <prefix>Count and a
+   *   <prefix>None, so the tooltip names what will actually be taken back
+   *   rather than always saying "change".
+   */
+  function _depthTitle(prefix, depth) {
+    return depth > 0
+      ? T(prefix + "Count", { count: depth })
+      : T(prefix + "None");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ACTIONS
+  // ══════════════════════════════════════════════════════════════════════
+
+  function _draw() {
+    _confirmReplaceOuter().then(function (ok) {
+      if (ok) s.leafletMap.editTools.startPolygon();
+    });
+  }
+
+  /** Resolves true when there is no boundary to lose, or the user says so. */
+  function _confirmReplaceOuter() {
+    if (!s.outerPolygonDrawn) return Promise.resolve(true);
+    return App.ui.confirm({
+      titleKey: "confirm.replaceOuterTitle",
+      messageKey: "alert.replaceOuter",
+      okKey: "confirm.replace",
+      danger: true,
+    });
+  }
+
+  function _refetch() {
+    App.data.confirmAndFetch(s.outerPolygonLayer.toGeoJSON(), { force: true });
   }
 
   // ── Locate ────────────────────────────────────────────────────────────
 
-  function _locate(link) {
+  function _locate(node) {
     if (!navigator.geolocation) {
       alert(T("alert.noGeolocation"));
       return;
     }
-    var icon = link.querySelector("i");
-    if (icon) icon.className = "fa-solid fa-spinner fa-spin";
+    var icon = D.role(node, "icon");
+    var original = icon ? icon.className : "";
+    if (icon) icon.className = "tb-item__icon fa-solid fa-spinner fa-spin";
 
     function restore() {
-      if (icon) icon.className = "fa-solid fa-location-crosshairs";
+      if (icon) icon.className = original;
     }
 
     s.leafletMap
@@ -277,16 +561,17 @@ App.controls = (function () {
 
   // ── Import ────────────────────────────────────────────────────────────
 
-  function _setupImportButton(link) {
+  function _setupImportButton(node) {
     var input = document.createElement("input");
     input.type = "file";
     input.accept = ".geojson,.json";
     input.hidden = true;
     document.body.appendChild(input);
 
-    L.DomEvent.on(link, "click", function (e) {
+    L.DomEvent.on(node, "click", function (e) {
       L.DomEvent.preventDefault(e);
       L.DomEvent.stopPropagation(e);
+      if (_isDisabled(node)) return;
       input.click();
     });
 
@@ -299,11 +584,58 @@ App.controls = (function () {
     });
   }
 
+  // ── Language picker ───────────────────────────────────────────────────
+
+  function _mountLanguagePicker(host) {
+    var node = D.mount("tpl-language-control", host);
+    var select = D.role(node, "lang");
+    var flag = D.role(node, "flag");
+
+    App.i18n.languages().forEach(function (lang) {
+      var option = document.createElement("option");
+      option.value = lang.code;
+      option.textContent = lang.label;
+      select.appendChild(option);
+    });
+    select.value = App.i18n.current();
+
+    /** The select is transparent, so the current flag is drawn separately. */
+    function showFlag() {
+      var current = App.i18n.current();
+      App.i18n.languages().forEach(function (lang) {
+        if (lang.code === current) flag.textContent = lang.label;
+      });
+    }
+    showFlag();
+    App.i18n.onChange(showFlag);
+
+    // setLanguage navigates to that language's URL (/ , /pl, /de) so the
+    // choice is shareable and bookmarkable. Pass { navigate: false } for an
+    // in-place swap instead — which is why the flag is kept in sync above
+    // rather than left to the page load.
+    select.addEventListener("change", function () {
+      App.i18n.setLanguage(select.value);
+    });
+
+    return node;
+  }
+
   // ── Reset ─────────────────────────────────────────────────────────────
 
   function resetAll() {
-    if (!confirm(T("alert.resetConfirm"))) return;
+    App.ui
+      .confirm({
+        titleKey: "confirm.resetTitle",
+        messageKey: "alert.resetConfirm",
+        okKey: "confirm.reset",
+        danger: true,
+      })
+      .then(function (ok) {
+        if (ok) _doReset();
+      });
+  }
 
+  function _doReset() {
     if (App.history) App.history.clear();
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
@@ -329,12 +661,20 @@ App.controls = (function () {
     s.cachedBounds = null;
 
     App.ui.setInfoDefault();
-    App.ui.hideExportToolbar();
     App.ui.closeContextMenu();
+    // Now that startup restores the session, leaving the records behind would
+    // mean a reset survives only until the next reload.
+    if (App.session) App.session.clear();
+    refresh();
     s.leafletMap.setView([47.3769, 8.5417], 13);
   }
 
-  return { init: init, resetAll: resetAll };
+  return {
+    init: init,
+    refresh: refresh,
+    setActive: setActive,
+    resetAll: resetAll,
+  };
 })();
 
 window.App = App;

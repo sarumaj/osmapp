@@ -11,6 +11,10 @@
  *   • The overlay's Cancel button takes a callback instead of an inline
  *     onclick="App.clustering.cancelPartition()" in the HTML.
  *   • Info panel writes into fixed nodes rather than replacing innerHTML.
+ *   • confirm() replaces window.confirm() for anything that has to say more
+ *     than one sentence or run after an await.
+ *   • The export button's visibility is no longer this module's business:
+ *     App.controls.refresh() disables it in place instead of hiding it.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -83,10 +87,17 @@ App.ui = (function () {
   // OVERLAY
   // ══════════════════════════════════════════════════════════════════════
 
-  /** Indeterminate spinner: fetching, merging, splitting, post-processing. */
-  function showBusy(text, status) {
-    _overlay.dataset.mode = "simple";
-    _onCancel = null;
+  /**
+   * Indeterminate spinner: fetching, merging, splitting, post-processing.
+   *
+   * @param {Function} [onCancel] shows the Cancel button. A retrying download
+   *   can sit on screen for a minute or more, so anything that waits that long
+   *   has to offer a way out; without a callback the button stays hidden and
+   *   the overlay is exactly as modal as it was.
+   */
+  function showBusy(text, status, onCancel) {
+    _overlay.dataset.mode = onCancel ? "cancelable" : "simple";
+    _onCancel = onCancel || null;
     setOverlayText(text, status || "");
     D.toggle(_overlay, true);
   }
@@ -208,20 +219,6 @@ App.ui = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // EXPORT TOOLBAR
-  // ══════════════════════════════════════════════════════════════════════
-
-  function showExportToolbar() {
-    var el = document.querySelector(".export-toolbar");
-    if (el) el.classList.add("visible");
-  }
-
-  function hideExportToolbar() {
-    var el = document.querySelector(".export-toolbar");
-    if (el) el.classList.remove("visible");
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
   // DIALOG
   // ══════════════════════════════════════════════════════════════════════
 
@@ -244,6 +241,85 @@ App.ui = (function () {
     _dialogOnClose = null;
     _dialog = D.remove(_dialog);
     if (teardown) teardown();
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CONFIRM
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * A yes/no prompt that resolves rather than blocking.
+   *
+   * window.confirm() is synchronous, unstyled, unlocalizable beyond its
+   * message, and on mobile it is a system sheet that looks like the browser
+   * asking rather than the app. It is also unusable for the case this exists
+   * for — asking before a download — because the answer arrives before the
+   * caller can show anything about what is being downloaded.
+   *
+   * Every exit resolves exactly once: the buttons, Escape (via _onKeyDown →
+   * closeDialog → the teardown below), and any other dialog opening on top.
+   *
+   * @param {{titleKey?:string, title?:string,
+   *          messageKey?:string, message?:string,
+   *          detail?:string,
+   *          okKey?:string, cancelKey?:string,
+   *          danger?:boolean}} opts
+   * @returns {Promise<boolean>}
+   */
+  function confirm(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var settled = false;
+      function finish(answer) {
+        if (settled) return;
+        settled = true;
+        resolve(answer);
+      }
+
+      // Anything that closes the dialog without an explicit yes is a no.
+      var dialog = openDialog("tpl-confirm-dialog", function () {
+        finish(false);
+      });
+
+      D.text(
+        dialog,
+        "title",
+        opts.titleKey ? App.i18n.t(opts.titleKey) : opts.title || "",
+      );
+      D.text(
+        dialog,
+        "message",
+        opts.messageKey ? App.i18n.t(opts.messageKey) : opts.message || "",
+      );
+      D.text(dialog, "detail", opts.detail || "");
+      D.toggleRole(dialog, "detail", !!opts.detail);
+
+      var ok = D.role(dialog, "ok");
+      var cancel = D.role(dialog, "cancel");
+      ok.textContent = App.i18n.t(opts.okKey || "confirm.ok");
+      cancel.textContent = App.i18n.t(opts.cancelKey || "confirm.cancel");
+      D.toggleClass(ok, "btn--danger", !!opts.danger);
+      D.toggleClass(ok, "btn--primary", !opts.danger);
+
+      D.onRole(dialog, "cancel", function () {
+        closeDialog();
+      });
+      D.onRole(dialog, "ok", function () {
+        finish(true);
+        closeDialog();
+      });
+
+      // Enter accepts. Escape is handled globally and lands on the teardown
+      // above, so it needs nothing here.
+      dialog.addEventListener("keydown", function (e) {
+        if (e.key !== "Enter") return;
+        e.preventDefault();
+        finish(true);
+        closeDialog();
+      });
+
+      ok.focus();
+    });
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -311,8 +387,7 @@ App.ui = (function () {
     setInfoFiltered: setInfoFiltered,
 
     // chrome
-    showExportToolbar: showExportToolbar,
-    hideExportToolbar: hideExportToolbar,
+    confirm: confirm,
     openDialog: openDialog,
     closeDialog: closeDialog,
     showPolygonContextMenu: showPolygonContextMenu,

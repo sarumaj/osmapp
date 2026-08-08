@@ -10,11 +10,17 @@
   },
   "toolbar": {
     "draw": "Narysuj granicę zewnętrzną",
-    "undo": "Cofnij ostatnią zmianę",
     "undoNone": "Nie ma czego cofnąć",
     "undoCount": "Cofnij ostatnią zmianę (dostępne: {count})",
-    "redo": "Ponów cofniętą zmianę",
     "redoNone": "Nie ma czego ponowić",
+    "undoVertexCount": "Usuń ostatni punkt (postawiono: {count})",
+    "undoVertexNone": "Nie ma punktów do usunięcia",
+    "redoVertexCount": "Przywróć usunięty punkt (dostępne: {count})",
+    "redoVertexNone": "Nie ma punktów do przywrócenia",
+    "undoStrokeCount": "Cofnij ostatnie pociągnięcie gumką (dostępne: {count})",
+    "undoStrokeNone": "Nic jeszcze nie wymazano",
+    "redoStrokeCount": "Ponów pociągnięcie gumką (dostępne: {count})",
+    "redoStrokeNone": "Nie ma pociągnięcia do ponowienia",
     "redoCount": "Ponów cofniętą zmianę (dostępne: {count})",
     "locate": "Pokaż moją lokalizację",
     "import": "Wczytaj plik GeoJSON",
@@ -23,10 +29,34 @@
     "partition": "Podziel obszar na tereny",
     "cut": "Narysuj linię podziału wzdłuż ulic (dwuklik kończy)",
     "merge": "Zaznacz i połącz tereny",
-    "cleanup": "Wchłoń tereny bez budynków",
     "reset": "Wyczyść wszystko",
     "language": "Język",
-    "github": "Kod źródłowy i pomoc na GitHubie"
+    "github": "Kod źródłowy i pomoc na GitHubie",
+    "collapse": "Ukryj podpisy",
+    "expand": "Pokaż podpisy",
+    "groupArea": "Obszar",
+    "groupTerritories": "Tereny",
+    "groupHistory": "Historia",
+    "groupFile": "Plik",
+    "groupApp": "Aplikacja",
+    "labelDraw": "Rysuj",
+    "labelLocate": "Lokalizuj",
+    "labelRefetch": "Odśwież",
+    "labelPartition": "Podziel",
+    "labelCut": "Tnij",
+    "labelMerge": "Połącz",
+    "labelUndo": "Cofnij",
+    "labelRedo": "Ponów",
+    "labelImport": "Wczytaj",
+    "labelExport": "Zapisz",
+    "labelReset": "Wyczyść",
+    "labelLanguage": "Język",
+    "labelGithub": "GitHub",
+    "needsBoundary": "Najpierw narysuj lub wyszukaj granicę zewnętrzną",
+    "needsData": "Najpierw wczytaj dane OSM",
+    "needsTerritories": "Najpierw utwórz co najmniej jeden teren",
+    "needsTwoTerritories": "Do połączenia potrzebne są co najmniej dwa tereny",
+    "needsAnything": "Nie ma czego czyścić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -36,7 +66,9 @@
     "buildings": "Budynki",
     "clusters": "Tereny",
     "hintLoaded": "Podziel obszar, a potem tnij, łącz lub eksportuj.",
-    "hintFiltered": "Kliknij teren prawym przyciskiem, aby zobaczyć opcje. Ctrl+Z cofa ostatnią zmianę."
+    "hintFiltered": "Kliknij teren prawym przyciskiem, aby zobaczyć opcje. Ctrl+Z cofa ostatnią zmianę.",
+    "notLoaded": "Granica ustawiona",
+    "hintNotLoaded": "Brak danych OSM — użyj przycisku Odśwież na pasku narzędzi, aby je pobrać."
   },
   "loading": {
     "cancel": "Anuluj",
@@ -50,10 +82,15 @@
     "cutting": "Cięcie terenów…",
     "merging": "Łączenie terenów…",
     "dissolving": "Usuwanie wspólnych granic…",
-    "cleanup": "Porządkowanie terenów…",
-    "cleanupStatus": "Szukanie terenów bez budynków",
     "progress": "Teren {index} z {total}",
-    "pass": "Przebieg {n}"
+    "pass": "Przebieg {n}",
+    "retryIn": {
+      "one": "Overpass jest zajęty — ponowna próba za {count} sekundę (próba {attempt} z {total})",
+      "few": "Overpass jest zajęty — ponowna próba za {count} sekundy (próba {attempt} z {total})",
+      "many": "Overpass jest zajęty — ponowna próba za {count} sekund (próba {attempt} z {total})",
+      "other": "Overpass jest zajęty — ponowna próba za {count} sekundy (próba {attempt} z {total})"
+    },
+    "retrying": "Ponawianie… (próba {attempt} z {total})"
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",
@@ -180,7 +217,11 @@
     "sharpen": "Wyostrzenie mapy",
     "contrast": "Zwiększ kontrast",
     "grayscale": "Mapa w odcieniach szarości",
-    "basemap": "Mapa podstawowa"
+    "filterNoSharpen": "Ta przeglądarka nie potrafi wyostrzyć mapy. Kontrast i skala szarości nadal działają, w przybliżeniu.",
+    "filterNone": "Ta przeglądarka nie stosuje filtrów obrazu do mapy, więc wyostrzanie, kontrast i skala szarości są tu niedostępne.",
+    "basemap": "Mapa podstawowa",
+    "errNoTemplate": "Najpierw wczytaj szablon PDF.",
+    "errTemplateLayout": "Nie udało się odczytać układu szablonu."
   },
   "place": {
     "title": "Umieść mapę",
@@ -193,7 +234,9 @@
     "snapNone": "W tym szablonie nie wykryto pola — przeciągnij ramkę ręcznie.",
     "cancel": "Anuluj",
     "save": "Użyj tego obszaru",
-    "keys": "Klawisze strzałek przesuwają mapę o 1 pt · Przytrzymaj dodatkowo Shift by przesuwać o 10 pt · Przytrzymaj dodatkowo Alt by przesuwać o 0.1 pt · Przytrzymaj dodatkowo Ctrl by zmienić rozmiar rozmiaru · Enter do zaakceptowania"
+    "keys": "Klawisze strzałek przesuwają mapę o 1 pt · Przytrzymaj dodatkowo Shift by przesuwać o 10 pt · Przytrzymaj dodatkowo Alt by przesuwać o 0.1 pt · Przytrzymaj dodatkowo Ctrl by zmienić rozmiar rozmiaru · Enter do zaakceptowania",
+    "applied": "Obszar mapy zapisany dla tego szablonu.",
+    "errPage": "Nie udało się wyświetlić strony szablonu."
   },
   "alert": {
     "drawFirst": "Najpierw narysuj granicę zewnętrzną.",
@@ -203,6 +246,7 @@
     "noGeolocation": "Ta przeglądarka nie obsługuje usług lokalizacji.",
     "locateFailed": "Nie udało się ustalić Twojej lokalizacji.\n{message}",
     "fetchFailed": "Nie udało się pobrać danych OSM.\n\n{message}",
+    "fetchFailedRetries": "Nie udało się pobrać danych OSM po {attempts} próbach.\n\n{message}",
     "exportNothing": "Przed eksportem narysuj granicę zewnętrzną.",
     "importUnreadable": "Nie udało się odczytać tego pliku.",
     "importNotJson": "Ten plik nie zawiera poprawnego formatu JSON.",
@@ -219,8 +263,6 @@
     "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
-    "cleanupNothing": "Nie ma terenów do uporządkowania.",
-    "cleanupNoBuildings": "Do porządkowania potrzebne są dane o budynkach, aby ustalić, które tereny są puste.",
     "partitionFailed": "Podział nie powiódł się: {message}"
   },
   "tooltip": {
@@ -322,5 +364,41 @@
     "updateDismiss": "Później",
     "offline": "Offline",
     "offlineHint": "Wymaga połączenia — niedostępne w trybie offline."
+  },
+  "confirm": {
+    "ok": "OK",
+    "cancel": "Anuluj",
+    "downloadTitle": "Pobrać dane OSM?",
+    "downloadMessage": "Ulice i budynki wewnątrz tej granicy zostaną pobrane z OpenStreetMap.",
+    "downloadArea": "Około {area} km². Większe obszary trwają dłużej.",
+    "download": "Pobierz",
+    "later": "Nie teraz",
+    "replaceOuterTitle": "Zastąpić granicę?",
+    "replace": "Zastąp",
+    "resetTitle": "Wyczyścić wszystko?",
+    "reset": "Wyczyść"
+  },
+  "cut": {
+    "vertices": {
+      "one": "{count} punkt",
+      "few": "{count} punkty",
+      "many": "{count} punktów",
+      "other": "{count} punktu"
+    },
+    "needMore": "Postaw co najmniej dwa punkty.",
+    "willCut": {
+      "one": "Rozdzieli {count} teren",
+      "few": "Rozdzieli {count} tereny",
+      "many": "Rozdzieli {count} terenów",
+      "other": "Rozdzieli {count} terenu"
+    },
+    "willTouch": "Przecina teren, ale jeszcze go nie rozdziela.",
+    "willMiss": "Nie przecina jeszcze żadnego terenu.",
+    "snap": "Przyciągaj do ulic",
+    "edges": "Przyciągaj do granic terenów",
+    "follow": "Prowadź wzdłuż ulic między punktami",
+    "finish": "Tnij",
+    "undo": "Cofnij",
+    "cancel": "Anuluj"
   }
 }

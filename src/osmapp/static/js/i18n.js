@@ -3,6 +3,9 @@
  *
  * Design notes:
  *   • Language comes from the URL: / is English, /pl and /de are the others.
+ *     Switching rewrites that URL with pushState and swaps the dictionary in
+ *     place, so the address stays shareable without the page — and everything
+ *     the page was holding — being thrown away to change some labels.
  *     Flask inlines the matching dictionary into the page as window.I18N_BUNDLE,
  *     so there is no fetch waterfall and no untranslated first paint. Fetching
  *     from static/i18n/ remains as a fallback and for in-place switching.
@@ -240,6 +243,7 @@ App.i18n = (function () {
 
   /** Resolves once t() is usable. */
   function init() {
+    _bindHistory();
     var bundle = window.I18N_BUNDLE;
     if (bundle && bundle.messages) {
       _fallback = bundle.fallback || bundle.messages;
@@ -288,30 +292,99 @@ App.i18n = (function () {
 
   /**
    * @param {string} code
-   * @param {{navigate?: boolean}} [opts] navigate defaults to true, which loads
-   *   the language's own URL so it can be shared and bookmarked. Pass false to
-   *   swap dictionaries in place without a page load.
+   * @param {{navigate?: boolean}} [opts] navigate defaults to true, which
+   *   keeps the URL in step with the choice so it can be shared and
+   *   bookmarked. It no longer *reloads* to do that: the URL is rewritten with
+   *   pushState and the dictionaries are swapped in place, because a reload
+   *   threw away everything the page was holding — the drawn boundary, the
+   *   downloaded streets, the undo stack, the map view — to change some text.
+   *   Pass false to swap without touching the URL at all.
    */
   function setLanguage(code, opts) {
     if (!isSupported(code) || code === _lang) return Promise.resolve(_lang);
+    var updateUrl = !opts || opts.navigate !== false;
 
-    if (!opts || opts.navigate !== false) {
+    // No History API: fall back to the old full-page navigation, which is
+    // correct, just lossy.
+    if (updateUrl && !_canPushState()) {
       window.location.assign(pathFor(code));
       return Promise.resolve(code);
     }
+    return _swap(code, updateUrl);
+  }
 
-    return _fetchDict(code).then(function (dict) {
-      _activate(code, dict);
-      apply(document.body);
-      _listeners.forEach(function (fn) {
-        try {
-          fn(code);
-        } catch (e) {
-          console.error(">>> Language listener failed:", e);
+  function _canPushState() {
+    return !!(window.history && window.history.pushState);
+  }
+
+  function _swap(code, updateUrl) {
+    return _fetchDict(code).then(
+      function (dict) {
+        _activate(code, dict);
+        if (updateUrl) {
+          window.history.pushState({ lang: code }, "", pathFor(code));
         }
-      });
-      return code;
+        _syncManifestLink(code);
+        apply(document.body);
+        _notify(code);
+        console.log(">>> Language switched in place to", code);
+        return code;
+      },
+      function (err) {
+        console.warn(">>> Could not swap dictionaries:", err.message);
+        // A reload can only rescue this if the network can serve the page.
+        // Offline, navigating would replace a working app with a dead tab, so
+        // the current language stays and nothing is lost.
+        if (updateUrl && navigator.onLine !== false) {
+          window.location.assign(pathFor(code));
+        }
+        return _lang;
+      },
+    );
+  }
+
+  function _notify(code) {
+    _listeners.forEach(function (fn) {
+      try {
+        fn(code);
+      } catch (e) {
+        console.error(">>> Language listener failed:", e);
+      }
     });
+  }
+
+  /**
+   * The manifest is served per language (/manifest.webmanifest?lang=xx), and
+   * an installed PWA reads it from the live document. Without this the app
+   * would install under whichever language the tab happened to start in.
+   */
+  function _syncManifestLink(code) {
+    var link = document.querySelector('link[rel="manifest"]');
+    if (!link) return;
+    try {
+      var url = new URL(link.getAttribute("href"), document.baseURI);
+      url.searchParams.set("lang", code);
+      link.setAttribute("href", url.pathname + url.search);
+    } catch (e) {
+      /* an un-rewritable href is not worth failing the switch over */
+    }
+  }
+
+  /**
+   * Back and Forward now move between languages, because pushState made them
+   * history entries. Without this the URL would change and the text would not.
+   */
+  function _bindHistory() {
+    if (!_canPushState()) return;
+    window.addEventListener("popstate", function () {
+      var code = _codeFromPath();
+      if (code !== _lang) _swap(code, false);
+    });
+  }
+
+  function _codeFromPath() {
+    var first = String(window.location.pathname).split("/").filter(Boolean)[0];
+    return first && isSupported(first) ? first : FALLBACK_LANG;
   }
 
   /** Register a callback for strings that JS built and must rebuild. */

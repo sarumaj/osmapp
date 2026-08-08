@@ -174,6 +174,78 @@ App.print = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   var PREFERENCES_KEY = "osm.print.preferences.v1";
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CANVAS FILTER SUPPORT
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // `"filter" in ctx` is not the question. Safari has had the property since
+  // 17 while still refusing `url(#id)` references to SVG filters — it
+  // implements only the CSS shorthand functions. Feature-detecting the
+  // property therefore reports "supported" and then silently prints an
+  // unfiltered map, which is the worst of the three possible outcomes because
+  // nothing on screen says so.
+  //
+  // So the two are probed separately, and by rendering rather than by asking:
+  // fill one pixel with pure red through a grayscale filter and look at what
+  // came out. Red survives a filter that was never applied; a luminance
+  // matrix turns it into a neutral ~(54,54,54). Reading the property back is
+  // kept as a cheap first rejection — browsers report a filter they refused
+  // as "none" — but it is not trusted on its own.
+  //
+  // Splitting the two matters, because it buys a middle tier instead of an
+  // all-or-nothing switch. Grayscale is exact as a CSS function (the SVG
+  // matrix in index.html uses the same BT.709 coefficients on purpose) and
+  // contrast is close enough. Only sharpening genuinely needs SVG: a 3x3
+  // convolution has no CSS equivalent.
+
+  var _filterSupportCache = null;
+
+  /** @returns {{svg: boolean, css: boolean}} cached after the first call */
+  function _filterSupport() {
+    if (_filterSupportCache) return _filterSupportCache;
+
+    var support = { svg: false, css: false };
+    try {
+      var probe = document.createElement("canvas");
+      probe.width = probe.height = 1;
+      var ctx = probe.getContext("2d");
+      if (ctx && "filter" in ctx) {
+        support.svg = _filterApplies(ctx, "url(#tile-grayscale)");
+        support.css = _filterApplies(ctx, "grayscale(1)");
+      }
+    } catch (e) {
+      /* no canvas, no filters — the checkboxes just switch themselves off */
+    }
+
+    _filterSupportCache = support;
+    console.log(
+      ">>> Canvas filters — SVG:",
+      support.svg,
+      "CSS:",
+      support.css,
+    );
+    return support;
+  }
+
+  function _filterApplies(ctx, filter) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = "none";
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.filter = filter;
+    // A rejected filter is reported back as "none".
+    var accepted = ctx.filter !== "none";
+    ctx.fillStyle = "#ff0000";
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.restore();
+
+    if (!accepted) return false;
+    var px = ctx.getImageData(0, 0, 1, 1).data;
+    // Unfiltered red is (255, 0, 0); grayscaled red is neutral and dark.
+    return px[0] !== 255 && px[0] === px[1] && px[1] === px[2];
+  }
+
   var PREFERENCES_ROLES = [
     "color",
     "width",
@@ -1329,12 +1401,18 @@ App.print = (function () {
     var result = _tilesFor(_view);
     var missing = 0;
 
+    var support = _filterSupport();
     var sharpen = D.role(_dialog, "sharpen");
     var contrast = D.role(_dialog, "contrast");
     var grayscale = D.role(_dialog, "grayscale");
-    var wantSharp = (!sharpen || sharpen.checked) && "filter" in ctx;
-    var wantContrast = contrast && contrast.checked && "filter" in ctx;
-    var wantGrayscale = grayscale && grayscale.checked && "filter" in ctx;
+    // Sharpening is a convolution, so it exists only as an SVG filter.
+    // Contrast and grayscale degrade to the CSS functions where url() is
+    // refused; _applyFilterSupport() has already switched off and explained
+    // whichever of the three cannot run here.
+    var tonal = support.svg || support.css;
+    var wantSharp = (!sharpen || sharpen.checked) && support.svg;
+    var wantContrast = contrast && contrast.checked && tonal;
+    var wantGrayscale = grayscale && grayscale.checked && tonal;
 
     // Upright frames keep tile edges on the pixel grid, so they need almost no
     // overlap; a rotated or fractionally scaled frame does, or seams show.
@@ -1346,8 +1424,16 @@ App.print = (function () {
     // through the same filter would just add halos.
     var filters = [];
     if (wantSharp) filters.push("url(#tile-sharpen)");
-    if (wantContrast) filters.push("url(#tile-contrast)");
-    if (wantGrayscale) filters.push("url(#tile-grayscale)");
+    // The CSS fallbacks are not identical. grayscale(1) is exact — the SVG
+    // matrix uses the same BT.709 coefficients. contrast(1.2) is a linear
+    // stretch standing in for the SVG's gentle S-curve: close in the midtones,
+    // slightly harsher in the shadows.
+    if (wantContrast) {
+      filters.push(support.svg ? "url(#tile-contrast)" : "contrast(1.2)");
+    }
+    if (wantGrayscale) {
+      filters.push(support.svg ? "url(#tile-grayscale)" : "grayscale(1)");
+    }
 
     // ctx.filter applies per drawing operation, and every filter here samples
     // neighboring pixels: a 3x3 convolution at a tile's edge reads the
@@ -1510,6 +1596,7 @@ App.print = (function () {
       clearTimeout(_retileTimer);
       _retileTimer = null;
     }
+    App.history.popScope("erase");
     _dialog = null;
     _feature = null;
     _eraseCursor = null;
@@ -1541,6 +1628,7 @@ App.print = (function () {
     _feature = feature;
     _strokes = [];
     _redoStack = [];
+    App.history.pushScope(ERASE_SCOPE);
     _stroke = null;
     _pan = null;
     _templateFile = null;
@@ -1557,6 +1645,9 @@ App.print = (function () {
 
     _wireControls();
     _loadPreferences();
+    // After _loadPreferences, so a preference saved in a browser that could
+    // sharpen does not come back checked in one that cannot.
+    _applyFilterSupport();
 
     // Sizes both canvases, fits the view, picks the tile zoom and starts the
     // prefetch — everything downstream of the frame's aspect ratio.
@@ -1569,6 +1660,41 @@ App.print = (function () {
   function close() {
     if (!_dialog) return;
     App.ui.closeDialog();
+  }
+
+  /**
+   * Switch off whichever basemap filters this browser cannot run, and say so.
+   *
+   * Leaving a checkbox live that does nothing is the failure worth avoiding:
+   * the user ticks "Sharpen the map", sees no change, and has no way to tell
+   * a broken feature from a subtle one.
+   */
+  function _applyFilterSupport() {
+    var support = _filterSupport();
+    if (support.svg) return; // everything works; nothing to explain
+
+    _disableFilterCheck("sharpen");
+    if (!support.css) {
+      _disableFilterCheck("contrast");
+      _disableFilterCheck("grayscale");
+    }
+
+    var note = D.role(_dialog, "filter-note");
+    if (!note) return;
+    var key = support.css ? "print.filterNoSharpen" : "print.filterNone";
+    // Re-target data-i18n too, so a language change keeps the right message.
+    note.setAttribute("data-i18n", key);
+    note.textContent = T(key);
+    D.toggle(note, true);
+  }
+
+  function _disableFilterCheck(role) {
+    var input = D.role(_dialog, role);
+    if (!input) return;
+    input.checked = false;
+    input.disabled = true;
+    var label = input.parentNode;
+    if (label && label.classList) label.classList.add("is-disabled");
   }
 
   function _wireControls() {
@@ -1991,13 +2117,40 @@ App.print = (function () {
     if (_strokes.length === 0) return;
     _redoStack.push(_strokes.pop());
     _schedulePaint();
+    App.history.sync();
   }
 
   function redo() {
     if (_redoStack.length === 0) return;
     _strokes.push(_redoStack.pop());
     _schedulePaint();
+    App.history.sync();
   }
+
+  /**
+   * While the print dialog is open, undo belongs to the eraser. The dialog's
+   * own Undo/Redo buttons and the toolbar's now drive the same stack, instead
+   * of the toolbar quietly rewriting territory geometry behind the dialog.
+   */
+  var ERASE_SCOPE = {
+    id: "erase",
+    undo: undo,
+    redo: redo,
+    canUndo: function () {
+      return _strokes.length > 0;
+    },
+    canRedo: function () {
+      return _redoStack.length > 0;
+    },
+    undoDepth: function () {
+      return _strokes.length;
+    },
+    redoDepth: function () {
+      return _redoStack.length;
+    },
+    undoKey: "toolbar.undoStroke",
+    redoKey: "toolbar.redoStroke",
+  };
 
   function _syncHistoryButtons() {
     if (!_dialog) return;
@@ -2179,6 +2332,7 @@ App.print = (function () {
   return {
     init: init,
     isOpen: isOpen,
+    filterSupport: _filterSupport,
     printCluster: printCluster,
     close: close,
     undo: undo,

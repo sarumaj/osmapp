@@ -23,7 +23,15 @@ const GLOBALS = ["window", "document", "navigator", "turf", "L"];
 
 export function loadApp(files, stubs = {}) {
   const win = {};
-  const env = { window: win, document: {}, navigator: {}, turf: stubs.turf, L: stubs.L };
+  const env = {
+    window: win,
+    // Overridable: anything that feature-detects the browser has to be driven
+    // against more than one browser's behaviour to be worth testing.
+    document: stubs.document ?? {},
+    navigator: stubs.navigator ?? {},
+    turf: stubs.turf,
+    L: stubs.L,
+  };
 
   for (const file of files) {
     const source = readFileSync(join(JS_DIR, file), "utf8");

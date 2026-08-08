@@ -183,6 +183,9 @@ App.polygons = (function () {
 
     if (!opts || !opts.silent) refreshFilteredData();
     if (App.session) App.session.markDirty();
+    // Cut and merge only mean something once there are territories, and this
+    // is the single choke point every cluster change goes through.
+    if (App.controls) App.controls.refresh();
     return s.clusters.length;
   }
 
@@ -285,6 +288,8 @@ App.polygons = (function () {
     s.innerPolygonsLayerGroup.removeLayer(layer);
     s.clusters.splice(hit.index, 1);
     refreshFilteredData();
+    // The one cluster mutation that does not go through setClusters().
+    if (App.controls) App.controls.refresh();
     return true;
   }
 

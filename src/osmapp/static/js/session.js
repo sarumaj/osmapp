@@ -15,17 +15,84 @@ App.session = (function () {
   var META = "session:meta";
   var DATA = "session:data";
   var CLUSTERS = "session:clusters";
+  var VIEW_KEY = "osmapp.map.view";
   var DEBOUNCE_MS = 1000;
-  var VERSION = App.data.PAYLOAD_VERSION || 3;  // must match the export version
+  var VIEW_DEBOUNCE_MS = 400;
+  var VERSION = App.data.PAYLOAD_VERSION || 3; // must match the export version
 
   var s = null;
   var _timer = null;
+  var _viewTimer = null;
   var _restoring = false;
   var _dataDirty = false;
 
   function init() {
     s = App.state;
+    _bindView();
     App._loaded.push("session");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // MAP VIEW
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // Kept in localStorage rather than in the IndexedDB payload: it is two
+  // numbers and a zoom, it changes on every pan, and it is worth restoring
+  // even when there is no territory to restore with it.
+
+  function _bindView() {
+    if (!s.leafletMap) return;
+    s.leafletMap.on("moveend zoomend", function () {
+      clearTimeout(_viewTimer);
+      _viewTimer = setTimeout(_saveView, VIEW_DEBOUNCE_MS);
+    });
+  }
+
+  function _saveView() {
+    if (!s.leafletMap) return;
+    try {
+      var center = s.leafletMap.getCenter();
+      window.localStorage.setItem(
+        VIEW_KEY,
+        JSON.stringify({
+          lat: center.lat,
+          lng: center.lng,
+          zoom: s.leafletMap.getZoom(),
+        }),
+      );
+    } catch (e) {
+      /* private mode: the view just does not persist */
+    }
+  }
+
+  /**
+   * Put the map back where it was.
+   *
+   * Called after restore() on purpose: applyPayload fits the bounds of the
+   * whole territory, which is the right answer when there is nothing better,
+   * but not when the last thing the user did was zoom into one corner of it.
+   *
+   * @returns {boolean} whether a stored view was applied
+   */
+  function restoreView() {
+    var saved;
+    try {
+      saved = JSON.parse(window.localStorage.getItem(VIEW_KEY) || "null");
+    } catch (e) {
+      return false;
+    }
+    if (
+      !saved ||
+      typeof saved.lat !== "number" ||
+      typeof saved.lng !== "number" ||
+      typeof saved.zoom !== "number" ||
+      Math.abs(saved.lat) > 90 ||
+      Math.abs(saved.lng) > 180
+    ) {
+      return false;
+    }
+    s.leafletMap.setView([saved.lat, saved.lng], saved.zoom);
+    return true;
   }
 
   /** @param {{data?: boolean}} [opts] data marks streets/buildings as changed */
@@ -104,7 +171,13 @@ App.session = (function () {
     ]);
   }
 
-  return { init: init, markDirty: markDirty, restore: restore, clear: clear };
+  return {
+    init: init,
+    markDirty: markDirty,
+    restore: restore,
+    restoreView: restoreView,
+    clear: clear,
+  };
 })();
 
 window.App = App;

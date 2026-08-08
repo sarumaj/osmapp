@@ -139,13 +139,73 @@
          TEMPLATES — cloned by App.dom.render(), never string-concatenated
          ═══════════════════════════════════════════════════════════════ -->
 
+    <!-- ── Toolbar ──────────────────────────────────────────────────────
+         One control instead of a dozen stacked bars. controls.js clones
+         tpl-toolbar-group per section and tpl-toolbar-button per action, so
+         the grouping lives in one array there rather than in the markup. -->
+
+    <template id="tpl-toolbar-panel">
+      <div class="tb-panel" role="toolbar" aria-label="Tools">
+        <button
+          type="button"
+          class="tb-panel__collapse"
+          data-role="collapse"
+          data-i18n-attrs="title=toolbar.collapse;aria-label=toolbar.collapse"
+        >
+          <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+        </button>
+        <div class="tb-panel__groups" data-role="groups"></div>
+      </div>
+    </template>
+
+    <template id="tpl-toolbar-group">
+      <section class="tb-group">
+        <h2 class="tb-group__title" data-role="title"></h2>
+        <div class="tb-group__items" data-role="items"></div>
+      </section>
+    </template>
+
+    <template id="tpl-toolbar-button">
+      <a class="tb-item" href="#" role="button">
+        <i class="tb-item__icon" data-role="icon" aria-hidden="true"></i>
+        <span class="tb-item__label" data-role="label"></span>
+      </a>
+    </template>
+
     <template id="tpl-language-control">
-      <div class="leaflet-bar tb-bar lang-bar">
+      <div class="tb-item tb-item--select">
+        <span class="tb-item__icon" data-role="flag" aria-hidden="true"></span>
+        <span class="tb-item__label" data-i18n="toolbar.labelLanguage">
+          Language
+        </span>
         <select
           class="lang-select"
           data-role="lang"
-          data-i18n-attrs="aria-label=toolbar.language"
+          data-i18n-attrs="aria-label=toolbar.language;title=toolbar.language"
         ></select>
+      </div>
+    </template>
+
+    <!-- Yes/no prompt. Every field is filled by App.ui.confirm(); the template
+         only fixes the shape. -->
+    <template id="tpl-confirm-dialog">
+      <div
+        class="app-dialog confirm-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        tabindex="-1"
+      >
+        <h2 class="app-dialog__title" data-role="title"></h2>
+        <p class="app-dialog__hint confirm-dialog__message" data-role="message"></p>
+        <p class="confirm-dialog__detail" data-role="detail" hidden></p>
+        <div class="app-dialog__actions">
+          <button type="button" class="btn btn--ghost" data-role="cancel">
+            Cancel
+          </button>
+          <button type="button" class="btn btn--primary" data-role="ok">
+            OK
+          </button>
+        </div>
       </div>
     </template>
 
@@ -543,6 +603,12 @@
                 <input type="checkbox" data-role="grayscale" />
                 <span data-i18n="print.grayscale">Grayscale the map</span>
               </label>
+              <p
+                class="print-controls__note"
+                data-role="filter-note"
+                role="status"
+                hidden
+              ></p>
               <p class="print-controls__hint" data-i18n="print.detailHint">
                 Three steps, each doubling the size of street names at the cost
                 of sharpness. Tiles only exist at whole zoom levels, so there is

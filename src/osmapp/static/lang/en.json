@@ -10,11 +10,17 @@
   },
   "toolbar": {
     "draw": "Draw outer boundary",
-    "undo": "Undo last change",
     "undoNone": "Nothing to undo",
     "undoCount": "Undo last change ({count} available)",
-    "redo": "Redo last undone change",
     "redoNone": "Nothing to redo",
+    "undoVertexCount": "Remove the last vertex ({count} placed)",
+    "undoVertexNone": "No vertices to remove",
+    "redoVertexCount": "Put back a removed vertex ({count} available)",
+    "redoVertexNone": "No vertices to put back",
+    "undoStrokeCount": "Undo the last eraser stroke ({count} available)",
+    "undoStrokeNone": "Nothing erased yet",
+    "redoStrokeCount": "Redo an eraser stroke ({count} available)",
+    "redoStrokeNone": "No eraser stroke to redo",
     "redoCount": "Redo last undone change ({count} available)",
     "locate": "Show my location",
     "import": "Import a GeoJSON export",
@@ -23,10 +29,34 @@
     "partition": "Split the area into territories",
     "cut": "Draw a street-snapped split line (double-click to finish)",
     "merge": "Select and merge territories",
-    "cleanup": "Absorb territories that contain no buildings",
     "reset": "Reset everything",
     "language": "Language",
-    "github": "Source code and help resources on GitHub"
+    "github": "Source code and help resources on GitHub",
+    "collapse": "Hide the labels",
+    "expand": "Show the labels",
+    "groupArea": "Area",
+    "groupTerritories": "Territories",
+    "groupHistory": "History",
+    "groupFile": "File",
+    "groupApp": "App",
+    "labelDraw": "Draw",
+    "labelLocate": "Locate",
+    "labelRefetch": "Reload",
+    "labelPartition": "Split",
+    "labelCut": "Cut",
+    "labelMerge": "Merge",
+    "labelUndo": "Undo",
+    "labelRedo": "Redo",
+    "labelImport": "Import",
+    "labelExport": "Export",
+    "labelReset": "Reset",
+    "labelLanguage": "Language",
+    "labelGithub": "GitHub",
+    "needsBoundary": "Draw or search for an outer boundary first",
+    "needsData": "Load the OSM data first",
+    "needsTerritories": "Create at least one territory first",
+    "needsTwoTerritories": "Merging needs at least two territories",
+    "needsAnything": "Nothing to reset"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -36,7 +66,9 @@
     "buildings": "Buildings",
     "clusters": "Territories",
     "hintLoaded": "Split the area, then cut, merge, or export.",
-    "hintFiltered": "Right-click a territory for actions. Ctrl+Z undoes the last change."
+    "hintFiltered": "Right-click a territory for actions. Ctrl+Z undoes the last change.",
+    "notLoaded": "Boundary set",
+    "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it."
   },
   "loading": {
     "cancel": "Cancel",
@@ -50,10 +82,10 @@
     "cutting": "Cutting territories…",
     "merging": "Merging territories…",
     "dissolving": "Dissolving shared boundaries…",
-    "cleanup": "Cleaning up territories…",
-    "cleanupStatus": "Finding territories with no buildings",
     "progress": "Territory {index} of {total}",
-    "pass": "Pass {n}"
+    "pass": "Pass {n}",
+    "retryIn": "Overpass is busy — retrying in {count} s (attempt {attempt} of {total})",
+    "retrying": "Trying again… (attempt {attempt} of {total})"
   },
   "phase": {
     "samples": "Collecting sample points",
@@ -170,7 +202,11 @@
     "sharpen": "Sharpen the map",
     "contrast": "Increase contrast",
     "grayscale": "Grayscale the map",
-    "basemap": "Basemap"
+    "filterNoSharpen": "This browser cannot sharpen the map. Contrast and grayscale still work, using a close approximation.",
+    "filterNone": "This browser cannot apply image filters to the map, so sharpening, contrast and grayscale are unavailable here.",
+    "basemap": "Basemap",
+    "errNoTemplate": "Load a PDF template first.",
+    "errTemplateLayout": "The template layout could not be read."
   },
   "place": {
     "title": "Position the map",
@@ -183,7 +219,9 @@
     "snapNone": "No box was detected in this template — drag the frame instead.",
     "cancel": "Cancel",
     "save": "Use this area",
-    "keys": "Arrow keys nudge the map by 1 pt · Hold additionally Shift to move by 10 pt · Hold additionally Alt to move by 0.1 pt · Hold additionally Ctrl to resize · Enter to accept"
+    "keys": "Arrow keys nudge the map by 1 pt · Hold additionally Shift to move by 10 pt · Hold additionally Alt to move by 0.1 pt · Hold additionally Ctrl to resize · Enter to accept",
+    "applied": "Map area saved for this template.",
+    "errPage": "The template page could not be shown."
   },
   "alert": {
     "drawFirst": "Draw an outer boundary first.",
@@ -193,6 +231,7 @@
     "noGeolocation": "This browser does not support location services.",
     "locateFailed": "Could not determine your location.\n{message}",
     "fetchFailed": "Could not download OSM data.\n\n{message}",
+    "fetchFailedRetries": "Could not download OSM data after {attempts} attempts.\n\n{message}",
     "exportNothing": "Draw an outer boundary before exporting.",
     "importUnreadable": "Could not read that file.",
     "importNotJson": "That file is not valid JSON.",
@@ -209,8 +248,6 @@
     "cutNoSeparation": "The line crossed a territory but did not separate it. Draw right across, from one boundary to the other.",
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
-    "cleanupNothing": "There are no territories to clean up.",
-    "cleanupNoBuildings": "Cleanup needs building data to decide which territories are empty.",
     "partitionFailed": "The partition failed: {message}"
   },
   "tooltip": {
@@ -312,5 +349,31 @@
     "updateDismiss": "Later",
     "offline": "Offline",
     "offlineHint": "Needs a connection — unavailable offline."
+  },
+  "confirm": {
+    "ok": "OK",
+    "cancel": "Cancel",
+    "downloadTitle": "Download OSM data?",
+    "downloadMessage": "The streets and buildings inside this boundary will be downloaded from OpenStreetMap.",
+    "downloadArea": "About {area} km². Larger areas take longer.",
+    "download": "Download",
+    "later": "Not now",
+    "replaceOuterTitle": "Replace the boundary?",
+    "replace": "Replace",
+    "resetTitle": "Reset everything?",
+    "reset": "Reset"
+  },
+  "cut": {
+    "vertices": "{count} vertices",
+    "needMore": "Place at least two vertices.",
+    "willCut": "Separates {count} territories",
+    "willTouch": "Crosses a territory but does not separate it yet.",
+    "willMiss": "Does not cross any territory yet.",
+    "snap": "Snap to streets",
+    "edges": "Snap to territory edges",
+    "follow": "Follow streets between vertices",
+    "finish": "Cut",
+    "undo": "Back",
+    "cancel": "Cancel"
   }
 }
