@@ -89,8 +89,22 @@ App.print = (function () {
 
   var DEG = Math.PI / 180;
 
-  var TILE_URL = "/tiles/{z}/{x}/{y}.png";
   var TILE_SIZE = 256;
+
+  /**
+   * The basemap a card is composed from — always OpenStreetMap, whatever is
+   * on screen.
+   *
+   * A card is carried down a street, written on and handed to the next
+   * person, so it has to name roads and show house numbers. The aid layers
+   * (aerial imagery, terrain) do neither, which is why they are on screen only
+   * and why this reads a constant rather than the current selection. Resolved
+   * per call rather than captured at load: it costs nothing and it keeps this
+   * file independent of script order.
+   */
+  function _tileUrl() {
+    return App.basemap.PRINT_TILE_URL;
+  }
   var TILE_CONCURRENCY = 8;
   var TILE_MARGIN = 2; // rings of tiles prefetched around the opening view
   var MAX_TILES = 900;
@@ -1480,7 +1494,8 @@ App.print = (function () {
       _schedulePaint();
     };
     // Same-origin proxy, so the canvas stays untainted and exportable.
-    img.src = TILE_URL.replace("{z}", _tileZoom)
+    img.src = _tileUrl()
+      .replace("{z}", _tileZoom)
       .replace("{x}", x)
       .replace("{y}", y);
     return entry;
@@ -1824,6 +1839,11 @@ App.print = (function () {
     _filterCanvas = document.createElement("canvas");
 
     _wireControls();
+    // Only when it would be a surprise. Someone printing from the OSM view
+    // gets what they see and needs no explanation; someone who has been
+    // looking at satellite imagery for the last ten minutes is about to get
+    // something else, and should hear it here rather than off the printer.
+    D.toggleRole(_dialog, "osm-only", App.basemap.isAid());
     _loadPreferences();
     // After _loadPreferences, so a preference saved in a browser that could
     // sharpen does not come back checked in one that cannot.

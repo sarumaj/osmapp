@@ -22,7 +22,11 @@ const JS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "
 const GLOBALS = ["window", "document", "navigator", "turf", "L"];
 
 export function loadApp(files, stubs = {}) {
-  const win = {};
+  // Overridable so a module that reads bootstrap data off `window` — the
+  // basemap descriptor the server inlines, `localStorage` — can be given one
+  // that has it. The module still assigns `window.App`, so the return value is
+  // read back off whichever object was used.
+  const win = stubs.window ?? {};
   const env = {
     window: win,
     // Overridable: anything that feature-detects the browser has to be driven

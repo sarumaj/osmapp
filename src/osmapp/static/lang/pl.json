@@ -1,9 +1,13 @@
 {
   "layers": {
+    "map": "Mapa (OpenStreetMap)",
+    "imagery": "Zdjęcia satelitarne",
+    "terrain": "Ukształtowanie terenu",
     "outer": "Granica zewnętrzna",
     "streets": "Ulice",
     "buildings": "Budynki",
-    "clusters": "Tereny"
+    "clusters": "Tereny",
+    "aidNote": "Tylko pomoc na ekranie. Karty terenów są zawsze drukowane na warstwie OpenStreetMap."
   },
   "map": {
     "youAreHere": "Jesteś tutaj"
@@ -220,6 +224,7 @@
     "filterSoftware": "Ta przeglądarka nie obsługuje szybkiej ścieżki filtrów, więc mapa jest filtrowana programowo. Wynik jest identyczny, duże karty potrwają tylko chwilę dłużej.",
     "filterNone": "Ta przeglądarka nie pozwala odczytać wyrenderowanej mapy, więc wyostrzanie, kontrast i skala szarości są tu niedostępne.",
     "basemap": "Mapa podstawowa",
+    "osmOnly": "Karty są zawsze rysowane na mapie podstawowej OpenStreetMap, niezależnie od warstwy widocznej na ekranie.",
     "errNoTemplate": "Najpierw wczytaj szablon PDF.",
     "errTemplateLayout": "Nie udało się odczytać układu szablonu."
   },

@@ -44,6 +44,7 @@ App.controls = (function () {
   var D = null;
   var _map = null;
   var _layerControl = null;
+  var _aidNote = null;
   var _panel = null;
 
   /** id → { spec, node } for every rendered button. */
@@ -272,6 +273,16 @@ App.controls = (function () {
     _buildLayerControl();
     _makePanel().addTo(leafletMap);
 
+    // The layer control does the swap itself; this is how App.basemap finds
+    // out, so the choice is remembered and anything watching for it — the
+    // print dialog's note, the aid styling — hears about it too.
+    _map.on("baselayerchange", function (e) {
+      App.basemap.entries().forEach(function (entry) {
+        if (entry.layer === e.layer) App.basemap.select(entry.id);
+      });
+    });
+    App.basemap.onChange(_syncAidNote);
+
     App.i18n.onChange(function () {
       _buildLayerControl();
       refresh();
@@ -283,16 +294,54 @@ App.controls = (function () {
 
   // ── Layer control ─────────────────────────────────────────────────────
 
+  /**
+   * Basemaps as radio entries, everything else as checkboxes.
+   *
+   * The basemaps are mutually exclusive by nature — one thing can be under the
+   * map — and Leaflet already renders that distinction with a divider, which
+   * is most of the explanation the switcher needs. The rest is _aidNote below:
+   * one line, shown only while an aid layer is selected, saying the thing
+   * somebody would otherwise only discover on paper.
+   */
   function _buildLayerControl() {
     if (_layerControl) _map.removeControl(_layerControl);
+
+    var bases = {};
+    App.basemap.entries().forEach(function (entry) {
+      bases[T(entry.labelKey)] = entry.layer;
+    });
+
     var overlays = {};
     overlays[T("layers.outer")] = s.outerPolygonLayerGroup;
     overlays[T("layers.streets")] = s.streetsLayerGroup;
     overlays[T("layers.buildings")] = s.buildingsLayerGroup;
     overlays[T("layers.clusters")] = s.innerPolygonsLayerGroup;
+
     _layerControl = L.control
-      .layers(null, overlays, { collapsed: false })
+      .layers(bases, overlays, { collapsed: false })
       .addTo(_map);
+
+    _mountAidNote();
+  }
+
+  /** The "this one does not print" line, kept in sync with the selection. */
+  function _mountAidNote() {
+    var container = _layerControl.getContainer();
+    if (!container) return;
+
+    var note = document.createElement("div");
+    note.className = "layer-note";
+    note.setAttribute("role", "note");
+    note.setAttribute("data-i18n", "layers.aidNote");
+    note.textContent = T("layers.aidNote");
+    container.appendChild(note);
+
+    _aidNote = note;
+    _syncAidNote();
+  }
+
+  function _syncAidNote() {
+    if (_aidNote) D.toggle(_aidNote, App.basemap.isAid());
   }
 
   // ══════════════════════════════════════════════════════════════════════

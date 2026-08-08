@@ -1,7 +1,5 @@
 """Entrypoint — starts background threads, then hands off to the WSGI server."""
 
-from __future__ import annotations
-
 import os
 import threading
 

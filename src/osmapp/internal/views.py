@@ -4,6 +4,7 @@ from flask import Blueprint, redirect, render_template, request, url_for
 from werkzeug.wrappers import Response
 
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, load_dictionary
+from .tiles import client_basemaps
 
 bp = Blueprint("views", __name__)
 
@@ -22,6 +23,7 @@ def _render_app(lang: str) -> str:
         "index.html",
         lang=lang,
         lang_paths=_language_paths(),
+        basemaps=client_basemaps(),
         i18n_bundle={
             "lang": lang,
             "messages": load_dictionary(lang),

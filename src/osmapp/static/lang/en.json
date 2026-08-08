@@ -1,9 +1,13 @@
 {
   "layers": {
+    "map": "Map (OpenStreetMap)",
+    "imagery": "Satellite imagery",
+    "terrain": "Terrain",
     "outer": "Outer boundary",
     "streets": "Streets",
     "buildings": "Buildings",
-    "clusters": "Territories"
+    "clusters": "Territories",
+    "aidNote": "An on-screen aid only. Territory cards are always printed on the OpenStreetMap layer."
   },
   "map": {
     "youAreHere": "You are here"
@@ -205,6 +209,7 @@
     "filterSoftware": "This browser cannot use the fast filter path, so the map is filtered in software. The result is identical; large cards just take a moment longer.",
     "filterNone": "This browser does not allow reading back the rendered map, so sharpening, contrast and grayscale are unavailable here.",
     "basemap": "Basemap",
+    "osmOnly": "Cards are always drawn on the OpenStreetMap basemap, whichever layer is shown on the map.",
     "errNoTemplate": "Load a PDF template first.",
     "errTemplateLayout": "The template layout could not be read."
   },

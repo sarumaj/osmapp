@@ -20,7 +20,14 @@
  *   /tiles/**       cache-first      Immutable in practice, already served
  *                                    with a week of max-age. Capped and
  *                                    trimmed so a long session cannot fill
- *                                    the origin's storage quota.
+ *                                    the origin's storage quota. The aid
+ *                                    basemaps get a separate, smaller cache:
+ *                                    they are a look-and-switch-back tool, and
+ *                                    a spell of panning around satellite
+ *                                    imagery must not evict the OSM tiles
+ *                                    behind the territory about to be printed.
+ *                                    This mirrors the eviction priority in
+ *                                    internal/tiles.py.
  *   everything else network-only     Overpass, Nominatim and PDF composition
  *                                    all need a live server. Caching them
  *                                    would only mean answering with lies.
@@ -34,6 +41,7 @@ const PAGE_CACHE = `pages-${VERSION}`;
 // Tiles survive a deploy: they have nothing to do with the app's own assets,
 // and re-downloading them would be both slow and rude to the tile server.
 const TILE_CACHE = "tiles-v1";
+const AID_TILE_CACHE = "tiles-aid-v1";
 
 const PRECACHE = [
 {%- for url in precache %}
@@ -52,6 +60,16 @@ const OFFLINE_URL = "{{ offline_url }}";
 /** Roughly 2000 tiles at ~25 KB — a few sessions' worth of panning. */
 const TILE_LIMIT = 2000;
 const TILE_TRIM_TO = 1600;
+
+/**
+ * Aerial imagery runs two to three times the size of an OSM tile and is worth
+ * far less offline: nothing is printed from it, and a card can be produced
+ * without it. A smaller cache of its own is the whole point — one shared
+ * budget would let a look around the neighbourhood on satellite quietly evict
+ * the basemap someone needs.
+ */
+const AID_TILE_LIMIT = 500;
+const AID_TILE_TRIM_TO = 400;
 
 // ── install ──────────────────────────────────────────────────────────────────
 
@@ -84,7 +102,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
-      const keep = new Set([SHELL_CACHE, PAGE_CACHE, TILE_CACHE]);
+      const keep = new Set([SHELL_CACHE, PAGE_CACHE, TILE_CACHE, AID_TILE_CACHE]);
       const names = await caches.keys();
       await Promise.all(names.filter((name) => !keep.has(name)).map((name) => caches.delete(name)));
 
@@ -105,7 +123,9 @@ self.addEventListener("message", (event) => {
   } else if (data.type === "GET_VERSION") {
     event.source && event.source.postMessage({ type: "VERSION", version: VERSION });
   } else if (data.type === "CLEAR_TILES") {
-    event.waitUntil(caches.delete(TILE_CACHE));
+    // Both: "clear cached tiles" means all of them, not the ones that happen
+    // to be printable.
+    event.waitUntil(Promise.all([caches.delete(TILE_CACHE), caches.delete(AID_TILE_CACHE)]));
   }
 });
 
@@ -125,8 +145,12 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(handleNavigation(event));
     return;
   }
+  if (url.pathname.startsWith("/tiles/aid/")) {
+    event.respondWith(handleTile(request, AID_TILE_CACHE, AID_TILE_LIMIT, AID_TILE_TRIM_TO));
+    return;
+  }
   if (url.pathname.startsWith("/tiles/")) {
-    event.respondWith(handleTile(request));
+    event.respondWith(handleTile(request, TILE_CACHE, TILE_LIMIT, TILE_TRIM_TO));
     return;
   }
   if (url.pathname.startsWith("/static/")) {
@@ -186,8 +210,8 @@ async function handleAsset(request) {
 }
 
 /** Cache-first, with a bounded cache trimmed oldest-first. */
-async function handleTile(request) {
-  const cache = await caches.open(TILE_CACHE);
+async function handleTile(request, cacheName, limit, trimTo) {
+  const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
   if (cached) return cached;
 
@@ -195,7 +219,7 @@ async function handleTile(request) {
     const response = await fetch(request);
     if (response && response.ok) {
       await cache.put(request, response.clone());
-      trimTiles(cache);
+      trimTiles(cache, cacheName, limit, trimTo);
     }
     return response;
   } catch (error) {
@@ -211,22 +235,23 @@ async function handleTile(request) {
   }
 }
 
-let trimming = false;
+/** Per cache, not global: a trim in progress on one must not skip the other. */
+const trimming = new Set();
 
 /**
  * Cache Storage preserves insertion order, so the front of `keys()` is the
  * oldest entry. Trimming in one batch well below the limit keeps this from
  * running on every single tile once the cache is full.
  */
-async function trimTiles(cache) {
-  if (trimming) return;
-  trimming = true;
+async function trimTiles(cache, cacheName, limit, trimTo) {
+  if (trimming.has(cacheName)) return;
+  trimming.add(cacheName);
   try {
     const keys = await cache.keys();
-    if (keys.length <= TILE_LIMIT) return;
-    const excess = keys.slice(0, keys.length - TILE_TRIM_TO);
+    if (keys.length <= limit) return;
+    const excess = keys.slice(0, keys.length - trimTo);
     await Promise.all(excess.map((key) => cache.delete(key)));
   } finally {
-    trimming = false;
+    trimming.delete(cacheName);
   }
 }

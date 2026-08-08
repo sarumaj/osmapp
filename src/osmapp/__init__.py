@@ -1,7 +1,5 @@
 """Flask application factory."""
 
-from __future__ import annotations
-
 import logging
 
 from flask import Flask, Response, jsonify, make_response

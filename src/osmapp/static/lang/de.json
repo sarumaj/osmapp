@@ -1,9 +1,13 @@
 {
   "layers": {
+    "map": "Karte (OpenStreetMap)",
+    "imagery": "Satellitenbild",
+    "terrain": "Gelände",
     "outer": "Außengrenze",
     "streets": "Straßen",
     "buildings": "Gebäude",
-    "clusters": "Gebiete"
+    "clusters": "Gebiete",
+    "aidNote": "Nur eine Orientierungshilfe am Bildschirm. Gebietskarten werden immer mit der OpenStreetMap-Ebene gedruckt."
   },
   "map": {
     "youAreHere": "Du bist hier"
@@ -205,6 +209,7 @@
     "filterSoftware": "Dieser Browser kann den schnellen Filterweg nicht nutzen, daher wird die Karte per Software gefiltert. Das Ergebnis ist identisch, große Karten dauern nur etwas länger.",
     "filterNone": "Dieser Browser erlaubt kein Zurücklesen der gerenderten Karte — Schärfen, Kontrast und Graustufen sind hier nicht verfügbar.",
     "basemap": "Hintergrundkarte",
+    "osmOnly": "Karten werden immer auf der OpenStreetMap-Hintergrundkarte gezeichnet, unabhängig von der angezeigten Ebene.",
     "errNoTemplate": "Lade zuerst eine PDF-Vorlage.",
     "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden."
   },

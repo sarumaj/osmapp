@@ -1,7 +1,5 @@
 """PDF composition — stamps the rendered map onto an uploaded template."""
 
-from __future__ import annotations
-
 import logging
 import math
 from io import BytesIO
@@ -118,7 +116,12 @@ def compose_pdf() -> Response:
     # overlay is drawn at 0,0 so the offset has to come back out.
     origin_x, origin_y = float(box.left), float(box.bottom)
 
-    if not (0 <= box_x and 0 <= box_y and box_x + box_w <= page_w and box_y + box_h <= page_h):
+    if not (
+        0 <= box_x
+        and 0 <= box_y
+        and box_x + box_w <= page_w
+        and box_y + box_h <= page_h
+    ):
         return error_("The placeholder rectangle falls outside the page.")
 
     try:

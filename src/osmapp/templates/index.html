@@ -34,6 +34,10 @@
       window.APP_LANG = {{ lang | tojson }};
       window.LANG_PATHS = {{ lang_paths | tojson }};
       window.I18N_BUNDLE = {{ i18n_bundle | tojson }};
+      // Which basemaps exist, decided server-side by config.AID_LAYERS. Only
+      // proxied URLs, so the browser talks to one origin and swapping a
+      // provider never touches the client.
+      window.BASEMAPS = {{ basemaps | tojson }};
       // Kept as a fallback for the in-place switch path.
       window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
     </script>
@@ -490,6 +494,7 @@
         class="app-dialog print-dialog"
         role="dialog"
         aria-modal="true"
+        data-i18n-attrs="aria-label=print.title"
         aria-label="Print territory card"
       >
         <h2 class="app-dialog__title" data-i18n="print.title">
@@ -610,6 +615,16 @@
                 role="status"
                 hidden
               ></p>
+              <!-- Shown by print.js only while an aid basemap is selected. -->
+              <p
+                class="print-controls__note"
+                data-role="osm-only"
+                data-i18n="print.osmOnly"
+                role="status"
+                hidden
+              >
+                Cards are always drawn on the OpenStreetMap basemap.
+              </p>
               <p class="print-controls__hint" data-i18n="print.detailHint">
                 Three steps, each doubling the size of street names at the cost
                 of sharpness. Tiles only exist at whole zoom levels, so there is
@@ -672,19 +687,19 @@
               <div class="print-controls__row">
                 <button
                   type="button"
-                  class="btn btn--ghost"
+                  class="btn btn--ghost btn--icon"
                   data-role="undo"
-                  data-i18n="print.undo"
+                  data-i18n-attrs="title=print.undo;aria-label=print.undo"
                 >
-                  Undo
+                  <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
                 </button>
                 <button
                   type="button"
-                  class="btn btn--ghost"
+                  class="btn btn--ghost btn--icon"
                   data-role="redo"
-                  data-i18n="print.redo"
+                  data-i18n-attrs="title=print.redo;aria-label=print.redo"
                 >
-                  Redo
+                  <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
                 </button>
                 <button
                   type="button"
@@ -869,6 +884,7 @@
     <script src="{{ url_for('static', filename='js/state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/store.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
     <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>

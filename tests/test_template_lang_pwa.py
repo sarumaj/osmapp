@@ -7,8 +7,6 @@ a warning when a key is missing or a plural is called without a count. The PWA
 cache version is the only thing that tells a browser a deploy happened.
 """
 
-from __future__ import annotations
-
 import json
 import os
 import re

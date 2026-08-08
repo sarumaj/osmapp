@@ -233,8 +233,46 @@ All optional, all environment variables.
 | `OVERPASS_URL`     | `https://overpass-api.de/api`                    | Point at a mirror or your own instance.                                                                                                |
 | `TILE_URL`         | `https://tile.openstreetmap.org/{z}/{x}/{y}.png` | See _Tile usage_ below.                                                                                                                |
 | `TILE_CACHE_DIR`   | `.tile_cache`                                    | Where proxied tiles are stored.                                                                                                        |
+| `IMAGERY_TILE_URL` | Esri World Imagery                               | The satellite aid layer. See _Basemaps_ below. Set to an empty string to remove it from the switcher.                                  |
+| `TERRAIN_TILE_URL` | `https://tile.opentopomap.org/{z}/{x}/{y}.png`   | The terrain aid layer. Empty string removes it.                                                                                        |
 | `HOST` / `PORT`    | `127.0.0.1` / `5000`                             |                                                                                                                                        |
 | `FLASK_DEBUG`      | `0`                                              | `1` enables the Werkzeug debugger. Never on anything reachable.                                                                        |
+
+Each aid layer also takes `<NAME>_MAX_ZOOM` and `<NAME>_ATTRIBUTION`, e.g.
+`TERRAIN_MAX_ZOOM=17`. `MAX_ZOOM` is the deepest zoom the provider actually
+publishes — the map keeps its own range and upscales past it, so setting this
+too high produces blank tiles rather than soft ones.
+
+### Basemaps
+
+There is one printable basemap: OpenStreetMap. A territory card is carried down
+a street, written on and handed to the next person, so it has to name roads and
+show house numbers — which aerial imagery does not, and a topographic map does
+for the wrong features. So a card is always composed from OSM tiles regardless
+of what is on screen, and that is not a setting.
+
+The aid layers exist for the other half of the work: deciding which of two
+doors on a corner plot is the entrance, seeing that a "street" is a private
+drive, reading a slope before assigning a territory. Pick one in the layer
+switcher; the choice is remembered, and a line in the switcher says it will not
+be printed. The print dialog repeats it, but only when an aid layer is
+selected — anyone printing from the OSM view gets what they see and needs no
+explanation.
+
+The rule is held in three places, in descending order of how much they can be
+relied on:
+
+1. `print.js` builds tile URLs from `App.basemap.PRINT_TILE_URL`, a constant.
+   The current selection is not readable from the print pipeline.
+2. Aid layers are served from `/tiles/aid/<layer>/...` — a different path, so
+   no accidental rewrite could land on one.
+3. The UI says so, where and when it is relevant.
+
+Aid tiles share the disk cache but not its standing: `prune_tiles` evicts every
+aid tile before the oldest OSM tile, and the service worker gives them a
+separate, smaller cache. An afternoon of panning around satellite imagery must
+not evict the basemap behind the territory you are about to print fifty cards
+from.
 
 ### Tile usage
 
@@ -254,8 +292,8 @@ rendered image.
 
 ```bash
 pip install -e ".[test]"
-pytest                                # 23 tests
-node --test "tests/js/*.test.mjs"     # 18 tests, no npm install
+pytest                                # 30 tests
+node --test "tests/js/*.test.mjs"     # 29 tests, no npm install
 ```
 
 Deliberately small. A test earns its place only if a failure would be **silent
@@ -268,6 +306,7 @@ blank page) is not worth the maintenance. That leaves five things:
 | `spatial.Grid` / `MinHeap` | A wrong nearest segment makes the cut tool snap somewhere plausible but wrong.           |
 | `_clean`                   | Shapes every property in every payload; a mishandled NaN becomes `"nan"` in an export.   |
 | `prune_tiles`              | Deletes files.                                                                           |
+| `basemap`                  | A card composed from satellite imagery has no street names, and looks fine on screen.    |
 | `inspect_template`         | Picks the wrong rectangle and the map lands in the wrong box on a hundred printed cards. |
 
 Plus three guards that cover a lot of ground for two assertions each:
@@ -332,6 +371,7 @@ Per request type:
 | navigation (`/`, `/pl`, `/de`) | network-first               | The HTML inlines the dictionary and names the assets, so a stale copy is a wrong copy. Cached per path as the offline entry point. |
 | `/static/**`                   | cache-first                 | Freshness comes from the version digest, not from revalidating 42 files on every load.                                             |
 | `/tiles/**`                    | cache-first, capped at 2000 | Effectively immutable, already served with a week of `max-age`. Survives deploys — tiles have nothing to do with the app's assets. |
+| `/tiles/aid/**`                | cache-first, capped at 500  | A separate, smaller budget: aid tiles are larger, are never printed, and must not evict the printable basemap.                     |
 | everything else                | network-only                | Overpass, Nominatim and PDF composition need a live server. A cached answer would just be a lie.                                   |
 
 **Updates are never applied silently.** A new worker installs and waits; the
@@ -395,6 +435,7 @@ graph TD
 | `i18n`       | Dictionary loading, `t()`, translating DOM subtrees                |
 | `state`      | The single mutable store. Everything else reads `App.state`        |
 | `dom`        | Clones `<template>` elements, looks nodes up by `data-role`        |
+| `basemap`    | The printable OSM layer, the optional aid layers, and the rule     |
 | `geometry`   | Turf wrappers, polygon normalization, planar segment noding        |
 | `spatial`    | Uniform grid index, fast planar distance, binary min-heap          |
 | `ui`         | Loading overlay, info panel, context menu, dialogs                 |
@@ -499,14 +540,15 @@ translating it makes issue reports harder to read.
 
 ## HTTP API
 
-| Route                        | Purpose                                                    |
-|------------------------------|------------------------------------------------------------|
-| `GET /`, `/pl`, `/de`        | The app. `/en` redirects to `/`                            |
-| `POST /fetch_streets`        | GeoJSON polygon in, drivable street network out            |
-| `POST /fetch_buildings`      | GeoJSON polygon in, building footprints with addresses out |
-| `GET /geocode?q=`            | Nominatim proxy, cached and rate-limited to 1 req/s        |
-| `GET /tiles/<z>/<x>/<y>.png` | Tile proxy with disk cache                                 |
-| `POST /compose_pdf`          | Template PDF + PNG + placement → composed PDF              |
+| Route                                    | Purpose                                                    |
+|------------------------------------------|------------------------------------------------------------|
+| `GET /`, `/pl`, `/de`                    | The app. `/en` redirects to `/`                            |
+| `POST /fetch_streets`                    | GeoJSON polygon in, drivable street network out            |
+| `POST /fetch_buildings`                  | GeoJSON polygon in, building footprints with addresses out |
+| `GET /geocode?q=`                        | Nominatim proxy, cached and rate-limited to 1 req/s        |
+| `GET /tiles/<z>/<x>/<y>.png`             | Tile proxy with disk cache — the printable basemap         |
+| `GET /tiles/aid/<layer>/<z>/<x>/<y>.png` | Same proxy, optional on-screen basemaps. Never printed     |
+| `POST /compose_pdf`                      | Template PDF + PNG + placement → composed PDF              |
 
 Both fetch endpoints require the polygon on **every** request. There is no
 server-side geometry cache, deliberately: a module-level one meant two browser
