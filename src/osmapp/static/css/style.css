@@ -539,6 +539,14 @@ body {
   opacity: 0.55;
 }
 
+/* Right-drag pans the map while a cut line is being drawn. The override has
+   to beat Leaflet's own .leaflet-grab and the per-layer cursors underneath
+   it, hence !important on both rules. */
+.leaflet-container.is-right-panning,
+.leaflet-container.is-right-panning .leaflet-interactive {
+  cursor: grabbing !important;
+}
+
 .draw-hint {
   position: absolute;
   bottom: 30px;

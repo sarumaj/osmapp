@@ -45,6 +45,7 @@ App.editing = (function () {
   var _pendingMove = null;
   var _moveQueued = false;
   var _altHeld = false;
+  var _rightPan = null; // { x, y, moved } while the right button drags the map
   var _routedPrefix = []; // routed geometry through the committed vertices
   var _undonePoints = []; // vertices taken back, newest last — the redo stack
   var _lastCut = null; // the line from the most recent cut, for diagnosis
@@ -567,6 +568,7 @@ App.editing = (function () {
     // (_draggableMoved), so panning cannot place a stray vertex, and a split
     // line often runs past the edge of the screen.
     s.leafletMap.doubleClickZoom.disable();
+    _bindRightPan();
     s.leafletMap.on("mousemove", _onDrawMouseMove);
     s.leafletMap.on("click", _onDrawClick);
     s.leafletMap.on("dblclick", _onDrawDblClick);
@@ -576,6 +578,7 @@ App.editing = (function () {
   function _stopDraw() {
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
 
+    _unbindRightPan();
     s.leafletMap.off("mousemove", _onDrawMouseMove);
     s.leafletMap.off("click", _onDrawClick);
     s.leafletMap.off("dblclick", _onDrawDblClick);
@@ -604,7 +607,90 @@ App.editing = (function () {
     _altHeld = false;
   }
 
+  // ── Right-button panning ──────────────────────────────────────────────
+
+  /**
+   * Left-drag panning already works while drawing, but it costs the click
+   * that would have placed a vertex: Leaflet suppresses the click that ends a
+   * drag, so a long line has to be drawn in alternating bursts of panning and
+   * clicking, and a pan that only moves a pixel or two silently eats a
+   * vertex. The right button pans without ever touching the line.
+   *
+   * Leaflet's own drag handler ignores every button but the primary one, so
+   * this is a handler of our own rather than a flag on map.dragging. Right
+   * click has no other job here — the territory context menu already bows out
+   * while s.editMode is set.
+   */
+  function _bindRightPan() {
+    var container = s.leafletMap.getContainer();
+    L.DomEvent.on(container, "mousedown", _onRightPanDown);
+    L.DomEvent.on(container, "contextmenu", _swallowContextMenu);
+  }
+
+  function _unbindRightPan() {
+    _endRightPan();
+    if (!s.leafletMap) return;
+    var container = s.leafletMap.getContainer();
+    L.DomEvent.off(container, "mousedown", _onRightPanDown);
+    L.DomEvent.off(container, "contextmenu", _swallowContextMenu);
+  }
+
+  function _swallowContextMenu(e) {
+    L.DomEvent.preventDefault(e);
+  }
+
+  function _onRightPanDown(e) {
+    if (e.button !== 2) return;
+    // Without this the browser starts a selection drag, and on the platforms
+    // that raise the context menu on mousedown, raises it mid-pan.
+    L.DomEvent.preventDefault(e);
+    _rightPan = { x: e.clientX, y: e.clientY, moved: false };
+    L.DomUtil.addClass(s.leafletMap.getContainer(), "is-right-panning");
+    // The button may well be released outside the map, so the rest of the
+    // gesture is followed on the document.
+    L.DomEvent.on(document, "mousemove", _onRightPanMove);
+    L.DomEvent.on(document, "mouseup", _onRightPanUp);
+  }
+
+  function _onRightPanMove(e) {
+    if (!_rightPan) return;
+    // The ground follows the pointer, so the view moves the opposite way.
+    var dx = _rightPan.x - e.clientX;
+    var dy = _rightPan.y - e.clientY;
+    if (!dx && !dy) return;
+    _rightPan.x = e.clientX;
+    _rightPan.y = e.clientY;
+    _rightPan.moved = true;
+    s.leafletMap.panBy([dx, dy], { animate: false });
+  }
+
+  function _onRightPanUp(e) {
+    if (!_rightPan) return;
+    if (e.button !== 2) return;
+    var moved = _rightPan.moved;
+    _endRightPan();
+    // The cursor has not moved but the ground under it has, so what it is
+    // pointing at — and therefore the snap dot and the green preview — has to
+    // be worked out again.
+    if (moved && s.editMode) {
+      _pendingMove = s.leafletMap.mouseEventToLatLng(e);
+      _refreshPreview();
+    }
+  }
+
+  function _endRightPan() {
+    if (!_rightPan) return;
+    _rightPan = null;
+    L.DomEvent.off(document, "mousemove", _onRightPanMove);
+    L.DomEvent.off(document, "mouseup", _onRightPanUp);
+    if (s.leafletMap)
+      L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-right-panning");
+  }
+
   function _onDrawMouseMove(e) {
+    // While the map is being dragged the pointer is a hand, not a pen: the
+    // snap dot would otherwise chase the streets sliding underneath it.
+    if (_rightPan) return;
     _pendingMove = e.latlng;
     var alt = !!(e.originalEvent && e.originalEvent.altKey);
     if (alt !== _altHeld) _altHeld = alt;

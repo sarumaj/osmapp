@@ -123,7 +123,7 @@
     "cancel": "Abbrechen"
   },
   "draw": {
-    "hint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
+    "hint": "Klicken setzt Punkte · Rechte Maustaste ziehen verschiebt die Karte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
     "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
   },
   "search": {

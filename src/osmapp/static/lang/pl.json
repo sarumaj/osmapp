@@ -133,7 +133,7 @@
     "cancel": "Anuluj"
   },
   "draw": {
-    "hint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
+    "hint": "Klikaj, aby stawiać punkty · Przeciąganie prawym przyciskiem przesuwa mapę · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
     "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
   "search": {
