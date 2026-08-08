@@ -711,7 +711,7 @@ App.controls = (function () {
     showFlag();
     App.i18n.onChange(showFlag);
 
-    // setLanguage navigates to that language's URL (/ , /pl, /de) so the
+    // setLanguage navigates to that language's URL (/ , /pl, /de, /fr) so the
     // choice is shareable and bookmarkable. Pass { navigate: false } for an
     // in-place swap instead — which is why the flag is kept in sync above
     // rather than left to the page load.

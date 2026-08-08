@@ -2,6 +2,7 @@
 
 - [German/Deutsch](#deutsch)
 - [Polish/Polski](#polski)
+- [French/Français](#français)
 
 |              Screenshots              |
 |:-------------------------------------:|
@@ -70,8 +71,8 @@ is editable by anyone — but it is fixed there, not here.
 
 ## Language
 
-Available in English, Polish and German. Pick one from the menu, or go straight
-to `/pl` or `/de`.
+Available in English, Polish, German and French. Pick one from the menu, or go straight
+to `/pl`, `/de` or `/fr`.
 
 ---
 
@@ -141,8 +142,8 @@ nicht hier.
 
 ### Sprache
 
-Verfügbar auf Englisch, Polnisch und Deutsch. Wähle eine Sprache aus dem Menü
-aus oder gehe direkt zu `/pl` oder `/de`.
+Verfügbar auf Englisch, Polnisch, Deutsch und Französisch. Wähle eine Sprache
+aus dem Menü aus oder gehe direkt zu `/pl`, `/de` oder `/fr`.
 
 ---
 
@@ -211,8 +212,76 @@ poprawione tam, a nie tutaj.
 
 ### Język
 
-Dostępne w języku angielskim, polskim i niemieckim. Wybierz jeden z menu lub
-przejdź bezpośrednio do `/pl` lub `/de`.
+Dostępne w języku angielskim, polskim, niemieckim i francuskim. Wybierz jeden z
+menu lub przejdź bezpośrednio do `/pl`, `/de` lub `/fr`.
+
+---
+
+## Français
+
+Divisez une zone de la carte en territoires parcourables à pied, puis imprimez
+chacun d’entre eux sous forme de carte.
+
+### Fonctionnement
+
+Vous tracez une forme sur une carte — un quartier, un village, quelques pâtés
+de maisons. L’application télécharge les rues et les bâtiments réels qui s’y
+trouvent à partir d’OpenStreetMap, puis découpe la forme en autant de morceaux
+que vous le souhaitez. Les découpes suivent le tracé réel des rues. C’est là tout
+l’intérêt : un territoire dont la limite passe au milieu d’une rue est inutile
+pour la personne qui s’y promène, car elle ne peut pas savoir quelles maisons sont
+les siennes. Ici, chaque limite longe _une_ route, de sorte que « tout ce qui se
+trouve de ce côté de l’avenue Railway » est une instruction que vous pouvez suivre.
+Il ne vous reste plus qu’à imprimer. Chaque territoire devient une fiche PDF
+présentant uniquement ce territoire, à un niveau de zoom adapté à la page, avec
+la limite tracée par-dessus. Vous pouvez les glisser sur un formulaire
+pré-imprimé — un modèle de fiche existant — afin que la carte s’insère dans
+l’encadré que le modèle lui réserve.
+
+## À qui s’adresse cet outil
+
+À toute personne qui divise une zone géographique en secteurs d’intervention et
+les attribue à des personnes se déplaçant à pied : service de terrain de la
+congrégation, porte-à-porte, distribution de tracts, enquêtes, visites
+paroissiales, tournées de livraison.
+
+## Comment procéder
+
+1. **Dessinez la zone.** Utilisez l’outil polygone et cliquez tout autour du
+   périmètre de la région qui vous intéresse. Double-cliquez pour fermer le polygone.
+2. **Attendez que les données s’affichent.** Les rues et les bâtiments sont
+   chargés depuis OpenStreetMap. Une grande ville prend quelques secondes;
+   une métropole prend plus de temps.
+3. **Divisez la zone.** Choisissez soit un nombre de secteurs
+   (« donnez-m’en 40 »), soit une taille cible (« environ 25 bâtiments chacun »)
+   et lancez le calcul. Les zones plus vastes et les nombres plus élevés prennent
+   plus de temps — quelques centaines de territoires prennent environ deux minutes.
+4. **Ajustez manuellement.** Fusionnez deux territoires qui se sont avérés trop
+   petits, réduisez-en un qui s’est avéré trop grand, déplacez une limite ou
+   supprimez-en un entièrement. Ctrl+Z permet d’annuler.
+5. **Imprimer.** Cliquez avec le bouton droit sur un territoire et sélectionnez
+   « Imprimer ». Définissez la couleur et l’épaisseur du trait, faites pivoter
+   ou zoomez sur la carte à l’intérieur du cadre, effacez toute partie de la
+  limite qui recouvre un élément que vous devez lire, puis exportez le PDF.
+Votre travail est conservé dans le navigateur ; ainsi, un rafraîchissement ou la
+fermeture accidentelle d’un onglet ne le fait pas disparaître. Vous pouvez
+également tout exporter vers un fichier et le recharger plus tard, sur un autre
+ordinateur.
+
+## Ce que ce n’est pas
+
+Cet outil ne sait pas qui habite où, ne suit pas les visites et ne stocke aucune
+information sur les résidents. Il trace des limites et imprime des cartes. Tout
+ce qui concerne les personnes situées à l’intérieur de ces limites reste là où
+vous le conservez déjà. Il n’invente pas non plus de données sur les rues. Tout
+provient d’OpenStreetMap ; ainsi, si un nouveau lotissement n’y figure pas, il
+n’apparaîtra pas ici non plus. Cela peut être corrigé — OpenStreetMap est
+modifiable par tout le monde — mais la correction s’effectue là-bas, pas ici.
+
+## Langue
+
+Disponible en anglais, polonais, allemand et français. Choisissez une langue dans
+le menu, ou rendez-vous directement sur `/pl`, `/de` ou `/fr`.
 
 ---
 
@@ -366,13 +435,13 @@ up without a restart.
 
 Per request type:
 
-| Request                        | Strategy                    | Why                                                                                                                                |
-|--------------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| navigation (`/`, `/pl`, `/de`) | network-first               | The HTML inlines the dictionary and names the assets, so a stale copy is a wrong copy. Cached per path as the offline entry point. |
-| `/static/**`                   | cache-first                 | Freshness comes from the version digest, not from revalidating 42 files on every load.                                             |
-| `/tiles/**`                    | cache-first, capped at 2000 | Effectively immutable, already served with a week of `max-age`. Survives deploys — tiles have nothing to do with the app's assets. |
-| `/tiles/aid/**`                | cache-first, capped at 500  | A separate, smaller budget: aid tiles are larger, are never printed, and must not evict the printable basemap.                     |
-| everything else                | network-only                | Overpass, Nominatim and PDF composition need a live server. A cached answer would just be a lie.                                   |
+| Request                               | Strategy                    | Why                                                                                                                                |
+|---------------------------------------|-----------------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| navigation (`/`, `/pl`, `/de`, `/fr`) | network-first               | The HTML inlines the dictionary and names the assets, so a stale copy is a wrong copy. Cached per path as the offline entry point. |
+| `/static/**`                          | cache-first                 | Freshness comes from the version digest, not from revalidating 42 files on every load.                                             |
+| `/tiles/**`                           | cache-first, capped at 2000 | Effectively immutable, already served with a week of `max-age`. Survives deploys — tiles have nothing to do with the app's assets. |
+| `/tiles/aid/**`                       | cache-first, capped at 500  | A separate, smaller budget: aid tiles are larger, are never printed, and must not evict the printable basemap.                     |
+| everything else                       | network-only                | Overpass, Nominatim and PDF composition need a live server. A cached answer would just be a lie.                                   |
 
 **Updates are never applied silently.** A new worker installs and waits; the
 page offers a reload. The undo stack in `history.js` lives in memory and is not
@@ -542,7 +611,7 @@ translating it makes issue reports harder to read.
 
 | Route                                    | Purpose                                                    |
 |------------------------------------------|------------------------------------------------------------|
-| `GET /`, `/pl`, `/de`                    | The app. `/en` redirects to `/`                            |
+| `GET /`, `/pl`, `/de`, `/fr`             | The app. `/en` redirects to `/`                            |
 | `POST /fetch_streets`                    | GeoJSON polygon in, drivable street network out            |
 | `POST /fetch_buildings`                  | GeoJSON polygon in, building footprints with addresses out |
 | `GET /geocode?q=`                        | Nominatim proxy, cached and rate-limited to 1 req/s        |

@@ -1,0 +1,521 @@
+{
+  "layers": {
+    "map": "Carte (OpenStreetMap)",
+    "imagery": "Imagerie satellite",
+    "terrain": "Terrain",
+    "outer": "Limite extérieure",
+    "streets": "Rues",
+    "buildings": "Bâtiments",
+    "clusters": "Territoires",
+    "aidNote": "Aide à l'écran uniquement. Les fiches de territoire sont toujours imprimées sur le fond OpenStreetMap."
+  },
+  "map": {
+    "youAreHere": "Vous êtes ici"
+  },
+  "toolbar": {
+    "draw": "Tracer la limite extérieure",
+    "undoNone": "Rien à annuler",
+    "undoCount": "Annuler la dernière modification ({count} disponible(s))",
+    "redoNone": "Rien à rétablir",
+    "undoVertexCount": "Supprimer le dernier sommet ({count} placé(s))",
+    "undoVertexNone": "Aucun sommet à supprimer",
+    "redoVertexCount": "Remettre un sommet supprimé ({count} disponible(s))",
+    "redoVertexNone": "Aucun sommet à remettre",
+    "undoStrokeCount": "Annuler le dernier tracé de gomme ({count} disponible(s))",
+    "undoStrokeNone": "Rien d'effacé pour l'instant",
+    "redoStrokeCount": "Rétablir un tracé de gomme ({count} disponible(s))",
+    "redoStrokeNone": "Aucun tracé de gomme à rétablir",
+    "redoCount": "Rétablir la dernière modification annulée ({count} disponible(s))",
+    "locate": "Afficher ma position",
+    "import": "Importer un export GeoJSON",
+    "export": "Tout exporter en GeoJSON",
+    "refetch": "Retélécharger les données OSM pour la limite extérieure",
+    "partition": "Diviser la zone en territoires",
+    "cut": "Tracer une ligne de découpe calée sur les rues (double-clic pour terminer)",
+    "merge": "Sélectionner et fusionner des territoires",
+    "clearPrinted": "Effacer les marques d'impression sur tous les territoires",
+    "reset": "Tout réinitialiser",
+    "language": "Langue",
+    "github": "Code source et ressources d'aide sur GitHub",
+    "help": "Afficher la visite guidée",
+    "collapse": "Masquer les étiquettes",
+    "expand": "Afficher les étiquettes",
+    "groupArea": "Zone",
+    "groupTerritories": "Territoires",
+    "groupHistory": "Historique",
+    "groupFile": "Fichier",
+    "groupApp": "Application",
+    "labelDraw": "Tracer",
+    "labelLocate": "Localiser",
+    "labelRefetch": "Recharger",
+    "labelPartition": "Diviser",
+    "labelCut": "Couper",
+    "labelMerge": "Fusionner",
+    "labelClearPrinted": "Marques",
+    "labelUndo": "Annuler",
+    "labelRedo": "Rétablir",
+    "labelImport": "Importer",
+    "labelExport": "Exporter",
+    "labelReset": "Réinitialiser",
+    "labelLanguage": "Langue",
+    "labelGithub": "GitHub",
+    "labelHelp": "Aide",
+    "needsBoundary": "Tracez ou recherchez d'abord une limite extérieure",
+    "needsData": "Chargez d'abord les données OSM",
+    "needsTerritories": "Créez d'abord au moins un territoire",
+    "needsTwoTerritories": "La fusion nécessite au moins deux territoires",
+    "needsPrinted": "Aucun territoire n'est marqué comme imprimé",
+    "needsAnything": "Rien à réinitialiser"
+  },
+  "info": {
+    "prompt": "Tracez un polygone pour charger les données.",
+    "loaded": "Chargé",
+    "filtered": "Filtré par territoires",
+    "streets": "Rues",
+    "buildings": "Bâtiments",
+    "clusters": "Territoires",
+    "printed": "Imprimé",
+    "hintLoaded": "Divisez la zone, puis coupez, fusionnez ou exportez.",
+    "hintFiltered": "Clic droit sur un territoire pour les actions. Ctrl+Z annule la dernière modification.",
+    "notLoaded": "Limite définie",
+    "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger."
+  },
+  "loading": {
+    "cancel": "Annuler",
+    "streets": "Téléchargement des rues…",
+    "streetsStatus": "Interrogation d'Overpass pour le réseau routier",
+    "buildings": "Téléchargement des bâtiments…",
+    "buildingsStatus": "Interrogation d'Overpass pour les emprises des bâtiments",
+    "preparing": "Préparation de la carte…",
+    "partition": "Division de la zone…",
+    "partitionStatus": "Les grandes zones prennent quelques secondes.",
+    "cutting": "Découpage des territoires…",
+    "merging": "Fusion des territoires…",
+    "dissolving": "Dissolution des limites communes…",
+    "progress": "Territoire {index} sur {total}",
+    "pass": "Passe {n}",
+    "retryIn": "Overpass est occupé — nouvelle tentative dans {count} s (tentative {attempt} sur {total})",
+    "retrying": "Nouvelle tentative… (tentative {attempt} sur {total})"
+  },
+  "phase": {
+    "samples": "Collecte des points d'échantillon",
+    "kmeans": "Exécution du regroupement K-Means",
+    "voronoi": "Génération des cellules de Voronoï",
+    "graph": "Construction du graphe de rues",
+    "trace": "Tracé des limites de rues",
+    "finalize": "Finalisation et rendu"
+  },
+  "menu": {
+    "zoom": "Zoomer sur",
+    "print": "Imprimer",
+    "markPrinted": "Marquer comme imprimé",
+    "unmarkPrinted": "Marquer comme non imprimé",
+    "delete": "Supprimer"
+  },
+  "partition": {
+    "title": "Diviser en territoires",
+    "hint": "Choisissez comment la zone est divisée.",
+    "byBuildings": "Par nombre de bâtiments",
+    "byBuildingsHint": "Chaque territoire reçoit environ N bâtiments.",
+    "byCount": "Par nombre de territoires",
+    "byCountHint": "Territoires de superficie approximativement égale.",
+    "buildingsPer": "Bâtiments par territoire",
+    "count": "Nombre de territoires",
+    "cancel": "Annuler",
+    "submit": "Diviser",
+    "calcBuildings": "{k} territoires, environ {each} bâtiments chacun",
+    "calcArea": "{k} territoires, environ {each} m² chacun",
+    "errBuildings": "Entrez un nombre entre 1 et {total}.",
+    "errCount": "Entrez au moins 2 territoires.",
+    "confirmMany": "Cela crée {k} territoires et peut prendre un moment. Continuer ?"
+  },
+  "merge": {
+    "selected": "{count} sélectionné(s)",
+    "action": "Fusionner",
+    "cancel": "Annuler"
+  },
+  "draw": {
+    "hint": "Cliquez pour placer des sommets · Glisser avec le bouton droit pour déplacer · Entrée ou double-clic pour terminer · Retour arrière recule · Échap pour annuler",
+    "outerHint": "Cliquez pour placer des sommets · Entrée ou double-clic pour terminer · Échap pour annuler"
+  },
+  "search": {
+    "placeholder": "Rechercher une adresse ou un lieu…",
+    "notFound": "Aucun résultat."
+  },
+  "boundary": {
+    "looking": "Recherche de la limite…",
+    "lookingStatus": "Demande du contour de {name} à OpenStreetMap",
+    "title": "Utiliser cette limite ?",
+    "hint": "OpenStreetMap dispose d'un contour pour ce lieu. Utilisez-le plutôt que de tracer la limite extérieure à la main.",
+    "hintBoxOnly": "OpenStreetMap n'a pas de contour pour ce lieu, seulement un cadre de délimitation. Utilisez-le comme rectangle de départ et remodelez-le.",
+    "adminLevel": "niveau administratif {level}",
+    "area": "{area} km²",
+    "detail": "Détail",
+    "detailValue": "±{metres} m · {points} points",
+    "parts": "{count} parties détachées — seule la plus grande est utilisée.",
+    "tooBig": "Environ {area} km², au-dessus de la limite de téléchargement de {max} km². Le contour peut quand même être utilisé, mais recadrez-le avant de charger les données.",
+    "useBoundary": "Utiliser la limite",
+    "useBox": "Utiliser le cadre de délimitation",
+    "cancel": "Annuler",
+    "unusable": "Cette limite ne contient aucun polygone utilisable."
+  },
+  "print": {
+    "title": "Imprimer la fiche de territoire",
+    "border": "Bordure",
+    "color": "Couleur",
+    "thickness": "Épaisseur",
+    "opacity": "Opacité",
+    "eraser": "Gomme",
+    "eraseToggle": "Effacer des parties de la bordure",
+    "brush": "Pinceau",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "restore": "Tout restaurer",
+    "card": "Fiche",
+    "locality": "Localité",
+    "territoryNo": "N° de territoire",
+    "template": "Modèle PDF",
+    "noTemplate": "Aucun modèle — la carte s'imprime seule.",
+    "clearTemplate": "Effacer le modèle",
+    "withTemplate": "Modèle : {name}",
+    "openPdf": "Ouvrir le PDF",
+    "cancel": "Annuler",
+    "print": "Imprimer",
+    "printHint": "Générer le PDF (Ctrl+Entrée)",
+    "loadingTiles": "Chargement des tuiles de carte…",
+    "loadingProgress": "Chargement des tuiles de carte… {done} / {total}",
+    "buildingPdf": "Génération du PDF…",
+    "preparing": "Préparation de la vue d'impression…",
+    "saved": "{name} enregistré. Ouvrez-le pour imprimer.",
+    "unitPt": "{value} pt",
+    "unitPercent": "{value} %",
+    "errNoGeometry": "Ce territoire n'a pas de géométrie à imprimer.",
+    "errStillLoading": "La carte est encore en cours de chargement.",
+    "errRender": "Impossible de rendre l'image.",
+    "errTiles": "Impossible de charger la carte : {message}",
+    "errPdf": "Impossible de générer le PDF : {message}",
+    "frame": "Cadre",
+    "zoom": "Zoom",
+    "fit": "Ajuster",
+    "frameHint": "Glissez pour déplacer, faites défiler pour zoomer, Maj+glisser pour faire pivoter.",
+    "rotation": "Rotation",
+    "rotateCcw": "Pivoter de 90° dans le sens antihoraire",
+    "rotateCw": "Pivoter de 90° dans le sens horaire",
+    "rotateReset": "Réinitialiser la rotation",
+    "unitDeg": "{value}°",
+    "errTooManyTiles": "Cette vue nécessite trop de tuiles de carte. Zoomez un peu.",
+    "waitingTiles": "En attente des tuiles de carte…",
+    "encoding": "Encodage de l'image…",
+    "adjustTemplate": "Ajuster la zone de carte",
+    "renderingTemplate": "Rendu du modèle…",
+    "errTemplatePreview": "Le modèle n'a pas pu être affiché : {message}",
+    "detail": "Taille des étiquettes",
+    "detailHint": "Trois niveaux, chacun doublant la taille des noms de rues au détriment de la netteté. Les tuiles n'existent qu'à des niveaux de zoom entiers, il n'y a donc rien entre les deux.",
+    "detailOut": "≈{pt} pt · z{z}",
+    "sharpen": "Affiner la carte",
+    "contrast": "Augmenter le contraste",
+    "grayscale": "Mettre la carte en niveaux de gris",
+    "filterSoftware": "Ce navigateur ne peut pas utiliser le chemin de filtre rapide, la carte est donc filtrée par logiciel. Le résultat est identique ; les grandes fiches prennent juste un peu plus de temps.",
+    "filterNone": "Ce navigateur n'autorise pas la relecture de la carte rendue, donc l'affinage, le contraste et les niveaux de gris ne sont pas disponibles ici.",
+    "basemap": "Fond de carte",
+    "osmOnly": "Les fiches sont toujours dessinées sur le fond OpenStreetMap, quelle que soit la couche affichée sur la carte.",
+    "errNoTemplate": "Chargez d'abord un modèle PDF.",
+    "errTemplateLayout": "La mise en page du modèle n'a pas pu être lue."
+  },
+  "place": {
+    "title": "Positionner la carte",
+    "hint": "Faites glisser le cadre sur la partie de la fiche où la carte doit s'imprimer.",
+    "readout": "x {x} · y {y} · {w} × {h} pt",
+    "snap": "Accrocher à la zone détectée",
+    "snapN": "Accrocher à la zone détectée (1 sur {n})",
+    "snapOne": "Accroché à l'unique zone détectée.",
+    "snapCycled": "Zone détectée {i} sur {n}.",
+    "snapNone": "Aucune zone détectée dans ce modèle — faites glisser le cadre.",
+    "cancel": "Annuler",
+    "save": "Utiliser cette zone",
+    "keys": "Les touches fléchées déplacent la carte de 1 pt · Maj en plus pour déplacer de 10 pt · Alt en plus pour déplacer de 0,1 pt · Ctrl en plus pour redimensionner · Entrée pour valider",
+    "applied": "Zone de carte enregistrée pour ce modèle.",
+    "errPage": "La page du modèle n'a pas pu être affichée."
+  },
+  "alert": {
+    "drawFirst": "Tracez d'abord une limite extérieure.",
+    "drawAndLoadFirst": "Tracez d'abord une limite extérieure et chargez les données.",
+    "replaceOuter": "Remplacer la limite extérieure actuelle ?",
+    "resetConfirm": "Tout réinitialiser ? Cette action est irréversible.",
+    "noGeolocation": "Ce navigateur ne prend pas en charge les services de localisation.",
+    "locateFailed": "Impossible de déterminer votre position.\n{message}",
+    "fetchFailed": "Impossible de télécharger les données OSM.\n\n{message}",
+    "fetchFailedRetries": "Impossible de télécharger les données OSM après {attempts} tentatives.\n\n{message}",
+    "exportNothing": "Tracez une limite extérieure avant d'exporter.",
+    "importUnreadable": "Impossible de lire ce fichier.",
+    "importNotJson": "Ce fichier n'est pas du JSON valide.",
+    "importNoOuter": "Ce fichier ne contient aucune limite extérieure utilisable.",
+    "importInvalid": "Ce fichier ne contient aucune donnée utilisable.\n\n{message}",
+    "overlap": "Ce polygone chevauche un territoire existant. Les bords communs sont acceptés, mais pas les zones qui se chevauchent.",
+    "partitionInvalidOuter": "La limite extérieure n'est pas utilisable : {message}",
+    "partitionNoData": "Pas assez de bâtiments ou de rues dans cette zone pour {k} territoires.",
+    "partitionCentroids": "Les points d'échantillon sont trop proches pour être divisés.",
+    "partitionNoCells": "Aucune cellule de Voronoï ne se trouve à l'intérieur de la limite. Essayez avec moins de territoires ou une zone plus grande.",
+    "partitionEmpty": "La division n'a rien produit. Essayez avec moins de territoires ou une zone plus grande.",
+    "cutNothing": "Il n'y a aucun territoire à couper. Divisez d'abord la zone.",
+    "cutMissed": "Cette ligne n'a croisé aucune limite de territoire. Essayez de tracer à l'intérieur d'un territoire.",
+    "cutNoSeparation": "La ligne a traversé un territoire mais ne l'a pas séparé. Tracez en travers, d'une limite à l'autre.",
+    "mergeTooFew": "Sélectionnez au moins deux territoires à fusionner.",
+    "mergeFailed": "Impossible de fusionner ces territoires.\n\n{message}",
+    "partitionFailed": "La partition a échoué : {message}",
+    "clearPrintedConfirm": {
+      "one": "Effacer la marque d'impression sur {count} territoire ? Cette action est irréversible.",
+      "other": "Effacer les marques d'impression sur {count} territoires ? Cette action est irréversible."
+    }
+  },
+  "tooltip": {
+    "territory": "Territoire {n}",
+    "buildings": "Bâtiments : {count}",
+    "streets": "Rues : {count}",
+    "areaM": "Superficie : {value} m²",
+    "areaKm": "Superficie : {value} km²",
+    "noData": "Aucune donnée chargée",
+    "printed": "Imprimé le {date}"
+  },
+  "feature": {
+    "building": "Bâtiment",
+    "unnamedStreet": "Rue sans nom",
+    "noAddress": "Aucune adresse dans OpenStreetMap",
+    "levels": "{n} étages",
+    "length": "{n} m",
+    "lanes": "{n} voies",
+    "speed": "{n} km/h",
+    "ref": "Route {ref}",
+    "oneway": "Sens unique",
+    "bridge": "Pont",
+    "tunnel": "Tunnel"
+  },
+  "highway": {
+    "living_street": "Zone de rencontre",
+    "motorway": "Autoroute",
+    "motorway_link": "Bretelle d'autoroute",
+    "pedestrian": "Rue piétonne",
+    "primary": "Route principale",
+    "primary_link": "Bretelle principale",
+    "residential": "Rue résidentielle",
+    "secondary": "Route secondaire",
+    "secondary_link": "Bretelle secondaire",
+    "service": "Voie de service",
+    "tertiary": "Route locale",
+    "tertiary_link": "Bretelle locale",
+    "track": "Chemin",
+    "trunk": "Route express",
+    "trunk_link": "Bretelle de route express",
+    "unclassified": "Route non classée"
+  },
+  "building": {
+    "apartments": "Immeuble d'appartements",
+    "barn": "Grange",
+    "bungalow": "Bungalow",
+    "carport": "Abri voiture",
+    "chapel": "Chapelle",
+    "church": "Église",
+    "civic": "Bâtiment public",
+    "commercial": "Bâtiment commercial",
+    "construction": "En construction",
+    "detached": "Maison individuelle",
+    "dormitory": "Dortoir",
+    "farm": "Ferme",
+    "farm_auxiliary": "Bâtiment agricole",
+    "garage": "Garage",
+    "garages": "Garages",
+    "greenhouse": "Serre",
+    "hospital": "Hôpital",
+    "hotel": "Hôtel",
+    "house": "Maison",
+    "hut": "Cabane",
+    "industrial": "Bâtiment industriel",
+    "kindergarten": "École maternelle",
+    "office": "Immeuble de bureaux",
+    "public": "Bâtiment public",
+    "residential": "Bâtiment résidentiel",
+    "retail": "Commerce",
+    "roof": "Structure couverte",
+    "school": "École",
+    "semidetached_house": "Maison jumelée",
+    "service": "Bâtiment technique",
+    "shed": "Hangar",
+    "terrace": "Maisons en rangée",
+    "university": "Bâtiment universitaire",
+    "warehouse": "Entrepôt"
+  },
+  "surface": {
+    "asphalt": "Asphalte",
+    "cobblestone": "Pavés",
+    "compacted": "Gravier compacté",
+    "concrete": "Béton",
+    "dirt": "Terre",
+    "grass": "Herbe",
+    "gravel": "Gravier",
+    "ground": "Sol nu",
+    "paved": "Revêtu",
+    "paving_stones": "Dalles",
+    "sand": "Sable",
+    "sett": "Pavés de pierre",
+    "unpaved": "Non revêtu"
+  },
+  "pwa": {
+    "name": "OSM Territory Mapper",
+    "shortName": "Territoires",
+    "description": "Dessinez et gérez des polygones de territoire sur les données OpenStreetMap.",
+    "updateReady": "Une nouvelle version est disponible.",
+    "updateAction": "Recharger",
+    "updateDismiss": "Plus tard",
+    "offline": "Hors ligne",
+    "offlineHint": "Nécessite une connexion — indisponible hors ligne."
+  },
+  "confirm": {
+    "ok": "OK",
+    "cancel": "Annuler",
+    "downloadTitle": "Télécharger les données OSM ?",
+    "downloadMessage": "Les rues et les bâtiments à l'intérieur de cette limite seront téléchargés depuis OpenStreetMap.",
+    "downloadArea": "Environ {area} km². Les zones plus grandes prennent plus de temps.",
+    "download": "Télécharger",
+    "later": "Pas maintenant",
+    "replaceOuterTitle": "Remplacer la limite ?",
+    "replace": "Remplacer",
+    "resetTitle": "Tout réinitialiser ?",
+    "reset": "Réinitialiser",
+    "clearPrintedTitle": "Effacer les marques d'impression ?",
+    "clearPrinted": "Effacer"
+  },
+  "cut": {
+    "vertices": "{count} sommets",
+    "needMore": "Placez au moins deux sommets.",
+    "willCut": "Sépare {count} territoire(s)",
+    "willTouch": "Traverse un territoire mais ne le sépare pas encore.",
+    "willMiss": "Ne traverse encore aucun territoire.",
+    "snap": "Accrocher aux rues",
+    "edges": "Accrocher aux bords des territoires",
+    "follow": "Suivre les rues entre les sommets",
+    "finish": "Couper",
+    "undo": "Retour",
+    "cancel": "Annuler"
+  },
+  "tour": {
+    "next": "Suivant",
+    "back": "Retour",
+    "finish": "Terminer",
+    "skip": "Fermer la visite",
+    "dontShow": "Ne plus afficher automatiquement",
+    "progress": "Étape {index} sur {total}",
+    "steps": {
+      "welcome": {
+        "title": "Bienvenue",
+        "body": "Cette application transforme une zone OpenStreetMap en fiches de territoire imprimables. En bref : trouvez un lieu, téléchargez ses rues et bâtiments, divisez-le en territoires, imprimez une fiche pour chacun. Quelques courtes étapes suivent — Échap quitte à tout moment."
+      },
+      "toolbar": {
+        "title": "Un panneau pour tous les outils",
+        "body": "Tout ce que fait l'application se trouve ici, regroupé par usage : la zone, les territoires, annuler et rétablir, les fichiers, l'application elle-même. Un outil non disponible est grisé plutôt que masqué, et son infobulle indique ce qui manque. La flèche en haut masque les étiquettes quand la carte a besoin de place."
+      },
+      "search": {
+        "title": "Commencez par une recherche",
+        "body": "Saisissez une ville, un quartier ou une rue. Lorsqu'OpenStreetMap dispose d'un contour officiel pour le lieu, l'application le propose comme limite extérieure — plus rapide et plus précis que de le tracer à la main."
+      },
+      "draw": {
+        "title": "Ou tracez la limite",
+        "body": "Cliquez pour placer des coins, puis appuyez sur Entrée ou double-cliquez pour fermer la forme. Tout ce que fait l'application se passe à l'intérieur de cette limite extérieure."
+      },
+      "locate": {
+        "title": "Trouvez-vous",
+        "body": "Centre la carte sur votre position actuelle — pratique quand vous démarrez dans le quartier où vous vous trouvez."
+      },
+      "refetch": {
+        "title": "Télécharger les données de la carte",
+        "body": "Récupère les rues et les emprises des bâtiments à l'intérieur de la limite depuis OpenStreetMap. La question est posée automatiquement une fois après le tracé ; ce bouton répète l'opération après avoir modifié la limite."
+      },
+      "sample": {
+        "title": "Un exemple sur lequel travailler",
+        "body": "Les prochains écrans n'existent qu'une fois qu'une zone est chargée, l'application a donc emprunté un village fictif pour un moment — les rues s'appellent « Rue exemple » pour une raison. Rien de votre travail n'a été modifié : ce qui était sur la carte est remis en place à la fin, et rien de ceci n'est sauvegardé."
+      },
+      "partitionButton": {
+        "title": "Le bouton Diviser",
+        "body": "Les territoires commencent ici. Le bouton s'active dès qu'il y a une limite avec des données à l'intérieur — jusqu'alors il est gris et indique pourquoi. Appuyer dessus ouvre la boîte de dialogue à l'étape suivante."
+      },
+      "partition": {
+        "title": "Diviser en territoires",
+        "body": "Voici la vraie boîte de dialogue, ouverte sur l'exemple par le bouton encore visible derrière. Elle divise la zone automatiquement — soit en territoires d'environ N bâtiments chacun, soit en un nombre fixe de taille approximativement égale. Les découpages suivent les vraies rues plutôt que des lignes droites."
+      },
+      "cutButton": {
+        "title": "Le bouton Couper",
+        "body": "Active l'outil de coupe pour corriger une division à la main, et reste allumé tant que l'outil est actif — appuyer à nouveau dessus est l'un des moyens d'en sortir. Il nécessite au moins un territoire sur lequel travailler."
+      },
+      "cut": {
+        "title": "Corriger une division à la main",
+        "body": "Le bouton est allumé et l'outil est actif : cette barre en bas de la carte est l'outil. Vous tracez une ligne à travers un territoire et il se divise ; la ligne s'accroche aux intersections, aux rues et aux bords existants, S, B et F changent les trois types d'accrochage, Alt place un point libre, et Entrée effectue la coupe."
+      },
+      "mergeButton": {
+        "title": "Le bouton Fusionner",
+        "body": "Dans l'autre sens : deux territoires qui n'auraient dû en former qu'un. Il nécessite au moins deux territoires parmi lesquels choisir, et comme Couper, il reste allumé tant que le mode est actif."
+      },
+      "merge": {
+        "title": "Joindre des territoires",
+        "body": "Le mode Fusion est actif et le bouton est allumé. Cliquez sur deux territoires voisins ou plus et cette barre les fusionne en un seul, en dissolvant les bords qu'ils partageaient."
+      },
+      "territory": {
+        "title": "Chaque territoire a un menu",
+        "body": "Voici ce qu'un clic droit sur un territoire vous donne : zoomer dessus, l'imprimer, le marquer comme fait, ou le supprimer. Survoler une rue ou un bâtiment affiche à la place ce qu'OpenStreetMap sait à son sujet — le nom, l'adresse, le revêtement."
+      },
+      "printMenu": {
+        "title": "L'impression commence ici",
+        "body": "Il n'y a pas de bouton d'impression dans la barre d'outils, car une fiche est toujours la fiche d'un territoire particulier — l'impression commence donc dans le menu de ce territoire. Cette entrée ouvre la vue de fiche pour celui sur lequel vous avez fait un clic droit."
+      },
+      "print": {
+        "title": "La fiche",
+        "body": "L'aperçu à gauche peut être déplacé, zoomé et pivoté ; la colonne à droite définit la taille des étiquettes, la couleur et l'épaisseur de la bordure, efface les portions de bordure qui traversent une maison, et prend la localité et le numéro de territoire. Chargez votre propre formulaire PDF et la carte y est insérée. Les territoires dont la fiche a été créée passent au vert et portent une coche, ce qui rend visibles d'un coup d'œil ceux qui restent."
+      },
+      "clearPrinted": {
+        "title": "Le prochain cycle",
+        "body": "Le remplissage vert et la coche sont des marques, pas de la géométrie, donc recommencer une zone revient aux mêmes territoires avec les marques effacées. Ce bouton les efface toutes en même temps ; un seul territoire est démarqué depuis son propre menu. Une confirmation est demandée, et Ctrl+Z ne remettra pas les marques."
+      },
+      "restore": {
+        "title": "Retour à votre propre carte",
+        "body": "L'exemple a disparu et votre propre travail est de retour exactement comme il était. Quitter la visite tôt fait la même chose, il n'y a donc jamais de mauvais moment pour appuyer sur Échap."
+      },
+      "history": {
+        "title": "Annuler n'importe quoi",
+        "body": "Annuler et rétablir permettent de revenir sur les modifications de limite, les coupes et les fusions, et Ctrl+Z fonctionne aussi. Dans l'outil de coupe et la gomme, ils annulent les points et les traits à la place, donc annuler signifie toujours la dernière action effectuée."
+      },
+      "layers": {
+        "title": "Ce qui est affiché",
+        "body": "Changez le fond entre la carte, l'imagerie aérienne et le terrain, et activez ou désactivez les rues, bâtiments et territoires. Les couches d'aide sont uniquement pour l'écran — les fiches sont toujours imprimées sur le fond OpenStreetMap."
+      },
+      "info": {
+        "title": "Où vous en êtes",
+        "body": "Combien de rues, bâtiments et territoires sont actuellement chargés, avec un conseil sur la prochaine étape sensée."
+      },
+      "files": {
+        "title": "Emportez votre travail",
+        "body": "L'export écrit la limite, les données téléchargées et chaque territoire dans un fichier GeoJSON. C'est ainsi que le travail est sauvegardé, et la première moitié de la façon dont il se déplace entre appareils."
+      },
+      "importFiles": {
+        "title": "… et le récupérer",
+        "body": "L'import relit un tel fichier, remplaçant ce qui est sur la carte. C'est aussi ainsi qu'un travail commencé sur un ordinateur de bureau est repris sur un téléphone."
+      },
+      "reset": {
+        "title": "Recommencer à zéro",
+        "body": "Efface la limite, les données téléchargées et chaque territoire. Une confirmation est demandée, et l'action est irréversible."
+      },
+      "language": {
+        "title": "Trois langues",
+        "body": "Anglais, polonais, allemand et français. Le choix fait partie de l'adresse, donc un lien que vous partagez s'ouvre dans la langue que vous utilisiez."
+      },
+      "offline": {
+        "title": "Fonctionne hors ligne",
+        "body": "L'application peut être installée comme une application native et continue de fonctionner sans connexion : votre limite, vos données et vos territoires survivent à un rechargement, et les tuiles de carte déjà vues restent en cache. Le téléchargement de nouvelles données et la génération de PDF nécessitent encore le réseau."
+      },
+      "done": {
+        "title": "C'est tout",
+        "body": "Ce bouton rouvre la visite quand vous le souhaitez. Laissez la case ci-dessous cochée et elle ne s'ouvrira plus automatiquement."
+      }
+    }
+  },
+  "demo": {
+    "street": "Rue exemple {n}"
+  }
+}

@@ -8,7 +8,7 @@ from .config import I18N_DIR
 
 logger = logging.getLogger("osm_app")
 
-SUPPORTED_LANGS: tuple[str, ...] = ("en", "pl", "de")
+SUPPORTED_LANGS: tuple[str, ...] = ("en", "pl", "de", "fr")
 DEFAULT_LANG = "en"
 
 # (mtime, dict) — re-read only when the file changes on disk.

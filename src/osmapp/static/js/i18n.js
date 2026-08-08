@@ -2,7 +2,7 @@
  * i18n.js — translation for the whole client.
  *
  * Design notes:
- *   • Language comes from the URL: / is English, /pl and /de are the others.
+ *   • Language comes from the URL: / is English, /pl, /fr and /de are the others.
  *     Switching rewrites that URL with pushState and swaps the dictionary in
  *     place, so the address stays shareable without the page — and everything
  *     the page was holding — being thrown away to change some labels.
@@ -33,6 +33,7 @@ App.i18n = (function () {
     { code: "en", label: "🇺🇸" },
     { code: "pl", label: "🇵🇱" },
     { code: "de", label: "🇩🇪" },
+    { code: "fr", label: "🇫🇷" },
   ];
 
   var _lang = FALLBACK_LANG;
