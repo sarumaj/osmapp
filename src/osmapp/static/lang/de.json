@@ -202,8 +202,8 @@
     "sharpen": "Karte schärfen",
     "contrast": "Kontrast erhöhen",
     "grayscale": "Karte in Graustufen",
-    "filterNoSharpen": "Dieser Browser kann die Karte nicht schärfen. Kontrast und Graustufen funktionieren weiterhin, näherungsweise.",
-    "filterNone": "Dieser Browser wendet keine Bildfilter auf die Karte an — Schärfen, Kontrast und Graustufen sind hier nicht verfügbar.",
+    "filterSoftware": "Dieser Browser kann den schnellen Filterweg nicht nutzen, daher wird die Karte per Software gefiltert. Das Ergebnis ist identisch, große Karten dauern nur etwas länger.",
+    "filterNone": "Dieser Browser erlaubt kein Zurücklesen der gerenderten Karte — Schärfen, Kontrast und Graustufen sind hier nicht verfügbar.",
     "basemap": "Hintergrundkarte",
     "errNoTemplate": "Lade zuerst eine PDF-Vorlage.",
     "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden."

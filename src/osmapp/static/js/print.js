@@ -201,21 +201,34 @@ App.print = (function () {
 
   var _filterSupportCache = null;
 
-  /** @returns {{svg: boolean, css: boolean}} cached after the first call */
+  // Big enough that a per-pixel perturbation averages out; small enough to be
+  // free. See the tolerance note in _filterApplies.
+  var PROBE_PX = 8;
+
+  /**
+   * @returns {{svg: boolean, css: boolean, pixels: boolean}} cached after the
+   *   first call. `pixels` is the one that matters most: it means the software
+   *   path below is available, which covers every filter exactly.
+   */
   function _filterSupport() {
     if (_filterSupportCache) return _filterSupportCache;
 
-    var support = { svg: false, css: false };
+    var support = { svg: false, css: false, pixels: false };
     try {
       var probe = document.createElement("canvas");
-      probe.width = probe.height = 1;
+      probe.width = probe.height = PROBE_PX;
       var ctx = probe.getContext("2d");
-      if (ctx && "filter" in ctx) {
-        support.svg = _filterApplies(ctx, "url(#tile-grayscale)");
-        support.css = _filterApplies(ctx, "grayscale(1)");
+      if (ctx) {
+        // Readback is what the software path needs, so it is probed first and
+        // on its own — a canvas can be readable without ctx.filter existing.
+        support.pixels = _canReadPixels(ctx);
+        if (support.pixels && "filter" in ctx) {
+          support.svg = _filterApplies(ctx, "url(#tile-grayscale)");
+          support.css = _filterApplies(ctx, "grayscale(1)");
+        }
       }
     } catch (e) {
-      /* no canvas, no filters — the checkboxes just switch themselves off */
+      /* no canvas at all: the checkboxes switch themselves off */
     }
 
     _filterSupportCache = support;
@@ -224,26 +237,190 @@ App.print = (function () {
       support.svg,
       "CSS:",
       support.css,
+      "pixels:",
+      support.pixels,
     );
     return support;
+  }
+
+  function _canReadPixels(ctx) {
+    try {
+      ctx.getImageData(0, 0, 1, 1);
+      return true;
+    } catch (e) {
+      return false; // tainted canvas, or readback blocked outright
+    }
   }
 
   function _filterApplies(ctx, filter) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.filter = "none";
-    ctx.clearRect(0, 0, 1, 1);
+    ctx.clearRect(0, 0, PROBE_PX, PROBE_PX);
     ctx.filter = filter;
     // A rejected filter is reported back as "none".
     var accepted = ctx.filter !== "none";
     ctx.fillStyle = "#ff0000";
-    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillRect(0, 0, PROBE_PX, PROBE_PX);
     ctx.restore();
-
     if (!accepted) return false;
-    var px = ctx.getImageData(0, 0, 1, 1).data;
-    // Unfiltered red is (255, 0, 0); grayscaled red is neutral and dark.
-    return px[0] !== 255 && px[0] === px[1] && px[1] === px[2];
+
+    var data;
+    try {
+      data = ctx.getImageData(0, 0, PROBE_PX, PROBE_PX).data;
+    } catch (e) {
+      return false;
+    }
+
+    var r = 0;
+    var g = 0;
+    var b = 0;
+    for (var i = 0; i < data.length; i += 4) {
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+    }
+    var n = data.length / 4;
+    r /= n;
+    g /= n;
+    b /= n;
+
+    // Compared with tolerance, not equality, and averaged over a block rather
+    // than read from one pixel. Brave farbles canvas readback to defeat
+    // fingerprinting: it perturbs channel values by a few levels, keyed to the
+    // session and origin. Brave is Chromium and its filters work perfectly, so
+    // an exact `r === g === b` test would report "unsupported" and switch off
+    // three features that were never broken.
+    //
+    // Unfiltered red is (255, 0, 0). Anything that has actually been through a
+    // luminance filter is dark and near-neutral, which no amount of farbling
+    // turns back into red.
+    return r < 200 && Math.abs(r - g) < 12 && Math.abs(g - b) < 12;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SOFTWARE FILTERS
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // The fallback for every engine that will not run the SVG filters. It is a
+  // faithful reimplementation of the three <filter> elements in index.html
+  // rather than an approximation, so the printed card is identical whichever
+  // path produced it — which matters more here than anywhere, because the
+  // whole point of the preview is that it is what comes out of the printer.
+  //
+  // It needs nothing but getImageData, so it also covers Safari before 17,
+  // where ctx.filter does not exist at all. That makes it a better answer than
+  // the CSS shorthand: contrast() is a linear stretch stand-in for an S-curve,
+  // and there is no CSS equivalent of a convolution at any price.
+  //
+  // Cost is one pass per enabled filter over 2–6 Mpx, tens of milliseconds
+  // each, on a repaint that was already redrawing the whole mosaic.
+
+  // Matches feConvolveMatrix in #tile-sharpen. The kernel sums to 1, so the
+  // divisor is 1 and brightness is unchanged.
+  var SHARPEN_KERNEL = [-0.1, -0.1, -0.1, -0.1, 1.8, -0.1, -0.1, -0.1, -0.1];
+
+  // Matches the feFuncR/G/B tableValues in #tile-contrast.
+  var CONTRAST_TABLE = [0, 0.15, 0.45, 0.55, 0.85, 1];
+
+  // ITU-R BT.709, matching the feColorMatrix in #tile-grayscale.
+  var LUMA_R = 0.2126;
+  var LUMA_G = 0.7152;
+  var LUMA_B = 0.0722;
+
+  /**
+   * Apply the enabled filters to RGBA pixel data, in place and in the same
+   * order the SVG chain would.
+   *
+   * @param {Uint8ClampedArray} data RGBA, un-premultiplied, as getImageData
+   *   hands it over — which is the colour space feConvolveMatrix works in when
+   *   preserveAlpha is true.
+   * @param {number} width
+   * @param {number} height
+   * @param {{sharpen?:boolean, contrast?:boolean, grayscale?:boolean}} ops
+   */
+  function applyPixelFilters(data, width, height, ops) {
+    if (ops.sharpen) _convolve(data, width, height, SHARPEN_KERNEL);
+    if (ops.contrast) _transfer(data, CONTRAST_TABLE);
+    if (ops.grayscale) _luminance(data);
+    return data;
+  }
+
+  /**
+   * 3x3 convolution on RGB, leaving alpha untouched — SVG's
+   * preserveAlpha="true". Edges duplicate the outermost pixel, which is
+   * feConvolveMatrix's default edgeMode.
+   */
+  function _convolve(data, width, height, kernel) {
+    var source = new Uint8ClampedArray(data);
+    for (var y = 0; y < height; y++) {
+      for (var x = 0; x < width; x++) {
+        var out = (y * width + x) * 4;
+        for (var channel = 0; channel < 3; channel++) {
+          var sum = 0;
+          for (var ky = -1; ky <= 1; ky++) {
+            var sy = y + ky;
+            if (sy < 0) sy = 0;
+            else if (sy >= height) sy = height - 1;
+            for (var kx = -1; kx <= 1; kx++) {
+              var sx = x + kx;
+              if (sx < 0) sx = 0;
+              else if (sx >= width) sx = width - 1;
+              sum +=
+                source[(sy * width + sx) * 4 + channel] *
+                kernel[(ky + 1) * 3 + (kx + 1)];
+            }
+          }
+          data[out + channel] = sum; // Uint8ClampedArray clamps and rounds
+        }
+      }
+    }
+    return data;
+  }
+
+  /**
+   * feComponentTransfer type="table": the value is placed on a piecewise
+   * linear curve through the table entries. Interpolation is what makes it a
+   * smooth S-curve rather than six posterized steps.
+   */
+  function _transfer(data, table) {
+    var last = table.length - 1;
+    var lut = new Uint8ClampedArray(256);
+    for (var v = 0; v < 256; v++) {
+      var c = v / 255;
+      var k = Math.floor(c * last);
+      if (k >= last) k = last - 1;
+      lut[v] = 255 * (table[k] + (c - k / last) * last * (table[k + 1] - table[k]));
+    }
+    for (var i = 0; i < data.length; i += 4) {
+      data[i] = lut[data[i]];
+      data[i + 1] = lut[data[i + 1]];
+      data[i + 2] = lut[data[i + 2]];
+    }
+    return data;
+  }
+
+  function _luminance(data) {
+    for (var i = 0; i < data.length; i += 4) {
+      var y = LUMA_R * data[i] + LUMA_G * data[i + 1] + LUMA_B * data[i + 2];
+      data[i] = data[i + 1] = data[i + 2] = y;
+    }
+    return data;
+  }
+
+  /** Filter the finished mosaic in place, then stamp it onto the page. */
+  function _drawFilteredMosaic(ctx, mosaic, ops) {
+    var mctx = mosaic.getContext("2d");
+    try {
+      var image = mctx.getImageData(0, 0, mosaic.width, mosaic.height);
+      applyPixelFilters(image.data, mosaic.width, mosaic.height, ops);
+      mctx.putImageData(image, 0, 0);
+    } catch (e) {
+      // Readback was probed before this ran, so reaching here means something
+      // changed underneath us. An unfiltered map beats no map.
+      console.warn(">>> Software filters failed:", e.message);
+    }
+    ctx.drawImage(mosaic, 0, 0);
   }
 
   var PREFERENCES_ROLES = [
@@ -1405,14 +1582,14 @@ App.print = (function () {
     var sharpen = D.role(_dialog, "sharpen");
     var contrast = D.role(_dialog, "contrast");
     var grayscale = D.role(_dialog, "grayscale");
-    // Sharpening is a convolution, so it exists only as an SVG filter.
-    // Contrast and grayscale degrade to the CSS functions where url() is
-    // refused; _applyFilterSupport() has already switched off and explained
-    // whichever of the three cannot run here.
-    var tonal = support.svg || support.css;
-    var wantSharp = (!sharpen || sharpen.checked) && support.svg;
-    var wantContrast = contrast && contrast.checked && tonal;
-    var wantGrayscale = grayscale && grayscale.checked && tonal;
+    // One capability question, not three: either the browser runs the SVG
+    // filters natively or the software path reproduces them exactly.
+    // _applyFilterSupport() has already switched all three off in the rare
+    // case that neither is available.
+    var can = support.svg || support.pixels;
+    var wantSharp = (!sharpen || sharpen.checked) && can;
+    var wantContrast = contrast && contrast.checked && can;
+    var wantGrayscale = grayscale && grayscale.checked && can;
 
     // Upright frames keep tile edges on the pixel grid, so they need almost no
     // overlap; a rotated or fractionally scaled frame does, or seams show.
@@ -1424,16 +1601,8 @@ App.print = (function () {
     // through the same filter would just add halos.
     var filters = [];
     if (wantSharp) filters.push("url(#tile-sharpen)");
-    // The CSS fallbacks are not identical. grayscale(1) is exact — the SVG
-    // matrix uses the same BT.709 coefficients. contrast(1.2) is a linear
-    // stretch standing in for the SVG's gentle S-curve: close in the midtones,
-    // slightly harsher in the shadows.
-    if (wantContrast) {
-      filters.push(support.svg ? "url(#tile-contrast)" : "contrast(1.2)");
-    }
-    if (wantGrayscale) {
-      filters.push(support.svg ? "url(#tile-grayscale)" : "grayscale(1)");
-    }
+    if (wantContrast) filters.push("url(#tile-contrast)");
+    if (wantGrayscale) filters.push("url(#tile-grayscale)");
 
     // ctx.filter applies per drawing operation, and every filter here samples
     // neighboring pixels: a 3x3 convolution at a tile's edge reads the
@@ -1468,10 +1637,21 @@ App.print = (function () {
     });
 
     if (mosaic) {
-      ctx.save();
-      ctx.filter = filters.join(" ");
-      ctx.drawImage(mosaic, 0, 0);
-      ctx.restore(); // restores filter to "none" along with everything else
+      if (support.svg) {
+        ctx.save();
+        ctx.filter = filters.join(" ");
+        ctx.drawImage(mosaic, 0, 0);
+        ctx.restore(); // restores filter to "none" along with everything else
+      } else {
+        // Same filters, same order, done by hand. Applied to the scratch
+        // canvas rather than the page so the background fill underneath is
+        // left alone, exactly as ctx.filter on a single drawImage would.
+        _drawFilteredMosaic(ctx, mosaic, {
+          sharpen: wantSharp,
+          contrast: wantContrast,
+          grayscale: wantGrayscale,
+        });
+      }
     }
 
     _drawAttribution(ctx);
@@ -1671,17 +1851,17 @@ App.print = (function () {
    */
   function _applyFilterSupport() {
     var support = _filterSupport();
-    if (support.svg) return; // everything works; nothing to explain
+    if (support.svg) return; // native path; nothing to explain
 
-    _disableFilterCheck("sharpen");
-    if (!support.css) {
+    if (!support.pixels) {
+      _disableFilterCheck("sharpen");
       _disableFilterCheck("contrast");
       _disableFilterCheck("grayscale");
     }
 
     var note = D.role(_dialog, "filter-note");
     if (!note) return;
-    var key = support.css ? "print.filterNoSharpen" : "print.filterNone";
+    var key = support.pixels ? "print.filterSoftware" : "print.filterNone";
     // Re-target data-i18n too, so a language change keeps the right message.
     note.setAttribute("data-i18n", key);
     note.textContent = T(key);
@@ -2333,6 +2513,7 @@ App.print = (function () {
     init: init,
     isOpen: isOpen,
     filterSupport: _filterSupport,
+    applyPixelFilters: applyPixelFilters,
     printCluster: printCluster,
     close: close,
     undo: undo,

@@ -346,7 +346,7 @@
       // the top-right, wedged between the layer control and the zoom buttons
       // and collapsed by default — three small grey squares in the busiest
       // corner, of which this one was the only text input.
-      position: "bottomleft",
+      position: "topright",
       // Always open. A search box that has to be found before it can be used
       // is a search box most people never find.
       collapsed: false,

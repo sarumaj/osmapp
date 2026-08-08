@@ -202,8 +202,8 @@
     "sharpen": "Sharpen the map",
     "contrast": "Increase contrast",
     "grayscale": "Grayscale the map",
-    "filterNoSharpen": "This browser cannot sharpen the map. Contrast and grayscale still work, using a close approximation.",
-    "filterNone": "This browser cannot apply image filters to the map, so sharpening, contrast and grayscale are unavailable here.",
+    "filterSoftware": "This browser cannot use the fast filter path, so the map is filtered in software. The result is identical; large cards just take a moment longer.",
+    "filterNone": "This browser does not allow reading back the rendered map, so sharpening, contrast and grayscale are unavailable here.",
     "basemap": "Basemap",
     "errNoTemplate": "Load a PDF template first.",
     "errTemplateLayout": "The template layout could not be read."

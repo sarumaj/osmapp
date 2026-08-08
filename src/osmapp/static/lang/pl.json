@@ -217,8 +217,8 @@
     "sharpen": "Wyostrzenie mapy",
     "contrast": "Zwiększ kontrast",
     "grayscale": "Mapa w odcieniach szarości",
-    "filterNoSharpen": "Ta przeglądarka nie potrafi wyostrzyć mapy. Kontrast i skala szarości nadal działają, w przybliżeniu.",
-    "filterNone": "Ta przeglądarka nie stosuje filtrów obrazu do mapy, więc wyostrzanie, kontrast i skala szarości są tu niedostępne.",
+    "filterSoftware": "Ta przeglądarka nie obsługuje szybkiej ścieżki filtrów, więc mapa jest filtrowana programowo. Wynik jest identyczny, duże karty potrwają tylko chwilę dłużej.",
+    "filterNone": "Ta przeglądarka nie pozwala odczytać wyrenderowanej mapy, więc wyostrzanie, kontrast i skala szarości są tu niedostępne.",
     "basemap": "Mapa podstawowa",
     "errNoTemplate": "Najpierw wczytaj szablon PDF.",
     "errTemplateLayout": "Nie udało się odczytać układu szablonu."
