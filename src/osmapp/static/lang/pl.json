@@ -452,17 +452,21 @@
         "title": "Pobierz dane mapy",
         "body": "Pobiera z OpenStreetMap ulice i obrysy budynków leżące wewnątrz granicy. Po narysowaniu granicy pytanie pojawia się raz automatycznie; ten przycisk powtarza pobranie po zmianie granicy."
       },
+      "sample": {
+        "title": "Przykład do obejrzenia",
+        "body": "Kolejne widoki istnieją dopiero wtedy, gdy wczytany jest jakiś obszar, więc aplikacja pożycza na chwilę zmyśloną wieś — ulice nazywają się „Ulica Przykładowa“ nie bez powodu. Twoje dane pozostają nietknięte: to, co było na mapie, wróci na koniec, a nic z tego nie jest zapisywane."
+      },
       "partition": {
         "title": "Podziel na tereny",
-        "body": "Dzieli obszar automatycznie — albo na tereny po mniej więcej N budynków, albo na ustaloną liczbę terenów o zbliżonej wielkości. Cięcia biegną wzdłuż rzeczywistych ulic, a nie po liniach prostych."
+        "body": "To prawdziwe okno, otwarte na przykładowym obszarze. Dzieli obszar automatycznie — albo na tereny po mniej więcej N budynków, albo na ustaloną liczbę terenów o zbliżonej wielkości. Cięcia biegną wzdłuż rzeczywistych ulic, a nie po liniach prostych. Otwiera je przycisk „Podziel“ na pasku narzędzi."
       },
       "cut": {
         "title": "Popraw podział ręcznie",
-        "body": "Linia poprowadzona w poprzek terenu rozdziela go. Przyciąga się do skrzyżowań, ulic i istniejących granic; S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
+        "body": "Narzędzie cięcia jest teraz włączone. Linia poprowadzona w poprzek terenu rozdziela go; przyciąga się do skrzyżowań, ulic i istniejących granic, S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
       },
       "merge": {
         "title": "Połącz tereny",
-        "body": "Zaznacz dwa lub więcej sąsiadujących terenów i połącz je w jeden. Wspólne granice między nimi znikają."
+        "body": "Tryb łączenia jest teraz włączony. Kliknij dwa lub więcej sąsiadujących terenów, a ten pasek połączy je w jeden, usuwając wspólne granice."
       },
       "history": {
         "title": "Cofnij cokolwiek",
@@ -470,11 +474,15 @@
       },
       "territory": {
         "title": "Każdy teren ma menu",
-        "body": "Kliknij teren prawym przyciskiem, aby przybliżyć, wydrukować lub usunąć. Najechanie na ulicę lub budynek pokazuje, co wie o nich OpenStreetMap — nazwę, adres, nawierzchnię."
+        "body": "To pojawia się po kliknięciu terenu prawym przyciskiem: przybliż, wydrukuj, oznacz jako zrobiony albo usuń. Najechanie na ulicę lub budynek pokazuje z kolei, co wie o nich OpenStreetMap — nazwę, adres, nawierzchnię."
       },
       "print": {
         "title": "Karta terenu",
-        "body": "Drukowanie otwiera podgląd, który można przesuwać, przybliżać i obracać. Ustawisz tam wielkość podpisów, kolor i grubość obramowania, wymażesz odcinki granicy biegnące przez dom oraz wpiszesz miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się na mapie zielone i obrysowane linią przerywaną — od razu widać, co zostało."
+        "body": "Podgląd po lewej można przesuwać, przybliżać i obracać; kolumna po prawej ustawia wielkość podpisów, kolor i grubość obramowania, wymazuje odcinki granicy biegnące przez dom oraz przyjmuje miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się zielone i dostają znacznik — od razu widać, co zostało."
+      },
+      "restore": {
+        "title": "Powrót do własnej mapy",
+        "body": "Przykład zniknął, a Twoja praca wróciła dokładnie taka, jaka była. Wcześniejsze zamknięcie przewodnika robi to samo — nie ma więc złego momentu na Esc."
       },
       "layers": {
         "title": "Co jest widoczne",
@@ -505,5 +513,8 @@
         "body": "Tym przyciskiem otworzysz przewodnik ponownie, kiedy zechcesz. Zostaw poniższe pole zaznaczone, a nie uruchomi się już sam."
       }
     }
+  },
+  "demo": {
+    "street": "Ulica Przykładowa {n}"
   }
 }

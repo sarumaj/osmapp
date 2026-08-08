@@ -425,17 +425,21 @@
         "title": "Download the map data",
         "body": "Fetches the streets and building footprints inside the boundary from OpenStreetMap. You are asked once automatically after drawing; this button repeats it after you change the boundary."
       },
+      "sample": {
+        "title": "A sample to work on",
+        "body": "The next few screens only exist once there is an area loaded, so the app has borrowed a made-up village for a minute — the streets are called \"Sample street\" for a reason. Nothing of yours has been touched: whatever was on the map is put back at the end, and none of this is saved."
+      },
       "partition": {
         "title": "Split into territories",
-        "body": "Divides the area automatically — either into territories of roughly N buildings each, or into a fixed number of roughly equal size. The cuts follow real streets rather than straight lines."
+        "body": "This is the real dialog, opened on the sample. It divides the area automatically — either into territories of roughly N buildings each, or into a fixed number of roughly equal size. The cuts follow real streets rather than straight lines. The Split button in the toolbar is what opens it."
       },
       "cut": {
         "title": "Correct a split by hand",
-        "body": "Draw a line across a territory to divide it. It snaps to junctions, streets and existing edges; S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
+        "body": "The cut tool is now on. You draw a line across a territory and it divides; the line snaps to junctions, streets and existing edges, S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
       },
       "merge": {
         "title": "Join territories",
-        "body": "Pick two or more neighboring territories and merge them into one. The edges they shared are dissolved."
+        "body": "Merge mode is now on. Click two or more neighboring territories and this bar merges them into one, dissolving the edges they shared."
       },
       "history": {
         "title": "Undo anything",
@@ -443,11 +447,15 @@
       },
       "territory": {
         "title": "Every territory has a menu",
-        "body": "Right-click a territory on the map to zoom to it, print it or delete it. Hovering over a street or a building shows what OpenStreetMap knows about it — the name, the address, the surface."
+        "body": "This is what a right-click on a territory gives you: zoom to it, print it, mark it as done, or delete it. Hovering over a street or a building instead shows what OpenStreetMap knows about it — the name, the address, the surface."
       },
       "print": {
         "title": "The card",
-        "body": "Printing opens a preview you can pan, zoom and rotate. Set the label size, the border color and thickness, erase the stretches of border that run through a house, and fill in the locality and the territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and dashed on the map, so what is left is visible at a glance."
+        "body": "The preview on the left can be panned, zoomed and rotated; the column on the right sets the label size, the border color and thickness, erases the stretches of border that run through a house, and takes the locality and territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and carry a tick, so what is left is visible at a glance."
+      },
+      "restore": {
+        "title": "And back to your own map",
+        "body": "The sample is gone and your own work is back exactly as it was. Leaving the tour early does the same thing, so there is never a wrong moment to press Escape."
       },
       "layers": {
         "title": "What is shown",
@@ -478,5 +486,8 @@
         "body": "This button reopens the tour whenever you want it. Leave the box below ticked and it will not open by itself again."
       }
     }
+  },
+  "demo": {
+    "street": "Sample street {n}"
   }
 }

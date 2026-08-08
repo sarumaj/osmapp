@@ -433,7 +433,7 @@ App.data = (function () {
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "partition_export.json";
+    a.download = "partition_export_" + Math.floor(Date.now() / 1000) + ".json";
     document.body.appendChild(a);
     a.click();
     a.remove();

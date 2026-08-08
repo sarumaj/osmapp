@@ -25,6 +25,7 @@ App.session = (function () {
   var _viewTimer = null;
   var _restoring = false;
   var _dataDirty = false;
+  var _suspended = false;
 
   function init() {
     s = App.state;
@@ -49,7 +50,7 @@ App.session = (function () {
   }
 
   function _saveView() {
-    if (!s.leafletMap) return;
+    if (!s.leafletMap || _suspended) return;
     try {
       var center = s.leafletMap.getCenter();
       window.localStorage.setItem(
@@ -95,9 +96,34 @@ App.session = (function () {
     return true;
   }
 
+  /**
+   * Stop persisting anything until told otherwise.
+   *
+   * For the guided tour, which loads a sample area over whatever the user was
+   * working on and puts it back afterwards. Without this the debounced save
+   * would land a demo village in IndexedDB a second later and the real work
+   * would be gone on the next reload — the one failure this feature must not
+   * have.
+   *
+   * A boolean rather than a counter: a counter that gets one extra suspend()
+   * somewhere silently stops saving for the rest of the session, which is a
+   * far worse way to be wrong than a redundant resume.
+   */
+  function setSuspended(on) {
+    _suspended = !!on;
+    if (!_suspended) return;
+    // Anything already queued was queued for the state being replaced.
+    clearTimeout(_timer);
+    clearTimeout(_viewTimer);
+  }
+
+  function isSuspended() {
+    return _suspended;
+  }
+
   /** @param {{data?: boolean}} [opts] data marks streets/buildings as changed */
   function markDirty(opts) {
-    if (_restoring) return; // restoring is not a user edit
+    if (_restoring || _suspended) return; // neither is a user edit
     if (opts && opts.data) _dataDirty = true;
     clearTimeout(_timer);
     _timer = setTimeout(_save, DEBOUNCE_MS);
@@ -174,6 +200,8 @@ App.session = (function () {
   return {
     init: init,
     markDirty: markDirty,
+    setSuspended: setSuspended,
+    isSuspended: isSuspended,
     restore: restore,
     restoreView: restoreView,
     clear: clear,

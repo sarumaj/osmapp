@@ -78,14 +78,36 @@ test("step ids are unique", () => {
   assert.equal(new Set(ids).size, ids.length);
 });
 
-test("a step either has no target or a placement for it", () => {
+test("a targeted step says where its bubble goes", () => {
   // A targeted step without a preferred side still works — the placer falls
-  // back through all four — but the omission is always an oversight.
+  // back through all four — but the omission is always an oversight. `dock`
+  // counts: a target too big to sit beside names a corner instead.
   const sloppy = load()
     .steps()
-    .filter((step) => step.target && !step.placement)
+    .filter((step) => step.target && !step.placement && !step.dock)
     .map((step) => step.id);
   assert.deepStrictEqual(sloppy, []);
+});
+
+test("every side effect a step causes is also undone by it", () => {
+  // enter() without exit() is a dialog the tour opens and never closes, which
+  // survives the tour and is then sitting over the user's own map.
+  const leaky = load()
+    .steps()
+    .filter((step) => step.enter && !step.exit)
+    .map((step) => step.id);
+  assert.deepStrictEqual(leaky, []);
+});
+
+test("the sample block is contiguous", () => {
+  // The sample is loaded and unloaded by comparing `demo` between the step
+  // being left and the one being entered. A gap in the middle would unload
+  // and reload the village mid-block, resetting the map view each time.
+  const flags = load()
+    .steps()
+    .map((step) => !!step.demo);
+  const runs = flags.filter((on, i) => on && !flags[i - 1]).length;
+  assert.equal(runs, 1);
 });
 
 // ── Suppression ──────────────────────────────────────────────────────────────

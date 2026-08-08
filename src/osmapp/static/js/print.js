@@ -171,6 +171,27 @@ App.print = (function () {
   var _pdfUrl = null;
   var _busy = false;
 
+  /**
+   * Extra vector layers drawn between the basemap and the border.
+   *
+   * Null in normal use, and it has to stay that way. A card's street names and
+   * house numbers come from the OpenStreetMap basemap itself; drawing the
+   * app's own copy of the same streets on top would thicken every road and
+   * double nothing useful. That is why this file has always rendered tiles and
+   * one border and nothing else.
+   *
+   * The guided tour is the single exception, and the reason this exists. Its
+   * sample village is GeoJSON the app is holding — no tile server has ever
+   * heard of it — so a preview composed from tiles alone showed an empty field
+   * with a red rectangle on it while the map two centimetres behind the dialog
+   * showed a village. Whatever else a print preview is for, it is supposed to
+   * be a preview. demo.js hands its streets and buildings in here for as long
+   * as the sample is loaded, and takes them away again with it.
+   *
+   * @type {{streets?: Object, buildings?: Object}|null}
+   */
+  var _overlay = null;
+
   function init() {
     s = App.state;
     G = App.geometry;
@@ -1669,6 +1690,11 @@ App.print = (function () {
       }
     }
 
+    // Between the basemap and the attribution: it stands in for tiles, so it
+    // belongs under the credit line and under the border, exactly where the
+    // real roads would be.
+    _drawOverlay(ctx);
+
     _drawAttribution(ctx);
     _drawBorder();
 
@@ -1691,6 +1717,113 @@ App.print = (function () {
     }
 
     _syncHistoryButtons();
+  }
+
+  // ── The sample overlay ────────────────────────────────────────────────
+
+  /**
+   * On screen the street layer is drawn at a quarter opacity, because there it
+   * is a hint laid over a basemap that already shows the roads. Here it *is*
+   * the basemap, so it is drawn to be read rather than to be seen through.
+   */
+  var OVERLAY_STREET_ALPHA = 0.7;
+  var OVERLAY_STREET_PT = 1.4;
+  var OVERLAY_BUILDING_PT = 0.35;
+
+  function setBasemapOverlay(spec) {
+    _overlay = spec && (spec.streets || spec.buildings) ? spec : null;
+    if (_dialog) _schedulePaint();
+  }
+
+  function basemapOverlay() {
+    return _overlay;
+  }
+
+  /**
+   * Walk a FeatureCollection down to individual rings and lines.
+   *
+   * Polygon and LineString differ by one level of nesting and the Multi
+   * variants by one more, which is exactly the sort of thing that gets written
+   * out four times and then diverges. One walker, four shapes.
+   */
+  function _eachPath(collection, types, fn) {
+    var features = (collection && collection.features) || [];
+    features.forEach(function (feature) {
+      var geometry = feature && feature.geometry;
+      if (!geometry || types.indexOf(geometry.type) < 0) return;
+
+      var isMulti = geometry.type.indexOf("Multi") === 0;
+      var isArea = geometry.type.indexOf("Polygon") >= 0;
+      var parts = isMulti ? geometry.coordinates : [geometry.coordinates];
+
+      parts.forEach(function (part) {
+        (isArea ? part : [part]).forEach(fn);
+      });
+    });
+  }
+
+  /** @returns {boolean} whether a path was actually opened */
+  function _trace(ctx, points, close) {
+    if (!points || points.length < 2) return false;
+    ctx.beginPath();
+    var p = _toCanvas(points[0][0], points[0][1], _view);
+    ctx.moveTo(p[0], p[1]);
+    for (var i = 1; i < points.length; i++) {
+      p = _toCanvas(points[i][0], points[i][1], _view);
+      ctx.lineTo(p[0], p[1]);
+    }
+    if (close) ctx.closePath();
+    return true;
+  }
+
+  /**
+   * Colors come from App.polygons rather than being repeated here, so the
+   * preview matches the map by construction. Widths do not: those are screen
+   * pixels over there and points on paper here, and a 4 px road at 300 dpi is
+   * a hairline.
+   */
+  function _drawOverlay(ctx) {
+    if (!_overlay || !_view) return;
+
+    var streetStyle = (App.polygons && App.polygons.STREET_STYLE) || {};
+    var buildingStyle = (App.polygons && App.polygons.BUILDING_STYLE) || {};
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    // Streets first, then buildings — the same order the map's panes stack in,
+    // so a house on a corner covers the road rather than the other way round.
+    ctx.globalAlpha = OVERLAY_STREET_ALPHA;
+    ctx.strokeStyle = streetStyle.color || "#e74c3c";
+    ctx.lineWidth = Math.max(1, OVERLAY_STREET_PT * PX_PER_PT);
+    _eachPath(
+      _overlay.streets,
+      ["LineString", "MultiLineString"],
+      function (line) {
+        if (_trace(ctx, line, false)) ctx.stroke();
+      },
+    );
+
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = buildingStyle.fillColor || "#7f8c8d";
+    ctx.strokeStyle = buildingStyle.color || "#555555";
+    ctx.lineWidth = Math.max(1, OVERLAY_BUILDING_PT * PX_PER_PT);
+    _eachPath(
+      _overlay.buildings,
+      ["Polygon", "MultiPolygon"],
+      function (ring) {
+        if (!_trace(ctx, ring, true)) return;
+        ctx.save();
+        ctx.globalAlpha = buildingStyle.fillOpacity || 0.5;
+        ctx.fill();
+        ctx.restore();
+        ctx.stroke();
+      },
+    );
+
+    ctx.restore();
   }
 
   /** OSM's license requires visible attribution, upright regardless of rotation. */
@@ -2572,6 +2705,8 @@ App.print = (function () {
   return {
     init: init,
     isOpen: isOpen,
+    setBasemapOverlay: setBasemapOverlay,
+    basemapOverlay: basemapOverlay,
     filterSupport: _filterSupport,
     applyPixelFilters: applyPixelFilters,
     printCluster: printCluster,

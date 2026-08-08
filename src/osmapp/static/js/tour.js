@@ -9,11 +9,21 @@
  *
  * Design decisions worth keeping:
  *
- *   • It is explanatory, not interactive. A tour that makes you perform each
- *     step needs the app to be in a particular state to continue, and there is
- *     no such state on a first visit — no boundary, no data, no territories.
- *     So the veil swallows clicks and the tour talks about controls rather
- *     than driving them. Nothing it does can leave the app half-edited.
+ *   • The user watches; the tour drives. Asking someone to perform each step
+ *     needs the app to be in a particular state to continue, and there is no
+ *     such state on a first visit — no boundary, no data, no territories. So
+ *     the veil swallows clicks throughout, and where a step is about a screen
+ *     that only exists once there is work loaded, the tour loads a sample area
+ *     (see demo.js) and opens the real dialog on it. Nothing the user does can
+ *     leave the app half-edited, because the user does nothing.
+ *
+ *   • Every side effect is declared, and undone by the same machinery in both
+ *     directions. A step's enter() runs on arrival and its exit() on leaving,
+ *     forwards or backwards; `demo: true` says "this step needs the sample
+ *     loaded" and the sample is swapped in and out by comparing that flag
+ *     between the step being left and the step being entered. Nothing has to
+ *     remember to clean up after itself, which is the only way a walkthrough
+ *     that can be abandoned at any point with Escape stays safe.
  *
  *   • A step whose target is missing still runs. The geocoder is skipped when
  *     the plugin failed to load, but everything else falls back to a centred
@@ -48,6 +58,7 @@ App.tour = (function () {
   var _bubble = null;
   var _spot = null;
   var _index = 0;
+  var _entered = -1; // index whose enter() has run and whose exit() is owed
   var _steps = [];
   var _keyBound = false;
   var _restoreCollapsed = null;
@@ -58,11 +69,23 @@ App.tour = (function () {
 
   /**
    * @type {Array<{id:string, target?:string, placement?:string,
-   *               skipIfNoTarget?:boolean}>}
-   *   `target` is a CSS selector resolved at the moment the step is shown, so
-   *   controls that are rebuilt on a language change are still found. Steps
-   *   without one are centred cards — used where the subject is a gesture
-   *   (right-click) or a dialog that is not currently open.
+   *               highlight?:string, dock?:string, demo?:boolean,
+   *               skipIfNoTarget?:boolean, reopenIfGone?:boolean,
+   *               available?:Function, enter?:Function, exit?:Function}>}
+   *
+   *   target      CSS selector, resolved at the moment the step is shown — so
+   *               a control rebuilt by a language change is still found, and a
+   *               dialog this step's own enter() just opened is too.
+   *   highlight   "dim" (default) cuts the target out of a darkened screen;
+   *               "ring" outlines it and dims nothing. Dialog steps use the
+   *               ring: a print dialog that fills the viewport has nothing to
+   *               dim around it, and darkening the dialog itself would hide
+   *               the thing being described.
+   *   dock        pins the bubble to a viewport corner instead of placing it
+   *               beside the target. For targets too large to sit next to.
+   *   demo        this step needs the sample area from demo.js.
+   *   enter/exit  side effects, run on arrival and departure in both
+   *               directions. Anything opened here must be closed there.
    */
   var STEPS = [
     { id: "welcome" },
@@ -75,12 +98,88 @@ App.tour = (function () {
     { id: "draw", target: '[data-action="draw"]', placement: "right" },
     { id: "locate", target: '[data-action="locate"]', placement: "right" },
     { id: "refetch", target: '[data-action="refetch"]', placement: "right" },
-    { id: "partition", target: '[data-action="partition"]', placement: "right" },
-    { id: "cut", target: '[data-action="cut"]', placement: "right" },
-    { id: "merge", target: '[data-action="merge"]', placement: "right" },
+
+    // ── The sample block ────────────────────────────────────────────────
+    // Everything from here to "restore" runs on a village that does not
+    // exist. Whatever the user had is snapshotted on the way in and put back
+    // on the way out — including when the tour is abandoned mid-block.
+    { id: "sample", demo: true },
+    {
+      id: "partition",
+      demo: true,
+      target: ".cluster-dialog",
+      placement: "right",
+      highlight: "ring",
+      enter: function () {
+        App.clustering.showClusterDialog();
+      },
+      exit: function () {
+        App.ui.closeDialog();
+      },
+    },
+    {
+      id: "cut",
+      demo: true,
+      target: ".cut-toolbar",
+      placement: "top",
+      highlight: "ring",
+      enter: function () {
+        if (!App.state.editMode) App.editing.toggleEditMode();
+      },
+      exit: function () {
+        if (App.state.editMode) App.editing.toggleEditMode();
+      },
+    },
+    {
+      id: "merge",
+      demo: true,
+      target: ".merge-toolbar",
+      placement: "top",
+      highlight: "ring",
+      enter: function () {
+        if (!App.state.mergeMode) App.editing.toggleMergeMode();
+      },
+      exit: function () {
+        if (App.state.mergeMode) App.editing.toggleMergeMode();
+      },
+    },
+    {
+      id: "territory",
+      demo: true,
+      target: ".polygon-context-menu",
+      placement: "right",
+      highlight: "ring",
+      // ui.js closes the menu on the next document click, and the veil is a
+      // document. Rather than fight that, the step puts the menu back.
+      reopenIfGone: true,
+      enter: _openSampleMenu,
+      exit: function () {
+        App.ui.closeContextMenu();
+      },
+    },
+    {
+      id: "print",
+      demo: true,
+      target: ".print-controls",
+      dock: "bottom-left",
+      highlight: "ring",
+      // The preview composes itself from live tiles. Offline it would open on
+      // an error message, which teaches the wrong thing about the feature.
+      available: function () {
+        return navigator.onLine !== false;
+      },
+      enter: function () {
+        var entry = App.demo.firstCluster();
+        if (entry) App.print.printCluster(entry.feature);
+      },
+      exit: function () {
+        if (App.print.isOpen()) App.print.close();
+      },
+    },
+    { id: "restore" },
+    // ── back to the user's own map ──────────────────────────────────────
+
     { id: "history", target: '[data-action="undo"]', placement: "right" },
-    { id: "territory" },
-    { id: "print" },
     {
       id: "layers",
       target: ".leaflet-control-layers",
@@ -94,6 +193,23 @@ App.tour = (function () {
     { id: "offline" },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
+
+  /** Right-click a sample territory, without anybody having to right-click. */
+  function _openSampleMenu() {
+    var entry = App.demo && App.demo.firstCluster();
+    if (!entry) return;
+    var map = App.state.leafletMap;
+    try {
+      var at = entry.layer.getBounds().getCenter();
+      App.ui.showPolygonContextMenu(
+        map.latLngToContainerPoint(at),
+        entry.layer,
+        entry.feature,
+      );
+    } catch (e) {
+      console.warn(">>> Could not open the sample context menu:", e.message);
+    }
+  }
 
   function _titleKey(step) {
     return "tour.steps." + step.id + ".title";
@@ -191,11 +307,14 @@ App.tour = (function () {
     if (_root) stop();
 
     _steps = STEPS.filter(function (step) {
+      if (step.available && !step.available()) return false;
+      if (step.demo && !App.demo) return false;
       return !(step.skipIfNoTarget && !_resolve(step));
     });
     if (_steps.length === 0) return;
 
     _index = Math.min(Math.max(index || 0, 0), _steps.length - 1);
+    _entered = -1;
 
     _root = D.mount("tpl-tour", document.body);
     _bubble = D.role(_root, "bubble");
@@ -233,7 +352,7 @@ App.tour = (function () {
     window.addEventListener("resize", _reposition);
     window.addEventListener("scroll", _reposition, true);
 
-    _render();
+    _show(_index, 1);
     _bubble.focus();
   }
 
@@ -244,6 +363,10 @@ App.tour = (function () {
     // checkbox was cleared on the way past.
     var mute = D.role(_root, "mute");
     setSuppressed(!mute || mute.checked);
+
+    // Before the DOM goes: the current step still owns a dialog or a mode.
+    _exitStep();
+    _cleanup();
 
     if (_keyBound) {
       document.removeEventListener("keydown", _onKeyDown, true);
@@ -262,21 +385,126 @@ App.tour = (function () {
     _spot = null;
     _steps = [];
     _index = 0;
+    _entered = -1;
+  }
+
+  /**
+   * The safety net.
+   *
+   * Every step undoes its own work in exit(), so in the ordinary case this
+   * finds nothing to do. It exists for the ones that are not ordinary: a step
+   * whose enter() threw halfway, a dialog closed by something else, a tour
+   * abandoned with Escape while the print view was still composing. Each check
+   * is a no-op when there is nothing to close, so running it twice is free —
+   * and running it one time too few is how someone's afternoon disappears.
+   */
+  function _cleanup() {
+    try {
+      if (App.print && App.print.isOpen()) App.print.close();
+      if (App.ui) {
+        App.ui.closeDialog();
+        App.ui.closeContextMenu();
+      }
+      if (App.state && App.editing) {
+        if (App.state.editMode) App.editing.toggleEditMode();
+        if (App.state.mergeMode) App.editing.toggleMergeMode();
+      }
+    } catch (e) {
+      console.warn(">>> Tour cleanup:", e && e.message);
+    }
+    // Last, and unconditional: this is the one that puts the work back.
+    if (App.demo) App.demo.leave();
   }
 
   function _next() {
-    if (_index >= _steps.length - 1) {
-      stop();
-      return;
-    }
-    _index += 1;
-    _render();
+    _show(_index + 1, 1);
   }
 
   function _back() {
     if (_index === 0) return;
-    _index -= 1;
+    _show(_index - 1, -1);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // TRANSITIONS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Leave the current step and arrive at `index`, in direction `dir`.
+   *
+   * The order is exit, then sample, then enter, then measure — and each of
+   * those depends on the one before it. The print dialog has to close before
+   * the territory it is printing is taken away; the sample has to be loaded
+   * before the partition dialog can find any data to offer; and the spotlight
+   * cannot be measured until the dialog it is pointing at has a box, which is
+   * a frame later.
+   *
+   * A step that cannot have its sample loaded is skipped in whichever
+   * direction we were already travelling, rather than stalling there.
+   */
+  function _show(index, dir) {
+    _exitStep();
+    dir = dir || 1;
+
+    while (index >= 0 && index < _steps.length) {
+      if (_syncSample(_steps[index])) break;
+      index += dir;
+    }
+    if (index < 0 || index >= _steps.length) {
+      stop();
+      return;
+    }
+
+    _index = index;
+    var step = _steps[_index];
+    if (step.enter) {
+      try {
+        step.enter();
+      } catch (e) {
+        console.warn(">>> Tour step " + step.id + " could not open:", e.message);
+      }
+    }
+    _entered = _index;
+
     _render();
+    // A dialog mounted a moment ago has a zero-sized box until layout runs.
+    requestAnimationFrame(function () {
+      if (_root) _reposition();
+    });
+  }
+
+  function _exitStep() {
+    if (_entered < 0) return;
+    var step = _steps[_entered];
+    _entered = -1;
+    if (!step || !step.exit) return;
+    try {
+      step.exit();
+    } catch (e) {
+      console.warn(">>> Tour step " + step.id + " could not close:", e.message);
+    }
+  }
+
+  /**
+   * Match the sample's presence to what this step wants.
+   *
+   * Declarative rather than a pair of hooks on the first and last steps of the
+   * block, because that pair only works travelling forwards. Comparing a flag
+   * means stepping backwards out of the block unloads the sample and stepping
+   * back into it reloads it, with no extra code for the second case.
+   *
+   * @returns {boolean} whether the step can be shown at all
+   */
+  function _syncSample(step) {
+    var wants = !!step.demo;
+    if (!App.demo) return !wants;
+    if (!wants) {
+      App.demo.leave();
+      return true;
+    }
+    // False when the app could not be snapshotted — better to skip the sample
+    // steps than to open dialogs over work we cannot promise to give back.
+    return App.demo.enter();
   }
 
   function _onKeyDown(e) {
@@ -358,14 +586,43 @@ App.tour = (function () {
 
   function _reposition() {
     if (!_root) return;
-    var node = _resolve(_steps[_index]);
+    var step = _steps[_index];
+    var node = _resolve(step);
+
+    // Something closed the thing this step is pointing at — the context menu
+    // dismissing itself on a click at the veil is the case this exists for.
+    // One retry, so a target that genuinely cannot open does not spin.
+    if (!node && step.reopenIfGone && step.enter) {
+      try {
+        step.enter();
+      } catch (e) {
+        /* the fallback below already handles a missing target */
+      }
+      node = _resolve(step);
+    }
+
     var rect = node ? node.getBoundingClientRect() : null;
-    _placeSpot(rect);
-    _placeBubble(rect, _steps[_index].placement);
+    _placeSpot(rect, step);
+    _placeBubble(rect, step);
   }
 
-  function _placeSpot(rect) {
+  /**
+   * @param {Object} step "ring" outlines the target and dims nothing; the
+   *   default cuts it out of a darkened screen. A dialog that fills the
+   *   viewport has nothing left to dim around it, and dimming the dialog
+   *   itself would hide the subject of the step.
+   */
+  function _placeSpot(rect, step) {
     if (!_spot) return;
+    var ring = step.highlight === "ring";
+    _spot.classList.toggle("tour__spot--ring", ring);
+
+    if (!rect && ring) {
+      // Nothing to outline, and no dimming was wanted. Show nothing rather
+      // than a stray rectangle in the middle of the screen.
+      D.toggle(_spot, false);
+      return;
+    }
     if (!rect) {
       // No hole: the shadow still dims, so the screen does not flash between
       // a targeted step and a centred one.
@@ -393,12 +650,21 @@ App.tour = (function () {
    * longer than English, and a layout that fits in one language and overflows
    * in another is the usual way this kind of thing breaks.
    */
-  function _placeBubble(rect, prefer) {
+  function _placeBubble(rect, step) {
     if (!_bubble) return;
 
     var box = _bubble.getBoundingClientRect();
     var vw = window.innerWidth;
     var vh = window.innerHeight;
+
+    // A target the size of the print dialog has no free side to sit beside,
+    // so the step names a corner instead and the bubble floats over it.
+    if (step.dock) {
+      var at = _dock(step.dock, box, vw, vh);
+      _bubble.style.left = Math.round(at.left) + "px";
+      _bubble.style.top = Math.round(at.top) + "px";
+      return;
+    }
 
     if (!rect) {
       _bubble.style.left = Math.round((vw - box.width) / 2) + "px";
@@ -407,7 +673,7 @@ App.tour = (function () {
     }
 
     var order = ["bottom", "top", "right", "left"];
-    if (prefer) order = [prefer].concat(order);
+    if (step.placement) order = [step.placement].concat(order);
 
     for (var i = 0; i < order.length; i++) {
       var spot = _trySide(order[i], rect, box, vw, vh);
@@ -446,6 +712,27 @@ App.tour = (function () {
       vh - EDGE - box.height,
     );
     return { left: left, top: top };
+  }
+
+  /** "bottom-left", "top-right", "bottom", "top" — anything else centres. */
+  function _dock(where, box, vw, vh) {
+    var name = String(where);
+    var top =
+      name.indexOf("top") === 0
+        ? EDGE
+        : name.indexOf("bottom") === 0
+          ? vh - EDGE - box.height
+          : (vh - box.height) / 2;
+    var left =
+      name.indexOf("-left") > 0
+        ? EDGE
+        : name.indexOf("-right") > 0
+          ? vw - EDGE - box.width
+          : (vw - box.width) / 2;
+    return {
+      left: _clamp(left, EDGE, Math.max(EDGE, vw - EDGE - box.width)),
+      top: _clamp(top, EDGE, Math.max(EDGE, vh - EDGE - box.height)),
+    };
   }
 
   function _clamp(value, low, high) {

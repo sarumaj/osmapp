@@ -109,14 +109,14 @@ test("no style leaves a dash behind", () => {
   }
 });
 
-test("hover brightens a printed territory without losing the colour", () => {
+test("hover brightens a printed territory without losing the color", () => {
   const layer = fakeLayer({ _printed: true, _hover: true });
   P.refreshStyle(layer);
   assert.equal(layer.applied.fillOpacity, P.CLUSTER_STYLE_PRINTED_HOVER.fillOpacity);
   assert.equal(layer.applied.color, P.CLUSTER_STYLE_PRINTED_HOVER.color);
 });
 
-test("selection wins over the printed colour while it lasts", () => {
+test("selection wins over the printed color while it lasts", () => {
   const layer = fakeLayer({ _printed: true, _selected: true });
   P.refreshStyle(layer);
   assert.equal(layer.applied.color, P.CLUSTER_STYLE_SELECTED.color);

@@ -100,6 +100,7 @@
     _setupGeocoder(s);
     App.controls.init(map);
     App.history.init();
+    App.demo.init();
     App.tour.init();
     App.pwa.init();
 

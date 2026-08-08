@@ -733,11 +733,22 @@ App.controls = (function () {
         danger: true,
       })
       .then(function (ok) {
-        if (ok) _doReset();
+        if (ok) clearAll();
       });
   }
 
-  function _doReset() {
+  /**
+   * The reset itself, with no question asked.
+   *
+   * Public because the guided tour needs it: after borrowing the app for a
+   * sample area it has to get back to empty, and a confirmation prompt in the
+   * middle of a walkthrough is a prompt about something the user never did.
+   *
+   * @param {{keepSession?: boolean}} [opts] keepSession leaves IndexedDB
+   *   alone. Only the tour passes it — a real reset must clear the store, or
+   *   the reset survives exactly until the next reload.
+   */
+  function clearAll(opts) {
     if (App.history) App.history.clear();
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
@@ -766,7 +777,7 @@ App.controls = (function () {
     App.ui.closeContextMenu();
     // Now that startup restores the session, leaving the records behind would
     // mean a reset survives only until the next reload.
-    if (App.session) App.session.clear();
+    if (App.session && !(opts && opts.keepSession)) App.session.clear();
     refresh();
     s.leafletMap.setView([47.3769, 8.5417], 13);
   }
@@ -784,6 +795,7 @@ App.controls = (function () {
     init: init,
     refresh: refresh,
     setActive: setActive,
+    clearAll: clearAll,
     setCollapsed: setCollapsed,
     isCollapsed: isCollapsed,
     resetAll: resetAll,

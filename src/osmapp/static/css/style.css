@@ -1629,6 +1629,20 @@ body {
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
 }
 
+/* Dialog steps. The tour opens a real dialog and talks about it, and a dialog
+   is already the only lit thing on a screen it covers — dimming around it buys
+   nothing, and dimming *it* would hide the subject. So the spotlight drops the
+   9999 px shadow and becomes what it looks like it should have been all along:
+   a ring round the part being described.
+
+   Slightly heavier than the dim variant's ring, because without the darkness
+   behind it there is more to compete with. */
+.tour__spot--ring {
+  box-shadow:
+    0 0 0 3px var(--c-accent),
+    0 0 0 6px rgba(51, 136, 255, 0.28);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tour__spot {
     transition: none;
@@ -1639,9 +1653,15 @@ body {
   position: fixed;
   width: min(360px, calc(100vw - 24px));
   padding: 14px 16px 12px;
+  border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-lg);
   background: var(--c-surface);
-  box-shadow: var(--shadow-lg);
+  /* Two shadows: the soft one belongs to the app, the tight one keeps the
+     card legible when it is docked on top of a dialog rather than floating
+     over a dimmed map. */
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 1px rgba(255, 255, 255, 0.9);
   color: var(--c-text);
 }
 
