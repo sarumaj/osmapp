@@ -556,6 +556,121 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   Search field
+
+   leaflet-control-geocoder ships as a 26 px magnifier that expands on click.
+   That is the right default for a plugin and the wrong one here: this is the
+   fastest way into the whole workflow — search a place, accept its boundary,
+   split it — and it was the least visible control on the page.
+
+   So it is widened into a real search field, given the panel's own border and
+   shadow, and parked directly above the toolbar it belongs with. The vendored
+   stylesheet is overridden rather than edited, so Renovate can keep bumping
+   the dependency.
+
+   Every selector here is deliberately over-qualified. Control.Geocoder.css
+   is linked at the bottom of the body and leaflet.css in the head, both after
+   this file, so a rule of merely equal specificity loses the cascade and the
+   field silently snaps back to its vendored 246 px. The container also takes
+   .leaflet-bar, to outrank leaflet.css's `.leaflet-touch .leaflet-bar` border
+   on touch devices. The redundant classes are the whole reason these
+   overrides take effect — do not "simplify" them.
+   ═══════════════════════════════════════════════════════════ */
+.leaflet-control-geocoder.leaflet-bar.leaflet-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  width: 260px;
+  max-width: calc(100vw - 24px);
+  background: var(--c-surface);
+  border: 2px solid var(--c-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  font-family: var(--ui-font);
+}
+
+/* Focus lands on the input, so the ring has to be drawn on the field. */
+.leaflet-control-geocoder.leaflet-bar.leaflet-control:focus-within {
+  border-color: var(--c-accent);
+  box-shadow:
+    var(--shadow-md),
+    0 0 0 3px rgba(51, 136, 255, 0.25);
+}
+
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-icon {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+  /* Decoration now, not a control: the field is already open. */
+  cursor: default;
+  opacity: 0.55;
+}
+
+/* Not gated on -expanded: with collapsed:false the form is always shown, and
+   depending on the plugin's state class would hand it a way to hide again. */
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-form {
+  flex: 1;
+  min-width: 0;
+  display: block;
+}
+
+/* Vendor pins the input to 246 px and 120% — both fight a flexible field. */
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-form input {
+  width: 100%;
+  padding: 0 10px 0 0;
+  font: var(--ui-fs-md) / 30px var(--ui-font);
+  color: var(--c-text);
+}
+
+.leaflet-control-geocoder.leaflet-control
+  .leaflet-control-geocoder-form
+  input::placeholder {
+  color: var(--c-text-dim);
+  opacity: 1; /* Firefox dims placeholders again on top of the colour */
+}
+
+/* Results drop below the field, spanning it. Vendor pins these to 272 px too,
+   which would hang off the side of a field narrowed by a small viewport. */
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-alternatives {
+  width: 100%;
+  max-height: 45vh;
+  overflow-y: auto;
+  border-top: 1px solid var(--c-border);
+  font-size: var(--ui-fs-md);
+}
+
+.leaflet-control-geocoder.leaflet-control
+  .leaflet-control-geocoder-alternatives
+  li {
+  padding: 7px 10px;
+  border-bottom: 1px solid #eee;
+  /* display_name runs to six or seven comma-separated parts; wrapping beats
+     an ellipsis that hides which of two identically named towns this is. */
+  white-space: normal;
+  line-height: 1.35;
+}
+
+.leaflet-control-geocoder.leaflet-control
+  .leaflet-control-geocoder-alternatives
+  li:hover,
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-selected {
+  background-color: var(--c-surface-hover);
+}
+
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-address-context {
+  color: var(--c-text-dim);
+}
+
+.leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-error {
+  width: 100%;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-danger);
+}
+
+/* ═══════════════════════════════════════════════════════════
    Toolbar panel
 
    One panel, grouped sections, labelled buttons. The old version was a

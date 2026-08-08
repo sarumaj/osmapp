@@ -93,6 +93,10 @@
     App.editing.init();
     App.print.init();
     App.boundary.init();
+    // Before controls.init: Leaflet stacks a corner's controls in the order
+    // they were added, and the search belongs above the toolbar — it is the
+    // first step of the workflow, not an afterthought beside the zoom buttons.
+    _setupGeocoder(s);
     App.controls.init(map);
     App.history.init();
     App.pwa.init();
@@ -100,8 +104,6 @@
     App._loaded.forEach((element) => {
       console.log(">>> Module loaded:", element);
     });
-
-    _setupGeocoder(s);
 
     _setupDrawingKeys(map);
 
@@ -340,7 +342,14 @@
     });
 
     var geocoder = L.Control.geocoder({
-      position: "topright",
+      // topleft, above the toolbar panel. It used to be a 26 px magnifier in
+      // the top-right, wedged between the layer control and the zoom buttons
+      // and collapsed by default — three small grey squares in the busiest
+      // corner, of which this one was the only text input.
+      position: "bottomleft",
+      // Always open. A search box that has to be found before it can be used
+      // is a search box most people never find.
+      collapsed: false,
       defaultMarkGeocode: false,
       placeholder: App.i18n.t("search.placeholder"),
       errorMessage: App.i18n.t("search.notFound"),
