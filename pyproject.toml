@@ -18,15 +18,25 @@ classifiers = [
     "Operating System :: OS Independent"
 ]
 dependencies = [
+    # Line-separator
     "flask==3.1.3",
+    # Line-separator
     "flask-limiter==4.1.1",
+    # Line-separator
     "geopandas==1.1.4",
+    # Line-separator
     "osmnx==2.1.1",
+    # Line-separator
     "pypdf==6.14.2",
+    # Line-separator
     "pypdfium2==5.12.1",
+    # Line-separator
     "random-header-generator==1.2",
+    # Line-separator
     "reportlab==5.0.0",
+    # Line-separator
     "shapely==2.1.2",
+    # Line-separator
     "waitress==3.0.2",
 ]
 
@@ -44,7 +54,10 @@ where = ["src"]
 ]
 
 [project.optional-dependencies]
-test = ["pytest==8.4.2"]
+test = [
+    # Line-separator
+    "pytest==9.1.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
