@@ -189,19 +189,12 @@ App.basemap = (function () {
   // has no business in the exported GeoJSON or the IndexedDB session.
 
   function _remembered() {
-    try {
-      return window.localStorage.getItem(STORAGE_KEY) || BASE_ID;
-    } catch (e) {
-      return BASE_ID; // private mode; the choice simply does not persist
-    }
+    // Private mode and a first visit are the same answer: the basemap.
+    return App.util.readLocal(STORAGE_KEY, BASE_ID) || BASE_ID;
   }
 
   function _remember(id) {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, id);
-    } catch (e) {
-      /* not worth an error */
-    }
+    App.util.writeLocal(STORAGE_KEY, id);
   }
 
   return {

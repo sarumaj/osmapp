@@ -97,7 +97,6 @@
     "merging": "Fusion des territoires…",
     "dissolving": "Dissolution des limites communes…",
     "progress": "Territoire {index} sur {total}",
-    "pass": "Passe {n}",
     "retryIn": "Overpass est occupé — nouvelle tentative dans {count} s (tentative {attempt} sur {total})",
     "retrying": "Nouvelle tentative… (tentative {attempt} sur {total})"
   },
@@ -191,14 +190,11 @@
     "loadingTiles": "Chargement des tuiles de carte…",
     "loadingProgress": "Chargement des tuiles de carte… {done} / {total}",
     "buildingPdf": "Génération du PDF…",
-    "preparing": "Préparation de la vue d'impression…",
     "saved": "{name} enregistré. Ouvrez-le pour imprimer.",
     "unitPt": "{value} pt",
     "unitPercent": "{value} %",
     "errNoGeometry": "Ce territoire n'a pas de géométrie à imprimer.",
-    "errStillLoading": "La carte est encore en cours de chargement.",
     "errRender": "Impossible de rendre l'image.",
-    "errTiles": "Impossible de charger la carte : {message}",
     "errPdf": "Impossible de générer le PDF : {message}",
     "frame": "Cadre",
     "zoom": "Zoom",
@@ -209,7 +205,6 @@
     "rotateCw": "Pivoter de 90° dans le sens horaire",
     "rotateReset": "Réinitialiser la rotation",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "Cette vue nécessite trop de tuiles de carte. Zoomez un peu.",
     "waitingTiles": "En attente des tuiles de carte…",
     "encoding": "Encodage de l'image…",
     "adjustTemplate": "Ajuster la zone de carte",
@@ -255,7 +250,6 @@
     "exportNothing": "Tracez une limite extérieure avant d'exporter.",
     "importUnreadable": "Impossible de lire ce fichier.",
     "importNotJson": "Ce fichier n'est pas du JSON valide.",
-    "importNoOuter": "Ce fichier ne contient aucune limite extérieure utilisable.",
     "importInvalid": "Ce fichier ne contient aucune donnée utilisable.\n\n{message}",
     "overlap": "Ce polygone chevauche un territoire existant. Les bords communs sont acceptés, mais pas les zones qui se chevauchent.",
     "partitionInvalidOuter": "La limite extérieure n'est pas utilisable : {message}",
@@ -388,8 +382,7 @@
     "updateReady": "Une nouvelle version est disponible.",
     "updateAction": "Recharger",
     "updateDismiss": "Plus tard",
-    "offline": "Hors ligne",
-    "offlineHint": "Nécessite une connexion — indisponible hors ligne."
+    "offline": "Hors ligne"
   },
   "confirm": {
     "ok": "OK",

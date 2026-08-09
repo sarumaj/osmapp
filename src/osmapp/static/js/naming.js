@@ -76,17 +76,13 @@ App.naming = (function () {
   /**
    * One tag value as usable text, or null.
    *
-   * The same three shapes polygons.js guards against: osmnx writes the string
-   * "nan" for a missing tag often enough to be worth naming, and a merged way
-   * arrives as an array.
+   * Shared with the tooltips in polygons.js rather than reimplemented beside
+   * them: both have to make the same call about the same three shapes, and a
+   * value this module counts as a name while that one counts it as blank is a
+   * card whose locality contradicts the tooltip it was read from.
    */
   function _text(value) {
-    if (value === null || value === undefined) return null;
-    if (Array.isArray(value)) value = value.filter(Boolean).join("; ");
-    var text = String(value).trim();
-    if (!text) return null;
-    var lower = text.toLowerCase();
-    return lower === "nan" || lower === "none" ? null : text;
+    return App.util.tagText(value);
   }
 
   /**
@@ -258,24 +254,20 @@ App.naming = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * A point guaranteed to be inside the shape.
+   * A point guaranteed to be inside the shape, as [lng, lat].
    *
    * turf.centroid is the vertex mean and lands outside a concave territory
    * often enough to matter — and a reverse lookup on a point in the next
-   * village is worse than no lookup at all.
+   * village is worse than no lookup at all. Shared with labels.js, so the
+   * place this asks Nominatim about is the place the number chip sits on.
    */
   function _interiorPoint(feature) {
     if (!feature || !feature.geometry) return null;
-    var candidate = { type: "Feature", geometry: feature.geometry, properties: {} };
-    try {
-      return turf.pointOnFeature(candidate).geometry.coordinates;
-    } catch (e) {
-      try {
-        return turf.centroid(candidate).geometry.coordinates;
-      } catch (e2) {
-        return null;
-      }
-    }
+    return App.geometry.interiorCoord({
+      type: "Feature",
+      geometry: feature.geometry,
+      properties: {},
+    });
   }
 
   /**

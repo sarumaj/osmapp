@@ -496,12 +496,9 @@ App.controls = (function () {
    * user has already said otherwise.
    */
   function _initialCollapsed() {
-    var stored = null;
-    try {
-      stored = window.localStorage.getItem(COLLAPSE_KEY);
-    } catch (e) {
-      /* private mode: fall through to the width heuristic */
-    }
+    // No stored answer — including "storage is unavailable" — falls through
+    // to the width heuristic below.
+    var stored = App.util.readLocal(COLLAPSE_KEY, null);
     if (stored === "1") return true;
     if (stored === "0") return false;
     return window.innerWidth < NARROW_PX;
@@ -526,11 +523,7 @@ App.controls = (function () {
         "fa-solid " + (collapsed ? "fa-chevron-right" : "fa-chevron-left");
     }
 
-    try {
-      window.localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
-    } catch (e) {
-      /* not being able to remember the choice is not worth an error */
-    }
+    App.util.writeLocal(COLLAPSE_KEY, collapsed ? "1" : "0");
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -794,6 +787,10 @@ App.controls = (function () {
     s.cachedBuildings = null;
     s.cachedBounds = null;
 
+    // clearLayers() took the number chips off the map, but labels.js still
+    // holds the rows describing them — and ui.refreshInfo asks those rows how
+    // many territories are too small to see.
+    if (App.labels) App.labels.refresh();
     App.ui.setInfoDefault();
     App.ui.closeContextMenu();
     // Now that startup restores the session, leaving the records behind would

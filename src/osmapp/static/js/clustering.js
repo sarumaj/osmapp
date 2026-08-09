@@ -649,17 +649,12 @@ App.clustering = (function () {
    * turf.centroid is the vertex mean, so for the L and crescent shapes that
    * street-following boundaries produce it lands outside the polygon — often
    * inside a neighbor, which is how pieces ended up in the wrong territory.
+   * Shared with labels.js and naming.js through G.interiorPoint: the number
+   * chip, the piece assignment and the reverse lookup have to agree on where
+   * the inside of a territory is.
    */
   function _representativePoint(feature) {
-    try {
-      return turf.pointOnFeature(feature);
-    } catch (e) {
-      try {
-        return turf.centroid(feature);
-      } catch (e2) {
-        return null;
-      }
-    }
+    return G.interiorPoint(feature);
   }
 
   function _nearestIndex(coord, coords) {

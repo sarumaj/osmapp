@@ -51,19 +51,14 @@ App.session = (function () {
 
   function _saveView() {
     if (!s.leafletMap || _suspended) return;
-    try {
-      var center = s.leafletMap.getCenter();
-      window.localStorage.setItem(
-        VIEW_KEY,
-        JSON.stringify({
-          lat: center.lat,
-          lng: center.lng,
-          zoom: s.leafletMap.getZoom(),
-        }),
-      );
-    } catch (e) {
-      /* private mode: the view just does not persist */
-    }
+    var center = s.leafletMap.getCenter();
+    // Private mode: the view simply does not persist, which App.util already
+    // knows how to shrug off.
+    App.util.writeJson(VIEW_KEY, {
+      lat: center.lat,
+      lng: center.lng,
+      zoom: s.leafletMap.getZoom(),
+    });
   }
 
   /**
@@ -76,12 +71,7 @@ App.session = (function () {
    * @returns {boolean} whether a stored view was applied
    */
   function restoreView() {
-    var saved;
-    try {
-      saved = JSON.parse(window.localStorage.getItem(VIEW_KEY) || "null");
-    } catch (e) {
-      return false;
-    }
+    var saved = App.util.readJson(VIEW_KEY, null);
     if (
       !saved ||
       typeof saved.lat !== "number" ||
@@ -146,8 +136,10 @@ App.session = (function () {
     if (_dataDirty) {
       _dataDirty = false;
       writes.push(
-        App.store.set(DATA, { streets: payload.streets, buildings: payload.buildings })
-          .then(function () { _dataDirty = false; }),
+        App.store.set(DATA, {
+          streets: payload.streets,
+          buildings: payload.buildings,
+        }),
       );
     }
 

@@ -133,7 +133,7 @@ const turf = {
 function setup(features, opts = {}) {
   const span = opts.span ?? 200;
   const window = {};
-  const App = loadApp(["state.js", "geometry.js", "labels.js"], { window, L, turf });
+  const App = loadApp(["util.js", "state.js", "geometry.js", "labels.js"], { window, L, turf });
 
   const s = App.state;
   s.innerPolygonsLayerGroup = makeGroup();

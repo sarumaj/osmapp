@@ -36,7 +36,7 @@ function fakeStorage(broken = false) {
 
 function load({ search = "", storage = fakeStorage() } = {}) {
   const window = { localStorage: storage, location: { search } };
-  return loadApp(["tour.js"], { window }).tour;
+  return loadApp(["util.js", "tour.js"], { window }).tour;
 }
 
 function dig(key) {
@@ -169,7 +169,7 @@ test("offline drops both halves of the print pair", () => {
   // The print view composes a card from live tiles. Keeping the menu entry
   // while dropping the view it opens would introduce a button whose screen
   // never arrives, which is the one thing worse than not mentioning it.
-  const offline = loadApp(["tour.js"], {
+  const offline = loadApp(["util.js", "tour.js"], {
     window: { localStorage: fakeStorage(), location: { search: "" } },
     navigator: { onLine: false },
   }).tour;

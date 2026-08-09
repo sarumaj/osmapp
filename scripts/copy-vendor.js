@@ -55,7 +55,6 @@ const versions = {
   leaflet: ver("leaflet"),
   geocoder: ver("leaflet-control-geocoder"),
   editable: ver("leaflet-editable"),
-  pathDrag: ver("leaflet-path-drag"),
   turf: ver("@turf/turf"),
   fa: ver("@fortawesome/fontawesome-free"),
 };
@@ -82,12 +81,6 @@ const editableDest = dest(
   "cdn.jsdelivr.net", "npm", `leaflet-editable@${versions.editable}`, "src"
 );
 await copyMinJS(nm("leaflet-editable/src/Leaflet.Editable.js"), resolve(editableDest, "Leaflet.Editable.min.js"));
-
-// --- cdn.jsdelivr.net/npm/leaflet-path-drag ---
-const pathDragDest = dest(
-  "cdn.jsdelivr.net", "npm", `leaflet-path-drag@${versions.pathDrag}`, "dist"
-);
-await copyMinJS(nm("leaflet-path-drag/dist/index.js"), resolve(pathDragDest, "index.js"));
 
 // --- cdn.jsdelivr.net/npm/turf ---
 const turfDest = dest("cdn.jsdelivr.net", "npm", "turf", `turf@${versions.turf}`);

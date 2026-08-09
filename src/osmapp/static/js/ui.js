@@ -474,8 +474,6 @@ App.ui = (function () {
     closeDialog: closeDialog,
     showPolygonContextMenu: showPolygonContextMenu,
     closeContextMenu: closeContextMenu,
-
-    PHASES: CLUSTER_PHASES,
   };
 })();
 

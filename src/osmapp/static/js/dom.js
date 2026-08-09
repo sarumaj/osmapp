@@ -39,13 +39,6 @@ App.dom = (function () {
     return root.querySelector('[data-role="' + name + '"]');
   }
 
-  /** All descendants carrying data-role="name". */
-  function roles(root, name) {
-    return Array.prototype.slice.call(
-      root.querySelectorAll('[data-role="' + name + '"]'),
-    );
-  }
-
   /** Set textContent on a data-role node, tolerating a missing node. */
   function text(root, name, value) {
     var node = role(root, name);
@@ -109,7 +102,6 @@ App.dom = (function () {
     mount: mount,
     mountOnMap: mountOnMap,
     role: role,
-    roles: roles,
     text: text,
     toggle: toggle,
     toggleRole: toggleRole,

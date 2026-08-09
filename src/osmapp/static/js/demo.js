@@ -417,7 +417,6 @@ App.demo = (function () {
 
     // Exercised by the tests, which check the sample is well-formed before it
     // is ever handed to applyPayload().
-    ROOT: ROOT,
   };
 })();
 

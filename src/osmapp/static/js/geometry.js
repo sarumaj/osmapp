@@ -93,17 +93,42 @@ App.geometry = (function () {
     }
 
     // A negative buffer erodes every boundary, not just the artificial ones.
-    // If it deleted area or split the result, the un-shrunk union is the
+    // If it split the result or ate real area, the un-shrunk union is the
     // safer answer — a half-metre of overshoot beats a missing corridor.
+    //
+    // This whole guard had never executed. Its first line read `G.polygonParts`
+    // — the module-alias convention every *other* file here uses, but there is
+    // no `G` inside this IIFE — so it threw a ReferenceError straight into the
+    // catch below, on every call, since the day it was written. The visible
+    // consequence was that unionHealed grew and unioned and never shrank, and
+    // every merged territory silently kept the half metre.
+    //
+    // Two more corrections follow from the same fact, because neither of the
+    // remaining conditions had ever been run either:
+    //
+    //   • The part count now has to *not grow*. `after >= before` accepted
+    //     exactly the case the comment says to reject — a shrink that broke
+    //     the union into pieces — and rejected nothing, since eroding a
+    //     polygon cannot reduce its part count.
+    //   • The area is compared against `plain`, the ungrown union, rather than
+    //     against `merged`. `merged` is inflated by eps on every side by
+    //     construction, so measuring the shrink against it asks the shrink to
+    //     give back less than the grow took — which for any territory small
+    //     enough that half a metre is 2% of its area (a 90 m square is)
+    //     rejects every correct shrink there is.
     var result = merged;
     if (shrunk && shrunk.geometry) {
       try {
-        var before = G.polygonParts(merged).length;
-        var after = G.polygonParts(shrunk).length;
-        if (after >= before && turf.area(shrunk) > turf.area(merged) * 0.98) {
+        var footprint = plain ? turf.area(plain) : turf.area(merged);
+        if (
+          polygonParts(shrunk).length <= polygonParts(merged).length &&
+          turf.area(shrunk) > footprint * 0.98
+        ) {
           result = shrunk;
         }
-      } catch (e) { /* keep merged */ }
+      } catch (e) {
+        /* keep merged */
+      }
     }
     return dropSmallHoles(result) || result;
   }
@@ -167,6 +192,41 @@ App.geometry = (function () {
     return [];
   }
 
+  /**
+   * A point guaranteed to lie inside `x`, as a turf Point, or null.
+   *
+   * Not the centroid. turf.centroid is the vertex mean, so for the L, crescent
+   * and doughnut shapes that street-following boundaries and hand cuts produce
+   * it lands *outside* the polygon — often inside a neighbour. Three modules
+   * needed this and each grew its own copy with its own fallback chain:
+   * clustering assigned pieces with it, labels anchors number chips with it,
+   * and naming reverse-geocodes it. Three answers to "where is the inside of
+   * this territory" is two too many, because the chip, the assignment and the
+   * looked-up place name are all supposed to be about the same spot.
+   *
+   * pointOnFeature promises interior; centroid is kept only as a fallback for
+   * geometry pointOnFeature refuses outright.
+   */
+  function interiorPoint(x) {
+    var f = feat(x);
+    if (!f || !f.geometry) return null;
+    try {
+      return turf.pointOnFeature(f);
+    } catch (e) {
+      try {
+        return turf.centroid(f);
+      } catch (e2) {
+        return null;
+      }
+    }
+  }
+
+  /** interiorPoint as a bare [lng, lat] pair, or null. */
+  function interiorCoord(x) {
+    var point = interiorPoint(x);
+    return point ? point.geometry.coordinates : null;
+  }
+
   /** The largest Polygon in x, as a Feature<Polygon>, or null. */
   function largestPolygon(x) {
     var parts = polygonParts(x);
@@ -204,8 +264,8 @@ App.geometry = (function () {
 
   /**
    * Build a Leaflet layer from any polygonal geometry, keeping every part.
-   * L.polygon(extractCoordsArray(g)) silently discards all but the largest
-   * ring of a MultiPolygon, which is how undo used to lose cluster fragments.
+   * Handing L.polygon() the largest ring of a MultiPolygon silently discards
+   * the rest, which is how undo used to lose cluster fragments.
    */
   /**
    * @param {Object} geometry GeoJSON geometry
@@ -228,24 +288,6 @@ App.geometry = (function () {
       opts,
     ).getLayers();
     return layers.length ? layers[0] : null;
-  }
-
-  /** Lossy: largest ring only, as Leaflet [lat, lng] rings. */
-  function extractCoordsArray(geometry) {
-    function ringToLatLngs(ring) {
-      return ring.map(function (c) {
-        return [c[1], c[0]];
-      });
-    }
-    if (!geometry) return [[[0, 0]]];
-    if (geometry.type === "Polygon")
-      return geometry.coordinates.map(ringToLatLngs);
-    if (geometry.type === "MultiPolygon") {
-      var best = largestPolygon(geometry);
-      var coords = best ? best.geometry.coordinates : geometry.coordinates[0];
-      return coords.map(ringToLatLngs);
-    }
-    return [[[0, 0]]];
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -562,9 +604,10 @@ App.geometry = (function () {
     // polygon normalization
     polygonParts: polygonParts,
     largestPolygon: largestPolygon,
+    interiorPoint: interiorPoint,
+    interiorCoord: interiorCoord,
     getOuterFeature: getOuterFeature,
     toLayer: toLayer,
-    extractCoordsArray: extractCoordsArray,
 
     // math
     angleDiff: angleDiff,

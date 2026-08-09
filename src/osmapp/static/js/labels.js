@@ -102,11 +102,9 @@ App.labels = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function _storedVisible() {
-    try {
-      return window.localStorage.getItem(VISIBLE_KEY) !== "0";
-    } catch (e) {
-      return true; // private mode, or storage disabled
-    }
+    // Visible unless explicitly switched off, so a first visit and an
+    // unavailable store both show the numbers.
+    return App.util.readLocal(VISIBLE_KEY, "1") !== "0";
   }
 
   function isVisible() {
@@ -115,11 +113,7 @@ App.labels = (function () {
 
   function setVisible(visible) {
     _visible = !!visible;
-    try {
-      window.localStorage.setItem(VISIBLE_KEY, _visible ? "1" : "0");
-    } catch (e) {
-      /* nothing to do about it */
-    }
+    App.util.writeLocal(VISIBLE_KEY, _visible ? "1" : "0");
     refresh();
   }
 
@@ -128,19 +122,17 @@ App.labels = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * A point guaranteed to be inside the part.
+   * A point guaranteed to be inside the part, as a Leaflet LatLng.
    *
    * Not the centroid: a C-shaped or doughnut territory puts its centroid in
    * the hole, and a number floating over a neighbor is worse than no number.
-   * pointOnFeature promises interior.
+   * G.interiorPoint promises interior, and is the same call clustering.js
+   * assigns pieces with — so a chip never lands on a piece that was counted
+   * as somebody else's.
    */
   function _interiorPoint(part) {
-    try {
-      var c = turf.pointOnFeature(part).geometry.coordinates;
-      return L.latLng(c[1], c[0]);
-    } catch (e) {
-      return null;
-    }
+    var c = G.interiorCoord(part);
+    return c ? L.latLng(c[1], c[0]) : null;
   }
 
   /** Longest on-screen edge of a part's bounding box, in pixels. */

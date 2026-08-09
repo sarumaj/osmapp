@@ -97,7 +97,6 @@
     "merging": "Gebiete werden zusammengeführt…",
     "dissolving": "Gemeinsame Grenzen werden aufgelöst…",
     "progress": "Gebiet {index} von {total}",
-    "pass": "Durchlauf {n}",
     "retryIn": "Overpass ist ausgelastet — neuer Versuch in {count} s (Versuch {attempt} von {total})",
     "retrying": "Neuer Versuch… (Versuch {attempt} von {total})"
   },
@@ -191,14 +190,11 @@
     "loadingTiles": "Kartenkacheln werden geladen…",
     "loadingProgress": "Kartenkacheln werden geladen… {done} / {total}",
     "buildingPdf": "PDF wird erstellt…",
-    "preparing": "Druckansicht wird vorbereitet…",
     "saved": "{name} gespeichert. Zum Drucken öffnen.",
     "unitPt": "{value} pt",
     "unitPercent": "{value} %",
     "errNoGeometry": "Dieses Gebiet hat keine druckbare Geometrie.",
-    "errStillLoading": "Die Karte wird noch geladen.",
     "errRender": "Das Bild konnte nicht erzeugt werden.",
-    "errTiles": "Die Karte konnte nicht geladen werden: {message}",
     "errPdf": "Das PDF konnte nicht erstellt werden: {message}",
     "frame": "Bildausschnitt",
     "zoom": "Zoom",
@@ -209,7 +205,6 @@
     "rotateCw": "Um 90° im Uhrzeigersinn drehen",
     "rotateReset": "Drehung zurücksetzen",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "Diese Ansicht braucht zu viele Kartenkacheln. Zoome etwas hinein.",
     "waitingTiles": "Warte auf Kartenkacheln…",
     "encoding": "Bild wird kodiert…",
     "adjustTemplate": "Kartenbereich anpassen",
@@ -255,7 +250,6 @@
     "exportNothing": "Zeichne vor dem Export eine Außengrenze.",
     "importUnreadable": "Diese Datei konnte nicht gelesen werden.",
     "importNotJson": "Diese Datei enthält kein gültiges JSON.",
-    "importNoOuter": "Diese Datei enthält keine brauchbare Außengrenze.",
     "importInvalid": "Diese Datei enthält keine brauchbaren Daten.\n\n{message}",
     "overlap": "Dieses Polygon überlappt ein bestehendes Gebiet. Gemeinsame Kanten sind in Ordnung, überlappende Flächen nicht.",
     "partitionInvalidOuter": "Die Außengrenze ist unbrauchbar: {message}",
@@ -388,8 +382,7 @@
     "updateReady": "Eine neue Version ist verfügbar.",
     "updateAction": "Neu laden",
     "updateDismiss": "Später",
-    "offline": "Offline",
-    "offlineHint": "Benötigt eine Verbindung — offline nicht verfügbar."
+    "offline": "Offline"
   },
   "confirm": {
     "ok": "OK",

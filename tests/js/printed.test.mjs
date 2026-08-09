@@ -28,7 +28,7 @@ const DICT = JSON.parse(
   readFileSync(join(ROOT, "src", "osmapp", "static", "lang", "en.json"), "utf8"),
 );
 
-const P = loadApp(["polygons.js"]).polygons;
+const P = loadApp(["util.js", "polygons.js"]).polygons;
 
 function feature(props) {
   return { type: "Feature", geometry: null, properties: props };

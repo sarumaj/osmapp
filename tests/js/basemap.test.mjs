@@ -70,7 +70,7 @@ function boot(overrides = {}) {
 
   const L = { tileLayer: (url, options) => ({ url, options }) };
 
-  const App = loadApp(["basemap.js"], { window, L });
+  const App = loadApp(["util.js", "basemap.js"], { window, L });
   App.basemap.init(map);
   return { basemap: App.basemap, added, classes, stored };
 }

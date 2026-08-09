@@ -33,7 +33,7 @@ from flask import (
 )
 
 from .config import STATIC_DIR
-from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, load_dictionary
+from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
 
 bp = Blueprint("pwa", __name__)
 
@@ -96,15 +96,6 @@ def asset_manifest() -> tuple[str, list[str]]:
     return result
 
 
-def _language_paths() -> dict[str, str]:
-    return {
-        code: url_for("views.index")
-        if code == DEFAULT_LANG
-        else url_for("views.index_localized", lang=code)
-        for code in SUPPORTED_LANGS
-    }
-
-
 @bp.route("/sw.js")
 def service_worker() -> Response:
     """Serve the worker from the root so its default scope covers the app.
@@ -119,7 +110,7 @@ def service_worker() -> Response:
         "sw.js",
         version=version,
         precache=urls,
-        navigations=sorted(set(_language_paths().values())),
+        navigations=sorted(set(language_paths().values())),
         offline_url=url_for("views.index"),
     )
     response = make_response(body)
@@ -167,7 +158,7 @@ def manifest() -> Response:
         ),
         "lang": lang,
         "dir": "ltr",
-        "start_url": _language_paths()[lang],
+        "start_url": language_paths()[lang],
         "scope": "/",
         "display": "standalone",
         "theme_color": THEME_COLOR,

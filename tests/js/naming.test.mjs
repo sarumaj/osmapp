@@ -113,7 +113,7 @@ const turf = {
  * them off entirely and check the module survives it.
  */
 function setup(buildings) {
-  const App = loadApp(["state.js", "naming.js"], { window: {}, turf });
+  const App = loadApp(["util.js", "state.js", "geometry.js", "naming.js"], { window: {}, turf });
   App.state.cachedBuildings = {
     type: "FeatureCollection",
     features: buildings || [],

@@ -19,7 +19,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadApp } from "./helpers/load.mjs";
 
-const P = loadApp(["polygons.js"]).polygons;
+const P = loadApp(["util.js", "polygons.js"]).polygons;
 
 /**
  * A layer that models the parts of Leaflet's Evented and Tooltip mixins this

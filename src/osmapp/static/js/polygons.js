@@ -35,12 +35,6 @@ App.polygons = (function () {
     fillOpacity: 0.08,
     weight: 4,
   };
-  var CLUSTER_STYLE = {
-    color: "#9b59b6",
-    fillColor: "#9b59b6",
-    fillOpacity: 0.2,
-    weight: 2,
-  };
   var CLUSTER_STYLE_DIM = {
     color: "#9b59b6",
     fillColor: "#9b59b6",
@@ -344,7 +338,8 @@ App.polygons = (function () {
 
       s.innerPolygonsLayerGroup.addLayer(layer);
       attachClusterEvents(layer, feature);
-      var entry = { feature: feature, layer: layer, count: null };
+      // `counts` (plural) is filled in later by refreshFilteredData.
+      var entry = { feature: feature, layer: layer };
       s.clusters.push(entry);
       // After addLayer: a path has no rendered element to restyle before it
       // is on the map, so a style applied earlier would be dropped.
@@ -655,17 +650,16 @@ App.polygons = (function () {
     });
   }
 
-  /** One property as trimmed text, or null when it carries nothing. */
+  /**
+   * One property as trimmed text, or null when it carries nothing.
+   *
+   * The normalization itself lives in App.util.tagText, because naming.js has
+   * to make exactly the same three judgements about exactly the same values —
+   * and two copies of "is this tag empty?" that disagree would put a locality
+   * on a card that the tooltip beside it says is unaddressed.
+   */
   function _prop(feature, key) {
-    var props = feature && feature.properties;
-    if (!props) return null;
-    var value = props[key];
-    if (value === null || value === undefined) return null;
-    if (Array.isArray(value)) value = value.filter(Boolean).join("; ");
-    var text = String(value).trim();
-    if (!text) return null;
-    var lower = text.toLowerCase();
-    return lower === "nan" || lower === "none" ? null : text;
+    return App.util.tagOf(feature, key);
   }
 
   /** OSM's yes/no tags, where the value may also be a subtype like "viaduct". */
@@ -1092,7 +1086,6 @@ App.polygons = (function () {
     renderBuildings: renderBuildings,
 
     OUTER_STYLE: OUTER_STYLE,
-    CLUSTER_STYLE: CLUSTER_STYLE,
     CLUSTER_STYLE_DIM: CLUSTER_STYLE_DIM,
     CLUSTER_STYLE_HOVER: CLUSTER_STYLE_HOVER,
     CLUSTER_STYLE_SELECTED: CLUSTER_STYLE_SELECTED,

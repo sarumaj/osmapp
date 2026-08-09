@@ -311,22 +311,14 @@ App.tour = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function isSuppressed() {
-    try {
-      return window.localStorage.getItem(SEEN_KEY) === "1";
-    } catch (e) {
-      // No storage means no memory of a previous visit, so the tour offers
-      // itself again. Annoying at worst; the alternative is never showing it.
-      return false;
-    }
+    // No storage means no memory of a previous visit, so the tour offers
+    // itself again. Annoying at worst; the alternative is never showing it.
+    return App.util.readLocal(SEEN_KEY, null) === "1";
   }
 
   function setSuppressed(suppressed) {
-    try {
-      if (suppressed) window.localStorage.setItem(SEEN_KEY, "1");
-      else window.localStorage.removeItem(SEEN_KEY);
-    } catch (e) {
-      /* not being able to remember the choice is not worth an error */
-    }
+    if (suppressed) App.util.writeLocal(SEEN_KEY, "1");
+    else App.util.removeLocal(SEEN_KEY);
   }
 
   /**
@@ -915,7 +907,6 @@ App.tour = (function () {
     },
     titleKey: _titleKey,
     bodyKey: _bodyKey,
-    SEEN_KEY: SEEN_KEY,
   };
 })();
 

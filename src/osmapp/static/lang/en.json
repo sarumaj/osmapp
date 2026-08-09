@@ -97,7 +97,6 @@
     "merging": "Merging territories…",
     "dissolving": "Dissolving shared boundaries…",
     "progress": "Territory {index} of {total}",
-    "pass": "Pass {n}",
     "retryIn": "Overpass is busy — retrying in {count} s (attempt {attempt} of {total})",
     "retrying": "Trying again… (attempt {attempt} of {total})"
   },
@@ -191,14 +190,11 @@
     "loadingTiles": "Loading map tiles…",
     "loadingProgress": "Loading map tiles… {done} / {total}",
     "buildingPdf": "Building the PDF…",
-    "preparing": "Preparing the print view…",
     "saved": "Saved {name}. Open it to print.",
     "unitPt": "{value} pt",
     "unitPercent": "{value} %",
     "errNoGeometry": "That territory has no geometry to print.",
-    "errStillLoading": "The map is still loading.",
     "errRender": "Could not render the image.",
-    "errTiles": "Could not load the map: {message}",
     "errPdf": "Could not build the PDF: {message}",
     "frame": "Frame",
     "zoom": "Zoom",
@@ -209,7 +205,6 @@
     "rotateCw": "Rotate 90° clockwise",
     "rotateReset": "Reset rotation",
     "unitDeg": "{value}°",
-    "errTooManyTiles": "That view needs too many map tiles. Zoom in a little.",
     "waitingTiles": "Waiting for map tiles…",
     "encoding": "Encoding the image…",
     "adjustTemplate": "Adjust map area",
@@ -255,7 +250,6 @@
     "exportNothing": "Draw an outer boundary before exporting.",
     "importUnreadable": "Could not read that file.",
     "importNotJson": "That file is not valid JSON.",
-    "importNoOuter": "That file has no usable outer boundary.",
     "importInvalid": "That file has no usable data.\n\n{message}",
     "overlap": "That polygon overlaps an existing territory. Shared edges are fine, overlapping areas are not.",
     "partitionInvalidOuter": "The outer boundary is not usable: {message}",
@@ -388,8 +382,7 @@
     "updateReady": "A new version is available.",
     "updateAction": "Reload",
     "updateDismiss": "Later",
-    "offline": "Offline",
-    "offlineHint": "Needs a connection — unavailable offline."
+    "offline": "Offline"
   },
   "confirm": {
     "ok": "OK",

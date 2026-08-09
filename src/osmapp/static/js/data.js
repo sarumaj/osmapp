@@ -53,22 +53,13 @@ App.data = (function () {
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>} always resolves
    */
   function fetchData(geojson, forceRefresh) {
-    if (
-      !forceRefresh &&
-      s.cachedStreets &&
-      s.cachedBuildings &&
-      _isWithinCache(geojson)
-    ) {
-      s._skipOuterClear = true;
-      displayResults({
-        streets: s.cachedStreets,
-        buildings: s.cachedBuildings,
-        bounds: _bboxToBounds(turf.bbox(G.feat(geojson))),
-      });
-      s._skipOuterClear = false;
-      return Promise.resolve({});
-    }
-
+    // There was a cache fast path here, guarded on `_isWithinCache(geojson)`,
+    // which tested `s.cachedPolygon` — a field nothing in the app has ever
+    // assigned. The guard was therefore always false and the branch never
+    // ran, so removing it changes no behaviour. Reinstating it properly would
+    // mean recording the downloaded polygon and deciding what a confirmed
+    // download that then silently does not happen should look like; that is a
+    // feature decision, not a cleanup, so it is deliberately not made here.
     _cancelled = false;
     App.ui.showBusy(
       T("loading.streets"),
@@ -522,15 +513,6 @@ App.data = (function () {
   // ══════════════════════════════════════════════════════════════════════
   // PRIVATE
   // ══════════════════════════════════════════════════════════════════════
-
-  function _isWithinCache(geojson) {
-    if (!s.cachedPolygon) return false;
-    try {
-      return turf.booleanContains(s.cachedPolygon, G.feat(geojson));
-    } catch (e) {
-      return false;
-    }
-  }
 
   function _bboxToBounds(b) {
     return { west: b[0], south: b[1], east: b[2], north: b[3] };
