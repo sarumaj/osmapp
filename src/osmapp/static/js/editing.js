@@ -29,6 +29,7 @@ App.editing = (function () {
   var s = null;
   var G = null;
   var SP = null;
+  var N = null;
   var D = null;
   var T = null;
 
@@ -51,10 +52,11 @@ App.editing = (function () {
   var _lastCut = null; // the line from the most recent cut, for diagnosis
 
   // ── Snap index ────────────────────────────────────────────────────────
-  var _nodes = Object.create(null); // key -> LatLng
-  var _adj = Object.create(null); // key -> [{ key, dist }]
-  var _segGrid = null; // street centre-lines
-  var _nodeGrid = null; // street intersections and shape points
+  //
+  // Streets live in App.network now — the trim tool needs the same graph, and
+  // the routing heuristics have to be one implementation or they are two.
+  // What is still local is the boundary grid: a cut is allowed to snap onto
+  // the outlines it is cutting, which is a cut-tool rule and nobody else's.
   var _edgeGrid = null; // territory and outer boundary edges, payload { ci }
 
   var DBLCLICK_MS = 300;
@@ -63,6 +65,7 @@ App.editing = (function () {
     s = App.state;
     G = App.geometry;
     SP = App.spatial;
+    N = App.network;
     D = App.dom;
     T = App.i18n.t;
     document.addEventListener("keydown", _onKeyDown);
@@ -82,62 +85,15 @@ App.editing = (function () {
    * is the "this cluster will not split at all" symptom.
    */
   function rebuildSnapIndex() {
-    _nodes = Object.create(null);
-    _adj = Object.create(null);
+    N.build();
 
-    _segGrid = new SP.Grid(120);
-    _nodeGrid = new SP.Grid(120);
     _edgeGrid = new SP.Grid(120);
-
-    if (s.cachedStreets && s.cachedStreets.features) {
-      s.cachedStreets.features.forEach(function (feature) {
-        if (!feature.geometry) return;
-        var lines =
-          feature.geometry.type === "MultiLineString"
-            ? feature.geometry.coordinates
-            : [feature.geometry.coordinates];
-
-        lines.forEach(function (line) {
-          for (var i = 0; i < line.length - 1; i++) {
-            var p1 = L.latLng(line[i][1], line[i][0]);
-            var p2 = L.latLng(line[i + 1][1], line[i + 1][0]);
-            var k1 = _nodeKey(p1);
-            var k2 = _nodeKey(p2);
-            if (k1 === k2) continue;
-
-            var d = p1.distanceTo(p2);
-            _segGrid.addSegment([p1.lng, p1.lat], [p2.lng, p2.lat], null);
-            _nodes[k1] = p1;
-            _nodes[k2] = p2;
-            (_adj[k1] || (_adj[k1] = [])).push({ key: k2, dist: d });
-            (_adj[k2] || (_adj[k2] = [])).push({ key: k1, dist: d });
-          }
-        });
-      });
-    }
-
-    Object.keys(_nodes).forEach(function (key) {
-      _nodeGrid.addPoint([_nodes[key].lng, _nodes[key].lat], key);
-    });
-
     App.polygons.clusterLayers().forEach(function (layer, index) {
       _addLayerEdges(layer, index);
     });
     if (s.outerPolygonLayer) _addLayerEdges(s.outerPolygonLayer, -1);
 
-    console.log(
-      ">>> Snap index:",
-      _segGrid.items.length,
-      "street segments,",
-      Object.keys(_nodes).length,
-      "nodes,",
-      _edgeGrid.items.length,
-      "boundary edges",
-    );
-  }
-
-  function _nodeKey(latlng) {
-    return latlng.lat.toFixed(5) + "," + latlng.lng.toFixed(5);
+    console.log(">>> Snap index:", _edgeGrid.items.length, "boundary edges");
   }
 
   /** @param {number} clusterIndex index into s.clusters, or -1 for the outer ring */
@@ -207,10 +163,10 @@ App.editing = (function () {
 
     // Intersections carry a bonus: landing exactly on a junction is almost
     // always what was meant, and it gives routing a clean node to start from.
-    var node = _nodeGrid && _nodeGrid.nearestPoint(coord, radius);
+    var node = N.nearestNode(coord, radius);
     if (node) offer(node.coord, "node", node.dist, s.CUT_NODE_BONUS);
 
-    var seg = _segGrid && _segGrid.nearestSegment(coord, radius);
+    var seg = N.nearestSegmentPoint(coord, radius);
     if (seg) offer(seg.coord, "street", seg.dist, 1);
 
     if (s.cutSnapEdges) {
@@ -224,72 +180,12 @@ App.editing = (function () {
   }
 
   function _nearestStreetNode(latlng, maxMeters) {
-    if (!_nodeGrid) return null;
-    var hit = _nodeGrid.nearestPoint([latlng.lng, latlng.lat], maxMeters);
-    if (!hit) return null;
-    return { key: hit.payload, latlng: _nodes[hit.payload], dist: hit.dist };
+    return N.nearestNodeAt(latlng, maxMeters);
   }
 
   // ══════════════════════════════════════════════════════════════════════
   // ROUTING
   // ══════════════════════════════════════════════════════════════════════
-
-  /**
-   * A* over the street graph. The old Dijkstra explored the whole reachable
-   * component before giving up, which is affordable once per commit but not
-   * once per animation frame, and the live preview needs the latter. The
-   * straight-line heuristic is admissible, so the path is still optimal.
-   */
-  function _route(startKey, endKey) {
-    if (startKey === endKey) return [_nodes[startKey]];
-    if (!_adj[startKey] || !_adj[endKey]) return null;
-
-    var goal = _nodes[endKey];
-    var goalCoord = [goal.lng, goal.lat];
-
-    var g = Object.create(null);
-    var prev = Object.create(null);
-    var visited = Object.create(null);
-    var heap = new SP.MinHeap();
-    var pops = 0;
-    var budget = s.CUT_ROUTE_MAX_POPS;
-    var found = false;
-
-    g[startKey] = 0;
-    heap.push({ k: startKey, f: 0 });
-
-    while (heap.size() > 0 && pops++ < budget) {
-      var cur = heap.pop().k;
-      if (visited[cur]) continue;
-      visited[cur] = true;
-      if (cur === endKey) {
-        found = true;
-        break;
-      }
-
-      var neighbors = _adj[cur] || [];
-      for (var i = 0; i < neighbors.length; i++) {
-        var nb = neighbors[i];
-        if (visited[nb.key]) continue;
-        var alt = g[cur] + nb.dist;
-        if (g[nb.key] !== undefined && alt >= g[nb.key]) continue;
-        g[nb.key] = alt;
-        prev[nb.key] = cur;
-        var n = _nodes[nb.key];
-        heap.push({ k: nb.key, f: alt + SP.dist([n.lng, n.lat], goalCoord) });
-      }
-    }
-
-    if (!found) return null;
-
-    var path = [];
-    var node = endKey;
-    while (node !== undefined) {
-      path.unshift(_nodes[node]);
-      node = prev[node];
-    }
-    return path.length >= 2 ? path : null;
-  }
 
   /**
    * Replace the straight hop a→b with a street path, but only when doing so
@@ -311,12 +207,10 @@ App.editing = (function () {
     var nodeB = _nearestStreetNode(b.latlng, radius);
     if (!nodeA || !nodeB) return null;
 
-    var path = _route(nodeA.key, nodeB.key);
+    var path = N.route(nodeA.key, nodeB.key);
     if (!path || path.length < 2) return null;
 
-    var routed = 0;
-    for (var i = 0; i < path.length - 1; i++)
-      routed += path[i].distanceTo(path[i + 1]);
+    var routed = N.pathLength(path);
     var straight = a.latlng.distanceTo(b.latlng);
 
     // Both a ratio and an absolute cap: the ratio alone lets a 10 m hop turn
@@ -512,6 +406,7 @@ App.editing = (function () {
         return;
       }
       if (s.mergeMode) toggleMergeMode();
+      if (s.trimMode) App.trim.toggle();
     }
 
     s.editMode = next;
@@ -1283,6 +1178,7 @@ App.editing = (function () {
 
     if (s.mergeMode) {
       if (s.editMode) toggleEditMode();
+      if (s.trimMode) App.trim.toggle();
       s.selectedClusters = [];
       // Selecting means clicking the shape, so the tooltip is pinned above it
       // rather than sitting under the pointer — the count still reads, the

@@ -203,20 +203,63 @@ App.history = (function () {
     _restore(_redo.pop());
   }
 
+  /**
+   * A snapshot is the outer boundary plus the territories.
+   *
+   * It used to be the territories alone, which was true for as long as
+   * nothing changed the boundary once territories existed — drawing or
+   * adopting one clears the history rather than adding to it. The trim tool
+   * breaks that: it reshapes the boundary and clips the territories to the
+   * result in a single action, and undoing only the second half would leave
+   * territories that spill outside the outline they belong to.
+   */
   function _snapshot() {
-    return JSON.stringify(App.polygons.clusterFeatures());
+    return JSON.stringify({
+      outer: s.outerPolygonLayer
+        ? App.geometry.getOuterFeature(s.outerPolygonLayer).geometry
+        : null,
+      clusters: App.polygons.clusterFeatures(),
+    });
   }
 
   function _restore(json) {
-    var features;
+    var state;
     try {
-      features = JSON.parse(json);
+      state = JSON.parse(json);
     } catch (e) {
       console.error(">>> Corrupt history snapshot:", e);
       return;
     }
-    App.polygons.setClusters(features);
+    _restoreOuter(state.outer);
+    App.polygons.setClusters(state.clusters || []);
     console.log(">>> Restored", s.clusters.length, "clusters");
+  }
+
+  function _restoreOuter(geometry) {
+    if (!geometry) return;
+    var current = null;
+    try {
+      current = s.outerPolygonLayer
+        ? App.geometry.getOuterFeature(s.outerPolygonLayer).geometry
+        : null;
+    } catch (e) {
+      /* an unreadable current boundary is one worth replacing */
+    }
+    // Rebuilding the layer detaches every handler bound to it, so it is only
+    // done when the geometry genuinely differs — which is to say, only for the
+    // one action that changes it.
+    if (current && JSON.stringify(current) === JSON.stringify(geometry)) return;
+
+    var layer = App.geometry.toLayer(geometry, App.polygons.OUTER_STYLE);
+    if (!layer) return;
+    layer.on("click", function (e) {
+      L.DomEvent.stopPropagation(e);
+    });
+    s.outerPolygonLayerGroup.clearLayers();
+    s.outerPolygonLayerGroup.addLayer(layer);
+    s.outerPolygonLayer = layer;
+    s.outerPolygonDrawn = true;
+    App.polygons.attachOuterEvents(layer);
   }
 
   // ══════════════════════════════════════════════════════════════════════

@@ -67,7 +67,10 @@
     "needsPrinted": "No territory is marked as printed",
     "needsAnything": "Nothing to reset",
     "labelNumbers": "Numbers",
-    "numbers": "Show a number on every territory"
+    "numbers": "Show a number on every territory",
+    "trim": "Trim the boundary to the buildings that matter",
+    "labelTrim": "Trim",
+    "needsBuildings": "Download the buildings first"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -136,6 +139,49 @@
     "selected": "{count} selected",
     "action": "Merge",
     "cancel": "Cancel"
+  },
+  "trim": {
+    "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · Enter applies · Esc cancels",
+    "ignored": {
+      "one": "{count} building ignored",
+      "other": "{count} buildings ignored"
+    },
+    "flaggedCount": {
+      "one": "{count} flagged",
+      "other": "{count} flagged"
+    },
+    "reach": "Reach behind buildings",
+    "reachValue": "{meters} m",
+    "detail": "Edge detail",
+    "detailValue": "straighten {meters} m",
+    "detailFull": "follow every bay",
+    "follow": "Follow streets",
+    "apply": "Apply",
+    "outliers": "Outliers",
+    "clear": "Clear",
+    "cancel": "Cancel",
+    "computing": "Measuring…",
+    "saving": "Removes {percent}% — {area} km² left",
+    "dropped": {
+      "one": "{count} building would fall outside",
+      "other": "{count} buildings would fall outside"
+    },
+    "corners": {
+      "one": "{count} corner",
+      "other": "{count} corners"
+    },
+    "nothing": "Nothing to trim at this reach.",
+    "noKeep": "Every building is ignored.",
+    "noOutliers": "No building is unusually isolated for this area.",
+    "noBuildings": "Download the buildings before trimming the boundary.",
+    "failed": "Could not work out a smaller boundary.",
+    "nothingToApply": "There is no smaller boundary to apply yet.",
+    "applyTitle": "Trim the boundary?",
+    "applyMessage": "The outer boundary is replaced and the territories are clipped to it. Territories that change shape lose their printed mark.",
+    "applyDetail": "{before} km² → {after} km² (−{percent}%)",
+    "applyOk": "Trim",
+    "excludedNote": "Excluded — click to keep",
+    "flaggedNote": "Isolated, kept — click to exclude"
   },
   "draw": {
     "hint": "Click to place vertices · Right-drag to pan · Enter or double-click to finish · Backspace steps back · Esc to cancel",
@@ -527,6 +573,14 @@
       "done": {
         "title": "That is everything",
         "body": "This button reopens the tour whenever you want it. Leave the box below ticked and it will not open by itself again."
+      },
+      "trimButton": {
+        "title": "Trim the boundary",
+        "body": "A boundary you draw or adopt always covers more than you meant: fields, forest, the farms across the river. Splitting all of it wastes territories on empty ground. This button reshapes the boundary around the buildings first."
+      },
+      "trim": {
+        "title": "Ignore what you do not need",
+        "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. One slider sets how far the new boundary runs behind the houses, the other how much the edge is straightened, and with \"Follow streets\" on it snaps onto the road network instead of cutting through gardens. Green is what you keep, red is what you give up."
       }
     }
   },

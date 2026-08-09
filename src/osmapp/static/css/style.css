@@ -425,7 +425,8 @@ body {
    button read as the same thing.
    ═══════════════════════════════════════════════════════════ */
 .cut-toolbar,
-.merge-toolbar {
+.merge-toolbar,
+.trim-toolbar {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -450,7 +451,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .cut-toolbar,
-  .merge-toolbar {
+  .merge-toolbar,
+  .trim-toolbar {
     animation: none;
   }
 }
@@ -541,6 +543,156 @@ body {
 /* Until the line separates something, Cut is not the obvious next move. */
 .cut-toolbar:not(.is-ready) .btn--primary {
   opacity: 0.55;
+}
+
+/* ── Trim toolbar ──────────────────────────────────────────────────────
+   Blue, like the Draw and Reload buttons it sits beside in the Area group:
+   this reshapes the working area rather than the territories inside it, and
+   the bar should say which of the two it belongs to before it is read. */
+.trim-toolbar {
+  bottom: 76px; /* the hint banner owns bottom: 30px */
+  border-top-color: var(--c-accent);
+  width: min(420px, calc(100vw - 24px));
+}
+
+.trim-toolbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.trim-toolbar__count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.trim-toolbar__status {
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+  text-align: right;
+}
+
+/* There is area worth giving up — say so where the eye already is. */
+.trim-toolbar.is-ready .trim-toolbar__status {
+  color: var(--c-success);
+  font-weight: 600;
+}
+
+.trim-toolbar__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: var(--ui-fs-sm);
+}
+
+.trim-toolbar__row input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.trim-toolbar__row output {
+  min-width: 5ch;
+  color: var(--c-text-dim);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.trim-toolbar__opts {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.trim-toolbar__opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ui-fs-sm);
+  cursor: pointer;
+}
+
+.trim-toolbar__opt span {
+  flex: 1;
+}
+
+.trim-toolbar__opt kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.trim-toolbar__actions {
+  display: flex;
+  gap: 6px;
+}
+
+.trim-toolbar__actions .btn {
+  flex: 1;
+  padding: 5px 6px;
+}
+
+/* Nothing to trim yet, so Apply is not the obvious next move. */
+.trim-toolbar:not(.is-ready) .btn--primary {
+  opacity: 0.55;
+}
+
+/* Shift and Alt drag a selection box, and a text-selection cursor while doing
+   it makes the gesture feel like it is doing something else. */
+.leaflet-container.is-trimming,
+.leaflet-container.is-trimming .leaflet-interactive {
+  cursor: crosshair;
+}
+
+/* ── Excluded-building marks ───────────────────────────────────────────
+   Sized in pixels, deliberately. The red fill on the building says
+   "excluded" at zoom 18 and says nothing at zoom 13, where a house is two
+   pixels wide — which is exactly the zoom you are at when you want to check
+   what a shift-drag just did. These stay the same size all the way out, and
+   they are the click target for putting one building back. */
+.trim-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font: bold 9px/1 var(--ui-font);
+  cursor: pointer;
+  transition: transform 0.08s ease-out;
+}
+
+/* A cross is excluded. A ring is a building the automatic pass called isolated
+   and the user kept anyway — amber because it is neither of the two settled
+   states, and it has to stay findable afterwards: putting a building back
+   should not make it identical to the four thousand that were never in
+   question. Both toggle, so a mark is a handle rather than a report. */
+.trim-marker--excluded {
+  background: var(--c-danger);
+}
+
+.trim-marker--flagged {
+  background: var(--c-warn);
+}
+
+.trim-marker:hover {
+  /* Growing rather than recoloring: the marker is already the danger color,
+     and there is no second red that reads as "and this one". */
+  transform: scale(1.35);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trim-marker {
+    transition: none;
+  }
 }
 
 /* Right-drag pans the map while a cut line is being drawn. The override has

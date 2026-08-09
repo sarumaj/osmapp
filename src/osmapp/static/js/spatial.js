@@ -193,7 +193,12 @@ App.spatial = (function () {
     var best = null;
     var bestD = maxMeters;
 
-    for (var ring = 1; ring <= maxRing; ring++) {
+    // From ring 0, not ring 1: shell(coord, 1) is the eight cells *around* the
+    // one the coord is in, so starting there skipped any segment lying wholly
+    // inside the center cell. Long street segments stamp their neighbours too
+    // and so were found anyway, which is why this went unnoticed — but a grid
+    // of short segments, like a traced boundary ring, is invisible to it.
+    for (var ring = 0; ring <= maxRing; ring++) {
       var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
         var it = this.items[candidates[i]];

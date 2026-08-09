@@ -129,6 +129,30 @@ App.tour = (function () {
     // preceded by the control that opens it, and then keeps a ring on that
     // control while the screen itself is being explained.
     { id: "sample", demo: true },
+    // Before the partitioner, because that is the order it belongs in: the
+    // boundary is reshaped once, and then divided. A walkthrough that
+    // introduced trimming after splitting would be teaching people to redo
+    // their own work.
+    {
+      id: "trimButton",
+      demo: true,
+      target: '[data-action="trim"]',
+      placement: "right",
+    },
+    {
+      id: "trim",
+      demo: true,
+      target: ".trim-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="trim"]',
+      enter: function () {
+        if (!App.state.trimMode) App.trim.toggle();
+      },
+      exit: function () {
+        if (App.state.trimMode) App.trim.toggle();
+      },
+    },
     {
       id: "partitionButton",
       demo: true,

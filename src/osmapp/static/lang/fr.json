@@ -67,7 +67,10 @@
     "needsPrinted": "Aucun territoire n'est marqué comme imprimé",
     "needsAnything": "Rien à réinitialiser",
     "labelNumbers": "Numéros",
-    "numbers": "Afficher un numéro sur chaque territoire"
+    "numbers": "Afficher un numéro sur chaque territoire",
+    "trim": "Rogner la limite autour des bâtiments utiles",
+    "labelTrim": "Rogner",
+    "needsBuildings": "Téléchargez d'abord les bâtiments"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -136,6 +139,49 @@
     "selected": "{count} sélectionné(s)",
     "action": "Fusionner",
     "cancel": "Annuler"
+  },
+  "trim": {
+    "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · Entrée applique · Échap annule",
+    "ignored": {
+      "one": "{count} bâtiment exclu",
+      "other": "{count} bâtiments exclus"
+    },
+    "flaggedCount": {
+      "one": "{count} signalé",
+      "other": "{count} signalés"
+    },
+    "reach": "Portée derrière les bâtiments",
+    "reachValue": "{meters} m",
+    "detail": "Détail du contour",
+    "detailValue": "lisser {meters} m",
+    "detailFull": "suivre chaque recoin",
+    "follow": "Suivre les rues",
+    "apply": "Appliquer",
+    "outliers": "Isolés",
+    "clear": "Effacer",
+    "cancel": "Annuler",
+    "computing": "Calcul en cours…",
+    "saving": "Retire {percent} % — {area} km² restants",
+    "dropped": {
+      "one": "{count} bâtiment se retrouverait dehors",
+      "other": "{count} bâtiments se retrouveraient dehors"
+    },
+    "corners": {
+      "one": "{count} angle",
+      "other": "{count} angles"
+    },
+    "nothing": "Rien à rogner à cette portée.",
+    "noKeep": "Tous les bâtiments sont exclus.",
+    "noOutliers": "Aucun bâtiment n'est anormalement isolé pour ce secteur.",
+    "noBuildings": "Téléchargez les bâtiments avant de rogner la limite.",
+    "failed": "Impossible de calculer une limite plus petite.",
+    "nothingToApply": "Il n'y a pas encore de limite plus petite à appliquer.",
+    "applyTitle": "Rogner la limite ?",
+    "applyMessage": "La limite extérieure est remplacée et les territoires y sont découpés. Les territoires dont la forme change perdent leur marque d’impression.",
+    "applyDetail": "{before} km² → {after} km² (−{percent} %)",
+    "applyOk": "Rogner",
+    "excludedNote": "Exclu — cliquez pour le conserver",
+    "flaggedNote": "Isolé, conservé — cliquez pour l’exclure"
   },
   "draw": {
     "hint": "Cliquez pour placer des sommets · Glisser avec le bouton droit pour déplacer · Entrée ou double-clic pour terminer · Retour arrière recule · Échap pour annuler",
@@ -527,6 +573,14 @@
       "done": {
         "title": "C'est tout",
         "body": "Ce bouton rouvre la visite quand vous le souhaitez. Laissez la case ci-dessous cochée et elle ne s'ouvrira plus automatiquement."
+      },
+      "trimButton": {
+        "title": "Rogner la limite",
+        "body": "Une limite tracée ou reprise couvre toujours plus que prévu : champs, forêt, fermes de l'autre côté de la rivière. Tout découper gaspille des territoires sur du vide. Ce bouton reforme d'abord la limite autour des bâtiments."
+      },
+      "trim": {
+        "title": "Excluez ce dont vous n’avez pas besoin",
+        "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Un curseur fixe la distance derrière les maisons, l’autre le lissage du contour, et avec « Suivre les rues » la limite s’accroche au réseau routier au lieu de couper à travers les jardins. Le vert reste, le rouge disparaît."
       }
     }
   },

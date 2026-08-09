@@ -100,6 +100,50 @@ App.polygons = (function () {
     weight: 2,
   };
 
+  /**
+   * Buildings the trim tool has been told to disregard.
+   *
+   * Red rather than merely faded: this is a decision the user made, and a
+   * decision has to be distinguishable from a rendering artefact at a glance
+   * across a screen with four thousand grey rectangles on it. It is also the
+   * one place in the app where "excluded" is a state a building can be in, so
+   * it borrows the danger color rather than inventing a fifth one.
+   */
+  var BUILDING_STYLE_IGNORED = {
+    color: "#922b21",
+    fillColor: "#e74c3c",
+    fillOpacity: 0.55,
+    weight: 1,
+  };
+  var BUILDING_STYLE_IGNORED_HOVER = {
+    color: "#641e16",
+    fillColor: "#c0392b",
+    fillOpacity: 0.8,
+    weight: 2,
+  };
+
+  /**
+   * Buildings the trim tool called isolated that the user then kept anyway.
+   *
+   * Neither red nor grey, because it is neither: the automatic pass had an
+   * opinion and the user overruled it, and both halves of that are worth
+   * seeing. Without it, putting a building back makes it identical to the four
+   * thousand that were never in question, and finding it again — to check the
+   * decision, or to change it back — means hunting.
+   */
+  var BUILDING_STYLE_FLAGGED = {
+    color: "#9a6a00",
+    fillColor: "#f39c12",
+    fillOpacity: 0.45,
+    weight: 1,
+  };
+  var BUILDING_STYLE_FLAGGED_HOVER = {
+    color: "#7e4f00",
+    fillColor: "#e67e22",
+    fillOpacity: 0.75,
+    weight: 2,
+  };
+
   var PANE = {
     clusters: "clustersPane",
     streets: "streetsPane",
@@ -124,10 +168,52 @@ App.polygons = (function () {
     _wireFeatureGroup(
       s.buildingsLayerGroup,
       _buildingTooltip,
-      BUILDING_STYLE_HOVER,
-      BUILDING_STYLE,
+      _buildingHoverStyle,
+      _buildingStyle,
     );
     App._loaded.push("polygons");
+  }
+
+  // ── Building state ────────────────────────────────────────────────────
+  //
+  // A building's resting appearance stopped being a constant when the trim
+  // tool arrived: it now depends on whether that tool is running and whether
+  // this particular building has been excluded. The style is therefore
+  // resolved per layer rather than handed to _wireFeatureGroup once, so the
+  // hover handlers cannot repaint an ignored building back to grey on the way
+  // out — which is exactly what a fixed rest style did.
+
+  /** "excluded" | "flagged" | null, as far as the trim tool is concerned. */
+  function buildingState(feature) {
+    if (!s.trimMode || !App.trim || !feature) return null;
+    if (App.trim.isIgnored(feature)) return "excluded";
+    if (App.trim.isFlagged(feature)) return "flagged";
+    return null;
+  }
+
+  function _buildingStyle(layer) {
+    var state = buildingState(layer && layer.feature);
+    if (state === "excluded") return BUILDING_STYLE_IGNORED;
+    if (state === "flagged") return BUILDING_STYLE_FLAGGED;
+    return BUILDING_STYLE;
+  }
+
+  function _buildingHoverStyle(layer) {
+    var state = buildingState(layer && layer.feature);
+    if (state === "excluded") return BUILDING_STYLE_IGNORED_HOVER;
+    if (state === "flagged") return BUILDING_STYLE_FLAGGED_HOVER;
+    return BUILDING_STYLE_HOVER;
+  }
+
+  /** Repaint every rendered building. Called when the trim selection changes. */
+  function restyleBuildings() {
+    if (!s.buildingsLayerGroup) return;
+    (function walk(parent) {
+      parent.eachLayer(function (layer) {
+        if (layer.eachLayer) walk(layer);
+        if (layer.setStyle && layer.feature) layer.setStyle(_buildingStyle(layer));
+      });
+    })(s.buildingsLayerGroup);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -503,6 +589,12 @@ App.polygons = (function () {
       opacity: 0.95,
     },
     off: null,
+    // Trim mode. Territory tooltips would be noise — the territories are not
+    // what is being decided — but the building ones are the decision: which
+    // building this is, whether it has an address, whether it is a house or a
+    // shed. Excluding a building you cannot identify is guessing, and "off"
+    // made every one of these calls a guess.
+    features: null,
   };
 
   var _tooltipMode = "full";
@@ -671,7 +763,18 @@ App.polygons = (function () {
   }
 
   function _buildingTooltip(layer) {
-    var f = layer.feature;
+    return buildingInfo(layer && layer.feature);
+  }
+
+  /**
+   * The building panel, by feature rather than by layer.
+   *
+   * Public because the trim tool puts the same text on its marks: a mark sits
+   * on top of the building it stands for and swallows the hover, so without
+   * this, marking a building would take away the only way to find out what it
+   * was.
+   */
+  function buildingInfo(f) {
     if (!f) return "";
 
     var name = _prop(f, "name");
@@ -702,6 +805,14 @@ App.polygons = (function () {
 
     var levels = _prop(f, "building:levels");
     if (levels) lines.push(_esc(T("feature.levels", { n: levels })));
+
+    // Last, and only while trimming: what the tool currently intends to do
+    // with this building, and how to change its mind.
+    var state = buildingState(f);
+    if (state === "excluded")
+      lines.push("<em>" + _esc(T("trim.excludedNote")) + "</em>");
+    else if (state === "flagged")
+      lines.push("<em>" + _esc(T("trim.flaggedNote")) + "</em>");
 
     return lines.join("<br>");
   }
@@ -756,10 +867,15 @@ App.polygons = (function () {
    * a building behaves exactly like clicking the territory around it.
    */
   function _wireFeatureGroup(group, contentFn, hoverStyle, restStyle) {
+    /** A style may be a constant or a function of the layer it paints. */
+    function styleFor(style, layer) {
+      return typeof style === "function" ? style(layer) : style;
+    }
+
     group.on("mouseover", function (e) {
       var layer = e.layer;
       if (!layer || !layer.setStyle) return;
-      layer.setStyle(hoverStyle);
+      layer.setStyle(styleFor(hoverStyle, layer));
       if (!_featureInfoAllowed()) return;
       if (!layer._infoBound) {
         layer.bindTooltip(contentFn, FEATURE_TOOLTIP);
@@ -773,11 +889,19 @@ App.polygons = (function () {
     group.on("mouseout", function (e) {
       var layer = e.layer;
       if (!layer || !layer.setStyle) return;
-      layer.setStyle(restStyle);
+      layer.setStyle(styleFor(restStyle, layer));
       if (layer._infoBound) layer.closeTooltip();
     });
 
     group.on("click contextmenu", function (e) {
+      // While trimming, a building is the subject rather than a way through to
+      // the territory under it: clicking one excludes it. Forwarding as well
+      // would open a context menu on top of the selection being made.
+      if (s.trimMode) {
+        if (group === s.buildingsLayerGroup && e.type === "click" && App.trim)
+          App.trim.handleBuildingClick(e.layer, e);
+        return;
+      }
       var found = clusterAt(e.latlng);
       if (!found) return;
       found.entry.layer.fire(e.type, e, true);
@@ -813,7 +937,7 @@ App.polygons = (function () {
    * being snapped to; in merge mode the extra detail is noise.
    */
   function _featureInfoAllowed() {
-    return _tooltipMode === "full" && !s.editMode;
+    return (_tooltipMode === "full" || _tooltipMode === "features") && !s.editMode;
   }
 
   function _closeFeatureTooltips() {
@@ -826,7 +950,9 @@ App.polygons = (function () {
             layer.closeTooltip();
             if (layer.setStyle)
               layer.setStyle(
-                group === s.streetsLayerGroup ? STREET_STYLE : BUILDING_STYLE,
+                group === s.streetsLayerGroup
+                  ? STREET_STYLE
+                  : _buildingStyle(layer),
               );
           }
         });
@@ -1084,6 +1210,9 @@ App.polygons = (function () {
     refreshFilteredData: refreshFilteredData,
     renderStreets: renderStreets,
     renderBuildings: renderBuildings,
+    restyleBuildings: restyleBuildings,
+    buildingInfo: buildingInfo,
+    buildingState: buildingState,
 
     OUTER_STYLE: OUTER_STYLE,
     CLUSTER_STYLE_DIM: CLUSTER_STYLE_DIM,
@@ -1093,6 +1222,8 @@ App.polygons = (function () {
     CLUSTER_STYLE_PRINTED_HOVER: CLUSTER_STYLE_PRINTED_HOVER,
     STREET_STYLE: STREET_STYLE,
     BUILDING_STYLE: BUILDING_STYLE,
+    BUILDING_STYLE_IGNORED: BUILDING_STYLE_IGNORED,
+    BUILDING_STYLE_FLAGGED: BUILDING_STYLE_FLAGGED,
     PANE: PANE,
   };
 })();

@@ -74,6 +74,10 @@
       ["clustersPane", 410],
       ["streetsPane", 420],
       ["buildingsPane", 430],
+      // The trim proposal is a decision being previewed, so it sits above
+      // everything it is a decision about — including the buildings, which is
+      // the layer it is being judged against.
+      ["trimPane", 440],
     ].forEach(function (spec) {
       if (!map.getPane(spec[0])) map.createPane(spec[0]).style.zIndex = spec[1];
     });
@@ -97,7 +101,11 @@
     App.data.init();
     App.session.init();
     App.clustering.init();
+    // Before editing and trim: both ask it for the street graph, and both
+    // capture the module reference in their own init().
+    App.network.init();
     App.editing.init();
+    App.trim.init();
     App.print.init();
     App.boundary.init();
     // Before controls.init: Leaflet stacks a corner's controls in the order

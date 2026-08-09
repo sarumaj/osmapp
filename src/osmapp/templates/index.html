@@ -531,6 +531,91 @@
       </div>
     </template>
 
+    <!-- Same shell as the cut and merge bars: a mode is a mode, and three
+         different-looking boxes saying "you are in a mode now" would be three
+         things to learn instead of one. -->
+    <template id="tpl-trim-toolbar">
+      <div class="trim-toolbar" role="toolbar" aria-label="Trim boundary">
+        <div class="trim-toolbar__head">
+          <span class="trim-toolbar__count" data-role="count">0 ignored</span>
+          <span
+            class="trim-toolbar__status"
+            data-role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <div class="trim-toolbar__row">
+          <label data-role="reach-label" data-i18n="trim.reach">
+            Reach behind buildings
+          </label>
+          <input
+            type="range"
+            data-role="reach"
+            min="20"
+            max="150"
+            step="5"
+            data-i18n-attrs="aria-label=trim.reach"
+          />
+          <output data-role="reach-out"></output>
+        </div>
+        <div class="trim-toolbar__row">
+          <label data-role="detail-label" data-i18n="trim.detail">
+            Edge detail
+          </label>
+          <input
+            type="range"
+            data-role="detail"
+            min="0"
+            max="45"
+            step="5"
+            data-i18n-attrs="aria-label=trim.detail"
+          />
+          <output data-role="detail-out"></output>
+        </div>
+        <div class="trim-toolbar__opts">
+          <label class="trim-toolbar__opt">
+            <input type="checkbox" data-role="follow" />
+            <span data-i18n="trim.follow">Follow streets</span>
+            <kbd>F</kbd>
+          </label>
+        </div>
+        <div class="trim-toolbar__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="apply"
+            data-i18n="trim.apply"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="outliers"
+            data-i18n="trim.outliers"
+          >
+            Outliers
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="clear"
+            data-i18n="trim.clear"
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="cancel"
+            data-i18n="trim.cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </template>
+
     <template id="tpl-polygon-menu">
       <div class="polygon-context-menu" role="menu">
         <button
@@ -1080,6 +1165,8 @@
     <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
     <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/coverage.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/network.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
     <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
@@ -1088,6 +1175,7 @@
     <script src="{{ url_for('static', filename='js/session.js') }}"></script>
     <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>
     <script src="{{ url_for('static', filename='js/editing.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/trim.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print.js') }}"></script>
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>

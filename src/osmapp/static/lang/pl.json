@@ -67,7 +67,10 @@
     "needsPrinted": "Żaden teren nie jest oznaczony jako wydrukowany",
     "needsAnything": "Nie ma czego czyścić",
     "labelNumbers": "Numery",
-    "numbers": "Pokaż numer na każdym terenie"
+    "numbers": "Pokaż numer na każdym terenie",
+    "trim": "Przytnij granicę do istotnych budynków",
+    "labelTrim": "Przytnij",
+    "needsBuildings": "Najpierw pobierz budynki"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -146,6 +149,57 @@
     "selected": "zaznaczono: {count}",
     "action": "Połącz",
     "cancel": "Anuluj"
+  },
+  "trim": {
+    "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · Enter zatwierdza · Esc anuluje",
+    "ignored": {
+      "one": "{count} pominięty budynek",
+      "few": "{count} pominięte budynki",
+      "many": "{count} pominiętych budynków",
+      "other": "{count} pominiętego budynku"
+    },
+    "flaggedCount": {
+      "one": "{count} oznaczony",
+      "few": "{count} oznaczone",
+      "many": "{count} oznaczonych",
+      "other": "{count} oznaczonego"
+    },
+    "reach": "Zasięg za budynkami",
+    "reachValue": "{meters} m",
+    "detail": "Szczegółowość krawędzi",
+    "detailValue": "wygładzenie {meters} m",
+    "detailFull": "każde wcięcie",
+    "follow": "Podążaj za ulicami",
+    "apply": "Zastosuj",
+    "outliers": "Odosobnione",
+    "clear": "Wyczyść",
+    "cancel": "Anuluj",
+    "computing": "Obliczanie…",
+    "saving": "Usuwa {percent}% — zostaje {area} km²",
+    "dropped": {
+      "one": "{count} budynek wypadłby poza granicę",
+      "few": "{count} budynki wypadłyby poza granicę",
+      "many": "{count} budynków wypadłoby poza granicę",
+      "other": "{count} budynku wypadłoby poza granicę"
+    },
+    "corners": {
+      "one": "{count} narożnik",
+      "few": "{count} narożniki",
+      "many": "{count} narożników",
+      "other": "{count} narożnika"
+    },
+    "nothing": "Przy tym zasięgu nie ma czego przycinać.",
+    "noKeep": "Wszystkie budynki są pominięte.",
+    "noOutliers": "Żaden budynek nie jest nietypowo odosobniony jak na ten teren.",
+    "noBuildings": "Pobierz budynki przed przycięciem granicy.",
+    "failed": "Nie udało się wyznaczyć mniejszej granicy.",
+    "nothingToApply": "Nie ma jeszcze mniejszej granicy do zastosowania.",
+    "applyTitle": "Przyciąć granicę?",
+    "applyMessage": "Granica zewnętrzna zostanie zastąpiona, a tereny przycięte do niej. Tereny, których kształt się zmieni, tracą oznaczenie wydruku.",
+    "applyDetail": "{before} km² → {after} km² (−{percent}%)",
+    "applyOk": "Przytnij",
+    "excludedNote": "Pominięty — kliknij, aby zachować",
+    "flaggedNote": "Odosobniony, zachowany — kliknij, aby pominąć"
   },
   "draw": {
     "hint": "Klikaj, aby stawiać punkty · Przeciąganie prawym przyciskiem przesuwa mapę · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
@@ -556,6 +610,14 @@
       "done": {
         "title": "To wszystko",
         "body": "Tym przyciskiem otworzysz przewodnik ponownie, kiedy zechcesz. Zostaw poniższe pole zaznaczone, a nie uruchomi się już sam."
+      },
+      "trimButton": {
+        "title": "Przytnij granicę",
+        "body": "Narysowana lub przejęta granica zawsze obejmuje więcej, niż trzeba: pola, las, gospodarstwa za rzeką. Dzielenie tego wszystkiego marnuje tereny na pustej ziemi. Ten przycisk najpierw dopasowuje granicę do budynków."
+      },
+      "trim": {
+        "title": "Pomiń to, czego nie potrzebujesz",
+        "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Jeden suwak ustala, jak daleko za domami biegnie nowa granica, drugi — jak mocno krawędź jest wygładzana, a przy włączonym „Podążaj za ulicami” przyciąga się ona do sieci dróg zamiast ciąć przez ogrody. Zielone zostaje, czerwone odpada."
       }
     }
   },

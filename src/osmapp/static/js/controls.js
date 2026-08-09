@@ -66,6 +66,19 @@ App.controls = (function () {
     return !!(s.cachedStreets && s.cachedStreets.features);
   }
 
+  /**
+   * Streets alone are not enough for the trim tool: it decides where the
+   * boundary goes from where the buildings are, and an area that downloaded
+   * none of them has nothing to trim towards.
+   */
+  function hasBuildings() {
+    return !!(
+      s.cachedBuildings &&
+      s.cachedBuildings.features &&
+      s.cachedBuildings.features.length > 0
+    );
+  }
+
   function hasClusters() {
     return !!(s.clusters && s.clusters.length > 0);
   }
@@ -112,6 +125,26 @@ App.controls = (function () {
           accent: "blue",
           enabled: hasBoundary,
           onClick: _refetch,
+        },
+        {
+          // In Area rather than Territories on purpose: this reshapes the
+          // boundary, and it belongs before the split rather than among the
+          // tools that correct one.
+          id: "trim",
+          icon: "fa-compress",
+          labelKey: "toolbar.labelTrim",
+          titleKey: "toolbar.trim",
+          disabledTitleKey: "toolbar.needsBuildings",
+          accent: "blue",
+          enabled: function () {
+            return hasBoundary() && hasBuildings();
+          },
+          active: function () {
+            return !!s.trimMode;
+          },
+          onClick: function () {
+            App.trim.toggle();
+          },
         },
       ],
     },
@@ -766,6 +799,7 @@ App.controls = (function () {
     if (App.history) App.history.clear();
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
+    if (s.trimMode) App.trim.toggle();
 
     [
       s.streetsLayerGroup,

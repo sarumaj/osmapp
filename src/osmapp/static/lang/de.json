@@ -67,7 +67,10 @@
     "needsPrinted": "Kein Gebiet ist als gedruckt markiert",
     "needsAnything": "Nichts zurückzusetzen",
     "labelNumbers": "Nummern",
-    "numbers": "Jedes Gebiet mit seiner Nummer beschriften"
+    "numbers": "Jedes Gebiet mit seiner Nummer beschriften",
+    "trim": "Grenze auf die relevanten Gebäude zuschneiden",
+    "labelTrim": "Zuschneiden",
+    "needsBuildings": "Zuerst die Gebäude herunterladen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -136,6 +139,49 @@
     "selected": "{count} ausgewählt",
     "action": "Zusammenführen",
     "cancel": "Abbrechen"
+  },
+  "trim": {
+    "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · Enter übernimmt · Esc bricht ab",
+    "ignored": {
+      "one": "{count} Gebäude ausgenommen",
+      "other": "{count} Gebäude ausgenommen"
+    },
+    "flaggedCount": {
+      "one": "{count} auffällig",
+      "other": "{count} auffällig"
+    },
+    "reach": "Abstand hinter den Gebäuden",
+    "reachValue": "{meters} m",
+    "detail": "Kantendetail",
+    "detailValue": "{meters} m begradigen",
+    "detailFull": "jeder Bucht folgen",
+    "follow": "Straßen folgen",
+    "apply": "Übernehmen",
+    "outliers": "Ausreißer",
+    "clear": "Zurücksetzen",
+    "cancel": "Abbrechen",
+    "computing": "Wird berechnet …",
+    "saving": "Entfernt {percent} % — {area} km² bleiben",
+    "dropped": {
+      "one": "{count} Gebäude fiele heraus",
+      "other": "{count} Gebäude fielen heraus"
+    },
+    "corners": {
+      "one": "{count} Ecke",
+      "other": "{count} Ecken"
+    },
+    "nothing": "Bei diesem Abstand gibt es nichts zuzuschneiden.",
+    "noKeep": "Alle Gebäude sind ausgenommen.",
+    "noOutliers": "Kein Gebäude liegt für diese Gegend ungewöhnlich abseits.",
+    "noBuildings": "Laden Sie die Gebäude herunter, bevor Sie die Grenze zuschneiden.",
+    "failed": "Es ließ sich keine kleinere Grenze ermitteln.",
+    "nothingToApply": "Es gibt noch keine kleinere Grenze zum Übernehmen.",
+    "applyTitle": "Grenze zuschneiden?",
+    "applyMessage": "Die äußere Grenze wird ersetzt und die Gebiete werden daran beschnitten. Gebiete, deren Form sich ändert, verlieren ihre Druckmarkierung.",
+    "applyDetail": "{before} km² → {after} km² (−{percent} %)",
+    "applyOk": "Zuschneiden",
+    "excludedNote": "Ausgenommen — klicken, um es zu behalten",
+    "flaggedNote": "Abseits, behalten — klicken, um es auszunehmen"
   },
   "draw": {
     "hint": "Klicken setzt Punkte · Rechte Maustaste ziehen verschiebt die Karte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
@@ -527,6 +573,14 @@
       "done": {
         "title": "Das war alles",
         "body": "Über diesen Knopf lässt sich die Tour jederzeit wieder öffnen. Bleibt das Kästchen unten angehakt, startet sie nicht mehr von selbst."
+      },
+      "trimButton": {
+        "title": "Grenze zuschneiden",
+        "body": "Eine gezeichnete oder übernommene Grenze umfasst immer mehr als gewollt: Felder, Wald, die Höfe jenseits des Flusses. Wird alles aufgeteilt, gehen Gebiete an leeres Land verloren. Diese Schaltfläche formt die Grenze zuerst um die Gebäude herum."
+      },
+      "trim": {
+        "title": "Ausnehmen, was nicht gebraucht wird",
+        "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Ein Regler bestimmt, wie weit die neue Grenze hinter den Häusern verläuft, der andere, wie stark die Kante begradigt wird; mit „Straßen folgen“ rastet sie am Straßennetz ein, statt durch Gärten zu schneiden. Grün bleibt, Rot fällt weg."
       }
     }
   },
