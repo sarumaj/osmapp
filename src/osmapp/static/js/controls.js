@@ -246,7 +246,10 @@ App.controls = (function () {
             return App.history.canUndo();
           },
           titleFn: function () {
-            return _depthTitle(App.history.undoKey(), App.history.undoDepth());
+            return _withKey(
+              _depthTitle(App.history.undoKey(), App.history.undoDepth()),
+              "Mod+Z",
+            );
           },
           onClick: function () {
             App.history.undo();
@@ -261,7 +264,10 @@ App.controls = (function () {
             return App.history.canRedo();
           },
           titleFn: function () {
-            return _depthTitle(App.history.redoKey(), App.history.redoDepth());
+            return _withKey(
+              _depthTitle(App.history.redoKey(), App.history.redoDepth()),
+              "Mod+Y",
+            );
           },
           onClick: function () {
             App.history.redo();
@@ -323,6 +329,19 @@ App.controls = (function () {
           accent: "blue",
           onClick: function () {
             App.tour.start();
+          },
+        },
+        {
+          // The tour teaches the workflow once; this answers "what can I
+          // press right now", which is a different question and was the one
+          // with no button at all.
+          id: "shortcuts",
+          icon: "fa-keyboard",
+          labelKey: "toolbar.labelShortcuts",
+          titleKey: "toolbar.shortcuts",
+          accent: "blue",
+          onClick: function () {
+            App.shortcuts.toggleSheet();
           },
         },
         { id: "language", custom: _mountLanguagePicker },
@@ -630,6 +649,18 @@ App.controls = (function () {
     return depth > 0
       ? T(prefix + "Count", { count: depth })
       : T(prefix + "None");
+  }
+
+  /**
+   * "Undo last change (3 available) — Ctrl+Z".
+   *
+   * The cut toolbar has shown its keys on <kbd> tags since it shipped and the
+   * main toolbar showed none, so the two most-used shortcuts in the app were
+   * the two least discoverable. Rendered through App.shortcuts so a Mac reads
+   * ⌘ rather than being told about a key its keyboard labels differently.
+   */
+  function _withKey(title, combo) {
+    return title + " — " + App.shortcuts.hint(combo);
   }
 
   // ══════════════════════════════════════════════════════════════════════

@@ -70,7 +70,17 @@
     "numbers": "Afficher un numéro sur chaque territoire",
     "trim": "Rogner la limite autour des bâtiments utiles",
     "labelTrim": "Rogner",
-    "needsBuildings": "Téléchargez d'abord les bâtiments"
+    "needsBuildings": "Téléchargez d'abord les bâtiments",
+    "shortcuts": "Afficher les raccourcis clavier",
+    "labelShortcuts": "Touches",
+    "undoSelectCount": "Retirer le dernier territoire sélectionné ({count} sélectionnés)",
+    "undoSelectNone": "Rien de sélectionné pour l’instant",
+    "redoSelectCount": "Remettre un territoire désélectionné ({count} disponibles)",
+    "redoSelectNone": "Aucun territoire à remettre",
+    "undoIgnoreCount": "Annuler la dernière modification des bâtiments exclus ({count} disponibles)",
+    "undoIgnoreNone": "Rien à annuler pour l’instant",
+    "redoIgnoreCount": "Rétablir une modification des bâtiments exclus ({count} disponibles)",
+    "redoIgnoreNone": "Rien à rétablir"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -116,7 +126,9 @@
     "print": "Imprimer",
     "markPrinted": "Marquer comme imprimé",
     "unmarkPrinted": "Marquer comme non imprimé",
-    "delete": "Supprimer"
+    "delete": "Supprimer",
+    "cut": "Diviser ce territoire",
+    "mergeFrom": "Fusionner celui-ci avec…"
   },
   "partition": {
     "title": "Diviser en territoires",
@@ -138,7 +150,12 @@
   "merge": {
     "selected": "{count} sélectionné(s)",
     "action": "Fusionner",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "clear": "Effacer",
+    "select": "Ajouter à la sélection",
+    "deselect": "Retirer de la sélection",
+    "needsTwo": "Sélectionnez au moins deux territoires",
+    "hint": "Cliquez les territoires pour les sélectionner · Clic droit pour le menu · Entrée fusionne · Retour arrière retire le dernier · ? pour toutes les touches"
   },
   "trim": {
     "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · E ajuste les angles à la main · Entrée applique · Échap annule",
@@ -184,10 +201,12 @@
     "applyOk": "Rogner",
     "excludedNote": "Exclu — cliquez pour le conserver",
     "flaggedNote": "Isolé, conservé — cliquez pour l’exclure",
-    "editedNote": "ajusté à la main"
+    "editedNote": "ajusté à la main",
+    "menuKeep": "Conserver ce bâtiment",
+    "menuExclude": "Exclure ce bâtiment"
   },
   "draw": {
-    "hint": "Cliquez pour placer des sommets · Glisser avec le bouton droit pour déplacer · Entrée ou double-clic pour terminer · Retour arrière recule · Échap pour annuler",
+    "hint": "Cliquez pour poser des sommets · Maintenez Alt pour ignorer l’aimantation · Clic droit glissé pour déplacer la carte · Clic droit pour le menu · Entrée ou double-clic pour découper · Retour arrière revient en arrière · ? pour toutes les touches",
     "outerHint": "Cliquez pour placer des sommets · Entrée ou double-clic pour terminer · Échap pour annuler"
   },
   "search": {
@@ -459,7 +478,8 @@
     "follow": "Suivre les rues entre les sommets",
     "finish": "Couper",
     "undo": "Retour",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "redo": "En avant"
   },
   "tour": {
     "next": "Suivant",
@@ -593,5 +613,45 @@
   },
   "demo": {
     "street": "Rue exemple {n}"
+  },
+  "shortcuts": {
+    "title": "Clavier et souris",
+    "hint": "Ce que fait une touche dépend de l’outil actif. L’outil actif est en tête de liste.",
+    "close": "Fermer",
+    "or": "ou",
+    "groupGlobal": "Partout",
+    "groupCut": "Outil de découpe",
+    "groupMerge": "Fusion",
+    "groupTrim": "Ajustement de la limite",
+    "groupDraw": "Tracé d’une limite",
+    "sheet": "Afficher cette liste",
+    "escape": "Fermer l’élément au premier plan",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "menu": "Menu de cet outil",
+    "menuTerritory": "Menu d’un territoire",
+    "panRight": "Déplacer la carte sans poser de sommet",
+    "cutFinish": "Découper le long de la ligne",
+    "cutBack": "Retirer le dernier sommet",
+    "cutForward": "Remettre un sommet retiré",
+    "cutCancel": "Quitter l’outil de découpe",
+    "cutAlt": "Ignorer l’aimantation tant que la touche est enfoncée",
+    "mergeApply": "Fusionner les territoires sélectionnés",
+    "mergeBack": "Retirer le dernier territoire sélectionné",
+    "mergeForward": "Remettre un territoire désélectionné",
+    "mergeClear": "Effacer la sélection",
+    "mergeCancel": "Quitter la fusion",
+    "mergePick": "Sélectionner ou désélectionner un territoire",
+    "trimApply": "Appliquer la limite ajustée",
+    "trimCancel": "Quitter l’ajustement",
+    "trimPick": "Conserver ou exclure un bâtiment",
+    "trimBox": "Exclure tout dans un rectangle",
+    "trimUnbox": "Remettre tout dans un rectangle",
+    "drawFinish": "Fermer la limite",
+    "drawBack": "Retirer le dernier sommet",
+    "drawCancel": "Abandonner la limite",
+    "drawDouble": "Fermer la limite",
+    "trimBack": "Annuler la dernière modification des bâtiments exclus",
+    "trimForward": "Rétablir une modification des bâtiments exclus"
   }
 }

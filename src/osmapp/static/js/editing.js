@@ -42,6 +42,8 @@ App.editing = (function () {
   var _hintBanner = null;
   var _cutToolbar = null;
   var _mergeToolbar = null;
+  var _mergeHint = null;
+  var _deselected = []; // territories dropped from the selection — the redo stack
 
   var _pendingMove = null;
   var _moveQueued = false;
@@ -68,8 +70,11 @@ App.editing = (function () {
     N = App.network;
     D = App.dom;
     T = App.i18n.t;
-    document.addEventListener("keydown", _onKeyDown);
-    document.addEventListener("keyup", _onKeyUp);
+    // Alt is a live modifier rather than a shortcut — it suspends snapping for
+    // as long as it is down — so it stays here, next to the pointer state it
+    // changes. Everything discrete is registered with App.shortcuts.
+    document.addEventListener("keydown", _onModifierDown);
+    document.addEventListener("keyup", _onModifierUp);
     App._loaded.push("editing");
   }
 
@@ -422,6 +427,7 @@ App.editing = (function () {
     _undonePoints = [];
     _altHeld = false;
     App.history.pushScope(CUT_SCOPE);
+    App.shortcuts.push(CUT_KEYS);
     rebuildSnapIndex();
 
     // The cursor belongs to the split line from here on: no tooltip trailing
@@ -497,6 +503,8 @@ App.editing = (function () {
     _routedPrefix = [];
     _undonePoints = [];
     App.history.popScope("cut");
+    App.shortcuts.pop("cut");
+    App.ui.closeContextMenu();
     _pendingMove = null;
     _moveQueued = false;
     _altHeld = false;
@@ -564,13 +572,21 @@ App.editing = (function () {
     if (e.button !== 2) return;
     var moved = _rightPan.moved;
     _endRightPan();
+    if (!s.editMode) return;
+
     // The cursor has not moved but the ground under it has, so what it is
     // pointing at — and therefore the snap dot and the green preview — has to
     // be worked out again.
-    if (moved && s.editMode) {
+    if (moved) {
       _pendingMove = s.leafletMap.mouseEventToLatLng(e);
       _refreshPreview();
+      return;
     }
+
+    // A right button pressed and released without travelling is a click, and
+    // a click on the right button asks for a menu everywhere else in the app.
+    // Panning does not lose anything by ceding the stationary case.
+    _showCutMenu(s.leafletMap.mouseEventToContainerPoint(e));
   }
 
   function _endRightPan() {
@@ -853,61 +869,261 @@ App.editing = (function () {
     );
   }
 
-  function _onKeyDown(e) {
-    var tag = ((e.target || {}).tagName || "").toUpperCase();
-    var typing = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
-
-    if (s.editMode) {
-      if (e.key === "Alt" && !_altHeld) {
-        _altHeld = true;
-        _refreshPreview();
-        return;
-      }
-      if (e.key === "Escape") {
-        toggleEditMode();
-        return;
-      }
-      // Enter matches the outer-boundary tool, where a double-click is the
-      // fiddliest part of the gesture.
-      if (e.key === "Enter" && !typing) {
-        e.preventDefault();
-        if (_points.length >= 2) _finishLine();
-        return;
-      }
-      if ((e.key === "Backspace" || e.key === "Delete") && !typing) {
-        e.preventDefault();
-        undoPoint();
-        return;
-      }
-      if (!typing && !e.ctrlKey && !e.metaKey) {
-        var key = e.key.toLowerCase();
-        if (key === "s") {
-          e.preventDefault();
-          _setToggle("cutSnap", !s.cutSnap);
-          return;
-        }
-        if (key === "f") {
-          e.preventDefault();
-          _setToggle("cutFollow", !s.cutFollow);
-          return;
-        }
-        if (key === "b") {
-          e.preventDefault();
-          _setToggle("cutSnapEdges", !s.cutSnapEdges);
-          return;
-        }
-      }
-      return;
-    }
-
-    if (e.key === "Escape" && s.mergeMode) toggleMergeMode();
+  function _onModifierDown(e) {
+    if (e.key !== "Alt" || _altHeld || !s.editMode) return;
+    _altHeld = true;
+    _refreshPreview();
   }
 
-  function _onKeyUp(e) {
+  function _onModifierUp(e) {
     if (e.key === "Alt" && _altHeld) {
       _altHeld = false;
       if (s.editMode) _refreshPreview();
     }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // SHORTCUT CONTEXTS
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Every key the cut tool answers, in one list, plus the two gestures that
+   * are not keys at all. Shift+Backspace is new and is the whole reason the
+   * list is worth having: Backspace has always stepped back, and until the
+   * list existed nobody noticed that nothing stepped forward.
+   */
+  var CUT_KEYS = {
+    id: "cut",
+    titleKey: "shortcuts.groupCut",
+    entries: [
+      {
+        combos: ["Enter"],
+        labelKey: "shortcuts.cutFinish",
+        when: function () {
+          return _points.length >= 2;
+        },
+        run: _finishLine,
+      },
+      {
+        combos: ["Backspace", "Delete"],
+        labelKey: "shortcuts.cutBack",
+        when: function () {
+          return _points.length > 0;
+        },
+        run: undoPoint,
+      },
+      {
+        combos: ["Shift+Backspace", "Shift+Delete"],
+        labelKey: "shortcuts.cutForward",
+        when: function () {
+          return _undonePoints.length > 0;
+        },
+        run: redoPoint,
+      },
+      {
+        combos: ["S"],
+        labelKey: "cut.snap",
+        run: function () {
+          _setToggle("cutSnap", !s.cutSnap);
+        },
+      },
+      {
+        combos: ["B"],
+        labelKey: "cut.edges",
+        run: function () {
+          _setToggle("cutSnapEdges", !s.cutSnapEdges);
+        },
+      },
+      {
+        combos: ["F"],
+        labelKey: "cut.follow",
+        run: function () {
+          _setToggle("cutFollow", !s.cutFollow);
+        },
+      },
+      {
+        combos: ["Escape"],
+        labelKey: "shortcuts.cutCancel",
+        run: function () {
+          if (s.editMode) toggleEditMode();
+        },
+      },
+      { combos: ["Alt"], labelKey: "shortcuts.cutAlt", note: true },
+      { combos: ["Right-drag"], labelKey: "shortcuts.panRight", note: true },
+      { combos: ["Right-click"], labelKey: "shortcuts.menu", note: true },
+    ],
+  };
+
+  var MERGE_KEYS = {
+    id: "merge",
+    titleKey: "shortcuts.groupMerge",
+    entries: [
+      {
+        // Cut commits on Enter and so does trim. Merge asked you to go and
+        // find the button, for no reason anybody could have named.
+        combos: ["Enter"],
+        labelKey: "shortcuts.mergeApply",
+        when: canMerge,
+        run: mergeSelectedClusters,
+      },
+      {
+        combos: ["Backspace", "Delete"],
+        labelKey: "shortcuts.mergeBack",
+        when: function () {
+          return s.selectedClusters.length > 0;
+        },
+        run: deselectLast,
+      },
+      {
+        combos: ["Shift+Backspace", "Shift+Delete"],
+        labelKey: "shortcuts.mergeForward",
+        when: function () {
+          return _deselected.length > 0;
+        },
+        run: reselectLast,
+      },
+      {
+        combos: ["C"],
+        labelKey: "shortcuts.mergeClear",
+        when: function () {
+          return s.selectedClusters.length > 0;
+        },
+        run: _clearSelection,
+      },
+      {
+        combos: ["Escape"],
+        labelKey: "shortcuts.mergeCancel",
+        run: function () {
+          if (s.mergeMode) toggleMergeMode();
+        },
+      },
+      { combos: ["Click"], labelKey: "shortcuts.mergePick", note: true },
+      { combos: ["Right-click"], labelKey: "shortcuts.menu", note: true },
+    ],
+  };
+
+  // ── Cut context menu ──────────────────────────────────────────────────
+
+  /**
+   * The cut toolbar sits in a corner; the drawing happens under the cursor.
+   * Right-click already had to be watched here for panning, and a right
+   * button that was released without moving is a click asking for a menu —
+   * so the toolbar's actions are available where the hand already is.
+   */
+  function _showCutMenu(point) {
+    App.ui.showContextMenu(point, [
+      {
+        labelKey: "cut.finish",
+        icon: "fa-scissors",
+        disabled: _points.length < 2,
+        onClick: _finishLine,
+      },
+      {
+        labelKey: "cut.undo",
+        icon: "fa-rotate-left",
+        disabled: _points.length === 0,
+        onClick: undoPoint,
+      },
+      {
+        labelKey: "cut.redo",
+        icon: "fa-rotate-right",
+        disabled: _undonePoints.length === 0,
+        onClick: redoPoint,
+      },
+      { separator: true },
+      {
+        labelKey: "cut.snap",
+        icon: s.cutSnap ? "fa-square-check" : "fa-square",
+        checked: !!s.cutSnap,
+        onClick: function () {
+          _setToggle("cutSnap", !s.cutSnap);
+        },
+      },
+      {
+        labelKey: "cut.edges",
+        icon: s.cutSnapEdges ? "fa-square-check" : "fa-square",
+        checked: !!s.cutSnapEdges,
+        onClick: function () {
+          _setToggle("cutSnapEdges", !s.cutSnapEdges);
+        },
+      },
+      {
+        labelKey: "cut.follow",
+        icon: s.cutFollow ? "fa-square-check" : "fa-square",
+        checked: !!s.cutFollow,
+        onClick: function () {
+          _setToggle("cutFollow", !s.cutFollow);
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "cut.cancel",
+        icon: "fa-xmark",
+        danger: true,
+        onClick: function () {
+          if (s.editMode) toggleEditMode();
+        },
+      },
+    ]);
+  }
+
+  /**
+   * The merge menu the toolbar's buttons were the only route to, with the
+   * one entry a toolbar cannot offer at the top: the territory under the
+   * cursor, named as something you can pick or drop right here.
+   */
+  function _showMergeMenu(point, layer, feature) {
+    var selected = layer ? _selectionIndex(layer) >= 0 : false;
+    App.ui.showContextMenu(point, [
+      layer && {
+        labelKey: selected ? "merge.deselect" : "merge.select",
+        icon: selected ? "fa-square-minus" : "fa-square-plus",
+        checked: selected,
+        onClick: function () {
+          handleClusterSelectClick(layer, feature);
+        },
+      },
+      layer && { separator: true },
+      {
+        labelKey: "merge.action",
+        icon: "fa-code-merge",
+        disabled: !canMerge(),
+        onClick: mergeSelectedClusters,
+      },
+      {
+        labelKey: "merge.clear",
+        icon: "fa-eraser",
+        disabled: s.selectedClusters.length === 0,
+        onClick: _clearSelection,
+      },
+      { separator: true },
+      {
+        labelKey: "merge.cancel",
+        icon: "fa-xmark",
+        danger: true,
+        onClick: function () {
+          if (s.mergeMode) toggleMergeMode();
+        },
+      },
+    ]);
+  }
+
+  /**
+   * Called by polygons.js for a right-click on a territory while a mode owns
+   * the map, so the menu that opens is the one belonging to the mode rather
+   * than the territory menu that would have been meaningless there.
+   * @returns {boolean} whether a menu was opened
+   */
+  function handleModeContextMenu(point, layer, feature) {
+    if (s.mergeMode) {
+      _showMergeMenu(point, layer, feature);
+      return true;
+    }
+    if (s.editMode) {
+      _showCutMenu(point);
+      return true;
+    }
+    return false;
   }
 
   // ── Cut toolbar ───────────────────────────────────────────────────────
@@ -924,11 +1140,27 @@ App.editing = (function () {
       if (_points.length >= 2) _finishLine();
     });
     D.onRole(_cutToolbar, "undo", undoPoint);
+    D.onRole(_cutToolbar, "redo", redoPoint);
     D.onRole(_cutToolbar, "cancel", function () {
       if (s.editMode) toggleEditMode();
     });
 
     _updateCutStatus([]);
+  }
+
+  /** Grey what cannot fire, the same way the main toolbar does. */
+  function _syncCutButtons() {
+    if (!_cutToolbar) return;
+    [
+      ["finish", _points.length >= 2],
+      ["undo", _points.length > 0],
+      ["redo", _undonePoints.length > 0],
+    ].forEach(function (pair) {
+      var node = D.role(_cutToolbar, pair[0]);
+      if (!node) return;
+      D.toggleClass(node, "is-disabled", !pair[1]);
+      node.setAttribute("aria-disabled", String(!pair[1]));
+    });
   }
 
   function _wireToggle(role, flag) {
@@ -959,6 +1191,7 @@ App.editing = (function () {
   function _updateCutStatus(finished) {
     if (!_cutToolbar) return;
     D.text(_cutToolbar, "count", T("cut.vertices", { count: _points.length }));
+    _syncCutButtons();
 
     if (_points.length < 2) {
       D.text(_cutToolbar, "status", T("cut.needMore"));
@@ -1180,26 +1413,51 @@ App.editing = (function () {
       if (s.editMode) toggleEditMode();
       if (s.trimMode) App.trim.toggle();
       s.selectedClusters = [];
+      _deselected = [];
       // Selecting means clicking the shape, so the tooltip is pinned above it
       // rather than sitting under the pointer — the count still reads, the
       // click target stays clear.
       App.polygons.setTooltipMode("anchored");
       _showMergeToolbar();
+      _mergeHint = D.mountOnMap("tpl-merge-hint", s.leafletMap);
+      App.shortcuts.push(MERGE_KEYS);
+      // Without a scope of its own, Ctrl+Z in merge mode reached past the
+      // selection being built and undid the last change to the territories
+      // themselves — the exact failure history.js's scope stack was written
+      // to stop, in the one mode that never registered one.
+      App.history.pushScope(MERGE_SCOPE);
     } else {
       App.polygons.setTooltipMode("full");
       _clearSelection();
       _hideMergeToolbar();
+      _mergeHint = D.remove(_mergeHint);
+      _deselected = [];
+      App.shortcuts.pop("merge");
+      App.history.popScope("merge");
     }
+    App.ui.closeContextMenu();
+  }
+
+  /** Enter merge mode with one territory already picked. */
+  function startMergeWith(layer, feature) {
+    if (!s.mergeMode) toggleMergeMode();
+    if (!s.mergeMode) return;
+    if (_selectionIndex(layer) < 0) handleClusterSelectClick(layer, feature);
+  }
+
+  function _selectionIndex(layer) {
+    for (var i = 0; i < s.selectedClusters.length; i++) {
+      if (s.selectedClusters[i].layer === layer) return i;
+    }
+    return -1;
+  }
+
+  function canMerge() {
+    return s.selectedClusters.length >= 2;
   }
 
   function handleClusterSelectClick(layer, feature) {
-    var idx = -1;
-    for (var i = 0; i < s.selectedClusters.length; i++) {
-      if (s.selectedClusters[i].layer === layer) {
-        idx = i;
-        break;
-      }
-    }
+    var idx = _selectionIndex(layer);
     if (idx >= 0) {
       App.polygons.selectCluster(layer, false);
       s.selectedClusters.splice(idx, 1);
@@ -1207,11 +1465,55 @@ App.editing = (function () {
       s.selectedClusters.push({ layer: layer, feature: feature });
       App.polygons.selectCluster(layer, true);
     }
+    // Picking or dropping by hand branches off the timeline, exactly as
+    // placing a vertex does for the cut tool.
+    _deselected = [];
     _updateMergeCount();
   }
 
+  /** Take back the most recent pick. @returns {boolean} whether anything moved */
+  function deselectLast() {
+    if (!s.mergeMode || s.selectedClusters.length === 0) return false;
+    var item = s.selectedClusters.pop();
+    App.polygons.selectCluster(item.layer, false);
+    _deselected.push(item);
+    _updateMergeCount();
+    return true;
+  }
+
+  /** Put back what deselectLast() took. */
+  function reselectLast() {
+    if (!s.mergeMode || _deselected.length === 0) return false;
+    var item = _deselected.pop();
+    s.selectedClusters.push(item);
+    App.polygons.selectCluster(item.layer, true);
+    _updateMergeCount();
+    return true;
+  }
+
+  /** Undo/redo belong to the selection while one is being collected. */
+  var MERGE_SCOPE = {
+    id: "merge",
+    undo: deselectLast,
+    redo: reselectLast,
+    canUndo: function () {
+      return s.selectedClusters.length > 0;
+    },
+    canRedo: function () {
+      return _deselected.length > 0;
+    },
+    undoDepth: function () {
+      return s.selectedClusters.length;
+    },
+    redoDepth: function () {
+      return _deselected.length;
+    },
+    undoKey: "toolbar.undoSelect",
+    redoKey: "toolbar.redoSelect",
+  };
+
   function mergeSelectedClusters() {
-    if (s.selectedClusters.length < 2) {
+    if (!canMerge()) {
       alert(T("alert.mergeTooFew"));
       return;
     }
@@ -1280,7 +1582,10 @@ App.editing = (function () {
   function _showMergeToolbar() {
     _hideMergeToolbar();
     _mergeToolbar = D.mountOnMap("tpl-merge-toolbar", s.leafletMap);
-    D.onRole(_mergeToolbar, "merge", mergeSelectedClusters);
+    D.onRole(_mergeToolbar, "merge", function () {
+      if (canMerge()) mergeSelectedClusters();
+    });
+    D.onRole(_mergeToolbar, "clear", _clearSelection);
     D.onRole(_mergeToolbar, "cancel", toggleMergeMode);
     _updateMergeCount();
   }
@@ -1290,17 +1595,38 @@ App.editing = (function () {
   }
 
   function _updateMergeCount() {
-    if (_mergeToolbar)
-      D.text(
-        _mergeToolbar,
-        "count",
-        T("merge.selected", { count: s.selectedClusters.length }),
-      );
+    App.history.sync();
+    if (!_mergeToolbar) return;
+    D.text(
+      _mergeToolbar,
+      "count",
+      T("merge.selected", { count: s.selectedClusters.length }),
+    );
+
+    // Disabled with a reason rather than clickable-into-an-alert. This is how
+    // every button in the main toolbar already behaves; the two buttons that
+    // live on a mode's own bar were the exception.
+    var merge = D.role(_mergeToolbar, "merge");
+    if (merge) {
+      var ready = canMerge();
+      D.toggleClass(merge, "is-disabled", !ready);
+      merge.setAttribute("aria-disabled", String(!ready));
+      merge.title = T(ready ? "merge.action" : "merge.needsTwo");
+    }
+    var clear = D.role(_mergeToolbar, "clear");
+    if (clear) {
+      var any = s.selectedClusters.length > 0;
+      D.toggleClass(clear, "is-disabled", !any);
+      clear.setAttribute("aria-disabled", String(!any));
+    }
   }
 
   function _clearSelection() {
+    // Kept on the redo stack newest-last, so Shift+Backspace walks a cleared
+    // selection back one territory at a time rather than all-or-nothing.
     s.selectedClusters.forEach(function (item) {
       App.polygons.selectCluster(item.layer, false);
+      _deselected.push(item);
     });
     s.selectedClusters = [];
     _updateMergeCount();
@@ -1310,9 +1636,14 @@ App.editing = (function () {
     init: init,
     toggleEditMode: toggleEditMode,
     toggleMergeMode: toggleMergeMode,
+    startMergeWith: startMergeWith,
+    canMerge: canMerge,
     undoPoint: undoPoint,
     redoPoint: redoPoint,
+    deselectLast: deselectLast,
+    reselectLast: reselectLast,
     handleClusterSelectClick: handleClusterSelectClick,
+    handleModeContextMenu: handleModeContextMenu,
     mergeSelectedClusters: mergeSelectedClusters,
     rebuildSnapIndex: rebuildSnapIndex,
   };

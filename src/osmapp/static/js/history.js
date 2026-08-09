@@ -279,24 +279,33 @@ App.history = (function () {
   // KEYBOARD
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Undo and redo are global: they are answered by whichever scope is active,
+   * which is the whole design above, so there is nothing for a per-mode
+   * binding to add. Registering them rather than listening directly is what
+   * gets them onto the shortcut sheet — and the sheet is where somebody finds
+   * out that Ctrl+Z means "take back that vertex" while a cut is in progress.
+   */
   function _bindKeyboard() {
-    document.addEventListener("keydown", function (e) {
-      var tag = (e.target || e.srcElement).tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-
-      if (!(e.ctrlKey || e.metaKey)) return;
-      var key = e.key.toLowerCase();
-
-      // No mode checks here any more: _active() already knows which stack the
-      // keystroke belongs to, and so does the toolbar button beside it.
-      if (key === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if (key === "y" || (key === "z" && e.shiftKey)) {
-        e.preventDefault();
-        redo();
-      }
-    });
+    App.shortcuts.global([
+      {
+        combos: ["Mod+Z"],
+        labelKey: "shortcuts.undo",
+        // Survives an open dialog: the print dialog pushes the eraser's scope,
+        // so with one up this *is* the dialog's undo. It had that before the
+        // registry existed and must not lose it to a rule about modals.
+        overModal: true,
+        when: canUndo,
+        run: undo,
+      },
+      {
+        combos: ["Mod+Y", "Mod+Shift+Z"],
+        labelKey: "shortcuts.redo",
+        overModal: true,
+        when: canRedo,
+        run: redo,
+      },
+    ]);
   }
 
   return {

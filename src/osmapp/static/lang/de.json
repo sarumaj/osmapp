@@ -70,7 +70,17 @@
     "numbers": "Jedes Gebiet mit seiner Nummer beschriften",
     "trim": "Grenze auf die relevanten Gebäude zuschneiden",
     "labelTrim": "Zuschneiden",
-    "needsBuildings": "Zuerst die Gebäude herunterladen"
+    "needsBuildings": "Zuerst die Gebäude herunterladen",
+    "shortcuts": "Tastenkürzel anzeigen",
+    "labelShortcuts": "Tasten",
+    "undoSelectCount": "Zuletzt gewähltes Gebiet zurücknehmen ({count} ausgewählt)",
+    "undoSelectNone": "Noch nichts ausgewählt",
+    "redoSelectCount": "Abgewähltes Gebiet zurückholen ({count} verfügbar)",
+    "redoSelectNone": "Kein Gebiet zum Zurückholen",
+    "undoIgnoreCount": "Letzte Änderung an den ausgeschlossenen Gebäuden rückgängig machen ({count} verfügbar)",
+    "undoIgnoreNone": "Noch nichts rückgängig zu machen",
+    "redoIgnoreCount": "Änderung an den ausgeschlossenen Gebäuden wiederherstellen ({count} verfügbar)",
+    "redoIgnoreNone": "Nichts wiederherzustellen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -116,7 +126,9 @@
     "print": "Drucken",
     "markPrinted": "Als gedruckt markieren",
     "unmarkPrinted": "Markierung entfernen",
-    "delete": "Löschen"
+    "delete": "Löschen",
+    "cut": "Dieses Gebiet teilen",
+    "mergeFrom": "Dieses zusammenführen mit…"
   },
   "partition": {
     "title": "In Gebiete aufteilen",
@@ -138,7 +150,12 @@
   "merge": {
     "selected": "{count} ausgewählt",
     "action": "Zusammenführen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "clear": "Zurücksetzen",
+    "select": "Zur Auswahl hinzufügen",
+    "deselect": "Aus der Auswahl entfernen",
+    "needsTwo": "Mindestens zwei Gebiete auswählen",
+    "hint": "Gebiete anklicken zum Auswählen · Rechtsklick für das Menü · Enter führt zusammen · Rücktaste nimmt das letzte zurück · ? für alle Tasten"
   },
   "trim": {
     "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · E passt die Ecken von Hand an · Enter übernimmt · Esc bricht ab",
@@ -184,10 +201,12 @@
     "applyOk": "Zuschneiden",
     "excludedNote": "Ausgenommen — klicken, um es zu behalten",
     "flaggedNote": "Abseits, behalten — klicken, um es auszunehmen",
-    "editedNote": "von Hand angepasst"
+    "editedNote": "von Hand angepasst",
+    "menuKeep": "Dieses Gebäude behalten",
+    "menuExclude": "Dieses Gebäude ausschließen"
   },
   "draw": {
-    "hint": "Klicken setzt Punkte · Rechte Maustaste ziehen verschiebt die Karte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
+    "hint": "Klicken setzt Punkte · Alt halten setzt das Einrasten aus · Rechts ziehen verschiebt die Karte · Rechtsklick öffnet das Menü · Enter oder Doppelklick schneidet · Rücktaste nimmt zurück · ? für alle Tasten",
     "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
   },
   "search": {
@@ -459,7 +478,8 @@
     "follow": "Zwischen Punkten den Straßen folgen",
     "finish": "Schneiden",
     "undo": "Zurück",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "redo": "Vorwärts"
   },
   "tour": {
     "next": "Weiter",
@@ -593,5 +613,45 @@
   },
   "demo": {
     "street": "Musterstraße {n}"
+  },
+  "shortcuts": {
+    "title": "Tastatur und Maus",
+    "hint": "Was eine Taste tut, hängt vom aktiven Werkzeug ab. Das aktive Werkzeug steht zuerst.",
+    "close": "Schließen",
+    "or": "oder",
+    "groupGlobal": "Überall",
+    "groupCut": "Schneidewerkzeug",
+    "groupMerge": "Zusammenführen",
+    "groupTrim": "Grenze zuschneiden",
+    "groupDraw": "Grenze zeichnen",
+    "sheet": "Diese Liste anzeigen",
+    "escape": "Das oberste Element schließen",
+    "undo": "Rückgängig",
+    "redo": "Wiederherstellen",
+    "menu": "Menü für dieses Werkzeug",
+    "menuTerritory": "Menü für ein Gebiet",
+    "panRight": "Karte verschieben, ohne einen Punkt zu setzen",
+    "cutFinish": "Entlang der Linie schneiden",
+    "cutBack": "Letzten Punkt zurücknehmen",
+    "cutForward": "Entfernten Punkt zurückholen",
+    "cutCancel": "Schneidewerkzeug verlassen",
+    "cutAlt": "Einrasten aussetzen, solange gedrückt",
+    "mergeApply": "Ausgewählte Gebiete zusammenführen",
+    "mergeBack": "Zuletzt gewähltes Gebiet zurücknehmen",
+    "mergeForward": "Abgewähltes Gebiet zurückholen",
+    "mergeClear": "Auswahl zurücksetzen",
+    "mergeCancel": "Zusammenführen verlassen",
+    "mergePick": "Gebiet aus- oder abwählen",
+    "trimApply": "Zugeschnittene Grenze übernehmen",
+    "trimCancel": "Zuschneiden verlassen",
+    "trimPick": "Gebäude behalten oder ausschließen",
+    "trimBox": "Alles in einem Rechteck ausschließen",
+    "trimUnbox": "Alles in einem Rechteck zurückholen",
+    "drawFinish": "Grenze schließen",
+    "drawBack": "Letzten Punkt zurücknehmen",
+    "drawCancel": "Grenze verwerfen",
+    "drawDouble": "Grenze schließen",
+    "trimBack": "Letzte Änderung an den ausgeschlossenen Gebäuden rückgängig machen",
+    "trimForward": "Änderung an den ausgeschlossenen Gebäuden wiederherstellen"
   }
 }

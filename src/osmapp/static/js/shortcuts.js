@@ -1,0 +1,457 @@
+/**
+ * shortcuts.js — one keyboard dispatcher, and the sheet that lists it.
+ *
+ * ── Why this exists ───────────────────────────────────────────────────────
+ *
+ * Keyboard handling used to be four `document.addEventListener("keydown")`
+ * calls in four modules, each re-deriving "am I the one who should answer
+ * this?" from a mode flag. That worked, and it drifted, in the two ways a
+ * design like that always drifts:
+ *
+ *   • Asymmetry. The cut tool bound Backspace to "take back a vertex" and
+ *     nothing to "put one back", even though redoPoint() existed and the
+ *     toolbar had a Back button with no forward twin. Merge mode bound
+ *     Escape and nothing else — no Enter, though every other modal tool in
+ *     the app commits on Enter. The outer-boundary drawer had no way to take
+ *     back a vertex at all, though Leaflet.Editable has had pop() all along.
+ *   • Invisibility. A shortcut nobody can enumerate is a shortcut nobody
+ *     knows. Three of them were written on a hint banner, three more on
+ *     <kbd> tags in the cut toolbar, and the rest were in the source.
+ *
+ * Both are the same bug: there was no list. So there is a list now, and it is
+ * the list that runs — the help sheet is rendered *from* the registry rather
+ * than written alongside it, which is what stops the documentation and the
+ * behavior from disagreeing again.
+ *
+ * ── Contexts ──────────────────────────────────────────────────────────────
+ *
+ * Deliberately shaped like App.history's scope stack, because it is the same
+ * problem: what a key means depends on what you are doing. A mode pushes a
+ * context when it starts and pops it when it ends, innermost wins, and the
+ * global context is always at the bottom.
+ *
+ *   App.shortcuts.push({
+ *     id: "cut",
+ *     titleKey: "shortcuts.groupCut",
+ *     entries: [
+ *       { combos: ["Enter"], labelKey: "shortcuts.cutFinish", run: finish },
+ *       { combos: ["Alt"],   labelKey: "shortcuts.cutAlt", note: true },
+ *     ],
+ *   });
+ *
+ * An entry with `run` is a binding. An entry with `note: true` is a line on
+ * the sheet and nothing else — for gestures (right-drag to pan) and for
+ * modifier holds (Alt suspends snapping) that are not discrete keystrokes and
+ * are handled where the pointer state lives. Both kinds are listed; only the
+ * first kind fires.
+ *
+ * `when()` gates an entry that exists only some of the time — the trim tool's
+ * F is locked while corners are being dragged by hand, and an entry that
+ * cannot fire is greyed on the sheet rather than hidden, so the reason it is
+ * unavailable is a thing you can see.
+ *
+ * ── What this does not take over ──────────────────────────────────────────
+ *
+ * The tour and the PDF placement frame bind on the capture phase and are
+ * modal in the strong sense: while either is up it owns the keyboard
+ * completely, including Escape. Routing them through a registry that other
+ * things can also answer would be a downgrade, so they stay where they are.
+ * Text fields likewise: nothing here fires while one has focus.
+ */
+var App = window.App || {};
+App._loaded = App._loaded || [];
+
+App.shortcuts = (function () {
+  "use strict";
+
+  var D = null;
+  var T = null;
+
+  /** Innermost last. The global context is not on it; see _stack(). */
+  var _contexts = [];
+  var _global = { id: "global", titleKey: "shortcuts.groupGlobal", entries: [] };
+  var _bound = false;
+  var _sheetOpen = false;
+
+  // ── Platform ──────────────────────────────────────────────────────────
+  //
+  // "Mod" is Ctrl everywhere and ⌘ on a Mac. Writing Ctrl on a sheet a Mac
+  // user is reading is the kind of small wrongness that makes the whole sheet
+  // feel like it was written for somebody else.
+  var _mac = null;
+
+  function isMac() {
+    if (_mac === null) {
+      var platform =
+        (typeof navigator !== "undefined" &&
+          (navigator.platform || navigator.userAgent)) ||
+        "";
+      _mac = /Mac|iPhone|iPad|iPod/i.test(platform);
+    }
+    return _mac;
+  }
+
+  function init() {
+    D = App.dom;
+    T = App.i18n.t;
+    if (!_bound) {
+      document.addEventListener("keydown", _onKeyDown);
+      _bound = true;
+    }
+
+    global([
+      {
+        // The one shortcut whose whole job is to reveal the others, so it is
+        // also the only one that fires while its own sheet is open.
+        combos: ["?"],
+        labelKey: "shortcuts.sheet",
+        run: toggleSheet,
+      },
+      {
+        // Owned by App.ui, which closes the topmost thing on screen. Listed
+        // because a key that works everywhere and appears nowhere is the
+        // reason this module exists.
+        combos: ["Escape"],
+        labelKey: "shortcuts.escape",
+        note: true,
+      },
+      { combos: ["Right-click"], labelKey: "shortcuts.menuTerritory", note: true },
+    ]);
+
+    App._loaded.push("shortcuts");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // COMBO PARSING
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * "Ctrl+Shift+Z" → { ctrl: true, shift: true, alt: false, key: "z" }
+   *
+   * "Mod" means Ctrl on Windows and Linux, ⌘ on a Mac, and matches either —
+   * a Mac keyboard has a Ctrl key too and somebody used to it should not find
+   * that undo has stopped working.
+   */
+  function parse(combo) {
+    var parts = String(combo).split("+");
+    var spec = { ctrl: false, shift: false, alt: false, mod: false, key: "" };
+    parts.forEach(function (part) {
+      var token = part.trim();
+      var lower = token.toLowerCase();
+      if (lower === "ctrl" || lower === "control") spec.ctrl = true;
+      else if (lower === "shift") spec.shift = true;
+      else if (lower === "alt" || lower === "option") spec.alt = true;
+      else if (lower === "mod" || lower === "cmd" || lower === "meta")
+        spec.mod = true;
+      else {
+        spec.key = lower;
+        // Matching is case-insensitive, but a gesture written "Right-drag"
+        // should be drawn the way it was written rather than shouted or
+        // flattened. Only the lowercased form is ever compared.
+        spec.raw = token;
+      }
+    });
+    return spec;
+  }
+
+  function _matches(spec, e) {
+    if (!spec.key) return false;
+    var key = String(e.key || "").toLowerCase();
+    if (key !== spec.key) return false;
+
+    var mod = !!(e.ctrlKey || e.metaKey);
+    if (spec.mod) {
+      if (!mod) return false;
+    } else if (spec.ctrl) {
+      if (!e.ctrlKey) return false;
+    } else if (mod) {
+      // An unmodified binding must not swallow Ctrl+S or ⌘+P.
+      return false;
+    }
+
+    if (spec.shift !== !!e.shiftKey) return false;
+    // Alt is not asserted unless the combo asks for it: Alt is a live modifier
+    // in the cut tool, and requiring altKey to be false would mean every other
+    // shortcut stopped working for as long as snapping was suspended.
+    if (spec.alt && !e.altKey) return false;
+    return true;
+  }
+
+  // ── Display ───────────────────────────────────────────────────────────
+
+  var KEY_LABELS = {
+    escape: "Esc",
+    enter: "Enter",
+    backspace: "Backspace",
+    delete: "Del",
+    arrowleft: "←",
+    arrowright: "→",
+    arrowup: "↑",
+    arrowdown: "↓",
+    " ": "Space",
+  };
+
+  /** The chips a combo is drawn as: ["Ctrl", "Z"]. */
+  function keyCaps(combo) {
+    var spec = parse(combo);
+    var caps = [];
+    if (spec.mod) caps.push(isMac() ? "⌘" : "Ctrl");
+    if (spec.ctrl) caps.push("Ctrl");
+    if (spec.alt) caps.push(isMac() ? "⌥" : "Alt");
+    if (spec.shift) caps.push("Shift");
+    if (spec.key) caps.push(_capFor(spec.key, spec.raw));
+    // A modifier named on its own — Alt, as a hold — is the whole combo.
+    if (!caps.length) caps.push(String(combo));
+    return caps;
+  }
+
+  function _capFor(key, raw) {
+    if (KEY_LABELS[key]) return KEY_LABELS[key];
+    if (key.length === 1) return key.toUpperCase();
+    return raw || key;
+  }
+
+  /** "Ctrl+Z", ready to drop into a tooltip. */
+  function hint(combo) {
+    return keyCaps(combo).join("+");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // CONTEXT STACK
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Take over the keyboard until pop(id). Pushing an id that is already on the
+   * stack replaces it, so a mode that restarts without a clean teardown cannot
+   * strand a context belonging to a tool that has closed.
+   */
+  function push(context) {
+    if (!context || !context.id) return;
+    pop(context.id);
+    _contexts.push(context);
+    if (_sheetOpen) _renderSheet();
+  }
+
+  function pop(id) {
+    for (var i = _contexts.length - 1; i >= 0; i--) {
+      if (_contexts[i].id === id) {
+        _contexts.splice(i, 1);
+        if (_sheetOpen) _renderSheet();
+        return;
+      }
+    }
+  }
+
+  /** Entries every context shares. Called once, from init. */
+  function global(entries) {
+    _global.entries = _global.entries.concat(entries || []);
+  }
+
+  /** Innermost first, global last — dispatch order and sheet order alike. */
+  function _stack() {
+    return _contexts.slice().reverse().concat([_global]);
+  }
+
+  /** Which context is answering right now — for tests and for debugging. */
+  function activeId() {
+    return _contexts.length ? _contexts[_contexts.length - 1].id : "global";
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // DISPATCH
+  // ══════════════════════════════════════════════════════════════════════
+
+  function _isTyping(target) {
+    if (!target) return false;
+    var tag = String(target.tagName || "").toUpperCase();
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+    return !!target.isContentEditable;
+  }
+
+  /**
+   * A dialog owns the keyboard while it is up.
+   *
+   * Without this, Enter in the print dialog would also commit the cut that
+   * was in progress behind it, and Escape would close two things at once —
+   * which is how a modal stops being modal. App.ui's own Escape handler is
+   * the one that closes the dialog; nothing here needs to.
+   *
+   * `overModal` is the exception, and there is exactly one kind of entry that
+   * earns it: undo and redo, which do not mean anything on their own. They
+   * ask App.history which scope is active, and a dialog that has pushed one —
+   * the print dialog pushes the eraser's — is the thing they are already
+   * addressed to. Blocking them would have quietly taken Ctrl+Z away from the
+   * eraser, which had it before this module existed.
+   */
+  function _modalOpen() {
+    if (App.print && App.print.isOpen && App.print.isOpen()) return true;
+    if (App.ui && App.ui.isDialogOpen && App.ui.isDialogOpen()) return true;
+    return false;
+  }
+
+  /**
+   * The tour is modal in the stronger sense: it binds on the capture phase and
+   * answers every key itself, including the arrows and Escape. Nothing here
+   * fires underneath it, `overModal` included — a walkthrough that can be
+   * undone out from under itself is worse than one with no shortcuts.
+   */
+  function _tourOpen() {
+    return !!(App.tour && App.tour.isOpen && App.tour.isOpen());
+  }
+
+  function _onKeyDown(e) {
+    if (!e || !e.key) return;
+    if (_isTyping(e.target)) return;
+
+    // While the sheet is up it is the modal, and the only key it answers is
+    // the one that closes it. Undo firing behind a list of shortcuts would
+    // be the sheet doing the thing it is supposed to be describing.
+    if (_sheetOpen) {
+      if (_matches(parse("?"), e)) {
+        e.preventDefault();
+        toggleSheet();
+      }
+      return;
+    }
+    if (_tourOpen()) return;
+    var modal = _modalOpen();
+
+    var stack = _stack();
+    for (var i = 0; i < stack.length; i++) {
+      var entries = stack[i].entries || [];
+      for (var j = 0; j < entries.length; j++) {
+        var entry = entries[j];
+        if (entry.note || typeof entry.run !== "function") continue;
+        if (modal && !entry.overModal) continue;
+        if (entry.when && !entry.when()) continue;
+        if (!_hits(entry, e)) continue;
+        e.preventDefault();
+        entry.run(e);
+        return;
+      }
+    }
+  }
+
+  function _hits(entry, e) {
+    var combos = entry.combos || [];
+    for (var i = 0; i < combos.length; i++) {
+      if (_matches(parse(combos[i]), e)) return true;
+    }
+    return false;
+  }
+
+  /** Fire a combo as though it had been typed — for tests and for the sheet. */
+  function trigger(combo) {
+    var spec = parse(combo);
+    var fake = {
+      key: spec.key,
+      ctrlKey: spec.ctrl || spec.mod,
+      metaKey: false,
+      shiftKey: spec.shift,
+      altKey: spec.alt,
+      target: null,
+      preventDefault: function () {},
+    };
+    _onKeyDown(fake);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // THE SHEET
+  // ══════════════════════════════════════════════════════════════════════
+
+  function isSheetOpen() {
+    return _sheetOpen;
+  }
+
+  function toggleSheet() {
+    if (_sheetOpen) App.ui.closeDialog();
+    else openSheet();
+  }
+
+  /**
+   * The list, in dispatch order, with the mode you are actually in at the top.
+   * Which is the whole point: "what can I do right now" is the question being
+   * asked, and answering it with an alphabetical index of everything would be
+   * answering a different one.
+   */
+  function openSheet() {
+    if (_sheetOpen) return;
+    var dialog = App.ui.openDialog("tpl-shortcuts-dialog", function () {
+      _sheetOpen = false;
+    });
+    _sheetOpen = true;
+    D.onRole(dialog, "close", function () {
+      App.ui.closeDialog();
+    });
+    _renderSheet(dialog);
+    var close = D.role(dialog, "close");
+    if (close && close.focus) close.focus();
+  }
+
+  function _renderSheet(dialog) {
+    var root = dialog || (App.ui.dialogNode && App.ui.dialogNode());
+    if (!root) return;
+    var host = D.role(root, "groups");
+    if (!host) return;
+    host.textContent = "";
+
+    _stack().forEach(function (context) {
+      var entries = (context.entries || []).filter(function (entry) {
+        return entry.labelKey;
+      });
+      if (!entries.length) return;
+
+      var section = D.mount("tpl-shortcuts-group", host);
+      D.text(section, "title", T(context.titleKey));
+      var list = D.role(section, "items");
+
+      entries.forEach(function (entry) {
+        var row = D.mount("tpl-shortcuts-item", list);
+        var available = !entry.when || entry.when();
+        D.toggleClass(row, "is-unavailable", !available);
+
+        var keys = D.role(row, "keys");
+        keys.textContent = "";
+        (entry.combos || []).forEach(function (combo, index) {
+          if (index > 0) {
+            var or = document.createElement("span");
+            or.className = "shortcuts-item__or";
+            or.textContent = T("shortcuts.or");
+            keys.appendChild(or);
+          }
+          keyCaps(combo).forEach(function (cap, position) {
+            if (position > 0) {
+              var plus = document.createElement("span");
+              plus.className = "shortcuts-item__plus";
+              plus.textContent = "+";
+              keys.appendChild(plus);
+            }
+            var kbd = document.createElement("kbd");
+            kbd.textContent = cap;
+            keys.appendChild(kbd);
+          });
+        });
+
+        D.text(row, "label", T(entry.labelKey));
+      });
+    });
+  }
+
+  return {
+    init: init,
+    push: push,
+    pop: pop,
+    global: global,
+    activeId: activeId,
+    parse: parse,
+    keyCaps: keyCaps,
+    hint: hint,
+    trigger: trigger,
+    openSheet: openSheet,
+    toggleSheet: toggleSheet,
+    isSheetOpen: isSheetOpen,
+    isMac: isMac,
+  };
+})();
+
+window.App = App;

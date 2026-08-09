@@ -301,6 +301,22 @@ App.ui = (function () {
     if (teardown) teardown();
   }
 
+  /**
+   * Whether a dialog owns the screen right now.
+   *
+   * App.shortcuts asks before dispatching: a modal that shares Enter with the
+   * cut tool behind it is not modal. The node itself is exposed for the one
+   * caller that re-renders its own dialog in place — the shortcut sheet, which
+   * has to redraw when a mode is entered while it is open.
+   */
+  function isDialogOpen() {
+    return !!_dialog;
+  }
+
+  function dialogNode() {
+    return _dialog;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // CONFIRM
   // ══════════════════════════════════════════════════════════════════════
@@ -384,61 +400,211 @@ App.ui = (function () {
   // CONTEXT MENU
   // ══════════════════════════════════════════════════════════════════════
 
-  function showPolygonContextMenu(point, layer, feature) {
+  /**
+   * A context menu from a list of items, anywhere on the map.
+   *
+   * There used to be exactly one of these, hard-wired to a territory, built
+   * from a template that spelled out its four entries. Every mode that wanted
+   * one — and the modal tools want one badly, because their toolbar sits in a
+   * corner while the work happens under the cursor — would have meant another
+   * template and another copy of "position it, close it on an outside click".
+   * So the shape is the argument now and there is one implementation of the
+   * behavior, keyboard navigation included.
+   *
+   * @param {{x:number, y:number}} point container coordinates
+   * @param {Array<{labelKey?:string, label?:string, icon?:string,
+   *                danger?:boolean, checked?:boolean, disabled?:boolean,
+   *                onlineOnly?:boolean, separator?:boolean,
+   *                onClick?:Function}>} items
+   *   A `separator: true` entry draws a divider and nothing else.
+   * @returns {HTMLElement} the menu root
+   */
+  function showContextMenu(point, items) {
     closeContextMenu();
-    var menu = D.mountOnMap("tpl-polygon-menu", s.leafletMap);
+    var menu = D.mountOnMap("tpl-context-menu", s.leafletMap);
 
-    // Keep the menu inside the viewport instead of letting it overflow.
+    (items || []).forEach(function (item) {
+      if (!item) return;
+      if (item.separator) {
+        D.mount("tpl-context-menu-divider", menu);
+        return;
+      }
+
+      var node = D.mount("tpl-context-menu-item", menu);
+      var label = item.labelKey ? App.i18n.t(item.labelKey) : item.label || "";
+      if (item.labelKey) {
+        var span = D.role(node, "label");
+        if (span) span.setAttribute("data-i18n", item.labelKey);
+      }
+      D.text(node, "label", label);
+
+      var icon = D.role(node, "icon");
+      if (icon) icon.className = "fa-solid " + (item.icon || "fa-circle");
+
+      D.toggleClass(node, "delete", !!item.danger);
+      D.toggleClass(node, "is-checked", !!item.checked);
+      if (item.checked) node.setAttribute("aria-checked", "true");
+      if (item.onlineOnly) node.setAttribute("data-online-only", "");
+
+      if (item.disabled) {
+        node.setAttribute("aria-disabled", "true");
+        node.classList.add("is-disabled");
+        return;
+      }
+
+      node.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        closeContextMenu();
+        if (item.onClick) item.onClick();
+      });
+    });
+
+    _placeMenu(menu, point);
+    _wireMenuKeys(menu);
+
+    s.contextMenu = menu;
+    setTimeout(function () {
+      document.addEventListener("click", closeContextMenu);
+    }, 0);
+    return menu;
+  }
+
+  /** Keep the menu inside the viewport instead of letting it overflow. */
+  function _placeMenu(menu, point) {
     var container = s.leafletMap.getContainer();
     var x = Math.min(point.x, container.clientWidth - menu.offsetWidth - 8);
     var y = Math.min(point.y, container.clientHeight - menu.offsetHeight - 8);
     menu.style.left = Math.max(0, x) + "px";
     menu.style.top = Math.max(0, y) + "px";
+  }
 
-    D.onRole(menu, "zoom", function () {
-      closeContextMenu();
-      s.leafletMap.fitBounds(layer.getBounds(), {
-        padding: [50, 50],
-        maxZoom: 18,
+  /**
+   * role="menu" is a promise about the arrow keys, and the old menu did not
+   * keep it: it was mouse-only, which on a touch device with a keyboard and
+   * for anyone driving the app from the keyboard meant the entries reachable
+   * by right-click were reachable no other way.
+   */
+  function _wireMenuKeys(menu) {
+    var items = [].slice.call(
+      menu.querySelectorAll('[role="menuitem"]:not([aria-disabled="true"])'),
+    );
+    if (!items.length) return;
+
+    items.forEach(function (item, index) {
+      item.tabIndex = index === 0 ? 0 : -1;
+    });
+
+    function focusAt(index) {
+      var next = (index + items.length) % items.length;
+      items.forEach(function (item, i) {
+        item.tabIndex = i === next ? 0 : -1;
       });
+      items[next].focus();
+    }
+
+    menu.addEventListener("keydown", function (e) {
+      var current = items.indexOf(document.activeElement);
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        focusAt(current + 1);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        focusAt(current - 1);
+      } else if (e.key === "Home") {
+        e.preventDefault();
+        focusAt(0);
+      } else if (e.key === "End") {
+        e.preventDefault();
+        focusAt(items.length - 1);
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        closeContextMenu();
+      }
     });
 
-    D.onRole(menu, "print", function () {
-      closeContextMenu();
-      App.print.printCluster(feature);
-    });
+    items[0].focus();
+  }
 
+  /**
+   * The territory menu, expressed in the vocabulary above.
+   *
+   * Zoom, print, mark and delete are what it always had. Cut and merge are
+   * new, and they are the reason this is worth doing at all: both were
+   * toolbar-only, which meant "split this one" was a trip to the corner of
+   * the screen followed by a hunt for the shape you had just been pointing
+   * at. Starting a mode *from* a territory is the same action with the
+   * subject already chosen.
+   */
+  function showPolygonContextMenu(point, layer, feature) {
     // The mark is set for you when a card is produced, so this exists for the
     // two cases the automatic path cannot see: a card printed from somewhere
     // else, and a round starting over. Labelled by current state rather than
     // rendered as a checkbox — a menu item that says what it will do needs no
     // second glance to read.
     var printed = App.polygons.isPrinted(feature);
-    var markKey = printed ? "menu.unmarkPrinted" : "menu.markPrinted";
-    var markLabel = D.role(menu, "printed-label");
-    if (markLabel) {
-      markLabel.setAttribute("data-i18n", markKey);
-      markLabel.textContent = App.i18n.t(markKey);
-    }
-    var markIcon = D.role(menu, "printed-icon");
-    if (markIcon) {
-      markIcon.className =
-        "fa-solid " + (printed ? "fa-rotate-left" : "fa-circle-check");
-    }
-    D.onRole(menu, "printed", function () {
-      closeContextMenu();
-      App.polygons.markPrinted(feature, !printed);
-    });
+    var canMerge = !!(s.clusters && s.clusters.length >= 2);
 
-    D.onRole(menu, "delete", function () {
-      closeContextMenu();
-      App.polygons.deleteCluster(layer);
-    });
-
-    s.contextMenu = menu;
-    setTimeout(function () {
-      document.addEventListener("click", closeContextMenu);
-    }, 0);
+    return showContextMenu(point, [
+      {
+        labelKey: "menu.zoom",
+        icon: "fa-magnifying-glass-plus",
+        onClick: function () {
+          s.leafletMap.fitBounds(layer.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 18,
+          });
+        },
+      },
+      {
+        labelKey: "menu.print",
+        icon: "fa-print",
+        onlineOnly: true,
+        onClick: function () {
+          App.print.printCluster(feature);
+        },
+      },
+      {
+        labelKey: printed ? "menu.unmarkPrinted" : "menu.markPrinted",
+        icon: printed ? "fa-rotate-left" : "fa-circle-check",
+        checked: printed,
+        onClick: function () {
+          App.polygons.markPrinted(feature, !printed);
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "menu.cut",
+        icon: "fa-scissors",
+        onClick: function () {
+          s.leafletMap.fitBounds(layer.getBounds(), {
+            padding: [50, 50],
+            maxZoom: 18,
+          });
+          if (!s.editMode) App.editing.toggleEditMode();
+        },
+      },
+      {
+        // Enters merge mode with this one already chosen, which is the half
+        // of the gesture the toolbar button cannot know.
+        labelKey: "menu.mergeFrom",
+        icon: "fa-code-merge",
+        disabled: !canMerge,
+        onClick: function () {
+          App.editing.startMergeWith(layer, feature);
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "menu.delete",
+        icon: "fa-trash",
+        danger: true,
+        onClick: function () {
+          App.polygons.deleteCluster(layer);
+        },
+      },
+    ]);
   }
 
   function closeContextMenu() {
@@ -446,6 +612,10 @@ App.ui = (function () {
     D.remove(s.contextMenu);
     s.contextMenu = null;
     document.removeEventListener("click", closeContextMenu);
+  }
+
+  function isContextMenuOpen() {
+    return !!(s && s.contextMenu);
   }
 
   return {
@@ -472,8 +642,12 @@ App.ui = (function () {
     confirm: confirm,
     openDialog: openDialog,
     closeDialog: closeDialog,
+    isDialogOpen: isDialogOpen,
+    dialogNode: dialogNode,
+    showContextMenu: showContextMenu,
     showPolygonContextMenu: showPolygonContextMenu,
     closeContextMenu: closeContextMenu,
+    isContextMenuOpen: isContextMenuOpen,
   };
 })();
 

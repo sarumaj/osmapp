@@ -898,8 +898,18 @@ App.polygons = (function () {
       // the territory under it: clicking one excludes it. Forwarding as well
       // would open a context menu on top of the selection being made.
       if (s.trimMode) {
-        if (group === s.buildingsLayerGroup && e.type === "click" && App.trim)
+        if (!App.trim) return;
+        if (group === s.buildingsLayerGroup && e.type === "click")
           App.trim.handleBuildingClick(e.layer, e);
+        // Right-click used to fall off the end here. The trim toolbar is in
+        // the corner and the buildings being judged are under the cursor, so
+        // this is the one mode where a menu at the pointer saves the most
+        // travel — and it can name the building it opened over.
+        else if (e.type === "contextmenu")
+          App.trim.handleContextMenu(
+            e.containerPoint,
+            group === s.buildingsLayerGroup ? e.layer : null,
+          );
         return;
       }
       var found = clusterAt(e.latlng);
@@ -1027,7 +1037,20 @@ App.polygons = (function () {
 
       contextmenu: function (e) {
         L.DomEvent.stopPropagation(e);
-        if (s.editMode || s.mergeMode) return;
+        // A mode owns the right button while it is running, but "owns" used
+        // to mean "discards". Merge has a menu of its own now, and it needs
+        // to know which territory was under the cursor — which is exactly
+        // what this handler has and the map's own contextmenu does not.
+        //
+        // Cut is not routed through here on purpose: it watches the right
+        // button on the map container for panning, and a menu opened from
+        // there covers the whole map rather than only the parts with a
+        // territory under them.
+        if (s.mergeMode) {
+          App.editing.handleModeContextMenu(e.containerPoint, layer, feature);
+          return;
+        }
+        if (s.editMode || s.trimMode) return;
         App.ui.showPolygonContextMenu(e.containerPoint, layer, feature);
       },
     };

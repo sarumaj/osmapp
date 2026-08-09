@@ -91,6 +91,9 @@
     // ── Modules — dom and ui first, history after controls so the undo and
     //    redo buttons exist when their state is first synced ─────────────
     App.ui.init();
+    // Before every module that pushes a context onto it, which is most of
+    // them. It only installs one listener; the contexts arrive later.
+    App.shortcuts.init();
     App.polygons.init();
     // After polygons: it reads isPrinted off it, and its chips go into the
     // same layer group as the territories themselves.
@@ -217,29 +220,76 @@
       hint = App.dom.remove(hint);
     }
 
-    map.on("editable:drawing:start", showHint);
-    map.on("editable:drawing:end", hideHint);
-    map.on("editable:drawing:commit", hideHint);
+    function drawing() {
+      return !!(map.editTools && map.editTools.drawing());
+    }
 
-    document.addEventListener("keydown", function (e) {
-      if (!map.editTools || !map.editTools.drawing()) return;
+    /**
+     * Take back the last vertex.
+     *
+     * Leaflet.Editable has had pop() since 1.3.0 and this tool never called
+     * it, so the boundary drawer was the one place in the app where a
+     * misplaced click could only be answered by abandoning the whole shape
+     * and starting again — while the split-line tool three metres away had
+     * bound Backspace to exactly this from the day it shipped.
+     */
+    function popVertex() {
+      var editor = map.editTools && map.editTools._drawingEditor;
+      if (!editor || typeof editor.pop !== "function") return;
+      if (_drawnVertexCount(editor) < 1) return;
+      editor.pop();
+    }
 
-      if (e.key === "Escape") {
-        e.preventDefault();
-        map.editTools.stopDrawing();
-        hideHint();
-        return;
-      }
+    var DRAW_KEYS = {
+      id: "draw",
+      titleKey: "shortcuts.groupDraw",
+      entries: [
+        {
+          combos: ["Enter"],
+          labelKey: "shortcuts.drawFinish",
+          when: function () {
+            return _drawnVertexCount(map.editTools._drawingEditor) >= 3;
+          },
+          run: function () {
+            // Fewer than three vertices is not a polygon; committing would
+            // produce geometry Leaflet.Editable then discards, silently
+            // losing the draw.
+            if (_drawnVertexCount(map.editTools._drawingEditor) < 3) return;
+            map.editTools.commitDrawing();
+            hideHint();
+          },
+        },
+        {
+          combos: ["Backspace", "Delete"],
+          labelKey: "shortcuts.drawBack",
+          when: function () {
+            return drawing() && _drawnVertexCount(map.editTools._drawingEditor) > 0;
+          },
+          run: popVertex,
+        },
+        {
+          combos: ["Escape"],
+          labelKey: "shortcuts.drawCancel",
+          run: function () {
+            map.editTools.stopDrawing();
+            hideHint();
+          },
+        },
+        { combos: ["Double-click"], labelKey: "shortcuts.drawDouble", note: true },
+      ],
+    };
 
-      if (e.key !== "Enter") return;
-      e.preventDefault();
-
-      // Fewer than three vertices is not a polygon; committing would produce
-      // geometry Leaflet.Editable then discards, silently losing the draw.
-      if (_drawnVertexCount(map.editTools._drawingEditor) < 3) return;
-      map.editTools.commitDrawing();
-      hideHint();
+    map.on("editable:drawing:start", function () {
+      showHint();
+      App.shortcuts.push(DRAW_KEYS);
     });
+
+    function done() {
+      hideHint();
+      App.shortcuts.pop("draw");
+    }
+    map.on("editable:drawing:end", done);
+    map.on("editable:drawing:commit", done);
   }
 
   /** Vertices placed so far, preferring the public path over the private one. */

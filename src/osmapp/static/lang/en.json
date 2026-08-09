@@ -70,7 +70,17 @@
     "numbers": "Show a number on every territory",
     "trim": "Trim the boundary to the buildings that matter",
     "labelTrim": "Trim",
-    "needsBuildings": "Download the buildings first"
+    "needsBuildings": "Download the buildings first",
+    "shortcuts": "Show the keyboard shortcuts",
+    "labelShortcuts": "Keys",
+    "undoSelectCount": "Take back the last selected territory ({count} selected)",
+    "undoSelectNone": "Nothing selected yet",
+    "redoSelectCount": "Put back a deselected territory ({count} available)",
+    "redoSelectNone": "No territory to put back",
+    "undoIgnoreCount": "Undo the last change to the excluded buildings ({count} available)",
+    "undoIgnoreNone": "Nothing to undo yet",
+    "redoIgnoreCount": "Redo a change to the excluded buildings ({count} available)",
+    "redoIgnoreNone": "Nothing to redo"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -116,7 +126,9 @@
     "print": "Print",
     "markPrinted": "Mark as printed",
     "unmarkPrinted": "Mark as not printed",
-    "delete": "Delete"
+    "delete": "Delete",
+    "cut": "Split this territory",
+    "mergeFrom": "Merge this with…"
   },
   "partition": {
     "title": "Split into territories",
@@ -138,7 +150,12 @@
   "merge": {
     "selected": "{count} selected",
     "action": "Merge",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "clear": "Clear",
+    "select": "Add to the selection",
+    "deselect": "Take out of the selection",
+    "needsTwo": "Select at least two territories",
+    "hint": "Click territories to select them · Right-click for the menu · Enter merges · Backspace drops the last one · ? for all keys"
   },
   "trim": {
     "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · E adjusts the corners by hand · Enter applies · Esc cancels",
@@ -184,10 +201,12 @@
     "applyOk": "Trim",
     "excludedNote": "Excluded — click to keep",
     "flaggedNote": "Isolated, kept — click to exclude",
-    "editedNote": "adjusted by hand"
+    "editedNote": "adjusted by hand",
+    "menuKeep": "Keep this building",
+    "menuExclude": "Exclude this building"
   },
   "draw": {
-    "hint": "Click to place vertices · Right-drag to pan · Enter or double-click to finish · Backspace steps back · Esc to cancel",
+    "hint": "Click to place vertices · Hold Alt to ignore snapping · Right-drag to pan · Right-click for the menu · Enter or double-click to cut · Backspace steps back · ? for all keys",
     "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
   },
   "search": {
@@ -459,7 +478,8 @@
     "follow": "Follow streets between vertices",
     "finish": "Cut",
     "undo": "Back",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "redo": "Forward"
   },
   "tour": {
     "next": "Next",
@@ -593,5 +613,45 @@
   },
   "demo": {
     "street": "Sample street {n}"
+  },
+  "shortcuts": {
+    "title": "Keyboard and mouse",
+    "hint": "What a key does depends on the tool you are in. The tool you are in now is listed first.",
+    "close": "Close",
+    "or": "or",
+    "groupGlobal": "Anywhere",
+    "groupCut": "Cut tool",
+    "groupMerge": "Merge tool",
+    "groupTrim": "Trim tool",
+    "groupDraw": "Drawing a boundary",
+    "sheet": "Show this list",
+    "escape": "Close the topmost thing on screen",
+    "undo": "Undo",
+    "redo": "Redo",
+    "menu": "Menu for this tool",
+    "menuTerritory": "Menu for a territory",
+    "panRight": "Pan the map without placing a vertex",
+    "cutFinish": "Cut along the line",
+    "cutBack": "Take back the last vertex",
+    "cutForward": "Put back a removed vertex",
+    "cutCancel": "Leave the cut tool",
+    "cutAlt": "Ignore snapping while held",
+    "mergeApply": "Merge the selected territories",
+    "mergeBack": "Take back the last selected territory",
+    "mergeForward": "Put back a deselected territory",
+    "mergeClear": "Clear the selection",
+    "mergeCancel": "Leave the merge tool",
+    "mergePick": "Select or deselect a territory",
+    "trimApply": "Apply the trimmed boundary",
+    "trimCancel": "Leave the trim tool",
+    "trimPick": "Keep or exclude a building",
+    "trimBox": "Exclude everything in a box",
+    "trimUnbox": "Put back everything in a box",
+    "drawFinish": "Close the boundary",
+    "drawBack": "Take back the last vertex",
+    "drawCancel": "Abandon the boundary",
+    "drawDouble": "Close the boundary",
+    "trimBack": "Undo the last change to the excluded buildings",
+    "trimForward": "Redo a change to the excluded buildings"
   }
 }

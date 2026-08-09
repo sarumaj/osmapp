@@ -70,7 +70,17 @@
     "numbers": "Pokaż numer na każdym terenie",
     "trim": "Przytnij granicę do istotnych budynków",
     "labelTrim": "Przytnij",
-    "needsBuildings": "Najpierw pobierz budynki"
+    "needsBuildings": "Najpierw pobierz budynki",
+    "shortcuts": "Pokaż skróty klawiaturowe",
+    "labelShortcuts": "Klawisze",
+    "undoSelectCount": "Cofnij ostatnio zaznaczony teren (zaznaczono {count})",
+    "undoSelectNone": "Nic jeszcze nie zaznaczono",
+    "redoSelectCount": "Przywróć odznaczony teren (dostępne: {count})",
+    "redoSelectNone": "Brak terenu do przywrócenia",
+    "undoIgnoreCount": "Cofnij ostatnią zmianę wykluczonych budynków (dostępne: {count})",
+    "undoIgnoreNone": "Nie ma czego cofnąć",
+    "redoIgnoreCount": "Ponów zmianę wykluczonych budynków (dostępne: {count})",
+    "redoIgnoreNone": "Nie ma czego ponowić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -121,7 +131,9 @@
     "print": "Drukuj",
     "markPrinted": "Oznacz jako wydrukowany",
     "unmarkPrinted": "Usuń oznaczenie wydruku",
-    "delete": "Usuń"
+    "delete": "Usuń",
+    "cut": "Podziel ten teren",
+    "mergeFrom": "Połącz ten z…"
   },
   "partition": {
     "title": "Podziel na tereny",
@@ -148,7 +160,12 @@
   "merge": {
     "selected": "zaznaczono: {count}",
     "action": "Połącz",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "clear": "Wyczyść",
+    "select": "Dodaj do zaznaczenia",
+    "deselect": "Usuń z zaznaczenia",
+    "needsTwo": "Zaznacz co najmniej dwa tereny",
+    "hint": "Klikaj tereny, aby je zaznaczyć · Prawy przycisk otwiera menu · Enter łączy · Backspace cofa ostatni · ? pokazuje wszystkie klawisze"
   },
   "trim": {
     "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · E pozwala poprawić narożniki ręcznie · Enter zatwierdza · Esc anuluje",
@@ -202,10 +219,12 @@
     "applyOk": "Przytnij",
     "excludedNote": "Pominięty — kliknij, aby zachować",
     "flaggedNote": "Odosobniony, zachowany — kliknij, aby pominąć",
-    "editedNote": "poprawione ręcznie"
+    "editedNote": "poprawione ręcznie",
+    "menuKeep": "Zachowaj ten budynek",
+    "menuExclude": "Wyklucz ten budynek"
   },
   "draw": {
-    "hint": "Klikaj, aby stawiać punkty · Przeciąganie prawym przyciskiem przesuwa mapę · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
+    "hint": "Klikaj, aby stawiać punkty · Przytrzymaj Alt, aby wyłączyć przyciąganie · Przeciągaj prawym, aby przesuwać mapę · Prawy przycisk otwiera menu · Enter lub dwuklik tnie · Backspace cofa · ? pokazuje wszystkie klawisze",
     "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
   },
   "search": {
@@ -496,7 +515,8 @@
     "follow": "Prowadź wzdłuż ulic między punktami",
     "finish": "Tnij",
     "undo": "Cofnij",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "redo": "Do przodu"
   },
   "tour": {
     "next": "Dalej",
@@ -630,5 +650,45 @@
   },
   "demo": {
     "street": "Ulica Przykładowa {n}"
+  },
+  "shortcuts": {
+    "title": "Klawiatura i mysz",
+    "hint": "Działanie klawisza zależy od aktywnego narzędzia. Aktywne narzędzie jest na początku listy.",
+    "close": "Zamknij",
+    "or": "lub",
+    "groupGlobal": "Wszędzie",
+    "groupCut": "Narzędzie cięcia",
+    "groupMerge": "Łączenie",
+    "groupTrim": "Przycinanie granicy",
+    "groupDraw": "Rysowanie granicy",
+    "sheet": "Pokaż tę listę",
+    "escape": "Zamknij to, co jest na wierzchu",
+    "undo": "Cofnij",
+    "redo": "Ponów",
+    "menu": "Menu tego narzędzia",
+    "menuTerritory": "Menu terenu",
+    "panRight": "Przesuń mapę bez stawiania punktu",
+    "cutFinish": "Tnij wzdłuż linii",
+    "cutBack": "Cofnij ostatni punkt",
+    "cutForward": "Przywróć usunięty punkt",
+    "cutCancel": "Wyjdź z narzędzia cięcia",
+    "cutAlt": "Wyłącz przyciąganie na czas przytrzymania",
+    "mergeApply": "Połącz zaznaczone tereny",
+    "mergeBack": "Cofnij ostatnio zaznaczony teren",
+    "mergeForward": "Przywróć odznaczony teren",
+    "mergeClear": "Wyczyść zaznaczenie",
+    "mergeCancel": "Wyjdź z łączenia",
+    "mergePick": "Zaznacz lub odznacz teren",
+    "trimApply": "Zastosuj przyciętą granicę",
+    "trimCancel": "Wyjdź z przycinania",
+    "trimPick": "Zachowaj lub wyklucz budynek",
+    "trimBox": "Wyklucz wszystko w prostokącie",
+    "trimUnbox": "Przywróć wszystko w prostokącie",
+    "drawFinish": "Zamknij granicę",
+    "drawBack": "Cofnij ostatni punkt",
+    "drawCancel": "Porzuć granicę",
+    "drawDouble": "Zamknij granicę",
+    "trimBack": "Cofnij ostatnią zmianę wykluczonych budynków",
+    "trimForward": "Ponów zmianę wykluczonych budynków"
   }
 }

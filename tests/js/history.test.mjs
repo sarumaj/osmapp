@@ -29,6 +29,12 @@ import { loadApp } from "./helpers/load.mjs";
  * history.js talks to three neighbours: App.state, App.polygons for the
  * snapshots, and App.controls.refresh() to repaint the buttons. All three are
  * stubbed, because this is about the routing rather than about geometry.
+ *
+ * shortcuts.js is loaded for real rather than stubbed. Undo and redo are
+ * registered with it now instead of being a private listener, so stubbing it
+ * would leave the one thing worth asserting about the keyboard — that Ctrl+Z
+ * reaches the *active scope* — asserted against a stub of the thing doing the
+ * reaching.
  */
 function setup() {
   const window = {};
@@ -39,7 +45,7 @@ function setup() {
     },
   };
 
-  const App = loadApp(["history.js"], { window, document });
+  const App = loadApp(["shortcuts.js", "history.js"], { window, document });
 
   let clusters = [{ id: "a" }];
   let refreshes = 0;
@@ -57,8 +63,10 @@ function setup() {
       refreshes += 1;
     },
   };
-  App.i18n = { onChange() {} };
+  App.i18n = { onChange() {}, t: (key) => key };
+  App.dom = {};
 
+  App.shortcuts.init();
   App.history.init();
 
   return {
@@ -318,4 +326,50 @@ test("every mutation repaints the buttons", () => {
   h.history.popScope("cut");
   h.history.clear();
   assert.ok(h.refreshes() > before + 3);
+});
+
+// ── every modal tool registers a scope ───────────────────────────────────────
+
+test("a mode without a scope of its own is the bug this stack exists to stop", () => {
+  // Cut and the eraser registered scopes from the start; merge and trim did
+  // not, and the consequence is the one below — Ctrl+Z inside a modal tool
+  // reaching past the thing being edited and undoing the last change to the
+  // territories, which is work the tool was never touching.
+  //
+  // Asserted against the base scope rather than against merge or trim
+  // directly, because what makes it a bug is the fall-through, not which
+  // tool happened to be open.
+  const h = setup();
+  h.history.push();
+  h.set([{ id: "b" }]);
+
+  const merge = fakeScope("merge");
+  h.history.pushScope(merge);
+  h.key("z");
+
+  assert.deepEqual(merge.calls, ["undo"]);
+  assert.deepEqual(
+    h.current(),
+    [{ id: "b" }],
+    "the territories must not move while a selection is being collected",
+  );
+
+  // …and the moment the tool closes, the territories are undoable again.
+  h.history.popScope("merge");
+  h.key("z");
+  assert.deepEqual(h.current(), [{ id: "a" }]);
+});
+
+test("the tooltip key follows the scope, so undo never lies about what it will take back", () => {
+  // "Undo last change" while the thing that will actually be taken back is a
+  // selected territory is a tooltip describing the bug above.
+  const h = setup();
+  assert.equal(h.history.undoKey(), "toolbar.undo");
+
+  h.history.pushScope(fakeScope("merge"));
+  assert.equal(h.history.undoKey(), "toolbar.undomerge");
+  assert.equal(h.history.redoKey(), "toolbar.redomerge");
+
+  h.history.popScope("merge");
+  assert.equal(h.history.undoKey(), "toolbar.undo");
 });

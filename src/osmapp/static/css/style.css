@@ -476,6 +476,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* The bar used to be a count and two loose buttons. With Clear beside them
+   the actions are a group, and grouping them keeps the count from drifting
+   away from its own row as the label lengths change between languages. */
+.merge-toolbar__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 /* ── Cut toolbar internals ─────────────────────────────────────────────── */
 .cut-toolbar__head {
   display: flex;
@@ -538,6 +547,15 @@ body {
 
 .cut-toolbar__actions .btn {
   flex: 1;
+}
+
+/* Back and Forward are icons now, so they should not claim a third of the row
+   each the way the text buttons beside them do. Same shape as the print
+   dialog's erase row, which solved this first. */
+.cut-toolbar__actions .btn--icon {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 5px 8px;
 }
 
 /* Until the line separates something, Cut is not the obvious next move. */
@@ -619,7 +637,8 @@ body {
   flex: 1;
 }
 
-.trim-toolbar__opt kbd {
+.trim-toolbar__opt kbd,
+.trim-toolbar__actions kbd {
   padding: 1px 5px;
   border: 1px solid var(--c-border);
   border-bottom-width: 2px;
@@ -1138,10 +1157,115 @@ body {
   color: var(--c-danger);
 }
 
+/* An entry that cannot fire stays on the menu rather than disappearing from
+   it, for the same reason the main toolbar greys buttons instead of hiding
+   them: a menu whose length changes with the state teaches nothing about
+   what is missing. */
+.polygon-context-menu-item.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Toggles read as toggles. The icon already carries the box; this is what
+   stops a checked entry from looking like an ordinary one at a glance. */
+.polygon-context-menu-item.is-checked {
+  font-weight: 600;
+}
+
+.polygon-context-menu-item i {
+  width: 1em;
+  text-align: center;
+  color: var(--c-text-dim);
+}
+
+.polygon-context-menu-item.delete i {
+  color: var(--c-danger);
+}
+
 .polygon-context-menu-divider {
   height: 1px;
   background: #ddd;
   margin: 4px 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Shortcut sheet
+   ═══════════════════════════════════════════════════════════
+   Taller than the other dialogs and scrollable, because the list grows with
+   the tool you are in: the global group alone is short, the global group
+   under the cut tool's fourteen entries is not. */
+.shortcuts-dialog {
+  min-width: min(460px, calc(100vw - 32px));
+  max-width: min(520px, calc(100vw - 32px));
+}
+
+.shortcuts-dialog__groups {
+  max-height: min(60vh, 520px);
+  overflow-y: auto;
+  margin-bottom: 12px;
+}
+
+.shortcuts-group {
+  margin-bottom: 14px;
+}
+
+.shortcuts-group__title {
+  margin: 0 0 6px;
+  font-size: var(--ui-fs-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--c-text-dim);
+}
+
+.shortcuts-group__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Keys in a fixed column so the eye can run down them. Scanning for a key is
+   the way this sheet is actually read; scanning for a description is not. */
+.shortcuts-item {
+  display: grid;
+  grid-template-columns: 148px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  padding: 3px 0;
+  font-size: var(--ui-fs-md);
+}
+
+.shortcuts-item__keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+}
+
+.shortcuts-item__keys kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 11px/1.5 var(--ui-font);
+  color: var(--c-text);
+  white-space: nowrap;
+}
+
+.shortcuts-item__plus,
+.shortcuts-item__or {
+  font-size: 10px;
+  color: var(--c-text-dim);
+}
+
+.shortcuts-item__or {
+  margin: 0 2px;
+}
+
+/* Greyed rather than dropped: "Forward — no vertex to put back" is a more
+   useful thing to read than a line that is not there. */
+.shortcuts-item.is-unavailable {
+  opacity: 0.45;
 }
 
 /* ═══════════════════════════════════════════════════════════

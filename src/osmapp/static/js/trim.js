@@ -192,7 +192,6 @@ App.trim = (function () {
     N = App.network;
     D = App.dom;
     T = App.i18n.t;
-    document.addEventListener("keydown", _onKeyDown);
     App._loaded.push("trim");
   }
 
@@ -230,8 +229,13 @@ App.trim = (function () {
   function _start() {
     _ignored = new Set();
     _flagged = new Set();
+    _ignoreUndo = [];
+    _ignoreRedo = [];
     _result = null;
     _pool = _buildPool();
+
+    App.shortcuts.push(TRIM_KEYS);
+    App.history.pushScope(TRIM_SCOPE);
 
     N.build();
 
@@ -283,8 +287,13 @@ App.trim = (function () {
     _timer = null;
     _ignored = new Set();
     _flagged = new Set();
+    _ignoreUndo = [];
+    _ignoreRedo = [];
     _pool = null;
     _result = null;
+    App.shortcuts.pop("trim");
+    App.history.popScope("trim");
+    App.ui.closeContextMenu();
     App.polygons.restyleBuildings();
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
   }
@@ -393,6 +402,20 @@ App.trim = (function () {
     _schedule();
   }
 
+  /**
+   * Flip one building, from wherever the request came from — the shape, its
+   * marker, or the context menu. Three call sites had the same four lines
+   * written out; recording an undo snapshot would have made it three places
+   * to remember to do it.
+   */
+  function _toggleIgnored(key) {
+    if (s.trimEdit || key === null || key === undefined || !_ignored) return;
+    pushIgnore();
+    if (_ignored.has(key)) _ignored.delete(key);
+    else _ignored.add(key);
+    _selectionChanged();
+  }
+
   /** Clicking a building in trim mode toggles it. */
   function handleBuildingClick(layer) {
     // While the shape is being adjusted by hand the selection is frozen: a
@@ -400,19 +423,22 @@ App.trim = (function () {
     // does nothing is better explained by the locked controls beside it.
     if (s.trimEdit) return;
     if (!layer || !layer.feature) return;
-    var key = _keyOf(layer.feature);
-    if (key === null) return;
-    if (_ignored.has(key)) _ignored.delete(key);
-    else _ignored.add(key);
-    _selectionChanged();
+    _toggleIgnored(_keyOf(layer.feature));
   }
 
   function _setRange(bounds, ignore) {
     var changed = 0;
+    var recorded = false;
     _pool.forEach(function (entry) {
       var c = entry.centroid;
       if (!bounds.contains(L.latLng(c[1], c[0]))) return;
       if (ignore ? _ignored.has(entry.key) : !_ignored.has(entry.key)) return;
+      // One snapshot for the whole drag, taken lazily so a box that catches
+      // nothing does not put an empty step on the undo stack.
+      if (!recorded) {
+        pushIgnore();
+        recorded = true;
+      }
       if (ignore) _ignored.add(entry.key);
       else _ignored.delete(entry.key);
       changed++;
@@ -423,6 +449,7 @@ App.trim = (function () {
 
   function clearSelection() {
     if (!_ignored || _ignored.size === 0) return;
+    pushIgnore();
     _ignored = new Set();
     _selectionChanged();
   }
@@ -520,9 +547,12 @@ App.trim = (function () {
       // Otherwise the map sees the click too and the building underneath
       // toggles straight back.
       L.DomEvent.stopPropagation(e);
-      if (_ignored.has(entry.key)) _ignored.delete(entry.key);
-      else _ignored.add(entry.key);
-      _selectionChanged();
+      _toggleIgnored(entry.key);
+    });
+
+    marker.on("contextmenu", function (e) {
+      L.DomEvent.stopPropagation(e);
+      _showTrimMenu(e.containerPoint, entry.key);
     });
     return marker;
   }
@@ -562,6 +592,7 @@ App.trim = (function () {
   function markOutliers() {
     if (!_pool || !_ignored) return 0;
     var marked = 0;
+    var recorded = false;
     outliersIn(_pool).forEach(function (entry) {
       // The flag is permanent for the session even when the exclusion is not:
       // putting a building back should not make it identical to the four
@@ -569,6 +600,10 @@ App.trim = (function () {
       // the decision, or to change it back — means hunting for it.
       _flagged.add(entry.key);
       if (_ignored.has(entry.key)) return;
+      if (!recorded) {
+        pushIgnore();
+        recorded = true;
+      }
       _ignored.add(entry.key);
       marked++;
     });
@@ -1828,34 +1863,226 @@ App.trim = (function () {
   // KEYBOARD
   // ══════════════════════════════════════════════════════════════════════
 
-  function _onKeyDown(e) {
-    if (!s || !s.trimMode || !e.key) return;
-    var tag = ((e.target || {}).tagName || "").toUpperCase();
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  /**
+   * Outliers and Clear are new: both have been buttons since the tool
+   * shipped, and both were the only two actions on any of the three mode
+   * toolbars with no key at all. `when` rather than a guard inside `run`, so
+   * the sheet can grey what the hand-adjust latch has locked instead of
+   * offering a key that quietly does nothing.
+   */
+  var TRIM_KEYS = {
+    id: "trim",
+    titleKey: "shortcuts.groupTrim",
+    entries: [
+      { combos: ["Enter"], labelKey: "shortcuts.trimApply", run: apply },
+      {
+        // Cut and merge both answer Backspace, and this tool collects a
+        // selection exactly the way merge does. Leaving it to Ctrl+Z alone
+        // made it the one modal tool where the obvious key did nothing.
+        combos: ["Backspace", "Delete"],
+        labelKey: "shortcuts.trimBack",
+        when: function () {
+          return _ignoreUndo.length > 0;
+        },
+        run: _undoIgnore,
+      },
+      {
+        combos: ["Shift+Backspace", "Shift+Delete"],
+        labelKey: "shortcuts.trimForward",
+        when: function () {
+          return _ignoreRedo.length > 0;
+        },
+        run: _redoIgnore,
+      },
+      {
+        combos: ["E"],
+        labelKey: "trim.adjust",
+        run: function () {
+          setEdit(!s.trimEdit);
+        },
+      },
+      {
+        combos: ["F"],
+        labelKey: "trim.follow",
+        when: function () {
+          return !s.trimEdit;
+        },
+        run: function () {
+          s.trimFollow = !s.trimFollow;
+          if (_toolbar) D.role(_toolbar, "follow").checked = s.trimFollow;
+          _schedule(0);
+        },
+      },
+      {
+        combos: ["O"],
+        labelKey: "trim.outliers",
+        when: function () {
+          return !s.trimEdit;
+        },
+        run: _runOutliers,
+      },
+      {
+        combos: ["C"],
+        labelKey: "trim.clear",
+        when: function () {
+          return !s.trimEdit && ignoredCount() > 0;
+        },
+        run: clearSelection,
+      },
+      {
+        combos: ["Escape"],
+        labelKey: "shortcuts.trimCancel",
+        run: function () {
+          if (s.trimMode) toggle();
+        },
+      },
+      { combos: ["Click"], labelKey: "shortcuts.trimPick", note: true },
+      { combos: ["Shift+drag"], labelKey: "shortcuts.trimBox", note: true },
+      { combos: ["Alt+drag"], labelKey: "shortcuts.trimUnbox", note: true },
+      { combos: ["Right-click"], labelKey: "shortcuts.menu", note: true },
+    ],
+  };
 
-    if (e.key === "Escape") {
-      toggle();
-      return;
-    }
-    if (e.key === "Enter") {
-      e.preventDefault();
-      apply();
-      return;
-    }
-    if (e.ctrlKey || e.metaKey) return;
-    var key = e.key.toLowerCase();
+  function _runOutliers() {
+    var marked = markOutliers();
+    if (marked === 0) alert(T("trim.noOutliers"));
+  }
 
-    if (key === "e") {
-      e.preventDefault();
-      setEdit(!s.trimEdit);
-      return;
-    }
-    if (key === "f" && !s.trimEdit) {
-      e.preventDefault();
-      s.trimFollow = !s.trimFollow;
-      if (_toolbar) D.role(_toolbar, "follow").checked = s.trimFollow;
-      _schedule(0);
-    }
+  // ── Selection history ─────────────────────────────────────────────────
+  //
+  // The ignore set is what this tool edits, and until now nothing recorded
+  // it: Ctrl+Z while trimming reached straight past it into the cluster
+  // stack and undid whatever geometry change came before the tool was
+  // opened. Snapshots are small — a set of keys — so every change gets one.
+
+  var _ignoreUndo = [];
+  var _ignoreRedo = [];
+  var IGNORE_MAX = 50;
+
+  /** Record the ignore set before a change that should be undoable. */
+  function pushIgnore() {
+    if (!_ignored) return;
+    _ignoreUndo.push(_snapshotIgnored());
+    if (_ignoreUndo.length > IGNORE_MAX) _ignoreUndo.shift();
+    _ignoreRedo = [];
+    App.history.sync();
+  }
+
+  function _snapshotIgnored() {
+    var keys = [];
+    _ignored.forEach(function (key) {
+      keys.push(key);
+    });
+    return keys;
+  }
+
+  function _restoreIgnored(keys) {
+    _ignored = new Set(keys);
+    _selectionChanged();
+    App.history.sync();
+  }
+
+  function _undoIgnore() {
+    if (!_ignoreUndo.length) return;
+    _ignoreRedo.push(_snapshotIgnored());
+    _restoreIgnored(_ignoreUndo.pop());
+  }
+
+  function _redoIgnore() {
+    if (!_ignoreRedo.length) return;
+    _ignoreUndo.push(_snapshotIgnored());
+    _restoreIgnored(_ignoreRedo.pop());
+  }
+
+  var TRIM_SCOPE = {
+    id: "trim",
+    undo: _undoIgnore,
+    redo: _redoIgnore,
+    canUndo: function () {
+      return _ignoreUndo.length > 0;
+    },
+    canRedo: function () {
+      return _ignoreRedo.length > 0;
+    },
+    undoDepth: function () {
+      return _ignoreUndo.length;
+    },
+    redoDepth: function () {
+      return _ignoreRedo.length;
+    },
+    undoKey: "toolbar.undoIgnore",
+    redoKey: "toolbar.redoIgnore",
+  };
+
+  // ── Context menu ──────────────────────────────────────────────────────
+
+  /**
+   * The trim toolbar's actions, under the cursor — and, when the pointer is
+   * over a building, that building named as something to keep or exclude.
+   * Right-click did nothing at all here before.
+   */
+  function _showTrimMenu(point, key) {
+    var excluded = key ? isIgnored(key) : false;
+    App.ui.showContextMenu(point, [
+      key && {
+        labelKey: excluded ? "trim.menuKeep" : "trim.menuExclude",
+        icon: excluded ? "fa-square-plus" : "fa-square-minus",
+        checked: excluded,
+        disabled: !!s.trimEdit,
+        onClick: function () {
+          _toggleIgnored(key);
+        },
+      },
+      key && { separator: true },
+      {
+        labelKey: "trim.outliers",
+        icon: "fa-wand-magic-sparkles",
+        disabled: !!s.trimEdit,
+        onClick: _runOutliers,
+      },
+      {
+        labelKey: "trim.clear",
+        icon: "fa-eraser",
+        disabled: !!s.trimEdit || ignoredCount() === 0,
+        onClick: clearSelection,
+      },
+      {
+        labelKey: "trim.adjust",
+        icon: s.trimEdit ? "fa-square-check" : "fa-square",
+        checked: !!s.trimEdit,
+        onClick: function () {
+          setEdit(!s.trimEdit);
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "trim.apply",
+        icon: "fa-check",
+        onClick: apply,
+      },
+      {
+        labelKey: "trim.cancel",
+        icon: "fa-xmark",
+        danger: true,
+        onClick: function () {
+          if (s.trimMode) toggle();
+        },
+      },
+    ]);
+  }
+
+  /**
+   * Called from polygons.js for a right-click while the tool is running.
+   * The building key is derived here rather than at the call site, because
+   * how a building is keyed is this module's business and nobody else's.
+   *
+   * @param {L.Layer} [layer] the building under the cursor, if there was one
+   */
+  function handleContextMenu(point, layer) {
+    if (!s.trimMode) return false;
+    var key = layer && layer.feature ? _keyOf(layer.feature) : null;
+    _showTrimMenu(point, key);
+    return true;
   }
 
   return {
@@ -1870,6 +2097,7 @@ App.trim = (function () {
     markOutliers: markOutliers,
     outliersIn: outliersIn,
     clearSelection: clearSelection,
+    handleContextMenu: handleContextMenu,
     setEdit: setEdit,
     isEditing: isEditing,
     compute: compute,
