@@ -326,7 +326,7 @@
     "errNoTemplate": "Najpierw wczytaj szablon PDF.",
     "errTemplateLayout": "Nie udało się odczytać układu szablonu.",
     "attach": "Osadź projekt w pliku PDF",
-    "attachHint": "Kartę można wtedy zaimportować, aby przywrócić granicę i tereny. Działa tylko z szablonem."
+    "attachHint": "Kartę można wtedy zaimportować, aby przywrócić granicę i tereny."
   },
   "place": {
     "title": "Umieść mapę",
@@ -751,8 +751,12 @@
   "gaps": {
     "title": "Poza wszystkimi terenami",
     "area": "{area} km²",
-    "clickHint": "Kliknij, aby utworzyć teren",
+    "clickHint": "Kliknij, aby utworzyć teren · prawy przycisk zamyka obszar",
     "adopt": "Utwórz z tego teren",
-    "adoptAll": "Utwórz teren z każdego wolnego obszaru"
+    "adoptAll": "Utwórz teren z każdego wolnego obszaru",
+    "dissolveAbsorb": "Zamknij — sąsiedni teren go wchłonie",
+    "dissolveTrim": "Zamknij — cofnij granicę",
+    "dissolveAll": "Zamknij wszystkie obszary bez terenu",
+    "dissolveFailed": "Nie udało się zamknąć tego obszaru."
   }
 }

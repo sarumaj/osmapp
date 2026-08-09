@@ -303,7 +303,7 @@
     "errNoTemplate": "Lade zuerst eine PDF-Vorlage.",
     "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden.",
     "attach": "Projekt in die PDF einbetten",
-    "attachHint": "Die Karte kann dann importiert werden, um Grenze und Gebiete wiederherzustellen. Nur mit Vorlage möglich."
+    "attachHint": "Die Karte kann dann importiert werden, um Grenze und Gebiete wiederherzustellen."
   },
   "place": {
     "title": "Karte positionieren",
@@ -710,8 +710,12 @@
   "gaps": {
     "title": "In keinem Gebiet",
     "area": "{area} km²",
-    "clickHint": "Klicken, um daraus ein Gebiet zu machen",
+    "clickHint": "Klicken macht daraus ein Gebiet · Rechtsklick schließt sie",
     "adopt": "Daraus ein Gebiet machen",
-    "adoptAll": "Aus jeder freien Fläche ein Gebiet machen"
+    "adoptAll": "Aus jeder freien Fläche ein Gebiet machen",
+    "dissolveAbsorb": "Schließen — das Nachbargebiet nimmt sie auf",
+    "dissolveTrim": "Schließen — die Grenze zurücknehmen",
+    "dissolveAll": "Alle nicht abgedeckten Flächen schließen",
+    "dissolveFailed": "Diese Fläche konnte nicht geschlossen werden."
   }
 }

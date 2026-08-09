@@ -303,7 +303,7 @@
     "errNoTemplate": "Load a PDF template first.",
     "errTemplateLayout": "The template layout could not be read.",
     "attach": "Embed the project in the PDF",
-    "attachHint": "The card can then be imported to restore the boundary and the territories. Only works with a template."
+    "attachHint": "The card can then be imported to restore the boundary and the territories."
   },
   "place": {
     "title": "Position the map",
@@ -710,8 +710,12 @@
   "gaps": {
     "title": "Not in any territory",
     "area": "{area} km²",
-    "clickHint": "Click to make it a territory",
+    "clickHint": "Click to make it a territory · right-click to close it",
     "adopt": "Make this a territory",
-    "adoptAll": "Make every uncovered area a territory"
+    "adoptAll": "Make every uncovered area a territory",
+    "dissolveAbsorb": "Close it — the neighboring territory takes it",
+    "dissolveTrim": "Close it — trim the boundary back",
+    "dissolveAll": "Close every uncovered area",
+    "dissolveFailed": "That area could not be closed."
   }
 }

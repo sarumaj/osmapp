@@ -303,7 +303,7 @@
     "errNoTemplate": "Chargez d'abord un modèle PDF.",
     "errTemplateLayout": "La mise en page du modèle n'a pas pu être lue.",
     "attach": "Intégrer le projet dans le PDF",
-    "attachHint": "La carte pourra alors être importée pour restaurer la limite et les territoires. Nécessite un modèle."
+    "attachHint": "La carte pourra alors être importée pour restaurer la limite et les territoires."
   },
   "place": {
     "title": "Positionner la carte",
@@ -710,8 +710,12 @@
   "gaps": {
     "title": "Dans aucun territoire",
     "area": "{area} km²",
-    "clickHint": "Cliquez pour en faire un territoire",
+    "clickHint": "Cliquez pour en faire un territoire · clic droit pour la refermer",
     "adopt": "En faire un territoire",
-    "adoptAll": "Faire un territoire de chaque zone non couverte"
+    "adoptAll": "Faire un territoire de chaque zone non couverte",
+    "dissolveAbsorb": "Refermer — le territoire voisin l’absorbe",
+    "dissolveTrim": "Refermer — reculer la limite",
+    "dissolveAll": "Refermer toutes les zones non couvertes",
+    "dissolveFailed": "Cette zone n’a pas pu être refermée."
   }
 }

@@ -470,6 +470,7 @@ App.print = (function () {
       );
       D.toggle(D.role(_dialog, "clear-template"), true);
       D.toggle(D.role(_dialog, "adjust-template"), true);
+      _syncAttach();
 
       if (_layoutIsCurrent(stored.layout)) {
         _layoutId = stored.id || null;
@@ -478,6 +479,22 @@ App.print = (function () {
       }
       return _resolveLayout(file);
     });
+  }
+
+  /**
+   * Show the embed option only when there is a PDF to embed into.
+   *
+   * The attachment is written by compose_pdf, which only runs on the template
+   * path — without one the card goes to the browser's own print dialog as an
+   * image and there is no file of ours to carry anything. A checkbox that is
+   * ticked, remembered, and quietly does nothing is worse than no checkbox:
+   * it promises the card is a restore point when it is not.
+   */
+  function _syncAttach() {
+    var row = D.role(_dialog, "attach-row");
+    if (row) D.toggle(row, !!_templateFile);
+    var hint = D.role(_dialog, "attach-hint");
+    if (hint) D.toggle(hint, !!_templateFile);
   }
 
   /** Owns the template label — callers must not write it themselves. */
@@ -492,6 +509,7 @@ App.print = (function () {
     );
     D.toggle(D.role(_dialog, "clear-template"), !!file);
     D.toggle(D.role(_dialog, "adjust-template"), !!file);
+    _syncAttach();
 
     if (!file) {
       _layoutId = null;

@@ -199,6 +199,28 @@ App.gaps = (function () {
    * few gaps rather than towards offering a gap over somebody's territory.
    */
   function _uncovered(outer, features) {
+    var union = _covered(features);
+
+    if (union.feature && !union.failed) {
+      try {
+        var rest = G.difference(outer, union.feature);
+        // A boundary entirely covered is the normal, healthy answer.
+        if (!rest || !rest.geometry) return null;
+        return rest;
+      } catch (e) {
+        /* fall through to the slow path */
+      }
+    }
+
+    return _subtractEach(outer, features);
+  }
+
+  /**
+   * The territories folded into one shape, and how many would not fold.
+   *
+   * @returns {{feature: Feature|null, failed: number}}
+   */
+  function _covered(features) {
     var covered = null;
     var failed = 0;
 
@@ -219,18 +241,7 @@ App.gaps = (function () {
       else failed++;
     }
 
-    if (covered && !failed) {
-      try {
-        var rest = G.difference(outer, covered);
-        // A boundary entirely covered is the normal, healthy answer.
-        if (!rest || !rest.geometry) return null;
-        return rest;
-      } catch (e) {
-        /* fall through to the slow path */
-      }
-    }
-
-    return _subtractEach(outer, features);
+    return { feature: covered, failed: failed };
   }
 
   /** Subtract the territories one at a time; slower, and cannot lose one. */
@@ -303,7 +314,7 @@ App.gaps = (function () {
 
         // Growing back must not reach into a territory, so the result is
         // clipped to the region it came from. Without this an adopted gap
-        // would overlap its neighbours by half a meter.
+        // would overlap its neighbors by half a meter.
         var clipped = null;
         try {
           clipped = G.intersect(grown, part);
@@ -466,6 +477,26 @@ App.gaps = (function () {
       },
       { separator: true },
       {
+        // Labelled by what it will actually do here rather than by the
+        // mechanism: "dissolve" is one word for two outcomes, and which one
+        // you get depends on where the gap sits. A menu entry that says which
+        // needs no second glance.
+        labelKey: _touchesOuterNow(feature)
+          ? "gaps.dissolveTrim"
+          : "gaps.dissolveAbsorb",
+        icon: "fa-droplet",
+        onClick: function () {
+          dissolve(feature);
+        },
+      },
+      {
+        labelKey: "gaps.dissolveAll",
+        icon: "fa-fill-drip",
+        disabled: _features.length < 2,
+        onClick: dissolveAll,
+      },
+      { separator: true },
+      {
         labelKey: "menu.zoom",
         icon: "fa-magnifying-glass-plus",
         onClick: function () {
@@ -478,6 +509,16 @@ App.gaps = (function () {
         },
       },
     ]);
+  }
+
+  /** Which of the two dissolves applies, for labelling the menu. */
+  function _touchesOuterNow(feature) {
+    if (!s.outerPolygonLayer) return false;
+    try {
+      return _touchesOuter(feature, G.getOuterFeature(s.outerPolygonLayer));
+    } catch (e) {
+      return false;
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -533,6 +574,258 @@ App.gaps = (function () {
     return made;
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // DISSOLVE
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Make a gap disappear rather than turn it into a territory.
+   *
+   * Adopting is right when the ground is worth a card of its own. Most gaps
+   * are not: they are the strip left by dragging a boundary outward, or the
+   * hole where a territory was deleted, and what you want is for the map to
+   * stop having a hole in it. Which of the two things that means depends on
+   * where the gap sits:
+   *
+   *   • Touching the outer boundary → the boundary is wrong, not the
+   *     territories. It is trimmed back to the edges of the territories
+   *     around the gap, so the working area ends where the cards end.
+   *   • Enclosed by territories → the territories are what is wrong, and the
+   *     one it abuts most absorbs it.
+   *
+   * Touching the boundary wins when both are true, which is the common case
+   * after growing the outline: a strip against the new edge with territories
+   * along one side of it. Absorbing that would stretch one territory out to
+   * an edge nobody drew it against.
+   */
+  function dissolve(feature) {
+    if (!feature || !feature.geometry || !s.outerPolygonLayer) return false;
+
+    App.history.push();
+    if (!_dissolveOne(feature)) {
+      // Nothing moved, so the entry would be a step that undoes nothing —
+      // worse than no entry, because Ctrl+Z would then look broken.
+      App.history.undo();
+      alert(T("gaps.dissolveFailed"));
+      return false;
+    }
+    return true;
+  }
+
+  /** dissolve() without the history entry, so the bulk path can reuse it. */
+  function _dissolveOne(feature) {
+    var outer;
+    try {
+      outer = G.getOuterFeature(s.outerPolygonLayer);
+    } catch (e) {
+      return false;
+    }
+    if (!outer || !outer.geometry) return false;
+    return _touchesOuter(feature, outer)
+      ? _trimOuter(feature, outer)
+      : _absorb(feature);
+  }
+
+  /**
+   * Whether the gap runs along the outer boundary.
+   *
+   * Asked of the piece grown by a whisker rather than of the piece itself:
+   * opening shrank it by GAP_OPEN_M and grew it back clipped, so a gap that
+   * genuinely reaches the boundary can end a few millimeters short of it.
+   */
+  function _touchesOuter(feature, outer) {
+    var eps = s.GAP_OPEN_M || 0.5;
+    try {
+      var probe = turf.buffer(feature, eps * 2, { units: "meters" });
+      if (!probe || !probe.geometry) return false;
+      return !!turf.booleanIntersects(probe, turf.polygonToLine(outer));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /**
+   * Trim the boundary back so the gap falls outside it.
+   *
+   * The piece is grown first, or the half meter that opening took off would
+   * be left behind as a hairline strip — dissolving a gap and watching a
+   * thinner version of it stay put is exactly the failure this feature exists
+   * to avoid. Growing it would reach into the territories beside it, so
+   * whatever the growth covers that a territory already covers is put back
+   * before the subtraction: a territory that lost half a meter would be
+   * clipped by replaceOuter and would lose its printed mark for a change
+   * nobody asked for.
+   */
+  function _trimOuter(feature, outer) {
+    var eps = s.GAP_OPEN_M || 0.5;
+    var cut = feature;
+    try {
+      var grown = turf.buffer(feature, eps * 1.5, { units: "meters" });
+      if (grown && grown.geometry) {
+        var covered = _covered(App.polygons.clusterFeatures()).feature;
+        var trimmed = covered ? G.difference(grown, covered) : grown;
+        if (trimmed && trimmed.geometry) cut = trimmed;
+      }
+    } catch (e) {
+      /* the ungrown piece still removes the bulk of it */
+    }
+
+    var next = null;
+    try {
+      next = G.difference(outer, cut);
+    } catch (e) {
+      next = null;
+    }
+    if (!next || !next.geometry) return false;
+
+    next = _keepInhabited(next);
+    if (!next || !next.geometry) return false;
+
+    if (!App.polygons.replaceOuter(next)) return false;
+    console.log(
+      ">>> Gap dissolved into the boundary —",
+      Math.round(_area(feature)),
+      "m² trimmed off",
+    );
+    return true;
+  }
+
+  /**
+   * Drop the parts of a trimmed boundary that hold no territory.
+   *
+   * Cutting a gap out of the outline can sever a corner, and a boundary in
+   * two pieces where one of them is empty ground is not a smaller boundary,
+   * it is a mess. The largest part is kept regardless, so a boundary with no
+   * territories in it at all still survives its own trim.
+   */
+  function _keepInhabited(outer) {
+    var parts = G.polygonParts(outer);
+    if (parts.length <= 1) return outer;
+
+    var features = App.polygons.clusterFeatures();
+    var kept = parts.filter(function (part) {
+      return features.some(function (cluster) {
+        try {
+          var hit = G.intersect(part, cluster);
+          return !!(hit && hit.geometry && turf.area(hit) > 1);
+        } catch (e) {
+          return false;
+        }
+      });
+    });
+    if (!kept.length) return G.largestPolygon(outer);
+
+    var merged = kept[0];
+    for (var i = 1; i < kept.length; i++) {
+      try {
+        merged = G.union(merged, kept[i]) || merged;
+      } catch (e) {
+        /* keep what we have */
+      }
+    }
+    return merged;
+  }
+
+  /**
+   * Hand the gap to the territory it belongs to most.
+   *
+   * "Most" is the longest shared edge, measured as the area a thin collar
+   * around the gap shares with each territory — a proxy, but a robust one,
+   * and it is the rule every GIS calls sliver elimination. Splitting the gap
+   * between its neighbors proportionally was the alternative, and it is the
+   * worse answer for the shapes this actually meets: a hole where a territory
+   * used to be, handed to whichever neighbor it mostly abuts, beats the same
+   * hole carved into four wedges nobody drew.
+   *
+   * unionHealed rather than union: the piece stands half a meter clear of its
+   * neighbors because opening put it there, and a plain union would leave
+   * that hairline behind as a hole inside the territory.
+   */
+  function _absorb(feature) {
+    var eps = s.GAP_OPEN_M || 0.5;
+    var features = App.polygons.clusterFeatures();
+    if (!features.length) return false;
+
+    var collar = null;
+    try {
+      collar = turf.buffer(feature, eps * 3, { units: "meters" });
+    } catch (e) {
+      collar = null;
+    }
+    if (!collar || !collar.geometry) return false;
+
+    var best = -1;
+    var bestShare = 0;
+    features.forEach(function (cluster, index) {
+      var share = 0;
+      try {
+        var hit = G.intersect(collar, cluster);
+        share = hit && hit.geometry ? turf.area(hit) : 0;
+      } catch (e) {
+        share = 0;
+      }
+      if (share > bestShare) {
+        bestShare = share;
+        best = index;
+      }
+    });
+    if (best < 0) return false;
+
+    var merged = null;
+    try {
+      merged = G.unionHealed([features[best], feature], eps * 1.6);
+    } catch (e) {
+      merged = null;
+    }
+    if (!merged || !merged.geometry) return false;
+
+    var next = features.map(function (cluster, index) {
+      if (index !== best) return cluster;
+      var properties = Object.assign({}, cluster.properties || {});
+      // The shape changed, so a card printed from it no longer matches the
+      // ground — the rule trimming and cutting already follow.
+      delete properties.printed;
+      return {
+        type: "Feature",
+        geometry: merged.geometry,
+        properties: properties,
+      };
+    });
+
+    App.polygons.setClusters(next);
+    console.log(
+      ">>> Gap absorbed by territory",
+      best + 1,
+      "—",
+      Math.round(_area(feature)),
+      "m²",
+    );
+    return true;
+  }
+
+  /** Every gap closed, as one undoable step. */
+  function dissolveAll() {
+    if (!_features.length) return 0;
+    var pending = _features.slice();
+    var done = 0;
+
+    App.history.push();
+    // Each one re-reads the current territories and boundary, because the one
+    // before it may well have moved both.
+    pending.forEach(function (feature) {
+      if (_dissolveOne(feature)) done++;
+    });
+
+    if (!done) {
+      App.history.undo();
+      alert(T("gaps.dissolveFailed"));
+      return 0;
+    }
+    recompute();
+    console.log(">>> Dissolved", done, "gaps");
+    return done;
+  }
+
   return {
     init: init,
     schedule: schedule,
@@ -542,6 +835,8 @@ App.gaps = (function () {
     features: features,
     adopt: adopt,
     adoptAll: adoptAll,
+    dissolve: dissolve,
+    dissolveAll: dissolveAll,
     isVisible: isVisible,
     setVisible: setVisible,
     PANE: PANE,
