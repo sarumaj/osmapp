@@ -91,6 +91,9 @@
     // After polygons: it reads isPrinted off it, and its chips go into the
     // same layer group as the territories themselves.
     App.labels.init();
+    // After labels: the territory-number suggestions it builds are labels'
+    // numbering, read back through numberOf.
+    App.naming.init();
     App.data.init();
     App.session.init();
     App.clustering.init();

@@ -807,13 +807,33 @@
 
             <fieldset class="print-controls__group">
               <legend data-i18n="print.card">Card</legend>
+              <!-- Both fields are suggested rather than filled: the guess goes
+                   in the placeholder and every candidate goes in the datalist,
+                   so a congregation whose wording differs from OSM's types
+                   over the hint instead of deleting it. autocomplete is off so
+                   the browser's own history of past form values does not
+                   compete with the list we built from the map. The datalist
+                   ids are assigned by print.js at open time — a template is
+                   cloned, and a hardcoded id would collide with itself. -->
               <label class="print-controls__field">
                 <span data-i18n="print.locality">Locality</span>
-                <input type="text" data-role="locality" />
+                <input
+                  type="text"
+                  data-role="locality"
+                  autocomplete="off"
+                  data-i18n-attrs="title=print.localityHint"
+                />
+                <datalist data-role="locality-options"></datalist>
               </label>
               <label class="print-controls__field">
                 <span data-i18n="print.territoryNo">Territory no.</span>
-                <input type="text" data-role="territory" />
+                <input
+                  type="text"
+                  data-role="territory"
+                  autocomplete="off"
+                  data-i18n-attrs="title=print.territoryHint"
+                />
+                <datalist data-role="territory-options"></datalist>
               </label>
               <label class="print-controls__field">
                 <span data-i18n="print.template">PDF template</span>
@@ -1063,6 +1083,7 @@
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
     <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/naming.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data.js') }}"></script>
     <script src="{{ url_for('static', filename='js/session.js') }}"></script>
     <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>

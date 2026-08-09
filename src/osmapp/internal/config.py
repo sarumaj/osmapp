@@ -24,6 +24,10 @@ NOMINATIM_URL = os.environ.get("NOMINATIM_URL", "https://nominatim.openstreetmap
 # to be configured once.
 NOMINATIM_LOOKUP_URL = os.environ.get("NOMINATIM_LOOKUP_URL", "") or re.sub(r"/search/?$", "/lookup", NOMINATIM_URL)
 
+# Derived the same way, and for the same reason: a self-hosted Nominatim only
+# has to set NOMINATIM_URL for all three endpoints to follow it.
+NOMINATIM_REVERSE_URL = os.environ.get("NOMINATIM_REVERSE_URL", "") or re.sub(r"/search/?$", "/reverse", NOMINATIM_URL)
+
 # Refuse early instead of hanging Overpass for three minutes.
 MAX_AREA_KM2 = float(os.environ.get("OSM_MAX_AREA_KM2", "50"))
 

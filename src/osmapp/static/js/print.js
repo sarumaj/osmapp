@@ -470,6 +470,23 @@ App.print = (function () {
     "locality",
   ];
 
+  /**
+   * How many previously printed localities are remembered for autocomplete.
+   *
+   * Distinct from the `locality` preference above, which is the *last* one and
+   * comes back in the field itself. This is the list behind the dropdown, and
+   * it exists for the congregation that works three villages in rotation: OSM
+   * suggests what the addresses say, this suggests what you actually wrote on
+   * the last card for each of them.
+   *
+   * Eight is a round of villages, not an archive. A longer list would start
+   * offering typos from months ago with the same prominence as last week's.
+   */
+  var RECENT_LOCALITIES_MAX = 8;
+
+  /** Sequence for the runtime datalist ids. See _fillOptions. */
+  var _optionsSeq = 0;
+
   function _readPreferences() {
     try {
       return JSON.parse(window.localStorage.getItem(PREFERENCES_KEY) || "{}");
@@ -518,6 +535,42 @@ App.print = (function () {
       preferences[role] =
         input.type === "checkbox" ? (input.checked ? "1" : "0") : input.value;
     });
+    _writePreferences(preferences);
+  }
+
+  /** Localities printed before, most recent first. Never throws. */
+  function _recentLocalities() {
+    var saved = _readPreferences().localities;
+    if (!Array.isArray(saved)) return [];
+    return saved
+      .map(function (value) {
+        return typeof value === "string" ? value.trim() : "";
+      })
+      .filter(Boolean);
+  }
+
+  /**
+   * Record a locality that made it onto a card.
+   *
+   * Written on a successful print rather than on the field's change event: a
+   * name typed, reconsidered and corrected before printing is not a name this
+   * congregation uses, and the dropdown is only worth having if everything in
+   * it is something that was actually printed.
+   */
+  function _rememberLocality(value) {
+    value = (value || "").trim();
+    if (!value) return;
+
+    var id = value.toLowerCase();
+    var list = _recentLocalities().filter(function (previous) {
+      return previous.toLowerCase() !== id;
+    });
+    list.unshift(value);
+
+    // Merge, for the same reason _savePreferences merges: the layouts record
+    // lives alongside this one.
+    var preferences = _readPreferences();
+    preferences.localities = list.slice(0, RECENT_LOCALITIES_MAX);
     _writePreferences(preferences);
   }
 
@@ -1978,7 +2031,7 @@ App.print = (function () {
     // something else, and should hear it here rather than off the printer.
     D.toggleRole(_dialog, "osm-only", App.basemap.isAid());
     _loadPreferences();
-    _suggestTerritoryNumber();
+    _suggestNames();
     // After _loadPreferences, so a preference saved in a browser that could
     // sharpen does not come back checked in one that cannot.
     _applyFilterSupport();
@@ -1992,24 +2045,105 @@ App.print = (function () {
   }
 
   /**
-   * Offer the number the map is already showing as the territory number.
+   * Fill both card fields with what the map already knows.
    *
-   * Not a preference, unlike Locality: the locality is the same on every card
-   * of a round and the number is different on every one, which is why it was
-   * the one field you retyped each time — from the tooltip, or by counting.
-   * The chip on the shape says 7, so the field says 7.
+   * The number was always the easy half: the chip on the shape says 7, so the
+   * field says 7. The locality is the half that was retyped once per card for
+   * a whole round, and it was never actually unknown — it is in the addr:city
+   * and addr:place tags of the buildings inside the shape, which the app has
+   * already downloaded, drawn and counted. App.naming tallies them.
    *
-   * A suggestion rather than a fact. It is an editable text field and stays
-   * one: the number is this session's index into s.clusters, and a
-   * congregation's S-13 numbering is its own thing that no partitioner knows
-   * about. Anything already typed wins, so a language switch — which reopens
-   * nothing, but a future caller might — cannot overwrite an answer.
+   * Both are suggestions rather than facts, which is why the guess goes in the
+   * placeholder and everything else goes in a datalist. The number is this
+   * session's index into s.clusters and a congregation's S-13 numbering is its
+   * own thing; the locality tagged on a building is whatever a mapper wrote
+   * there, and a congregation that says "Mainz-Süd" where OSM says "Mainz"
+   * should be typing over a hint rather than deleting an answer. Anything
+   * already typed always wins — the field is the user's, not ours.
+   *
+   * Locality is a preference and comes back filled from the last card, so most
+   * of the time the placeholder is never seen. That is the point: the
+   * suggestion is for the first card of a round and for the round after the
+   * congregation moves to the next village.
    */
-  function _suggestTerritoryNumber() {
-    var input = D.role(_dialog, "territory");
-    if (!input || input.value.trim()) return;
-    var number = App.labels ? App.labels.numberOf(_feature) : null;
-    if (number) input.placeholder = App.i18n.n(number);
+  function _suggestNames() {
+    var localityInput = D.role(_dialog, "locality");
+    var territoryInput = D.role(_dialog, "territory");
+    if (!localityInput || !territoryInput) return;
+
+    var localities = App.naming ? App.naming.localityCandidates(_feature) : [];
+    var recent = _recentLocalities();
+    var best = localities.length ? localities[0].value : recent[0] || "";
+
+    if (!localityInput.value.trim() && best) localityInput.placeholder = best;
+    _fillOptions("locality-options", localityInput, _values(localities).concat(recent));
+
+    _suggestTerritory(territoryInput, localityInput.value.trim() || best);
+
+    // Nominatim is the answer where the buildings have no addresses at all,
+    // which is most of the world. It arrives late and only ever adds to the
+    // list — the tags inside the shape stay ahead of it, because they describe
+    // this territory while a reverse lookup describes one point in it.
+    if (!App.naming) return;
+    var target = _feature;
+    App.naming.reverse(_feature).then(function (extra) {
+      // The dialog may have been closed, or reopened on another territory,
+      // while the lookup was in flight.
+      if (!_dialog || _feature !== target || !extra.length) return;
+
+      var merged = _values(localities).concat(_values(extra), recent);
+      _fillOptions("locality-options", localityInput, merged);
+
+      var top = best || extra[0].value;
+      if (!localityInput.value.trim() && !localityInput.placeholder)
+        localityInput.placeholder = top;
+      _suggestTerritory(territoryInput, localityInput.value.trim() || top);
+    });
+  }
+
+  /** The number, its zero-padded form, and the locality-qualified form. */
+  function _suggestTerritory(input, locality) {
+    var candidates = App.naming
+      ? App.naming.territoryCandidates(_feature, locality)
+      : [];
+    if (!candidates.length) return;
+    if (!input.value.trim()) input.placeholder = candidates[0].value;
+    _fillOptions("territory-options", input, _values(candidates));
+  }
+
+  function _values(candidates) {
+    return (candidates || []).map(function (candidate) {
+      return candidate.value;
+    });
+  }
+
+  /**
+   * Point an input at a datalist and rebuild the options in it.
+   *
+   * The id is assigned here rather than written into the template because the
+   * template is cloned: a hardcoded id would be duplicated the moment two
+   * dialogs ever coexisted, and `list=` is the one attribute in this dialog
+   * that cannot be expressed as a data-role lookup.
+   */
+  function _fillOptions(role, input, values) {
+    var list = D.role(_dialog, role);
+    if (!list || !input) return;
+
+    if (!list.id) list.id = "print-" + role + "-" + ++_optionsSeq;
+    if (input.getAttribute("list") !== list.id)
+      input.setAttribute("list", list.id);
+
+    var seen = Object.create(null);
+    list.textContent = "";
+    (values || []).forEach(function (value) {
+      var text = (value == null ? "" : String(value)).trim();
+      var id = text.toLowerCase();
+      if (!text || seen[id]) return;
+      seen[id] = true;
+      var option = document.createElement("option");
+      option.value = text;
+      list.appendChild(option);
+    });
   }
 
   function close() {
@@ -2559,6 +2693,7 @@ App.print = (function () {
     // resolves. markPrinted() looks the feature up in the cluster list and
     // shrugs if it has since been cut, merged or deleted.
     var target = _feature;
+    var locality = _opts().locality;
     _setBusy(true);
 
     _setStatus(T("print.waitingTiles"));
@@ -2582,6 +2717,9 @@ App.print = (function () {
         // success path has to be tested here rather than assumed from the
         // absence of a throw.
         if (ok === false) return;
+
+        // Only names that reached a card go in the dropdown.
+        _rememberLocality(locality);
 
         // On the no-template path this is optimistic: the browser's own print
         // dialog is fire-and-forget and we never hear whether it was

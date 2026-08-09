@@ -7,6 +7,12 @@ Two routes:
     the search box, and a city relation's polygon is far too heavy to ship with
     a suggestion list. The client only asks for the outline once someone picks a
     result and wants it as the outer boundary.
+  • /reverse_geocode   — what a point is called. Answers the print dialog's
+    "Locality" field for territories whose buildings carry no addr:city or
+    addr:place, which is most of them outside the countries where address
+    imports have happened. Returns the whole settlement hierarchy rather than
+    one name, because which rung of it belongs on a card is a decision only the
+    person printing it can make.
 """
 
 import logging
@@ -27,6 +33,7 @@ from .config import (
     GEOCODE_MIN_INTERVAL,
     MAX_AREA_KM2,
     NOMINATIM_LOOKUP_URL,
+    NOMINATIM_REVERSE_URL,
     NOMINATIM_URL,
 )
 from .geo import approx_area_km2
@@ -217,8 +224,8 @@ def geocode_boundary() -> Response:
                 ):
                     geom = repaired
             geometry = cast(dict[str, Any], raw)
-        except Exception:
-            logger.warning("unusable boundary geometry for %s", osm_ref)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("unusable boundary geometry for %s: %s", osm_ref, exc)
             geom = None
 
     parts = 1
@@ -243,5 +250,123 @@ def geocode_boundary() -> Response:
     }
 
     body = json_(payload)
+    _cache_put(key, body.get_data())
+    return body
+
+
+# ── reverse lookup ────────────────────────────────────────────────────────────
+
+# Keys of Nominatim's `address` object that can reasonably go in a "Locality"
+# field, best first. The tail is deliberately included: a territory in open
+# country resolves to a municipality or a county and nothing else, and offering
+# that beats offering an empty list.
+_LOCALITY_KEYS = (
+    "city",
+    "town",
+    "village",
+    "hamlet",
+    "municipality",
+    "suburb",
+    "city_district",
+    "borough",
+    "county",
+)
+
+# Nominatim's own zoom for the returned object. 14 is settlement level: high
+# enough that a rural point resolves to its village rather than to a field, low
+# enough that an urban one does not come back as a house number. `addressdetails`
+# returns the full hierarchy either way, so this only chooses the headline.
+_REVERSE_ZOOM = 14
+
+
+def _locality_candidates(address: dict[str, Any]) -> list[dict[str, str]]:
+    """The settlement names in one Nominatim address, deduplicated, best first.
+
+    Deduplication is not cosmetic. Nominatim regularly repeats a name across
+    rungs — a town that is also its own municipality — and two identical
+    entries in an autocomplete list look like a bug in the app rather than a
+    fact about administrative geography.
+    """
+    seen: set[str] = set()
+    out: list[dict[str, str]] = []
+    for key in _LOCALITY_KEYS:
+        raw = address.get(key)
+        if not isinstance(raw, str):
+            continue
+        value = raw.strip()
+        if not value or value.casefold() in seen:
+            continue
+        seen.add(value.casefold())
+        out.append({"value": value, "kind": key})
+    return out
+
+
+@bp.route("/reverse_geocode")
+def reverse_geocode() -> Response:
+    """Name the place a point falls in.
+
+    Answers 200 with an empty candidate list when Nominatim knows nothing about
+    the point — the client treats this as an enrichment of a list it already
+    has, so "no name here" is an ordinary answer rather than a failure.
+    """
+    try:
+        lat = float(request.args.get("lat", ""))
+        lon = float(request.args.get("lon", ""))
+    except ValueError:
+        return error_("Provide numeric lat and lon.")
+
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        return error_("Coordinates are out of range.")
+
+    # Length-capped rather than validated against SUPPORTED_LANGS: this is
+    # passed straight to Nominatim, which speaks far more languages than the
+    # interface does and ignores what it does not recognize.
+    lang = request.args.get("lang", "").strip()[:16]
+
+    # Five decimals is about a metre and would make the cache useless; four is
+    # about eleven, which is smaller than any territory and turns reprinting a
+    # card into a cache hit.
+    key = f"reverse|{lat:.4f}|{lon:.4f}|{lang}"
+    hit = _cache_get(key)
+    if hit is not None:
+        return Response(hit, mimetype="application/json")
+
+    params: dict[str, Any] = {
+        "lat": lat,
+        "lon": lon,
+        "format": "json",
+        "zoom": _REVERSE_ZOOM,
+        "addressdetails": 1,
+    }
+    if lang:
+        params["accept-language"] = lang
+
+    try:
+        resp = _nominatim(NOMINATIM_REVERSE_URL, params)
+        item = resp.json()
+    except Exception:
+        logger.exception("reverse lookup failed for %.5f, %.5f", lat, lon)
+        return error_("The place lookup is unavailable right now.", 502)
+
+    if not isinstance(item, dict) or item.get("error"):  # type: ignore[reportUnknownMemberType]
+        # Oceans, Antarctica, and the gaps between coverage areas all land
+        # here. Not an error the user did anything about.
+        return json_({"name": None, "display": None, "candidates": []})
+
+    item = cast(dict[str, Any], item)
+    address = item.get("address")
+    candidates = (
+        _locality_candidates(cast(dict[str, Any], address))
+        if isinstance(address, dict)
+        else []
+    )
+
+    body = json_(
+        {
+            "name": candidates[0]["value"] if candidates else None,
+            "display": item.get("display_name"),
+            "candidates": candidates,
+        }
+    )
     _cache_put(key, body.get_data())
     return body
