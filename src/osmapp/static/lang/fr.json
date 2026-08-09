@@ -28,7 +28,7 @@
     "redoStrokeNone": "Aucun tracé de gomme à rétablir",
     "redoCount": "Rétablir la dernière modification annulée ({count} disponible(s))",
     "locate": "Afficher ma position",
-    "import": "Importer un export GeoJSON",
+    "import": "Importer un export GeoJSON ou une carte imprimée",
     "export": "Tout exporter en GeoJSON",
     "refetch": "Retélécharger les données OSM pour la limite extérieure",
     "partition": "Diviser la zone en territoires",
@@ -118,7 +118,8 @@
     "dissolving": "Dissolution des limites communes…",
     "progress": "Territoire {index} sur {total}",
     "retryIn": "Overpass est occupé — nouvelle tentative dans {count} s (tentative {attempt} sur {total})",
-    "retrying": "Nouvelle tentative… (tentative {attempt} sur {total})"
+    "retrying": "Nouvelle tentative… (tentative {attempt} sur {total})",
+    "readingCard": "Lecture de la carte…"
   },
   "phase": {
     "samples": "Collecte des points d'échantillon",
@@ -300,7 +301,9 @@
     "basemap": "Fond de carte",
     "osmOnly": "Les fiches sont toujours dessinées sur le fond OpenStreetMap, quelle que soit la couche affichée sur la carte.",
     "errNoTemplate": "Chargez d'abord un modèle PDF.",
-    "errTemplateLayout": "La mise en page du modèle n'a pas pu être lue."
+    "errTemplateLayout": "La mise en page du modèle n'a pas pu être lue.",
+    "attach": "Intégrer le projet dans le PDF",
+    "attachHint": "La carte pourra alors être importée pour restaurer la limite et les territoires. Nécessite un modèle."
   },
   "place": {
     "title": "Positionner la carte",
@@ -345,7 +348,8 @@
     "clearPrintedConfirm": {
       "one": "Effacer la marque d'impression sur {count} territoire ? Cette action est irréversible.",
       "other": "Effacer les marques d'impression sur {count} territoires ? Cette action est irréversible."
-    }
+    },
+    "importNoProject": "Ce PDF ne contient pas de projet enregistré ({message})."
   },
   "tooltip": {
     "territory": "Territoire {n}",

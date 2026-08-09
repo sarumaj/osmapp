@@ -56,7 +56,7 @@ App.data = (function () {
     // There was a cache fast path here, guarded on `_isWithinCache(geojson)`,
     // which tested `s.cachedPolygon` — a field nothing in the app has ever
     // assigned. The guard was therefore always false and the branch never
-    // ran, so removing it changes no behaviour. Reinstating it properly would
+    // ran, so removing it changes no behavior. Reinstating it properly would
     // mean recording the downloaded polygon and deciding what a confirmed
     // download that then silently does not happen should look like; that is a
     // feature decision, not a cleanup, so it is deliberately not made here.
@@ -411,6 +411,35 @@ App.data = (function () {
     };
   }
 
+  /**
+   * The project state, minus everything that can be downloaded again.
+   *
+   * buildPayload() is a session snapshot and carries `streets` and
+   * `buildings` — the whole OSM cache, which for a town is a few megabytes of
+   * geometry. That is the right thing to write into a file somebody chose to
+   * save; it is the wrong thing to staple to every printed card, where it
+   * would multiply the size of the PDF by an order of magnitude for data that
+   * Overpass will hand back on request.
+   *
+   * What is left is the part nobody can recover: the boundary somebody drew,
+   * the way it was divided, and which territories have been done. Importing
+   * from a card restores those and offers to re-download the rest.
+   */
+  function buildAttachmentPayload() {
+    var payload = buildPayload();
+    if (!payload.outerPolygon) throw new Error("no boundary to attach");
+    return {
+      version: payload.version,
+      exportedAt: payload.exportedAt,
+      outerPolygon: payload.outerPolygon,
+      bounds: payload.bounds,
+      clusters: payload.clusters,
+      // Says the OSM cache was left out on purpose, so applyPayload can tell
+      // "printed card" from "export that lost its streets somehow".
+      partial: true,
+    };
+  }
+
   function exportData() {
     if (!s.outerPolygonLayer) {
       alert(T("alert.exportNothing"));
@@ -471,7 +500,23 @@ App.data = (function () {
     return restored;
   }
 
+  /**
+   * Import a saved project, from an export file or from a printed card.
+   *
+   * A card is a PDF with the project embedded in it, so the two paths differ
+   * only in how the JSON is obtained — the server unpacks the attachment and
+   * hands back exactly what a .json export would have contained. Everything
+   * after that is shared, including the failure messages, because "this file
+   * is not a project" means the same thing whichever wrapper it arrived in.
+   */
   function importData(file) {
+    if (_looksLikePdf(file)) {
+      _readProjectFromPdf(file).then(function (payload) {
+        if (payload) _applyImported(payload);
+      });
+      return;
+    }
+
     var reader = new FileReader();
 
     reader.onerror = function () {
@@ -486,28 +531,75 @@ App.data = (function () {
         alert(T("alert.importNotJson"));
         return;
       }
-
-      var restored;
-      try {
-        restored = applyPayload(payload);
-      } catch (err) {
-        console.error(">>> Import failed:", err);
-        alert(T("alert.importInvalid", { message: err.message }));
-        return;
-      }
-      if (App.history) App.history.clear();
-
-      console.log(
-        ">>> Import complete — streets:",
-        s.cachedStreets.features.length,
-        "buildings:",
-        s.cachedBuildings.features.length,
-        "clusters:",
-        restored,
-      );
+      _applyImported(payload);
     };
 
     reader.readAsText(file);
+  }
+
+  function _looksLikePdf(file) {
+    if (!file) return false;
+    if (file.type === "application/pdf") return true;
+    return /\.pdf$/i.test(file.name || "");
+  }
+
+  /** @returns {Promise<Object|null>} null when it has already been reported */
+  function _readProjectFromPdf(file) {
+    var form = new FormData();
+    form.append("pdf", file, file.name || "card.pdf");
+
+    App.ui.showBusy(T("loading.readingCard"));
+    return fetch("/extract_project", { method: "POST", body: form })
+      .then(function (response) {
+        return response.json().then(
+          function (body) {
+            if (!response.ok) throw new Error(body.error || String(response.status));
+            return body;
+          },
+          function () {
+            throw new Error(String(response.status));
+          },
+        );
+      })
+      .catch(function (err) {
+        console.error(">>> Could not read the card:", err);
+        alert(T("alert.importNoProject", { message: err.message }));
+        return null;
+      })
+      .then(function (payload) {
+        App.ui.hideOverlay();
+        return payload;
+      });
+  }
+
+  function _applyImported(payload) {
+    var restored;
+    try {
+      restored = applyPayload(payload);
+    } catch (err) {
+      console.error(">>> Import failed:", err);
+      alert(T("alert.importInvalid", { message: err.message }));
+      return;
+    }
+    if (App.history) App.history.clear();
+
+    console.log(
+      ">>> Import complete — streets:",
+      s.cachedStreets.features.length,
+      "buildings:",
+      s.cachedBuildings.features.length,
+      "clusters:",
+      restored,
+    );
+
+    // A card carries the boundary and the territories but not the OSM cache,
+    // which is deliberate — see buildAttachmentPayload. Offered rather than
+    // assumed, for the same reason drawing a boundary offers it: the download
+    // is the slow part, and somebody who only wanted to look at last round's
+    // territories should not have to wait for it.
+    if (payload && payload.partial) {
+      confirmAndFetch(payload.outerPolygon);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -541,6 +633,7 @@ App.data = (function () {
     cancelFetch: cancelFetch,
     displayResults: displayResults,
     exportData: exportData,
+    buildAttachmentPayload: buildAttachmentPayload,
     importData: importData,
     buildPayload: buildPayload,
     applyPayload: applyPayload,

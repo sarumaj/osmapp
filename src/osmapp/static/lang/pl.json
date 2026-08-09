@@ -28,7 +28,7 @@
     "redoStrokeNone": "Nie ma pociągnięcia do ponowienia",
     "redoCount": "Ponów cofniętą zmianę (dostępne: {count})",
     "locate": "Pokaż moją lokalizację",
-    "import": "Wczytaj plik GeoJSON",
+    "import": "Importuj eksport GeoJSON lub wydrukowaną kartę",
     "export": "Zapisz wszystko do GeoJSON",
     "refetch": "Pobierz ponownie dane OSM dla granicy zewnętrznej",
     "partition": "Podziel obszar na tereny",
@@ -123,7 +123,8 @@
       "many": "Overpass jest zajęty — ponowna próba za {count} sekund (próba {attempt} z {total})",
       "other": "Overpass jest zajęty — ponowna próba za {count} sekundy (próba {attempt} z {total})"
     },
-    "retrying": "Ponawianie… (próba {attempt} z {total})"
+    "retrying": "Ponawianie… (próba {attempt} z {total})",
+    "readingCard": "Odczytywanie karty…"
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",
@@ -323,7 +324,9 @@
     "basemap": "Mapa podstawowa",
     "osmOnly": "Karty są zawsze rysowane na mapie podstawowej OpenStreetMap, niezależnie od warstwy widocznej na ekranie.",
     "errNoTemplate": "Najpierw wczytaj szablon PDF.",
-    "errTemplateLayout": "Nie udało się odczytać układu szablonu."
+    "errTemplateLayout": "Nie udało się odczytać układu szablonu.",
+    "attach": "Osadź projekt w pliku PDF",
+    "attachHint": "Kartę można wtedy zaimportować, aby przywrócić granicę i tereny. Działa tylko z szablonem."
   },
   "place": {
     "title": "Umieść mapę",
@@ -370,7 +373,8 @@
       "few": "Usunąć oznaczenia wydruku z {count} terenów? Tej operacji nie można cofnąć.",
       "many": "Usunąć oznaczenia wydruku z {count} terenów? Tej operacji nie można cofnąć.",
       "other": "Usunąć oznaczenia wydruku z {count} terenu? Tej operacji nie można cofnąć."
-    }
+    },
+    "importNoProject": "Ten plik PDF nie zawiera zapisanego projektu ({message})."
   },
   "tooltip": {
     "territory": "Teren {n}",

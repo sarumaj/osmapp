@@ -220,6 +220,7 @@ App.print = (function () {
     "grayscale",
     "erase-size",
     "locality",
+    "attach",
   ];
 
   /**
@@ -2232,7 +2233,20 @@ App.print = (function () {
       erasing: D.role(_dialog, "erase").checked,
       locality: D.role(_dialog, "locality").value.trim(),
       territory: D.role(_dialog, "territory").value.trim(),
+      attach: _attachChecked(),
     };
+  }
+
+  /**
+   * Whether the card carries the project it was printed from.
+   *
+   * Only meaningful on the template path: the no-template path hands a PNG to
+   * the browser's own print dialog, and there is no PDF of ours to attach
+   * anything to.
+   */
+  function _attachChecked() {
+    var box = D.role(_dialog, "attach");
+    return !!(box && box.checked);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -2545,6 +2559,23 @@ App.print = (function () {
       form.append("territory_x", String(FIELDS.territory.x));
       form.append("territory_y", String(FIELDS.territory.y));
       form.append("territory_size", String(FIELDS.territory.size));
+    }
+
+    // The card carries the project it came from, so the printed sheet is also
+    // the backup. See App.data.buildAttachmentPayload for what is left out and
+    // why — the short version is everything that can be downloaded again.
+    if (o.attach) {
+      try {
+        var payload = App.data.buildAttachmentPayload();
+        form.append(
+          "project",
+          new Blob([JSON.stringify(payload)], { type: "application/json" }),
+          "osmapp-project.json",
+        );
+      } catch (e) {
+        // A card that prints without its backup beats no card at all.
+        console.warn(">>> Could not attach the project state:", e.message);
+      }
     }
 
     return fetch("/compose_pdf", { method: "POST", body: form })

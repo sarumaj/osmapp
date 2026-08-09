@@ -14,7 +14,7 @@ from pypdf.generic import ContentStream
 
 # Text that marks the map area. Extend freely — a template that has none falls
 # back to the largest text-free rectangle.
-MARKERS = re.compile(r"MIEJSCE NA MAP|MAPA TERENU|MAP AREA|KARTENFELD", re.I)
+MARKERS = re.compile(r"MIEJSCE NA MAP|MAPA TERENU|MAP AREA|KARTENFELD", re.IGNORECASE)
 LEADER = re.compile(r"^[.\u2026]{4,}$")
 MIN_SIDE_PT = 40.0  # below this it is a rule or a hairline, not a box
 MAX_PAGE_FRACTION = 0.90  # above this it is the page frame, not the map box
@@ -66,7 +66,10 @@ def _rectangles(page: PageObject, reader: PdfReader) -> list[Rect]:
             ctm = _mul(tuple(float(v) for v in operands), ctm)  # type: ignore[arg-type]
         elif op == "re":
             x, y, w, h = (float(v) for v in operands)
-            pts = [_apply(ctm, px, py) for px, py in ((x, y), (x + w, y), (x + w, y + h), (x, y + h))]
+            pts = [
+                _apply(ctm, px, py)
+                for px, py in ((x, y), (x + w, y), (x + w, y + h), (x, y + h))
+            ]
             xs = [p[0] for p in pts]
             ys = [p[1] for p in pts]
             out.append((min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys)))
@@ -108,7 +111,9 @@ def _placeholder_for(page: PageObject, reader: PdfReader) -> dict[str, float] | 
         return None
 
     items = _text_items(page)
-    marks: list[tuple[float, float]] = [(x, y) for x, y, _, t in items if MARKERS.search(t)]
+    marks: list[tuple[float, float]] = [
+        (x, y) for x, y, _, t in items if MARKERS.search(t)
+    ]
 
     def holds(rect: Rect, points: list[tuple[float, float]]) -> bool:
         x, y, w, h = rect
@@ -123,7 +128,9 @@ def _placeholder_for(page: PageObject, reader: PdfReader) -> dict[str, float] | 
             return dict(zip(("x", "y", "width", "height"), best))
 
     # No marker: prefer the largest rectangle with no text inside it.
-    empties = [c for c in candidates if not any(holds(c, [(x, y)]) for x, y, _, _ in items)]
+    empties = [
+        c for c in candidates if not any(holds(c, [(x, y)]) for x, y, _, _ in items)
+    ]
     pool = empties or candidates
     best = max(pool, key=lambda c: c[2] * c[3])
     return dict(zip(("x", "y", "width", "height"), best))

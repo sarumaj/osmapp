@@ -1,7 +1,10 @@
 """PDF composition — stamps the rendered map onto an uploaded template."""
 
+import gzip
+import json
 import logging
 import math
+import time
 from io import BytesIO
 
 import pypdfium2 as pdfium  # type: ignore[reportMissingTypeStubs]
@@ -15,10 +18,22 @@ from reportlab.pdfgen import canvas as rl_canvas
 from osmapp.internal.template import inspect_template
 
 from .config import FONT_PATH
-from .responses import error_, json_
+from .responses import BadRequest, error_, json_
 
 logger = logging.getLogger("osm_app")
 bp = Blueprint("pdf", __name__)
+
+# The name the project state is embedded under. Fixed, because reading it back
+# is a lookup rather than a search — and because a card that arrives with an
+# unrelated attachment should not be mistaken for one of ours.
+PROJECT_ATTACHMENT_NAME = "osmapp-project.json.gz"
+
+# Generous for a boundary and a few hundred territories, and far under
+# anything that would make a card awkward to email. The client strips the OSM
+# cache before sending, so hitting this means something is wrong rather than
+# something is big.
+_PROJECT_MAX_BYTES = 8 * 1024 * 1024
+_PROJECT_MAX_UNZIPPED = 32 * 1024 * 1024
 
 
 _FONT_NAME = "OsmAppSans"
@@ -45,6 +60,54 @@ def inspect_template_route() -> Response:
     except Exception:
         logger.exception("inspect_template failed")
         return error_("The map area could not be found in that template.", 422)
+
+
+@bp.route("/extract_project", methods=["POST"])
+def extract_project() -> Response:
+    """Read the project state back out of a printed card.
+
+    The counterpart to the attachment written by compose_pdf. Done here rather
+    than in the browser because the parsing is already here: pypdf is a
+    dependency, and a JavaScript PDF parser added for one lookup would be a
+    second implementation of a format this app already reads.
+    """
+    document = request.files.get("pdf")
+    if document is None:
+        return error_("No PDF supplied.")
+
+    try:
+        reader = PdfReader(document.stream)
+        if reader.is_encrypted:
+            return error_("Encrypted PDFs are not supported.")
+        attachments = reader.attachments
+    except Exception:
+        logger.exception("extract_project: unreadable PDF")
+        return error_("That file is not a readable PDF.")
+
+    versions = attachments.get(PROJECT_ATTACHMENT_NAME)
+    if not versions:
+        return error_("That PDF does not carry a saved project.", 404)
+
+    # A PDF may hold several files under one name. The last is the most
+    # recently written, which is the one a re-composed card would have added.
+    blob = versions[-1]
+    try:
+        raw = gzip.decompress(blob)
+    except (OSError, EOFError):
+        # Written by an older build, before the payload was compressed.
+        raw = blob
+
+    if len(raw) > _PROJECT_MAX_UNZIPPED:
+        return error_("The saved project in that PDF is implausibly large.")
+
+    try:
+        payload = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return error_("The saved project in that PDF is damaged.", 422)
+    if not isinstance(payload, dict):
+        return error_("The saved project in that PDF is damaged.", 422)
+
+    return json_(payload)  # type: ignore[reportUnknownArgumentType]
 
 
 @bp.route("/template_preview", methods=["POST"])
@@ -174,8 +237,22 @@ def compose_pdf() -> Response:
         logger.exception("compose_pdf: merge failed")
         return error_("Could not stamp the map onto the template.", 500)
 
-    writer = PdfWriter()
-    writer.append(reader)
+    # clone_from, not append(). append() copies the pages and rebuilds the
+    # catalog, which silently drops /Names /EmbeddedFiles — so a template that
+    # arrived with an attachment lost it, and anything attached below would
+    # have to be added after a rebuild that no longer knows about it. Cloning
+    # carries the whole document across, attachments included.
+    writer = PdfWriter(clone_from=reader)
+
+    project = request.files.get("project")
+    if project is not None:
+        try:
+            _attach_project(writer, project.read())
+        except BadRequest as exc:
+            return error_(str(exc))
+        except Exception:
+            # A card that prints without its backup beats no card at all.
+            logger.exception("compose_pdf: could not attach the project state")
 
     out = BytesIO()
     writer.write(out)
@@ -184,5 +261,32 @@ def compose_pdf() -> Response:
     return Response(
         out.read(),
         mimetype="application/pdf",
-        headers={"Content-Disposition": 'inline; filename="teren.pdf"'},
+        headers={
+            "Content-Disposition": f'inline; filename="territory_map_{int(time.time())}.pdf"'
+        },
     )
+
+
+def _attach_project(writer: PdfWriter, raw: bytes) -> None:
+    """Embed the project state so the printed card can rebuild the session.
+
+    Stored gzipped under a fixed name. gzip because the payload is JSON full of
+    repeated coordinate digits and compresses roughly four to one, and because
+    the alternative — a PDF that is a megabyte of map and three megabytes of
+    geometry — is a card nobody can email.
+
+    Validated here rather than trusted: this ends up in a file that is handed
+    to other people, and "whatever bytes the browser sent" is not a thing to
+    put in one. A payload that is not JSON, or is too large, is a bug on the
+    client rather than something to pass through silently.
+    """
+    if len(raw) > _PROJECT_MAX_BYTES:
+        raise BadRequest("The project state is too large to attach.")
+    try:
+        parsed = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise BadRequest("The project state is not valid JSON.") from exc
+    if not isinstance(parsed, dict):
+        raise BadRequest("The project state is not an object.")
+
+    writer.add_attachment(PROJECT_ATTACHMENT_NAME, gzip.compress(raw))

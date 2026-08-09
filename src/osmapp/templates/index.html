@@ -1082,6 +1082,22 @@
               >
                 No template — the map prints on its own.
               </p>
+              <!-- Checked by default: the whole value of this is that it
+                   happens without anyone remembering to ask for it. The
+                   checkbox exists because the card then carries the entire
+                   territory plan, and somebody handing one sheet to one
+                   person may not want to hand over the rest of it. -->
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="attach" checked />
+                <span data-i18n="print.attach">Embed the project in the PDF</span>
+              </label>
+              <p
+                class="print-controls__hint"
+                data-i18n="print.attachHint"
+              >
+                The card can then be imported to restore the boundary and the
+                territories. Only works with a template.
+              </p>
               <div class="print-controls__row">
                 <button
                   type="button"

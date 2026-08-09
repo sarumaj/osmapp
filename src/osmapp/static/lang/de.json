@@ -28,7 +28,7 @@
     "redoStrokeNone": "Kein Radierstrich zu wiederholen",
     "redoCount": "Rückgängig gemachte Änderung wiederholen ({count} verfügbar)",
     "locate": "Meinen Standort anzeigen",
-    "import": "GeoJSON-Datei laden",
+    "import": "GeoJSON-Export oder gedruckte Karte importieren",
     "export": "Alles als GeoJSON speichern",
     "refetch": "OSM-Daten für die Außengrenze erneut laden",
     "partition": "Fläche in Gebiete aufteilen",
@@ -118,7 +118,8 @@
     "dissolving": "Gemeinsame Grenzen werden aufgelöst…",
     "progress": "Gebiet {index} von {total}",
     "retryIn": "Overpass ist ausgelastet — neuer Versuch in {count} s (Versuch {attempt} von {total})",
-    "retrying": "Neuer Versuch… (Versuch {attempt} von {total})"
+    "retrying": "Neuer Versuch… (Versuch {attempt} von {total})",
+    "readingCard": "Karte wird gelesen…"
   },
   "phase": {
     "samples": "Stichprobenpunkte werden gesammelt",
@@ -300,7 +301,9 @@
     "basemap": "Hintergrundkarte",
     "osmOnly": "Karten werden immer auf der OpenStreetMap-Hintergrundkarte gezeichnet, unabhängig von der angezeigten Ebene.",
     "errNoTemplate": "Lade zuerst eine PDF-Vorlage.",
-    "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden."
+    "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden.",
+    "attach": "Projekt in die PDF einbetten",
+    "attachHint": "Die Karte kann dann importiert werden, um Grenze und Gebiete wiederherzustellen. Nur mit Vorlage möglich."
   },
   "place": {
     "title": "Karte positionieren",
@@ -345,7 +348,8 @@
     "clearPrintedConfirm": {
       "one": "Die Druckmarkierung von {count} Gebiet entfernen? Das lässt sich nicht rückgängig machen.",
       "other": "Die Druckmarkierungen von {count} Gebieten entfernen? Das lässt sich nicht rückgängig machen."
-    }
+    },
+    "importNoProject": "Diese PDF enthält kein gespeichertes Projekt ({message})."
   },
   "tooltip": {
     "territory": "Gebiet {n}",

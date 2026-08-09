@@ -28,7 +28,7 @@
     "redoStrokeNone": "No eraser stroke to redo",
     "redoCount": "Redo last undone change ({count} available)",
     "locate": "Show my location",
-    "import": "Import a GeoJSON export",
+    "import": "Import a GeoJSON export or a printed card",
     "export": "Export everything to GeoJSON",
     "refetch": "Re-download OSM data for the outer boundary",
     "partition": "Split the area into territories",
@@ -118,7 +118,8 @@
     "dissolving": "Dissolving shared boundaries…",
     "progress": "Territory {index} of {total}",
     "retryIn": "Overpass is busy — retrying in {count} s (attempt {attempt} of {total})",
-    "retrying": "Trying again… (attempt {attempt} of {total})"
+    "retrying": "Trying again… (attempt {attempt} of {total})",
+    "readingCard": "Reading the card…"
   },
   "phase": {
     "samples": "Collecting sample points",
@@ -300,7 +301,9 @@
     "basemap": "Basemap",
     "osmOnly": "Cards are always drawn on the OpenStreetMap basemap, whichever layer is shown on the map.",
     "errNoTemplate": "Load a PDF template first.",
-    "errTemplateLayout": "The template layout could not be read."
+    "errTemplateLayout": "The template layout could not be read.",
+    "attach": "Embed the project in the PDF",
+    "attachHint": "The card can then be imported to restore the boundary and the territories. Only works with a template."
   },
   "place": {
     "title": "Position the map",
@@ -345,7 +348,8 @@
     "clearPrintedConfirm": {
       "one": "Clear the printed mark on {count} territory? This cannot be undone.",
       "other": "Clear the printed marks on {count} territories? This cannot be undone."
-    }
+    },
+    "importNoProject": "That PDF does not carry a saved project ({message})."
   },
   "tooltip": {
     "territory": "Territory {n}",
