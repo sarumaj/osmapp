@@ -38,7 +38,7 @@ inside the box the template leaves for it.
 
 Anyone who divides a geographic area into assignments and hands them to people
 on foot: congregation field service, canvassing, leaflet distribution, survey
-work, parish visiting, delivery rounds.
+work, parish visiting, delivery rounds. The primary target group are congregations of Jehovah's witnesses who carry out their missionary work in the field [more about it](https://www.jw.org/finder?wtlocale=E&docid=502013361&srcid=share).
 
 ## What you actually do
 
@@ -103,7 +103,7 @@ ziehen, sodass die Karte genau in das Feld passt, das die Vorlage dafür vorsieh
 
 Jeder, der ein geografisches Gebiet in Aufgabenbereiche unterteilt und diese an
 Personen vor Ort verteilt: Gemeindedienst, Wahlwerbung, Flugblattverteilung, Umfragen,
-Gemeindebesuche, Auslieferungsrunden.
+Gemeindebesuche, Auslieferungsrunden. Die Hauptzielgruppe sind Gemeinden der Zeugen Jehovas, die ihre Missionsarbeit vor Ort ausüben [mehr dazu](https://www.jw.org/finder?wtlocale=X&docid=502013361&srcid=share).
 
 ### Was du konkret tust
 
@@ -174,7 +174,7 @@ szablonie karty — tak, aby mapa znalazła się w polu przeznaczonym dla niej w
 
 Każdy, kto dzieli obszar geograficzny na zadania i przydziela je osobom
 poruszającym się pieszo: służba terenowa zboru, akcje informacyjne, rozdawanie ulotek,
-prace ankietowe, wizyty parafialne, trasy dostawcze.
+prace ankietowe, wizyty parafialne, trasy dostawcze. Główną grupą docelową są zbory Świadków Jehowy, które prowadzą działalność misyjną w terenie [więcej na ten temat](https://www.jw.org/finder?wtlocale=P&docid=502013361&srcid=share).
 
 ### Co faktycznie robisz
 
@@ -243,7 +243,7 @@ l’encadré que le modèle lui réserve.
 À toute personne qui divise une zone géographique en secteurs d’intervention et
 les attribue à des personnes se déplaçant à pied : service de terrain de la
 congrégation, porte-à-porte, distribution de tracts, enquêtes, visites
-paroissiales, tournées de livraison.
+paroissiales, tournées de livraison. Le public cible principal est constitué des congrégations des Témoins de Jéhovah qui mènent leur œuvre missionnaire sur le terrain [en savoir plus](https://www.jw.org/finder?wtlocale=F&docid=502013361&srcid=share).
 
 ## Comment procéder
 
