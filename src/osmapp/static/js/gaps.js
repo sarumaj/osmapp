@@ -160,33 +160,21 @@ App.gaps = (function () {
     }
     if (!outer || !outer.geometry) return [];
 
-    var covered = null;
     var features = App.polygons.clusterFeatures();
-    if (features.length) {
-      try {
-        covered = G.unionAll(features);
-      } catch (e) {
-        covered = null;
-      }
-    }
 
     // Nothing covered at all is not a gap, it is an empty area — and
     // ensureDefaultCluster already has an opinion about that case.
-    if (!covered || !covered.geometry) return [];
+    if (!features.length) return [];
 
-    var rest = null;
-    try {
-      rest = G.difference(outer, covered);
-    } catch (e) {
-      rest = null;
-    }
+    var rest = _uncovered(outer, features);
     if (!rest || !rest.geometry) return [];
 
-    var minimum = s.GAP_MIN_M2 || 1000;
+    var minimum = s.GAP_MIN_M2 || 200;
     var out = [];
     G.polygonParts(rest).forEach(function (part) {
-      var piece = _open(part);
-      if (piece && _area(piece) >= minimum) out.push(piece);
+      _open(part).forEach(function (piece) {
+        if (_area(piece) >= minimum) out.push(piece);
+      });
     });
     return out.sort(function (a, b) {
       return _area(b) - _area(a);
@@ -194,24 +182,88 @@ App.gaps = (function () {
   }
 
   /**
+   * The boundary minus the territories.
+   *
+   * Two ways of asking, because the fast one can fail quietly. G.unionAll
+   * folds the territories together and swallows a failure per feature —
+   * `acc = union(acc, f) || acc` keeps the accumulator and drops `f`. That is
+   * the right call for merging, where losing a shape is visible immediately;
+   * here it means a territory silently vanishes from the covered set and the
+   * ground under it is announced as uncovered. Clicking that would build a
+   * second territory on top of an existing one.
+   *
+   * So the union is done here, counting what it could not fold in, and any
+   * failure at all falls through to subtracting the territories one at a time.
+   * That path cannot lose a territory — a cluster that will not subtract
+   * leaves its own ground looking covered, which errs towards offering too
+   * few gaps rather than towards offering a gap over somebody's territory.
+   */
+  function _uncovered(outer, features) {
+    var covered = null;
+    var failed = 0;
+
+    for (var i = 0; i < features.length; i++) {
+      var f = G.feat(features[i]);
+      if (!f || !f.geometry) continue;
+      if (!covered) {
+        covered = f;
+        continue;
+      }
+      var merged = null;
+      try {
+        merged = G.union(covered, f);
+      } catch (e) {
+        merged = null;
+      }
+      if (merged && merged.geometry) covered = merged;
+      else failed++;
+    }
+
+    if (covered && !failed) {
+      try {
+        var rest = G.difference(outer, covered);
+        // A boundary entirely covered is the normal, healthy answer.
+        if (!rest || !rest.geometry) return null;
+        return rest;
+      } catch (e) {
+        /* fall through to the slow path */
+      }
+    }
+
+    return _subtractEach(outer, features);
+  }
+
+  /** Subtract the territories one at a time; slower, and cannot lose one. */
+  function _subtractEach(outer, features) {
+    var rest = outer;
+    for (var i = 0; i < features.length && rest && rest.geometry; i++) {
+      var next = null;
+      try {
+        next = G.difference(rest, G.feat(features[i]));
+      } catch (e) {
+        next = rest; // an unusable cluster leaves its ground looking covered
+      }
+      rest = next;
+    }
+    return rest && rest.geometry ? rest : null;
+  }
+
+  /**
    * Morphological opening: shrink by half a meter, and if anything survives,
    * grow it back. What does not survive was never a gap.
    *
-   * This replaced subtracting a *healed* union, which was the obvious move and
-   * was wrong in a way worth recording. G.unionHealed grows each territory,
-   * unions, then shrinks the result back — and the shrink erodes the union's
-   * real outer edge along with the artificial internal ones. So the remainder
-   * came back as the genuine gap joined to a two-centimeter frame running
-   * around the entire boundary: one region, pinched at the corners, with a
-   * self-touching ring that turf.buffer collapses to a few square meters. The
-   * area test passed because the frame is attached to something big.
+   * Returns a *list*, and that is the bug this signature exists to prevent.
+   * It used to return one piece via G.largestPolygon, on the assumption that
+   * opening a region gives back a smaller version of the same region. It does
+   * not: two open areas joined by a strip narrower than a meter — a lane
+   * between two territories, the pinch where a reshaped boundary nearly
+   * touches a cluster — erode into two separate lobes, and keeping the larger
+   * silently discarded the other. On a plain 100 m barbell with a 60 cm neck
+   * that is half the uncovered ground, gone, with nothing on screen to say a
+   * second area was ever found.
    *
-   * Opening asks the question directly instead. A seam between two territories
-   * is a few centimeters wide and vanishes; so does a frame; a strip left by
-   * dragging the boundary outward is meters or hundreds of meters wide and
-   * does not.
-   *
-   * @returns {Feature|null}
+   * @param {Feature} part
+   * @returns {Feature[]} zero or more real uncovered pieces
    */
   function _open(part) {
     var eps = s.GAP_OPEN_M || 0.5;
@@ -221,27 +273,72 @@ App.gaps = (function () {
     } catch (e) {
       core = null;
     }
-    if (!core || !core.geometry || _area(core) <= 0) return null;
 
-    var grown = null;
-    try {
-      grown = turf.buffer(core, eps, { units: "meters" });
-    } catch (e) {
-      grown = null;
+    // Nothing survived. That has two very different causes and they must not
+    // be treated alike: the shape was genuinely too thin to be a gap, or the
+    // erosion gave up on a valid but awkward ring. turf.buffer returns
+    // undefined for both, so the shape is asked directly — area over
+    // perimeter is about half the width of a long strip, so a piece whose
+    // ratio clears eps was at least 2·eps wide and should have survived.
+    // Dropping a large obvious gap is worse than showing one a little larger
+    // than it strictly is; it is only ever offered, never applied by itself.
+    if (!core || !core.geometry) {
+      return _thickness(part) >= eps ? [part] : [];
     }
-    if (!grown || !grown.geometry) return core;
 
-    // Growing back must not reach into a territory, so the result is clipped
-    // to the region it came from. Without this an adopted gap would overlap
-    // its neighbours by half a meter.
-    var clipped = null;
+    var lobes = G.polygonParts(core).filter(function (lobe) {
+      return _area(lobe) > 0;
+    });
+    if (!lobes.length) return [];
+
+    return lobes
+      .map(function (lobe) {
+        var grown = null;
+        try {
+          grown = turf.buffer(lobe, eps, { units: "meters" });
+        } catch (e) {
+          grown = null;
+        }
+        if (!grown || !grown.geometry) return lobe;
+
+        // Growing back must not reach into a territory, so the result is
+        // clipped to the region it came from. Without this an adopted gap
+        // would overlap its neighbours by half a meter.
+        var clipped = null;
+        try {
+          clipped = G.intersect(grown, part);
+        } catch (e) {
+          clipped = null;
+        }
+        if (!clipped || !clipped.geometry) return lobe;
+
+        // largestPolygon is safe *here* and not above: clipping one lobe back
+        // to the region it came from can shave slivers off it, and those are
+        // fragments of this lobe rather than uncovered areas of their own.
+        return G.largestPolygon(clipped) || lobe;
+      })
+      .filter(function (piece) {
+        return piece && piece.geometry && _area(piece) > 0;
+      });
+  }
+
+  /**
+   * Roughly half the width of the piece, in meters.
+   *
+   * Area over perimeter: for a long strip of width w it converges on w/2, and
+   * for a compact shape it is much larger. Used only to tell "this vanished
+   * because it was a thread" from "the erosion could not cope with this ring".
+   */
+  function _thickness(feature) {
     try {
-      clipped = G.intersect(grown, part);
+      var area = turf.area(feature);
+      var perimeter = turf.length(turf.polygonToLine(feature), {
+        units: "meters",
+      });
+      return perimeter > 0 ? area / perimeter : 0;
     } catch (e) {
-      clipped = null;
+      return 0;
     }
-    var piece = clipped && clipped.geometry ? clipped : core;
-    return G.largestPolygon(piece) || piece;
   }
 
   function _area(feature) {

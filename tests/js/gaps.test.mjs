@@ -20,6 +20,9 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { loadApp } from "./helpers/load.mjs";
 import { loadTurf } from "./helpers/turf.mjs";
 
@@ -27,6 +30,27 @@ import { loadTurf } from "./helpers/turf.mjs";
 // same trick geometry.test.mjs uses. Stubbing turf here would only assert
 // that the stub agrees with the test.
 const turf = loadTurf();
+
+/**
+ * The tuning constants as shipped, not as retyped here.
+ *
+ * These were copied into the harness, which meant the floor test asserted
+ * that the harness agreed with itself: raising GAP_MIN_M2 in state.js to a
+ * value that hides real gaps would have left every test green.
+ */
+const STATE = readFileSync(
+  join(
+    dirname(fileURLToPath(import.meta.url)),
+    "..", "..", "src", "osmapp", "static", "js", "state.js",
+  ),
+  "utf8",
+);
+
+function tuning(name) {
+  const found = STATE.match(new RegExp(`\\b${name}:\\s*([\\d.]+)`));
+  assert.ok(found, `${name} is not declared in state.js`);
+  return Number(found[1]);
+}
 
 /** A square in degrees, small enough that turf.area is in the right ballpark. */
 function box(west, south, east, north) {
@@ -91,7 +115,8 @@ function setup({ clusters = [], outer = box(0, 0, 0.02, 0.02) } = {}) {
     mergeMode: false,
     trimMode: false,
     outlineMode: false,
-    GAP_MIN_M2: 1000,
+    GAP_MIN_M2: tuning("GAP_MIN_M2"),
+    GAP_OPEN_M: tuning("GAP_OPEN_M"),
     leafletMap: { fitBounds: noop },
   };
 
@@ -194,7 +219,158 @@ test("an empty area is not a gap", () => {
   assert.equal(h.gaps.count(), 0);
 });
 
+// ── Gaps that were being lost ────────────────────────────────────────────────
+//
+// Reported as "sometimes an empty space is not offered". Three separate
+// causes, all of them silent — the area simply was not there, with nothing on
+// screen to say anything had been found and discarded.
+
+/** Meters to degrees, near enough at the equator for fixtures this size. */
+const M = 1 / 111320;
+
+function ring(coords) {
+  return turf.polygon([coords.concat([coords[0]])]);
+}
+
+test("both halves of a gap pinched in the middle are offered", () => {
+  // A barbell: two open areas joined by a strip narrower than a meter, which
+  // is what a lane between two territories looks like. Opening erodes the
+  // neck away and the region falls into two lobes — and the old code kept
+  // G.largestPolygon of them, throwing the other half away.
+  const outer = ring([
+    [0, 0],
+    [100 * M, 0],
+    [100 * M, 100 * M],
+    [0, 100 * M],
+  ]);
+  // Two territories that between them leave a barbell uncovered.
+  const left = ring([
+    [40 * M, 0],
+    [60 * M, 0],
+    [60 * M, 49.7 * M],
+    [40 * M, 49.7 * M],
+  ]);
+  const right = ring([
+    [40 * M, 50.3 * M],
+    [60 * M, 50.3 * M],
+    [60 * M, 100 * M],
+    [40 * M, 100 * M],
+  ]);
+
+  const h = setup({ outer, clusters: [left, right] });
+  h.gaps.recompute();
+
+  assert.equal(h.gaps.count(), 2, "both open areas must be offered");
+  const areas = h.gaps.features().map((f) => turf.area(f));
+  assert.ok(
+    Math.min(...areas) > 1000,
+    "the smaller half is a real area, not a sliver",
+  );
+});
+
+test("a plot-sized gap is offered", () => {
+  // 30 × 30 m — a house plot between two territories. The floor used to sit
+  // at 1000 m², so this was found, measured, and then dropped for being
+  // small, which is precisely the ground somebody still has to walk.
+  const outer = ring([
+    [0, 0],
+    [100 * M, 0],
+    [100 * M, 100 * M],
+    [0, 100 * M],
+  ]);
+  const covering = ring([
+    [30 * M, 0],
+    [100 * M, 0],
+    [100 * M, 100 * M],
+    [0, 100 * M],
+    [0, 30 * M],
+    [30 * M, 30 * M],
+  ]);
+
+  const h = setup({ outer, clusters: [covering] });
+  h.gaps.recompute();
+
+  assert.equal(h.gaps.count(), 1);
+  assert.ok(turf.area(h.gaps.features()[0]) > 800);
+});
+
+test("one unusable territory does not put a gap over a good one", () => {
+  // G.unionAll drops a feature it cannot fold in and keeps going. For merging
+  // that is right; here it means a territory disappears from the covered set
+  // and its own ground is announced as uncovered — click it and you build a
+  // second territory on top of the first.
+  const outer = ring([
+    [0, 0],
+    [200 * M, 0],
+    [200 * M, 200 * M],
+    [0, 200 * M],
+  ]);
+  const good = ring([
+    [0, 0],
+    [100 * M, 0],
+    [100 * M, 200 * M],
+    [0, 200 * M],
+  ]);
+  // A bow-tie: self-intersecting, the shape a bad cut or a dragged corner
+  // can leave behind.
+  const bowtie = turf.polygon([
+    [
+      [100 * M, 0],
+      [200 * M, 200 * M],
+      [200 * M, 0],
+      [100 * M, 200 * M],
+      [100 * M, 0],
+    ],
+  ]);
+
+  const h = setup({ outer, clusters: [good, bowtie] });
+  h.gaps.recompute();
+
+  // Whatever is offered must not overlap a territory that is really there.
+  for (const gap of h.gaps.features()) {
+    let overlap = null;
+    try {
+      overlap = turf.intersect(gap, good);
+    } catch (e) {
+      overlap = null;
+    }
+    const area = overlap ? turf.area(overlap) : 0;
+    assert.ok(
+      area < 1,
+      `a gap was offered over an existing territory (${Math.round(area)} m²)`,
+    );
+  }
+});
+
 // ── Suppression ──────────────────────────────────────────────────────────────
+
+test("a boundary covered by an awkward set of territories still reports nothing", () => {
+  // The slow path has to agree with the fast one about the healthy case.
+  const outer = ring([
+    [0, 0],
+    [100 * M, 0],
+    [100 * M, 100 * M],
+    [0, 100 * M],
+  ]);
+  const halves = [
+    ring([
+      [0, 0],
+      [50 * M, 0],
+      [50 * M, 100 * M],
+      [0, 100 * M],
+    ]),
+    ring([
+      [50 * M, 0],
+      [100 * M, 0],
+      [100 * M, 100 * M],
+      [50 * M, 100 * M],
+    ]),
+  ];
+
+  const h = setup({ outer, clusters: halves });
+  h.gaps.recompute();
+  assert.equal(h.gaps.count(), 0);
+});
 
 test("a modal tool hides the gaps and does not pay to find them", () => {
   // A click that quietly turns an empty patch into a territory in the middle

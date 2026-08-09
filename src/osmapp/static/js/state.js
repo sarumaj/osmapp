@@ -156,12 +156,15 @@ App.state = {
   // which is exactly the case worth pointing at.
   TINY_TERRITORY_PX: 24,
 
-  // The floor for an uncovered patch to be worth pointing at. Healing has
-  // already dissolved the hairline seams between adjacent territories, so
-  // what this drops is the genuine but negligible: the scrap a cut shaved
-  // off, the meter of drift a reshaped corner left behind. Below it the
-  // ground belongs to nobody and nobody needs to be told.
-  GAP_MIN_M2: 1000,
+  // The floor for an uncovered patch to be worth pointing at.
+  //
+  // Opening is what removes the hairline seams, not this — so this only has
+  // to be above the scraps the rest of the app already considers negligible:
+  // CUT_MIN_PIECE_M2 is 5 and MIN_REMAINDER_M2 is 50. It started at 1000,
+  // which is a square 32 m on a side, and that hid exactly the thing the
+  // feature is for: a 30 × 30 m plot between two territories is uncovered
+  // ground somebody has to walk, and it was never offered.
+  GAP_MIN_M2: 200,
 
   // How far an uncovered piece is shrunk before it is asked whether it still
   // exists. Half a meter is the same tolerance geometry.unionHealed uses to
