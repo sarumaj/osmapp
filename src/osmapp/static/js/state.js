@@ -40,6 +40,7 @@ App.state = {
   trimReachM: 60, // how far the boundary runs behind a building
   trimDetailM: 15, // how far the traced edge may be straightened
   trimFollow: true, // snap and route the new edge along streets
+  trimEdit: false, // the proposal is being dragged about by hand
 
   // ── Cut tool toggles (live, flipped from the cut toolbar) ─
   cutSnap: true, // snap vertices to the street network

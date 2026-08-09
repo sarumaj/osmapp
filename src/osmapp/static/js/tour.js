@@ -154,6 +154,25 @@ App.tour = (function () {
       },
     },
     {
+      // The marks are the half of the tool that is a conversation rather than
+      // a setting, and they only exist once something has been excluded — so
+      // this step comes after the bar has opened and the automatic pass has
+      // run on the sample's outlying farms.
+      id: "trimMarks",
+      demo: true,
+      target: ".trim-marker",
+      placement: "bottom",
+      highlight: "ring",
+      origin: '[data-action="trim"]',
+      skipIfNoTarget: true,
+      enter: function () {
+        if (!App.state.trimMode) App.trim.toggle();
+      },
+      exit: function () {
+        if (App.state.trimMode) App.trim.toggle();
+      },
+    },
+    {
       id: "partitionButton",
       demo: true,
       target: '[data-action="partition"]',

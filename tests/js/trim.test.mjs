@@ -735,3 +735,70 @@ test("two buildings are never enough to call one of them unusual", () => {
     [],
   );
 });
+
+// ── The sample the tour runs on ──────────────────────────────────────────────
+
+test("the demo village has something for the trim step to actually trim", () => {
+  // The tour opens this tool on the sample, and before the outfield existed
+  // the sample was a tidy grid with the boundary pulled tight around it —
+  // nothing to exclude, nothing to remove, a tool visibly doing nothing on the
+  // one screen where somebody is learning what it is for.
+  //
+  // The farms are found by the outlier pass's own rule, not by anything rigged
+  // here, which is what makes the step honest: if the rule is retuned and they
+  // stop being outliers, this fails rather than the walkthrough quietly going
+  // inert again.
+  const window = {};
+  const App = loadApp(["spatial.js", "coverage.js", "demo.js"], {
+    window,
+    document: {},
+    turf,
+    L,
+  });
+  App.i18n = { t: (key) => key };
+  App.data = { PAYLOAD_VERSION: 3 };
+  App.state = {};
+
+  const buildings = App.demo.payload().buildings.features;
+  const farms = buildings.filter((f) => f.properties.building === "farm");
+  assert.equal(farms.length, 3, "the outfield should be in the sample");
+
+  const trim = load();
+  const entries = buildings.map((f) => {
+    const ring = f.geometry.coordinates[0];
+    const lng = (ring[0][0] + ring[2][0]) / 2;
+    const lat = (ring[0][1] + ring[2][1]) / 2;
+    return { centroid: [lng, lat], key: f.properties["addr:housenumber"] + "/" + f.properties["addr:street"], feature: f, big: false };
+  });
+
+  const marked = trim.outliersIn(entries);
+  assert.equal(marked.length, 3, `expected the three farms, got ${marked.length}`);
+  marked.forEach((entry) => {
+    assert.equal(entry.feature.properties.building, "farm", "only the farms");
+  });
+});
+
+test("the demo boundary is wide enough that trimming it is worth doing", () => {
+  const window = {};
+  const App = loadApp(["spatial.js", "coverage.js", "demo.js"], {
+    window,
+    document: {},
+    turf,
+    L,
+  });
+  App.i18n = { t: (key) => key };
+  App.data = { PAYLOAD_VERSION: 3 };
+  App.state = {};
+
+  const payload = App.demo.payload();
+  const ring = payload.outerPolygon.geometry.coordinates[0];
+  const east = Math.max(...ring.map((c) => c[0]));
+  const farms = payload.buildings.features.filter((f) => f.properties.building === "farm");
+  farms.forEach((f) => {
+    f.geometry.coordinates[0].forEach((c) => {
+      assert.ok(c[0] <= east, "a farm outside the boundary would be filtered out of the pool");
+    });
+  });
+  // And there is a track out to them, or they sit in a field with no way in.
+  assert.ok(payload.streets.features.length > 9, "the track should be there too");
+});

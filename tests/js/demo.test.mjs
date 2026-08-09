@@ -95,7 +95,7 @@ test("every polygon ring is closed", () => {
 test("there is enough of a village to be worth showing", () => {
   assert.ok(payload.streets.features.length >= 8, "streets");
   assert.ok(payload.buildings.features.length >= 30, "buildings");
-  assert.equal(payload.clusters.length, 4);
+  assert.equal(payload.clusters.length, 5);
 });
 
 // ── Relationships ────────────────────────────────────────────────────────────

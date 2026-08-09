@@ -141,7 +141,7 @@
     "cancel": "Cancel"
   },
   "trim": {
-    "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · Enter applies · Esc cancels",
+    "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · E adjusts the corners by hand · Enter applies · Esc cancels",
     "ignored": {
       "one": "{count} building ignored",
       "other": "{count} buildings ignored"
@@ -156,6 +156,8 @@
     "detailValue": "straighten {meters} m",
     "detailFull": "follow every bay",
     "follow": "Follow streets",
+    "adjust": "Adjust corners by hand",
+    "adjustHint": "Drag a corner to move it, an edge dot to add one, click a corner to remove it. The sliders are locked while this is on.",
     "apply": "Apply",
     "outliers": "Outliers",
     "clear": "Clear",
@@ -181,7 +183,8 @@
     "applyDetail": "{before} km² → {after} km² (−{percent}%)",
     "applyOk": "Trim",
     "excludedNote": "Excluded — click to keep",
-    "flaggedNote": "Isolated, kept — click to exclude"
+    "flaggedNote": "Isolated, kept — click to exclude",
+    "editedNote": "adjusted by hand"
   },
   "draw": {
     "hint": "Click to place vertices · Right-drag to pan · Enter or double-click to finish · Backspace steps back · Esc to cancel",
@@ -581,6 +584,10 @@
       "trim": {
         "title": "Ignore what you do not need",
         "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. One slider sets how far the new boundary runs behind the houses, the other how much the edge is straightened, and with \"Follow streets\" on it snaps onto the road network instead of cutting through gardens. Green is what you keep, red is what you give up."
+      },
+      "trimMarks": {
+        "title": "The marks show what is being dropped",
+        "body": "The isolated farms out along the track were excluded automatically, and each one carries a mark that stays the same size however far you zoom out. Click a mark to keep that building after all — the boundary reshapes around it, along the track, rather than pretending it is not there."
       }
     }
   },

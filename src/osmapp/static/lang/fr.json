@@ -141,7 +141,7 @@
     "cancel": "Annuler"
   },
   "trim": {
-    "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · Entrée applique · Échap annule",
+    "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · E ajuste les angles à la main · Entrée applique · Échap annule",
     "ignored": {
       "one": "{count} bâtiment exclu",
       "other": "{count} bâtiments exclus"
@@ -156,6 +156,8 @@
     "detailValue": "lisser {meters} m",
     "detailFull": "suivre chaque recoin",
     "follow": "Suivre les rues",
+    "adjust": "Ajuster les angles à la main",
+    "adjustHint": "Glissez un angle pour le déplacer, un point d’arête pour en ajouter un, cliquez un angle pour le retirer. Les curseurs sont verrouillés pendant ce temps.",
     "apply": "Appliquer",
     "outliers": "Isolés",
     "clear": "Effacer",
@@ -181,7 +183,8 @@
     "applyDetail": "{before} km² → {after} km² (−{percent} %)",
     "applyOk": "Rogner",
     "excludedNote": "Exclu — cliquez pour le conserver",
-    "flaggedNote": "Isolé, conservé — cliquez pour l’exclure"
+    "flaggedNote": "Isolé, conservé — cliquez pour l’exclure",
+    "editedNote": "ajusté à la main"
   },
   "draw": {
     "hint": "Cliquez pour placer des sommets · Glisser avec le bouton droit pour déplacer · Entrée ou double-clic pour terminer · Retour arrière recule · Échap pour annuler",
@@ -581,6 +584,10 @@
       "trim": {
         "title": "Excluez ce dont vous n’avez pas besoin",
         "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Un curseur fixe la distance derrière les maisons, l’autre le lissage du contour, et avec « Suivre les rues » la limite s’accroche au réseau routier au lieu de couper à travers les jardins. Le vert reste, le rouge disparaît."
+      },
+      "trimMarks": {
+        "title": "Les marques montrent ce qui disparaît",
+        "body": "Les fermes isolées le long du chemin ont été exclues automatiquement, et chacune porte une marque de taille constante quel que soit le zoom. Cliquez une marque pour conserver ce bâtiment malgré tout — la limite se reforme autour de lui, le long du chemin, au lieu de faire comme s’il n’existait pas."
       }
     }
   },

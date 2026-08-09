@@ -71,10 +71,33 @@ App.demo = (function () {
   var HOUSE_D = 10;
   var JUNCTION_CLEAR = 30; // no houses this close to a crossing
 
+  // ── The outfield ──────────────────────────────────────────────────────
+  //
+  // A track running east out of the village with three farms strung along it,
+  // and a boundary drawn wide enough to contain them.
+  //
+  // This exists for the trim step. On a tidy grid with the boundary pulled
+  // tight around it there is nothing to trim, so the tool opened on a sample
+  // where it visibly did nothing — which teaches the opposite of the point.
+  // The farms are spaced far enough apart that the outlier pass finds them by
+  // its own rule rather than by anything rigged here, and the empty half of
+  // the boundary is the thing the tool is for.
+  // Spaced by more than three times the village's own median plot spacing,
+  // which is the rule the outlier pass actually applies. Closer together and
+  // they would be a hamlet — correctly, and uselessly for the walkthrough.
+  var FARMS = [1550, 1850, 2150]; // meters east, all on the track
+  var FARM_Y = 285; // between the second and third avenue
+  var FARM_W = 20;
+  var FARM_D = 16;
+
   // The territories are cut on these grid lines, so their edges land on real
   // streets exactly as the partitioner's would.
   var SPLIT_X = 460;
   var SPLIT_Y = 380;
+  // A second north-south cut, out in the outfield. Without it the eastern
+  // territory is most of the working area and the partition step introduces
+  // the partitioner with one territory eight times the size of its neighbors.
+  var SPLIT_FIELD = 1250;
 
   var _active = false;
   var _snapshot = null;
@@ -154,6 +177,14 @@ App.demo = (function () {
     return App.i18n.t("demo.street", { n: index + 1 });
   }
 
+  /** East edge of the working area: far enough out to hold the last farm. */
+  function _east() {
+    return Math.max(
+      STREETS[STREETS.length - 1] + MARGIN,
+      FARMS[FARMS.length - 1] + MARGIN + FARM_W,
+    );
+  }
+
   function _streets() {
     var out = [];
     var minX = STREETS[0] - OVERHANG;
@@ -168,6 +199,18 @@ App.demo = (function () {
       var index = AVENUES.length + i;
       out.push(_lineFeature([x, minY], [x, maxY], _streetName(index), index));
     });
+
+    // The track out to the farms. Without it they sit in a field with no way
+    // to reach them, which is not a place anybody is given a card for.
+    var track = AVENUES.length + STREETS.length;
+    out.push(
+      _lineFeature(
+        [STREETS[STREETS.length - 1], FARM_Y],
+        [FARMS[FARMS.length - 1] + 40, FARM_Y],
+        _streetName(track),
+        track,
+      ),
+    );
     return out;
   }
 
@@ -214,6 +257,27 @@ App.demo = (function () {
         number += 2;
       }
     });
+
+    FARMS.forEach(function (x, i) {
+      out.push({
+        type: "Feature",
+        geometry: {
+          type: "Polygon",
+          coordinates: _rect(
+            x - FARM_W / 2,
+            FARM_Y - FARM_D / 2,
+            x + FARM_W / 2,
+            FARM_Y + FARM_D / 2,
+          ),
+        },
+        properties: {
+          building: "farm",
+          "addr:street": _streetName(AVENUES.length + STREETS.length),
+          "addr:housenumber": String(i * 2 + 1),
+          "building:levels": "1",
+        },
+      });
+    });
     return out;
   }
 
@@ -221,7 +285,7 @@ App.demo = (function () {
     return _rect(
       STREETS[0] - MARGIN,
       AVENUES[0] - MARGIN,
-      STREETS[STREETS.length - 1] + MARGIN,
+      _east(),
       AVENUES[AVENUES.length - 1] + MARGIN,
     );
   }
@@ -235,15 +299,16 @@ App.demo = (function () {
    */
   function _clusters() {
     var west = STREETS[0] - MARGIN;
-    var east = STREETS[STREETS.length - 1] + MARGIN;
+    var east = _east();
     var south = AVENUES[0] - MARGIN;
     var north = AVENUES[AVENUES.length - 1] + MARGIN;
 
     var boxes = [
       [west, south, SPLIT_X, SPLIT_Y],
-      [SPLIT_X, south, east, SPLIT_Y],
+      [SPLIT_X, south, SPLIT_FIELD, SPLIT_Y],
       [west, SPLIT_Y, SPLIT_X, north],
-      [SPLIT_X, SPLIT_Y, east, north],
+      [SPLIT_X, SPLIT_Y, SPLIT_FIELD, north],
+      [SPLIT_FIELD, south, east, north],
     ];
 
     return boxes.map(function (box, i) {

@@ -151,7 +151,7 @@
     "cancel": "Anuluj"
   },
   "trim": {
-    "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · Enter zatwierdza · Esc anuluje",
+    "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · E pozwala poprawić narożniki ręcznie · Enter zatwierdza · Esc anuluje",
     "ignored": {
       "one": "{count} pominięty budynek",
       "few": "{count} pominięte budynki",
@@ -170,6 +170,8 @@
     "detailValue": "wygładzenie {meters} m",
     "detailFull": "każde wcięcie",
     "follow": "Podążaj za ulicami",
+    "adjust": "Popraw narożniki ręcznie",
+    "adjustHint": "Przeciągnij narożnik, aby go przesunąć, kropka na krawędzi dodaje nowy, kliknięcie narożnika go usuwa. Suwaki są w tym czasie zablokowane.",
     "apply": "Zastosuj",
     "outliers": "Odosobnione",
     "clear": "Wyczyść",
@@ -199,7 +201,8 @@
     "applyDetail": "{before} km² → {after} km² (−{percent}%)",
     "applyOk": "Przytnij",
     "excludedNote": "Pominięty — kliknij, aby zachować",
-    "flaggedNote": "Odosobniony, zachowany — kliknij, aby pominąć"
+    "flaggedNote": "Odosobniony, zachowany — kliknij, aby pominąć",
+    "editedNote": "poprawione ręcznie"
   },
   "draw": {
     "hint": "Klikaj, aby stawiać punkty · Przeciąganie prawym przyciskiem przesuwa mapę · Enter lub dwuklik kończy · Backspace cofa punkt · Esc anuluje",
@@ -618,6 +621,10 @@
       "trim": {
         "title": "Pomiń to, czego nie potrzebujesz",
         "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Jeden suwak ustala, jak daleko za domami biegnie nowa granica, drugi — jak mocno krawędź jest wygładzana, a przy włączonym „Podążaj za ulicami” przyciąga się ona do sieci dróg zamiast ciąć przez ogrody. Zielone zostaje, czerwone odpada."
+      },
+      "trimMarks": {
+        "title": "Znaczniki pokazują, co odpada",
+        "body": "Odosobnione gospodarstwa przy drodze polnej zostały pominięte automatycznie, a każde ma znacznik, który przy każdym powiększeniu ma ten sam rozmiar. Kliknij znacznik, aby jednak zachować budynek — granica ukształtuje się wzdłuż drogi wokół niego, zamiast udawać, że go nie ma."
       }
     }
   },

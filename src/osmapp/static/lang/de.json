@@ -141,7 +141,7 @@
     "cancel": "Abbrechen"
   },
   "trim": {
-    "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · Enter übernimmt · Esc bricht ab",
+    "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · E passt die Ecken von Hand an · Enter übernimmt · Esc bricht ab",
     "ignored": {
       "one": "{count} Gebäude ausgenommen",
       "other": "{count} Gebäude ausgenommen"
@@ -156,6 +156,8 @@
     "detailValue": "{meters} m begradigen",
     "detailFull": "jeder Bucht folgen",
     "follow": "Straßen folgen",
+    "adjust": "Ecken von Hand anpassen",
+    "adjustHint": "Ecke ziehen zum Verschieben, Punkt auf einer Kante fügt eine hinzu, Klick auf eine Ecke entfernt sie. Die Regler sind so lange gesperrt.",
     "apply": "Übernehmen",
     "outliers": "Ausreißer",
     "clear": "Zurücksetzen",
@@ -181,7 +183,8 @@
     "applyDetail": "{before} km² → {after} km² (−{percent} %)",
     "applyOk": "Zuschneiden",
     "excludedNote": "Ausgenommen — klicken, um es zu behalten",
-    "flaggedNote": "Abseits, behalten — klicken, um es auszunehmen"
+    "flaggedNote": "Abseits, behalten — klicken, um es auszunehmen",
+    "editedNote": "von Hand angepasst"
   },
   "draw": {
     "hint": "Klicken setzt Punkte · Rechte Maustaste ziehen verschiebt die Karte · Enter oder Doppelklick beendet · Backspace nimmt zurück · Esc bricht ab",
@@ -581,6 +584,10 @@
       "trim": {
         "title": "Ausnehmen, was nicht gebraucht wird",
         "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Ein Regler bestimmt, wie weit die neue Grenze hinter den Häusern verläuft, der andere, wie stark die Kante begradigt wird; mit „Straßen folgen“ rastet sie am Straßennetz ein, statt durch Gärten zu schneiden. Grün bleibt, Rot fällt weg."
+      },
+      "trimMarks": {
+        "title": "Die Markierungen zeigen, was wegfällt",
+        "body": "Die einzeln stehenden Höfe am Feldweg wurden automatisch ausgenommen, und jeder trägt eine Markierung, die bei jedem Zoom gleich groß bleibt. Ein Klick darauf behält das Gebäude doch — die Grenze formt sich dann am Weg entlang um es herum, statt so zu tun, als wäre es nicht da."
       }
     }
   },

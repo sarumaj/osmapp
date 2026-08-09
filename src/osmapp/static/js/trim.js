@@ -87,6 +87,17 @@
  * contains, measured on the shape itself, and the confirmation repeats it.
  * Nothing is applied on the strength of the reasoning above.
  *
+ * ── Taking it over ─────────────────────────────────────────────────────────
+ *
+ * Everything above works from what the buildings are, and the answer is
+ * usually right. "Usually" is the problem: the one corner that should follow
+ * the ditch rather than the hedge is not a thing any of these settings can
+ * express. So the proposal can be adjusted by hand — Leaflet.Editable, already
+ * in the app for drawing the boundary in the first place, puts a handle on
+ * every corner. While that is on, the sliders and the selection are locked,
+ * because a recompute would silently throw the adjustment away and the honest
+ * way to prevent that is to make it impossible rather than to warn about it.
+ *
  * ── Seeing the selection ───────────────────────────────────────────────────
  *
  * Excluded buildings are painted red, which says nothing at all at the zoom
@@ -132,6 +143,22 @@ App.trim = (function () {
     pane: PANE,
   };
 
+  /**
+   * The proposal while it is being adjusted by hand.
+   *
+   * Solid and interactive, unlike the dashed preview: the difference between
+   * "here is what I worked out" and "this is yours to move now" has to be
+   * visible before the first vertex is dragged, or the handles look like
+   * decoration.
+   */
+  var EDIT_STYLE = {
+    color: "#0e6655",
+    weight: 3,
+    fillColor: "#1abc9c",
+    fillOpacity: 0.12,
+    pane: PANE,
+  };
+
   var BOX_STYLE = {
     color: "#16a085",
     weight: 1,
@@ -151,6 +178,7 @@ App.trim = (function () {
   var _preview = null;
   var _lost = null;
   var _markerLayer = null;
+  var _editLayer = null; // the proposal as a draggable polygon
   var _boxLayer = null;
   var _drag = null; // { start, mode } while a rectangle is being dragged
   var _timer = null;
@@ -241,6 +269,7 @@ App.trim = (function () {
   function _stop() {
     if (s.leafletMap)
       L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-trimming");
+    setEdit(false, { silent: true });
     _unbindBoxSelect();
     s.leafletMap.off("moveend", _renderMarkers);
     if (_markerLayer) {
@@ -366,6 +395,10 @@ App.trim = (function () {
 
   /** Clicking a building in trim mode toggles it. */
   function handleBuildingClick(layer) {
+    // While the shape is being adjusted by hand the selection is frozen: a
+    // recompute would throw the adjustment away, and a click that silently
+    // does nothing is better explained by the locked controls beside it.
+    if (s.trimEdit) return;
     if (!layer || !layer.feature) return;
     var key = _keyOf(layer.feature);
     if (key === null) return;
@@ -649,7 +682,7 @@ App.trim = (function () {
   }
 
   function _onBoxDown(e) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || s.trimEdit) return;
     var ignore = e.shiftKey;
     var restore = e.altKey;
     if (!ignore && !restore) return;
@@ -1205,7 +1238,7 @@ App.trim = (function () {
   }
 
   function _recompute() {
-    if (!s.trimMode || _busy) return;
+    if (!s.trimMode || _busy || s.trimEdit) return;
     _busy = true;
     var started = Date.now();
     try {
@@ -1231,11 +1264,21 @@ App.trim = (function () {
       return;
     }
 
-    // The area being given up, which is the thing being decided. Drawn under
-    // the proposal so the two outlines do not fight over the same pixels.
+    _drawLost(_result.feature);
+  }
+
+  /**
+   * The area being given up, which is the thing being decided. Drawn under the
+   * proposal so the two outlines do not fight over the same pixels, and
+   * redrawn after every hand adjustment so it never describes a shape that has
+   * since moved.
+   */
+  function _drawLost(feature) {
+    if (_lost && s.leafletMap) s.leafletMap.removeLayer(_lost);
+    _lost = null;
     try {
       var outer = G.getOuterFeature(s.outerPolygonLayer);
-      var lostShape = G.difference(outer, _result.feature);
+      var lostShape = G.difference(outer, feature);
       if (lostShape && lostShape.geometry) {
         _lost = L.geoJSON(lostShape, LOST_STYLE).addTo(s.leafletMap);
         _lost.bringToBack();
@@ -1250,6 +1293,142 @@ App.trim = (function () {
       if (layer && s.leafletMap) s.leafletMap.removeLayer(layer);
     });
     _preview = _lost = null;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // ADJUSTING BY HAND
+  // ══════════════════════════════════════════════════════════════════════
+  //
+  // Everything above works from what the buildings are, and the answer is
+  // usually right. "Usually" is the problem: the one corner that should follow
+  // the ditch rather than the hedge is not a thing any of these settings can
+  // express, and re-deriving the whole shape from a slider to move one vertex
+  // is the wrong shape of control entirely.
+  //
+  // So the proposal can be taken over. Leaflet.Editable — already in the app
+  // for drawing the boundary in the first place — puts a handle on every
+  // corner, a half-handle on every edge for adding one, and deletes on click.
+  // Nothing new is vendored for this.
+  //
+  // The mode is a latch rather than a free-for-all, because the two ways of
+  // producing this shape cannot both be live at once. While it is on, the
+  // sliders and the selection are locked: a recompute would silently throw the
+  // adjustment away, and the honest way to prevent that is to make it
+  // impossible rather than to warn about it afterwards. Turning it off goes
+  // back to the computed shape — which is a discard, but an explicit one, done
+  // by the same control that started the editing.
+
+  function isEditing() {
+    return !!s.trimEdit;
+  }
+
+  /**
+   * @param {boolean} on
+   * @param {{silent?: boolean}} [opts] silent skips the recompute on the way
+   *   out, for a teardown that is about to throw everything away anyway
+   */
+  function setEdit(on, opts) {
+    on = !!on;
+    if (on === !!s.trimEdit) return;
+    if (on && (!_result || _result.error || !_result.feature)) return;
+
+    s.trimEdit = on;
+    if (on) _startEdit();
+    else _stopEdit(opts);
+
+    _syncEditLocks();
+    _updateStatus();
+  }
+
+  function _startEdit() {
+    _clearPreview();
+    _editLayer = G.toLayer(_result.feature.geometry, EDIT_STYLE, { pane: PANE });
+    if (!_editLayer) {
+      s.trimEdit = false;
+      return;
+    }
+    _editLayer.addTo(s.leafletMap);
+
+    try {
+      _editLayer.enableEdit(s.leafletMap);
+    } catch (e) {
+      // Without Leaflet.Editable the shape is still on the map and still
+      // applicable; it just cannot be dragged. Better than refusing to open.
+      console.warn(">>> Cannot edit the trim proposal by hand:", e.message);
+    }
+
+    // Every way the plugin can change the ring. dragend rather than drag: the
+    // measurement re-tests every kept building, which is not a per-frame job.
+    _editLayer.on(
+      "editable:vertex:dragend editable:vertex:new editable:vertex:deleted editable:dragend",
+      _afterEdit,
+    );
+    _drawLost(_result.feature);
+  }
+
+  function _stopEdit(opts) {
+    if (_editLayer) {
+      try {
+        _editLayer.disableEdit();
+      } catch (e) {
+        /* never enabled */
+      }
+      s.leafletMap.removeLayer(_editLayer);
+      _editLayer = null;
+    }
+    if (!opts || !opts.silent) _schedule(0);
+  }
+
+  /** Re-measure the hand-moved shape. The numbers have to follow the geometry. */
+  function _afterEdit() {
+    if (!_editLayer || !_result) return;
+    var poly;
+    try {
+      poly = G.largestPolygon(_editLayer.toGeoJSON());
+    } catch (e) {
+      poly = null;
+    }
+    if (!poly) return;
+
+    var keep = _pool.filter(function (entry) {
+      return !_ignored.has(entry.key);
+    });
+    var ignored = _pool.filter(function (entry) {
+      return _ignored.has(entry.key);
+    });
+    var counts = _count(poly, keep);
+
+    _result = {
+      feature: poly,
+      areaBefore: _result.areaBefore,
+      areaAfter: _area(poly),
+      inside: counts.inside,
+      outside: counts.outside,
+      ignoredInside: _count(poly, ignored).inside,
+      vertices: Math.max(0, _ringOf(poly).length - 1),
+      cell: _result.cell,
+      edited: true,
+    };
+
+    _drawLost(poly);
+    _updateStatus();
+  }
+
+  /** Locks, so the two ways of producing this shape are never both live. */
+  function _syncEditLocks() {
+    if (!_toolbar) return;
+    var locked = !!s.trimEdit;
+    ["reach", "detail", "follow"].forEach(function (role) {
+      var node = D.role(_toolbar, role);
+      if (node) node.disabled = locked;
+    });
+    ["outliers", "clear"].forEach(function (role) {
+      var node = D.role(_toolbar, role);
+      if (node) D.toggleClass(node, "is-disabled", locked);
+    });
+    D.toggleClass(_toolbar, "is-editing", locked);
+    var box = D.role(_toolbar, "edit");
+    if (box) box.checked = locked;
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1285,6 +1464,12 @@ App.trim = (function () {
       _schedule();
     });
 
+    var edit = D.role(_toolbar, "edit");
+    edit.checked = !!s.trimEdit;
+    edit.addEventListener("change", function () {
+      setEdit(!!edit.checked);
+    });
+
     var follow = D.role(_toolbar, "follow");
     follow.checked = !!s.trimFollow;
     follow.addEventListener("change", function () {
@@ -1304,6 +1489,7 @@ App.trim = (function () {
 
     _syncReach();
     _syncDetail();
+    _syncEditLocks();
     _updateStatus();
   }
 
@@ -1368,6 +1554,7 @@ App.trim = (function () {
           area: _round(_result.areaAfter / 1e6),
         });
         status += " · " + T("trim.corners", { count: _result.vertices });
+        if (_result.edited) status += " · " + T("trim.editedNote");
         if (_result.outside > 0)
           status += " · " + T("trim.dropped", { count: _result.outside });
       }
@@ -1427,6 +1614,16 @@ App.trim = (function () {
    * somebody's hand no longer matches the ground.
    */
   function _install(poly) {
+    // A ring that has been dragged by hand can cross itself, drift outside the
+    // working boundary, or pick up a hole. The computed path already
+    // guarantees none of that; this is the one entry point where it has to be
+    // enforced rather than assumed.
+    poly = _sanitize(poly);
+    if (!poly) {
+      alert(T("trim.failed"));
+      return;
+    }
+
     if (App.history) App.history.push();
 
     var layer = G.toLayer(poly.geometry, App.polygons.OUTER_STYLE);
@@ -1481,6 +1678,26 @@ App.trim = (function () {
     );
   }
 
+  /** Valid, inside the working boundary, and a single ring. */
+  function _sanitize(poly) {
+    var healed = poly;
+    try {
+      if (turf.booleanValid && !turf.booleanValid(healed)) {
+        healed = G.largestPolygon(turf.buffer(healed, 0)) || healed;
+      }
+    } catch (e) {
+      /* an unrepairable ring is still worth clipping */
+    }
+    try {
+      var outer = G.getOuterFeature(s.outerPolygonLayer);
+      var clipped = G.largestPolygon(G.intersect(healed, outer));
+      if (clipped) healed = _fillHoles(clipped, outer);
+    } catch (e) {
+      return null;
+    }
+    return healed && healed.geometry ? healed : null;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // KEYBOARD
   // ══════════════════════════════════════════════════════════════════════
@@ -1499,7 +1716,15 @@ App.trim = (function () {
       apply();
       return;
     }
-    if (!e.ctrlKey && !e.metaKey && e.key.toLowerCase() === "f") {
+    if (e.ctrlKey || e.metaKey) return;
+    var key = e.key.toLowerCase();
+
+    if (key === "e") {
+      e.preventDefault();
+      setEdit(!s.trimEdit);
+      return;
+    }
+    if (key === "f" && !s.trimEdit) {
       e.preventDefault();
       s.trimFollow = !s.trimFollow;
       if (_toolbar) D.role(_toolbar, "follow").checked = s.trimFollow;
@@ -1519,6 +1744,8 @@ App.trim = (function () {
     markOutliers: markOutliers,
     outliersIn: outliersIn,
     clearSelection: clearSelection,
+    setEdit: setEdit,
+    isEditing: isEditing,
     compute: compute,
     propose: propose,
     apply: apply,

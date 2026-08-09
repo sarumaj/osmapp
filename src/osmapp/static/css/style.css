@@ -644,6 +644,27 @@ body {
   opacity: 0.55;
 }
 
+/* While the shape is being dragged about by hand, the controls that would
+   recompute it are locked rather than merely ignored — a slider that silently
+   discards ten seconds of adjustment is worse than one that will not move. */
+.trim-toolbar.is-editing .trim-toolbar__row {
+  opacity: 0.45;
+}
+
+.trim-toolbar.is-editing .trim-toolbar__row,
+.trim-toolbar__row input[type="range"]:disabled {
+  cursor: not-allowed;
+}
+
+/* Leaflet.Editable draws its corner handles into its own pane; these just
+   make them big enough to grab on a trackpad and colored like the shape they
+   belong to rather than like Leaflet's default blue. */
+.leaflet-container.is-trimming .leaflet-vertex-icon,
+.leaflet-container.is-trimming .leaflet-middle-icon {
+  border-color: #0e6655;
+  background: var(--c-surface);
+}
+
 /* Shift and Alt drag a selection box, and a text-selection cursor while doing
    it makes the gesture feel like it is doing something else. */
 .leaflet-container.is-trimming,
