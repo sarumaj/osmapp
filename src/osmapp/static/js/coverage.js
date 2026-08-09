@@ -13,7 +13,7 @@
  * stamping a disc is arithmetic, the union is free (a cell is either marked or
  * not), and the boundary falls out of a single sweep. The price is that the
  * result is a staircase at cell resolution, which does not matter here — the
- * ring is simplified and then snapped onto streets afterwards, so a ten-metre
+ * ring is simplified and then snapped onto streets afterwards, so a ten-meter
  * staircase is finer than the thing that replaces it.
  *
  * Two properties are relied on by App.trim and worth stating:
@@ -280,7 +280,7 @@ App.coverage = (function () {
    * was meant to reach is left stranded outside.
    *
    * Endpoints are snapped to the nearest marked cell, because a building whose
-   * center sits a metre outside the fill is still a building inside the area.
+   * center sits a meter outside the fill is still a building inside the area.
    *
    * @returns {number[][]|null} cell centers as [lng, lat], endpoints included
    */

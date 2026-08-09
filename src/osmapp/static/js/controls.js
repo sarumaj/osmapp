@@ -106,6 +106,14 @@ App.controls = (function () {
           labelKey: "toolbar.labelDraw",
           titleKey: "toolbar.draw",
           accent: "blue",
+          // The polygon tool is also the way back into an existing boundary —
+          // clicking it with one already set offers "edit instead" — so it
+          // lights up while that editor is running. Without this the app
+          // would be in a mode with nothing in the toolbar saying so, which
+          // is the one thing every other modal tool here avoids.
+          active: function () {
+            return !!s.outlineMode;
+          },
           onClick: _draw,
         },
         {
@@ -383,6 +391,15 @@ App.controls = (function () {
     });
     App.basemap.onChange(_syncAidNote);
 
+    // The overlay checkbox is the only switch the gap layer has, so it is
+    // also where the module finds out whether its work is worth doing.
+    _map.on("overlayadd", function (e) {
+      if (e.layer === s.gapsLayerGroup) App.gaps.setVisible(true);
+    });
+    _map.on("overlayremove", function (e) {
+      if (e.layer === s.gapsLayerGroup) App.gaps.setVisible(false);
+    });
+
     App.i18n.onChange(function () {
       _buildLayerControl();
       refresh();
@@ -418,6 +435,11 @@ App.controls = (function () {
     // The number chips ride along in this one: they are territories, not a
     // separate kind of thing to switch on and off.
     overlays[T("layers.clusters")] = s.innerPolygonsLayerGroup;
+    // Its own entry rather than riding with the territories: it is the
+    // opposite of a territory, and somebody who has finished checking the
+    // coverage should be able to put it away without losing the shapes it
+    // was drawn against.
+    overlays[T("layers.gaps")] = s.gapsLayerGroup;
 
     _layerControl = L.control
       .layers(bases, overlays, { collapsed: false })
@@ -668,18 +690,38 @@ App.controls = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function _draw() {
-    _confirmReplaceOuter().then(function (ok) {
-      if (ok) s.leafletMap.editTools.startPolygon();
+    // The button shows itself as active while the outline editor runs, and a
+    // control that looks pressed has to be the way to unpress it — otherwise
+    // clicking it asks "replace this boundary?" about the shape currently
+    // being edited, which is a question about the wrong thing.
+    if (s.outlineMode) {
+      App.outline.cancel();
+      return;
+    }
+
+    _confirmReplaceOuter().then(function (answer) {
+      if (answer === "alt") {
+        // "I clicked the polygon tool because I want to change the polygon"
+        // is at least as likely a reading as "…because I want a new one", and
+        // the old dialog offered only the destructive half of it.
+        App.outline.toggle();
+        return;
+      }
+      if (answer) s.leafletMap.editTools.startPolygon();
     });
   }
 
-  /** Resolves true when there is no boundary to lose, or the user says so. */
+  /**
+   * Resolves true when there is no boundary to lose or the user says replace,
+   * "alt" when they would rather edit the one they have, false otherwise.
+   */
   function _confirmReplaceOuter() {
     if (!s.outerPolygonDrawn) return Promise.resolve(true);
     return App.ui.confirm({
       titleKey: "confirm.replaceOuterTitle",
       messageKey: "alert.replaceOuter",
       okKey: "confirm.replace",
+      altKey: "confirm.editInstead",
       danger: true,
     });
   }
@@ -831,6 +873,7 @@ App.controls = (function () {
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
     if (s.trimMode) App.trim.toggle();
+    if (s.outlineMode) App.outline.toggle();
 
     [
       s.streetsLayerGroup,

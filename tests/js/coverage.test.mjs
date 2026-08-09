@@ -2,7 +2,7 @@
  * The raster the trim tool builds its shape out of.
  *
  * Every failure mode here is silent and geometric. A disc that stamps one cell
- * short moves the boundary a metre closer to a house than the tool's whole
+ * short moves the boundary a meter closer to a house than the tool's whole
  * safety argument assumes. A tracer that fuses two components at a diagonal
  * touch turns two villages into one territory pinched to a point, which looks
  * plausible on screen and cuts badly afterwards. A ring that comes out
@@ -252,8 +252,8 @@ test("a corridor along a path is connected end to end", () => {
 });
 
 test("a corridor is never narrower than a cell", () => {
-  // Asking for a two-metre corridor on a ten-metre raster cannot produce a
-  // two-metre corridor; it can only produce a broken one.
+  // Asking for a two-meter corridor on a ten-meter raster cannot produce a
+  // two-meter corridor; it can only produce a broken one.
   const r = raster({ pad: 400 });
   r.stampPath([[19.902, 50.002], [19.907, 50.004]], 1);
   assert.equal(r.components().sizes.length - 1, 1);
@@ -410,7 +410,7 @@ test("routing to somewhere unreachable says so", () => {
 test("routing snaps endpoints that fall just off the filled area", () => {
   const r = raster({ pad: 100 });
   r.fillPolygon([[[19.902, 50.001], [19.908, 50.001], [19.908, 50.004], [19.902, 50.004], [19.902, 50.001]]]);
-  // A building whose center lands a metre outside the fill is still a building
+  // A building whose center lands a meter outside the fill is still a building
   // inside the area, and refusing to route from it would be pedantry.
   assert.ok(r.route([19.90199, 50.0025], [19.9075, 50.0035]));
 });

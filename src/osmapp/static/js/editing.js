@@ -8,7 +8,7 @@
  * committed, so the shape that got cut was frequently not the shape that was
  * drawn. Three rules keep it predictable now:
  *
- *   1. Snapping reaches CUT_SNAP_PX pixels, not a fixed number of metres, so
+ *   1. Snapping reaches CUT_SNAP_PX pixels, not a fixed number of meters, so
  *      it grabs what is under the cursor and nothing else. Holding Alt turns
  *      it off for a single vertex; the toolbar turns it off for good.
  *   2. Street routing only replaces a segment when both of its vertices
@@ -123,7 +123,7 @@ App.editing = (function () {
   // ── Snapping ──────────────────────────────────────────────────────────
 
   /**
-   * The pixel radius in metres at the current zoom, so the magnet has the
+   * The pixel radius in meters at the current zoom, so the magnet has the
    * same reach on screen however far in or out the map is.
    */
   function _snapRadiusM() {
@@ -244,7 +244,7 @@ App.editing = (function () {
   function _appendSegment(out, a, b) {
     var path = _routeSegment(a, b);
     if (path) {
-      // The graph path starts and ends on nodes, which may sit a few metres
+      // The graph path starts and ends on nodes, which may sit a few meters
       // from the clicked points; keeping the clicked ends avoids a visible
       // kink at every vertex.
       for (var j = 1; j < path.length - 1; j++) out.push(path[j]);
@@ -412,6 +412,7 @@ App.editing = (function () {
       }
       if (s.mergeMode) toggleMergeMode();
       if (s.trimMode) App.trim.toggle();
+      if (s.outlineMode) App.outline.toggle();
     }
 
     s.editMode = next;
@@ -434,6 +435,7 @@ App.editing = (function () {
     // it, no hover highlight lifting a cluster over the preview.
     App.polygons.setTooltipMode("off");
     App.polygons.clearHover();
+    App.gaps.schedule(0);
 
     // Drawn first so it sits under the red vertices.
     _ghostLine = L.polyline([], {
@@ -478,6 +480,7 @@ App.editing = (function () {
 
   function _stopDraw() {
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
+    App.gaps.schedule(0);
 
     _unbindRightPan();
     s.leafletMap.off("mousemove", _onDrawMouseMove);
@@ -1412,12 +1415,14 @@ App.editing = (function () {
     if (s.mergeMode) {
       if (s.editMode) toggleEditMode();
       if (s.trimMode) App.trim.toggle();
+      if (s.outlineMode) App.outline.toggle();
       s.selectedClusters = [];
       _deselected = [];
       // Selecting means clicking the shape, so the tooltip is pinned above it
       // rather than sitting under the pointer — the count still reads, the
       // click target stays clear.
       App.polygons.setTooltipMode("anchored");
+      App.gaps.schedule(0);
       _showMergeToolbar();
       _mergeHint = D.mountOnMap("tpl-merge-hint", s.leafletMap);
       App.shortcuts.push(MERGE_KEYS);
@@ -1428,6 +1433,7 @@ App.editing = (function () {
       App.history.pushScope(MERGE_SCOPE);
     } else {
       App.polygons.setTooltipMode("full");
+      App.gaps.schedule(0);
       _clearSelection();
       _hideMergeToolbar();
       _mergeHint = D.remove(_mergeHint);
@@ -1526,7 +1532,7 @@ App.editing = (function () {
       var merged;
       try {
         App.ui.setOverlayStatus(T("loading.dissolving"));
-        // unionHealed grows each input by half a metre before unioning, so
+        // unionHealed grows each input by half a meter before unioning, so
         // boundaries that only nearly coincide still dissolve. A plain union
         // left hairline slivers, and Leaflet drew the internal outlines.
         merged = G.unionHealed(

@@ -65,7 +65,7 @@ App.geometry = (function () {
    *
    * Growing every input by epsilon closes any gap narrower than 2*epsilon,
    * the union genuinely dissolves, and shrinking back restores the original
-   * footprint to within a few centimetres.
+   * footprint to within a few centimeters.
    */
   function unionHealed(features, epsMeters) {
     var eps = epsMeters == null ? HEAL_METERS : epsMeters;
@@ -94,14 +94,14 @@ App.geometry = (function () {
 
     // A negative buffer erodes every boundary, not just the artificial ones.
     // If it split the result or ate real area, the un-shrunk union is the
-    // safer answer — a half-metre of overshoot beats a missing corridor.
+    // safer answer — a half-meter of overshoot beats a missing corridor.
     //
     // This whole guard had never executed. Its first line read `G.polygonParts`
     // — the module-alias convention every *other* file here uses, but there is
     // no `G` inside this IIFE — so it threw a ReferenceError straight into the
     // catch below, on every call, since the day it was written. The visible
     // consequence was that unionHealed grew and unioned and never shrank, and
-    // every merged territory silently kept the half metre.
+    // every merged territory silently kept the half meter.
     //
     // Two more corrections follow from the same fact, because neither of the
     // remaining conditions had ever been run either:
@@ -114,7 +114,7 @@ App.geometry = (function () {
     //     against `merged`. `merged` is inflated by eps on every side by
     //     construction, so measuring the shrink against it asks the shrink to
     //     give back less than the grow took — which for any territory small
-    //     enough that half a metre is 2% of its area (a 90 m square is)
+    //     enough that half a meter is 2% of its area (a 90 m square is)
     //     rejects every correct shrink there is.
     var result = merged;
     if (shrunk && shrunk.geometry) {

@@ -109,7 +109,7 @@ App.network = (function () {
     return _built && _segGrid !== null;
   }
 
-  /** Five decimals is about a metre — the precision OSM ways are noded at. */
+  /** Five decimals is about a meter — the precision OSM ways are noded at. */
   function nodeKey(latlng) {
     return latlng.lat.toFixed(5) + "," + latlng.lng.toFixed(5);
   }

@@ -323,7 +323,7 @@ def reverse_geocode() -> Response:
     # interface does and ignores what it does not recognize.
     lang = request.args.get("lang", "").strip()[:16]
 
-    # Five decimals is about a metre and would make the cache useless; four is
+    # Five decimals is about a meter and would make the cache useless; four is
     # about eleven, which is smaller than any territory and turns reprinting a
     # card into a cache hit.
     key = f"reverse|{lat:.4f}|{lon:.4f}|{lang}"

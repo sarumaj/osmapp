@@ -103,7 +103,13 @@ App.shortcuts = (function () {
       {
         // The one shortcut whose whole job is to reveal the others, so it is
         // also the only one that fires while its own sheet is open.
-        combos: ["?"],
+        //
+        // Two combos because "?" is not a key on most keyboards — it is Shift
+        // and something, and which something depends on the layout. It is
+        // still the conventional binding and worth having, but F1 is one
+        // physical key everywhere, which is what makes it the reliable half
+        // of this pair.
+        combos: ["?", "F1"],
         labelKey: "shortcuts.sheet",
         run: toggleSheet,
       },
@@ -169,12 +175,30 @@ App.shortcuts = (function () {
       return false;
     }
 
-    if (spec.shift !== !!e.shiftKey) return false;
+    if (spec.shift) {
+      if (!e.shiftKey) return false;
+    } else if (e.shiftKey && !_isSymbol(spec.key)) {
+      // Shift is asserted absent for letters, digits and named keys, so that
+      // Backspace and Shift+Backspace stay distinct.
+      //
+      // Symbols are the exception, and "?" is why: on a US layout it *is*
+      // Shift+/, on a German one Shift+ß, and the browser reports the symbol
+      // in e.key with shiftKey still true. Requiring Shift to be up meant the
+      // one binding whose job is to reveal all the others could never fire on
+      // any keyboard that has it. Which modifier produces a symbol is a
+      // property of the layout, not of the shortcut.
+      return false;
+    }
     // Alt is not asserted unless the combo asks for it: Alt is a live modifier
     // in the cut tool, and requiring altKey to be false would mean every other
     // shortcut stopped working for as long as snapping was suspended.
     if (spec.alt && !e.altKey) return false;
     return true;
+  }
+
+  /** A single printable character that is neither a letter nor a digit. */
+  function _isSymbol(key) {
+    return key.length === 1 && !/[a-z0-9]/.test(key);
   }
 
   // ── Display ───────────────────────────────────────────────────────────
@@ -307,7 +331,7 @@ App.shortcuts = (function () {
     // the one that closes it. Undo firing behind a list of shortcuts would
     // be the sheet doing the thing it is supposed to be describing.
     if (_sheetOpen) {
-      if (_matches(parse("?"), e)) {
+      if (_matches(parse("?"), e) || _matches(parse("F1"), e)) {
         e.preventDefault();
         toggleSheet();
       }

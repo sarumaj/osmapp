@@ -160,6 +160,31 @@
           <dt data-i18n="info.printed">Printed</dt>
           <dd data-role="printed">0</dd>
         </div>
+        <!-- Shown only when there is something uncovered. The count is the
+             thing nobody goes looking for: the map looks finished either
+             way, and the first sign is a street on no card. Clicking it
+             zooms to the largest one. -->
+        <div class="info-panel__stat" data-role="gaps-row" hidden>
+          <dt data-i18n="info.gapsLabel">Uncovered</dt>
+          <dd>
+            <button
+              type="button"
+              class="info-panel__count"
+              data-role="gaps-btn"
+              data-i18n-attrs="title=info.gapsHelp"
+            >
+              <i
+                class="fa-solid fa-triangle-exclamation info-panel__warn"
+                aria-hidden="true"
+              ></i>
+              <span data-role="gaps">0</span>
+              <i
+                class="fa-solid fa-magnifying-glass-plus info-panel__count-icon"
+                aria-hidden="true"
+              ></i>
+            </button>
+          </dd>
+        </div>
       </dl>
       <p class="info-panel__hint" data-role="hint" hidden></p>
     </aside>
@@ -230,6 +255,12 @@
         <div class="app-dialog__actions">
           <button type="button" class="btn btn--ghost" data-role="cancel">
             Cancel
+          </button>
+          <!-- Shown only when a caller passes altKey. The one question that
+               needs three answers is "replace this boundary?", where the
+               third is "edit the one I have". -->
+          <button type="button" class="btn btn--ghost" data-role="alt" hidden>
+            Edit instead
           </button>
           <button type="button" class="btn btn--primary" data-role="ok">
             OK
@@ -482,6 +513,70 @@
 
     <!-- Cut and trim have each had one of these from the start; merge is
          just as modal and just as unexplained, and had none. -->
+    <!-- ── Outline editor ───────────────────────────────────────────────
+         Same shell as the cut, merge and trim bars. The vertex handles are
+         Leaflet.Editable's, so this bar carries only what the library has no
+         opinion about: how far the shape has moved, and the way out. -->
+
+    <template id="tpl-outline-toolbar">
+      <div class="outline-toolbar" role="toolbar" aria-label="Edit boundary">
+        <div class="outline-toolbar__head">
+          <span class="outline-toolbar__count" data-role="count">0 corners</span>
+          <span
+            class="outline-toolbar__status"
+            data-role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+        <div class="outline-toolbar__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="apply"
+            data-i18n="outline.apply"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost btn--icon"
+            data-role="undo"
+            data-i18n-attrs="title=outline.undo;aria-label=outline.undo"
+          >
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost btn--icon"
+            data-role="redo"
+            data-i18n-attrs="title=outline.redo;aria-label=outline.redo"
+          >
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+          </button>
+          <button type="button" class="btn btn--ghost" data-role="reset">
+            <span data-i18n="outline.reset">Reset</span>
+            <kbd>R</kbd>
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="cancel"
+            data-i18n="outline.cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-outline-hint">
+      <div class="draw-hint" role="status" data-i18n="outline.hint">
+        Drag a corner to move it · Click a corner to delete it · Drag the
+        small dot between two corners to add one · Enter applies · ? for all
+        keys
+      </div>
+    </template>
+
     <template id="tpl-merge-hint">
       <div class="draw-hint" role="status" data-i18n="merge.hint">
         Click territories to select them · Right-click for the menu · Enter
@@ -1229,6 +1324,8 @@
     <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>
     <script src="{{ url_for('static', filename='js/editing.js') }}"></script>
     <script src="{{ url_for('static', filename='js/trim.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/outline.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/gaps.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print.js') }}"></script>
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>

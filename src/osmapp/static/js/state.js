@@ -10,6 +10,7 @@ App.state = {
   streetsLayerGroup: null,
   buildingsLayerGroup: null,
   innerPolygonsLayerGroup: null,
+  gapsLayerGroup: null,
   outerPolygonLayerGroup: null,
   outerPolygonLayer: null,
 
@@ -34,6 +35,7 @@ App.state = {
   editMode: false,
   mergeMode: false,
   trimMode: false,
+  outlineMode: false, // the outer boundary is being reshaped by hand
   selectedClusters: [], // [{ layer, feature }]
 
   // ── Trim tool (live, flipped from the trim toolbar) ───────
@@ -153,6 +155,20 @@ App.state = {
   // chip itself: below that the label is bigger than the thing it labels,
   // which is exactly the case worth pointing at.
   TINY_TERRITORY_PX: 24,
+
+  // The floor for an uncovered patch to be worth pointing at. Healing has
+  // already dissolved the hairline seams between adjacent territories, so
+  // what this drops is the genuine but negligible: the scrap a cut shaved
+  // off, the meter of drift a reshaped corner left behind. Below it the
+  // ground belongs to nobody and nobody needs to be told.
+  GAP_MIN_M2: 1000,
+
+  // How far an uncovered piece is shrunk before it is asked whether it still
+  // exists. Half a meter is the same tolerance geometry.unionHealed uses to
+  // decide two boundaries are the same boundary, which is the right number:
+  // anything narrower than that is a rounding artefact everywhere else in the
+  // app, and it should not become a territory here.
+  GAP_OPEN_M: 0.5,
 
   // Carving a hand-drawn polygon out of the whole-area cluster leaves a
   // remainder. Below this it is dropped instead of becoming a territory in

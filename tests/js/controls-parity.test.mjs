@@ -44,6 +44,7 @@ const SOURCE = {
   history: readFileSync(join(JS_DIR, "history.js"), "utf8"),
   ui: readFileSync(join(JS_DIR, "ui.js"), "utf8"),
   polygons: readFileSync(join(JS_DIR, "polygons.js"), "utf8"),
+  outline: readFileSync(join(JS_DIR, "outline.js"), "utf8"),
 };
 
 /**
@@ -94,6 +95,7 @@ const MODES = [
   { name: "cut", module: "editing", context: "CUT_KEYS" },
   { name: "merge", module: "editing", context: "MERGE_KEYS" },
   { name: "trim", module: "trim", context: "TRIM_KEYS" },
+  { name: "outline", module: "outline", context: "OUTLINE_KEYS" },
   { name: "draw", module: "main", context: "DRAW_KEYS" },
 ];
 
@@ -119,7 +121,7 @@ for (const mode of MODES) {
   });
 }
 
-for (const mode of ["cut", "merge", "trim"]) {
+for (const mode of ["cut", "merge", "trim", "outline"]) {
   test(`${mode} can step forward as well as back`, () => {
     // The asymmetry that started all of this: an undo with no redo makes the
     // safe move "abandon it and start again".
@@ -188,6 +190,7 @@ test("every modal tool registers a history scope", () => {
     ["editing", "CUT_SCOPE", "cut"],
     ["editing", "MERGE_SCOPE", "merge"],
     ["trim", "TRIM_SCOPE", "trim"],
+    ["outline", "OUTLINE_SCOPE", "outline"],
   ];
   for (const [module, scope, id] of scopes) {
     assert.match(
@@ -219,6 +222,8 @@ test("every mode offers a context menu", () => {
   assert.match(SOURCE.editing, /function _showCutMenu/);
   assert.match(SOURCE.editing, /function _showMergeMenu/);
   assert.match(SOURCE.trim, /function _showTrimMenu/);
+  assert.match(SOURCE.outline, /function _showMenu/);
+  assert.match(SOURCE.ui, /function showOuterContextMenu/);
   assert.match(SOURCE.polygons, /handleModeContextMenu/);
   assert.match(SOURCE.polygons, /trim\.handleContextMenu/);
 });

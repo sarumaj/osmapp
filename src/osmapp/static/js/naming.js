@@ -278,7 +278,7 @@ App.naming = (function () {
    * promise would only give the caller an error to swallow.
    *
    * Coordinates are rounded to five decimals before they become the cache
-   * key, which is about a metre: two prints of the same territory are one
+   * key, which is about a meter: two prints of the same territory are one
    * lookup, and the server caches across users on top of that.
    *
    * @param {object} feature a cluster feature

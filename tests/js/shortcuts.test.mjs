@@ -41,7 +41,13 @@ function setup({ navigator: nav } = {}) {
   });
 
   App.i18n = { t: (key) => key };
-  App.dom = {};
+  App.dom = {
+    role: () => null,
+    onRole: () => null,
+    mount: () => ({}),
+    text: () => {},
+    toggleClass: () => {},
+  };
   App.shortcuts.init();
 
   return {
@@ -317,6 +323,73 @@ test("Shift is part of the combo, not noise", () => {
   h.key("Backspace");
   h.key("Shift+Backspace");
   assert.deepEqual(calls, ["back", "forward"]);
+
+  // …and a named key must not answer while Shift is down unless it said so.
+  calls.length = 0;
+  h.key("Backspace", { shiftKey: true });
+  assert.deepEqual(calls, ["forward"]);
+});
+
+test("a symbol binding fires however the layout produces the symbol", () => {
+  // A symbol is not a key. "?" is Shift+/ on a US layout and Shift+ß on a
+  // German one, and the browser reports the symbol in e.key with shiftKey
+  // still true — so asserting that Shift is up meant the binding whose entire
+  // job is to reveal the other bindings could never fire on a real keyboard.
+  const h = setup();
+  const calls = [];
+  h.shortcuts.global([
+    { combos: ["/"], labelKey: "slash", run: () => calls.push("slash") },
+  ]);
+
+  h.key("/", { shiftKey: true });
+  assert.deepEqual(calls, ["slash"], "shifted into existence, still a match");
+
+  h.key("/", { shiftKey: false });
+  assert.deepEqual(calls, ["slash", "slash"], "and unshifted on a layout that has it");
+});
+
+test("the sheet opens from the keyboard the way a keyboard actually sends it", () => {
+  // The end-to-end version of the case above, against the binding it was
+  // reported broken on rather than against a stand-in.
+  const h = setup();
+  let opened = 0;
+  h.App.ui = {
+    isDialogOpen: () => false,
+    openDialog: () => {
+      opened += 1;
+      return {};
+    },
+    closeDialog: () => {},
+  };
+
+  h.key("?", { shiftKey: true });
+  assert.equal(opened, 1, "Shift+/ produces ? and must open the sheet");
+
+  // F1 is one physical key on every layout, which is what makes it the
+  // reliable half of the pair.
+  const other = setup();
+  let f1Opened = 0;
+  other.App.ui = {
+    isDialogOpen: () => false,
+    openDialog: () => {
+      f1Opened += 1;
+      return {};
+    },
+    closeDialog: () => {},
+  };
+  other.key("F1");
+  assert.equal(f1Opened, 1);
+});
+
+test("a letter binding is still not reachable with Shift held", () => {
+  // The exemption above is for symbols only; S and Shift+S remain distinct.
+  const h = setup();
+  const calls = [];
+  h.shortcuts.global([
+    { combos: ["S"], labelKey: "snap", run: () => calls.push("snap") },
+  ]);
+  h.key("S", { shiftKey: true });
+  assert.deepEqual(calls, []);
 });
 
 test("Alt is not asserted unless the combo asks for it", () => {

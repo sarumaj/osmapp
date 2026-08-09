@@ -71,6 +71,11 @@
     // so anywhere else it would swallow every hover in the working area.
     [
       ["outerPane", 405],
+      // Between the boundary and the territories: a gap never overlaps a
+      // territory, so all this ordering decides is that it wins over the
+      // boundary spanning it — which is the point, since the boundary would
+      // otherwise swallow the hover.
+      ["gapsPane", 408],
       ["clustersPane", 410],
       ["streetsPane", 420],
       ["buildingsPane", 430],
@@ -85,6 +90,7 @@
     // ── Layer groups ────────────────────────────────────────────────────
     s.streetsLayerGroup = L.featureGroup().addTo(map);
     s.buildingsLayerGroup = L.featureGroup().addTo(map);
+    s.gapsLayerGroup = L.featureGroup().addTo(map);
     s.innerPolygonsLayerGroup = L.featureGroup().addTo(map);
     s.outerPolygonLayerGroup = L.featureGroup().addTo(map);
 
@@ -109,6 +115,12 @@
     App.network.init();
     App.editing.init();
     App.trim.init();
+    // After trim: both reshape the outer boundary, and the outline editor
+    // hands the same clipping step to App.polygons that trim does.
+    App.outline.init();
+    // After polygons and outline: it subtracts the territories from the
+    // boundary, and both of those are what change underneath it.
+    App.gaps.init();
     App.print.init();
     App.boundary.init();
     // Before controls.init: Leaflet stacks a corner's controls in the order
@@ -230,7 +242,7 @@
      * Leaflet.Editable has had pop() since 1.3.0 and this tool never called
      * it, so the boundary drawer was the one place in the app where a
      * misplaced click could only be answered by abandoning the whole shape
-     * and starting again — while the split-line tool three metres away had
+     * and starting again — while the split-line tool three meters away had
      * bound Backspace to exactly this from the day it shipped.
      */
     function popVertex() {

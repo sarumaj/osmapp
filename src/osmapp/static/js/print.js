@@ -33,7 +33,7 @@
  *   scroll or the slider to zoom, and the rotation slider to turn. The frame
  *   never turns — the map turns inside it.
  *
- * Erase strokes are stored in lng/lat with a width in metres, not canvas
+ * Erase strokes are stored in lng/lat with a width in meters, not canvas
  * pixels, so they stay pinned to the street name they were drawn over when the
  * frame is panned, zoomed or rotated afterwards.
  */
@@ -183,7 +183,7 @@ App.print = (function () {
    * The guided tour is the single exception, and the reason this exists. Its
    * sample village is GeoJSON the app is holding — no tile server has ever
    * heard of it — so a preview composed from tiles alone showed an empty field
-   * with a red rectangle on it while the map two centimetres behind the dialog
+   * with a red rectangle on it while the map two centimeters behind the dialog
    * showed a village. Whatever else a print preview is for, it is supposed to
    * be a preview. demo.js hands its streets and buildings in here for as long
    * as the sample is loaded, and takes them away again with it.
@@ -1084,7 +1084,7 @@ App.print = (function () {
     return _unproject(w[0], w[1], view.ez);
   }
 
-  function _metresPerPixel(view) {
+  function _metersPerPixel(view) {
     return (
       (EARTH_CIRCUMFERENCE_M * Math.cos(view.lat * DEG)) /
       (TILE_SIZE * Math.pow(2, view.ez))
@@ -1678,7 +1678,7 @@ App.print = (function () {
     ctx.restore();
 
     // Erased spans punch through the border only — the map beneath is intact.
-    var mpp = _metresPerPixel(_view);
+    var mpp = _metersPerPixel(_view);
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
     ctx.lineJoin = "round";
@@ -2270,7 +2270,7 @@ App.print = (function () {
       _stroke = {
         // Stored geographically so erasures stay on the street name they were
         // drawn over when the frame is moved afterwards.
-        sizeM: sizePx * _metresPerPixel(_view),
+        sizeM: sizePx * _metersPerPixel(_view),
         points: [_fromCanvas(at[0], at[1], _view)],
       };
       _strokes.push(_stroke);

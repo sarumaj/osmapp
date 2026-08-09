@@ -3,12 +3,12 @@
  * bookkeeping, so they run against the real, vendored turf.
  *
  * `unionHealed` is the one that had actually broken. It grows every input by
- * half a metre so that boundaries which only nearly coincide genuinely
+ * half a meter so that boundaries which only nearly coincide genuinely
  * dissolve, unions, and then shrinks back — except the shrink read `G.
  * polygonParts`, and there is no `G` inside that file. The ReferenceError
  * landed in the surrounding catch, so for as long as that line existed the
  * function grew and unioned and never shrank, and every merged territory kept
- * the half metre. Nothing on screen says so: the shape looks right, it is
+ * the half meter. Nothing on screen says so: the shape looks right, it is
  * simply slightly too big, and it stays too big through export, session
  * restore and every later merge.
  *
@@ -30,7 +30,7 @@ import { loadTurf, square } from "./helpers/turf.mjs";
 const turf = loadTurf();
 const G = loadApp(["geometry.js"], { turf }).geometry;
 
-/** Metres, near 50°N, as a longitude/latitude delta. */
+/** meters, near 50°N, as a longitude/latitude delta. */
 const M = 1 / 110540;
 
 // ── unionHealed ──────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ test("unionHealed dissolves a gap too narrow to share vertices", () => {
   );
 });
 
-test("unionHealed gives the half-metre growth back", () => {
+test("unionHealed gives the half-meter growth back", () => {
   // The regression. Without the shrink the result carries the whole buffer,
   // which on this fixture is roughly 270 m² of territory that does not exist.
   const west = square(turf, 0, 50, 0.001);

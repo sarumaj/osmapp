@@ -7,7 +7,8 @@
     "streets": "Rues",
     "buildings": "Bâtiments",
     "clusters": "Territoires",
-    "aidNote": "Aide à l'écran uniquement. Les fiches de territoire sont toujours imprimées sur le fond OpenStreetMap."
+    "aidNote": "Aide à l'écran uniquement. Les fiches de territoire sont toujours imprimées sur le fond OpenStreetMap.",
+    "gaps": "Zones non couvertes"
   },
   "map": {
     "youAreHere": "Vous êtes ici"
@@ -80,7 +81,11 @@
     "undoIgnoreCount": "Annuler la dernière modification des bâtiments exclus ({count} disponibles)",
     "undoIgnoreNone": "Rien à annuler pour l’instant",
     "redoIgnoreCount": "Rétablir une modification des bâtiments exclus ({count} disponibles)",
-    "redoIgnoreNone": "Rien à rétablir"
+    "redoIgnoreNone": "Rien à rétablir",
+    "undoCornerCount": "Annuler la dernière modification de sommet ({count} disponibles)",
+    "undoCornerNone": "Rien à annuler pour l’instant",
+    "redoCornerCount": "Rétablir une modification de sommet ({count} disponibles)",
+    "redoCornerNone": "Rien à rétablir"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -95,7 +100,9 @@
     "notLoaded": "Limite définie",
     "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger.",
     "clustersHelp": "Afficher la liste des territoires",
-    "clustersWarn": "Certains territoires sont difficiles à repérer — ouvrir la liste"
+    "clustersWarn": "Certains territoires sont difficiles à repérer — ouvrir la liste",
+    "gapsLabel": "Non couvert",
+    "gapsHelp": "Zones à l’intérieur de la limite qui ne sont dans aucun territoire — cliquez pour zoomer sur la plus grande"
   },
   "loading": {
     "cancel": "Annuler",
@@ -128,7 +135,11 @@
     "unmarkPrinted": "Marquer comme non imprimé",
     "delete": "Supprimer",
     "cut": "Diviser ce territoire",
-    "mergeFrom": "Fusionner celui-ci avec…"
+    "mergeFrom": "Fusionner celui-ci avec…",
+    "editOutline": "Modifier le tracé de la limite",
+    "zoomOuter": "Zoomer sur la limite",
+    "trimOuter": "Ajuster aux bâtiments",
+    "refetchOuter": "Retélécharger les données OSM"
   },
   "partition": {
     "title": "Diviser en territoires",
@@ -222,7 +233,7 @@
     "adminLevel": "niveau administratif {level}",
     "area": "{area} km²",
     "detail": "Détail",
-    "detailValue": "±{metres} m · {points} points",
+    "detailValue": "±{meters} m · {points} points",
     "parts": "{count} parties détachées — seule la plus grande est utilisée.",
     "tooBig": "Environ {area} km², au-dessus de la limite de téléchargement de {max} km². Le contour peut quand même être utilisé, mais recadrez-le avant de charger les données.",
     "useBoundary": "Utiliser la limite",
@@ -465,7 +476,8 @@
     "resetTitle": "Tout réinitialiser ?",
     "reset": "Réinitialiser",
     "clearPrintedTitle": "Effacer les marques d'impression ?",
-    "clearPrinted": "Effacer"
+    "clearPrinted": "Effacer",
+    "editInstead": "Modifier plutôt"
   },
   "cut": {
     "vertices": "{count} sommets",
@@ -503,7 +515,7 @@
       },
       "draw": {
         "title": "Ou tracez la limite",
-        "body": "Cliquez pour placer des coins, puis appuyez sur Entrée ou double-cliquez pour fermer la forme. Tout ce que fait l'application se passe à l'intérieur de cette limite extérieure."
+        "body": "Cliquez pour poser des sommets, puis Entrée ou double-clic ferme la forme. Tout le reste se passe à l’intérieur de cette limite extérieure. Elle n’est pas définitive : recliquez sur ce bouton — ou faites un clic droit sur la limite — pour déplacer, ajouter ou supprimer ses sommets."
       },
       "locate": {
         "title": "Trouvez-vous",
@@ -563,7 +575,7 @@
       },
       "history": {
         "title": "Annuler n'importe quoi",
-        "body": "Annuler et rétablir permettent de revenir sur les modifications de limite, les coupes et les fusions, et Ctrl+Z fonctionne aussi. Dans l'outil de coupe et la gomme, ils annulent les points et les traits à la place, donc annuler signifie toujours la dernière action effectuée."
+        "body": "Annuler et rétablir remontent les modifications de limite, les découpes et les fusions, et Ctrl+Z fonctionne aussi. Dans l’outil de découpe, l’éditeur de limite et la gomme, ils reprennent plutôt des sommets, des coins et des traits : annuler désigne toujours votre dernière action."
       },
       "layers": {
         "title": "Ce qui est affiché",
@@ -652,6 +664,50 @@
     "drawCancel": "Abandonner la limite",
     "drawDouble": "Fermer la limite",
     "trimBack": "Annuler la dernière modification des bâtiments exclus",
-    "trimForward": "Rétablir une modification des bâtiments exclus"
+    "trimForward": "Rétablir une modification des bâtiments exclus",
+    "groupOutline": "Tracé de la limite",
+    "outlineApply": "Appliquer la nouvelle limite",
+    "outlineBack": "Annuler la dernière modification de sommet",
+    "outlineForward": "Rétablir une modification de sommet",
+    "outlineReset": "Remettre la limite comme elle était",
+    "outlineCancel": "Quitter sans modifier la limite",
+    "outlineMove": "Déplacer un sommet, ou en ajouter depuis le point intermédiaire",
+    "outlineDelete": "Supprimer un sommet"
+  },
+  "outline": {
+    "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
+    "corners": {
+      "one": "{count} sommet",
+      "other": "{count} sommets"
+    },
+    "apply": "Appliquer",
+    "reset": "Réinitialiser",
+    "cancel": "Annuler",
+    "undo": "Annuler la dernière modification de sommet",
+    "redo": "Rétablir une modification de sommet",
+    "unchanged": "inchangé",
+    "grown": "+{percent} % — {area} km²",
+    "shrunk": "−{percent} % — {area} km²",
+    "invalid": "Cette forme n’est pas une limite utilisable.",
+    "noBoundary": "Tracez ou recherchez d’abord une limite extérieure.",
+    "failed": "Impossible d’appliquer la nouvelle limite.",
+    "applyTitle": "Appliquer la nouvelle limite ?",
+    "applyMessage": "La limite extérieure est remplacée et les territoires y sont découpés. Les territoires dont la forme change perdent leur marque d’impression.",
+    "applyDetail": "{before} km² → {after} km²",
+    "clipped": {
+      "one": "{count} territoire change de forme",
+      "other": "{count} territoires changent de forme"
+    },
+    "applyOk": "Appliquer",
+    "refetchTitle": "Télécharger la nouvelle zone ?",
+    "refetchMessage": "La limite dépasse désormais la zone téléchargée : les rues et bâtiments y manquent.",
+    "refetchOk": "Télécharger"
+  },
+  "gaps": {
+    "title": "Dans aucun territoire",
+    "area": "{area} km²",
+    "clickHint": "Cliquez pour en faire un territoire",
+    "adopt": "En faire un territoire",
+    "adoptAll": "Faire un territoire de chaque zone non couverte"
   }
 }

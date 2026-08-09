@@ -10,7 +10,7 @@
  * Also exports fast planar distance helpers. turf.distance() runs a full
  * haversine plus a unit conversion on every call; inside A* and nearest-node
  * loops that dominates the runtime. Over a city-sized bbox the equirectangular
- * approximation is accurate to well under a metre, which is far below the
+ * approximation is accurate to well under a meter, which is far below the
  * precision anything here needs.
  */
 var App = window.App || {};
@@ -21,12 +21,12 @@ App.spatial = (function () {
   var M_PER_DEG_LAT = 110540;
   var M_PER_DEG_LNG = 111320;
 
-  /** Metres per degree of longitude at a given latitude. */
+  /** meters per degree of longitude at a given latitude. */
   function lngScale(lat) {
     return M_PER_DEG_LNG * Math.cos((lat * Math.PI) / 180);
   }
 
-  /** Squared planar distance in metres between two [lng, lat] coords. */
+  /** Squared planar distance in meters between two [lng, lat] coords. */
   function distSq(a, b) {
     var kx = lngScale((a[1] + b[1]) / 2);
     var dx = (a[0] - b[0]) * kx;
@@ -34,7 +34,7 @@ App.spatial = (function () {
     return dx * dx + dy * dy;
   }
 
-  /** Planar distance in metres between two [lng, lat] coords. */
+  /** Planar distance in meters between two [lng, lat] coords. */
   function dist(a, b) {
     return Math.sqrt(distSq(a, b));
   }

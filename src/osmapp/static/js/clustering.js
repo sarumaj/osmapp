@@ -956,7 +956,7 @@ App.clustering = (function () {
   /**
    * Build an undirected weighted graph of the street network, plus a grid
    * index for nearest-node lookups.
-   * Node: { coords: [lng, lat], adj: { neighborKey: metres } }
+   * Node: { coords: [lng, lat], adj: { neighborKey: meters } }
    */
   function _buildStreetGraph() {
     var PRECISION = 6;

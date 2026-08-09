@@ -50,7 +50,7 @@ function outerRing(feature) {
   return g.type === "MultiPolygon" ? g.coordinates[0][0] : g.coordinates[0];
 }
 
-/** Planar shoelace in meters², good enough for boxes a kilometre across. */
+/** Planar shoelace in meters², good enough for boxes a kilometer across. */
 function planarArea(feature) {
   const ring = outerRing(feature);
   const lat = ring[0][1];
@@ -390,7 +390,7 @@ test("ignoring a ribbon of houses pulls the boundary off it", () => {
   const core = village(300, 900, 4, 4);
   // Houses every 100 m along a lane running east. A hundred meters is inside
   // twice the 60 m reach, so this really is one settlement and the ribbon
-  // really does drag the boundary a kilometre out — which is the situation
+  // really does drag the boundary a kilometer out — which is the situation
   // the tool exists for.
   const ribbon = [];
   for (let x = 500; x <= 1500; x += 100) ribbon.push(entry(at(ORIGIN, x, 960)));
@@ -723,7 +723,7 @@ test("the decision does not depend on what is already excluded", () => {
 test("a hamlet far from the village is marked, all of it", () => {
   // The case the per-building rule could not see. Five houses sitting together
   // have each other, so every one of them looked perfectly well connected —
-  // and the boundary went on reaching a kilometre and a half to collect them.
+  // and the boundary went on reaching a kilometer and a half to collect them.
   const trim = load();
   const houses = village(400, 400, 6, 6, 40);
   const hamlet = [];
@@ -750,7 +750,7 @@ test("half a hamlet is never marked without the other half", () => {
 
 test("two hamlets near each other but far from the village both go", () => {
   // Measured against the settlement rather than against whatever happens to
-  // be nearest: two hamlets three hundred metres apart and two kilometres out
+  // be nearest: two hamlets three hundred meters apart and two kilometers out
   // would otherwise vouch for each other and both stay.
   const trim = load();
   const houses = village(300, 300, 6, 6, 40);
@@ -762,7 +762,7 @@ test("two hamlets near each other but far from the village both go", () => {
 });
 
 test("a second village too big to be an accident is left alone", () => {
-  // Fifty houses two kilometres away is a place, not an outlier. Dropping it
+  // Fifty houses two kilometers away is a place, not an outlier. Dropping it
   // automatically would be the tool making a decision that costs somebody a
   // hundred addresses; the box-drag is right there for saying so by hand.
   const trim = load();

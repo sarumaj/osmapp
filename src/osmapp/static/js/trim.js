@@ -217,6 +217,7 @@ App.trim = (function () {
       }
       if (s.editMode) App.editing.toggleEditMode();
       if (s.mergeMode) App.editing.toggleMergeMode();
+      if (s.outlineMode) App.outline.toggle();
     }
 
     s.trimMode = next;
@@ -245,6 +246,7 @@ App.trim = (function () {
     // "features", not "off": territory tooltips are noise here, but the
     // building ones are the decision being made. See polygons.js.
     App.polygons.setTooltipMode("features");
+    App.gaps.schedule(0);
     App.polygons.clearHover();
     App.polygons.restyleBuildings();
 
@@ -296,6 +298,7 @@ App.trim = (function () {
     App.ui.closeContextMenu();
     App.polygons.restyleBuildings();
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
+    App.gaps.schedule(0);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -617,7 +620,7 @@ App.trim = (function () {
    * Judged by group, not by building — which is the fix for the thing this
    * rule kept getting wrong. Measuring each building's distance to its k-th
    * nearest neighbor asks "is this house on its own?", and four houses sitting
-   * together two kilometres from anywhere answer *no*: they have each other.
+   * together two kilometers from anywhere answer *no*: they have each other.
    * So a lone farm was found and a hamlet never was, however far out it sat,
    * and the boundary went on reaching for it.
    *
@@ -649,7 +652,7 @@ App.trim = (function () {
       median * (s.TRIM_OUTLIER_FACTOR || 3),
       s.TRIM_OUTLIER_MIN_M || 120,
     );
-    // Short enough that two settlements a few hundred metres apart stay two
+    // Short enough that two settlements a few hundred meters apart stay two
     // settlements, long enough that a street with a gap in it stays one.
     var link = Math.max(
       median * (s.TRIM_OUTLIER_LINK_FACTOR || 1.5),
@@ -1767,12 +1770,12 @@ App.trim = (function () {
   /**
    * Swap in the trimmed boundary and bring the territories with it.
    *
-   * Territories are clipped rather than discarded: trimming is usually the
-   * step before partitioning, but nothing stops it being used afterwards, and
-   * throwing away a hand-corrected partition to shave a field off the edge
-   * would be an expensive surprise. A territory whose shape actually changed
-   * loses its printed mark, for the same reason a cut one does — the card in
-   * somebody's hand no longer matches the ground.
+   * The clipping, the printed marks and the empty-partition fallback all live
+   * in App.polygons.replaceOuter now: the outline editor does exactly the
+   * same six things after exactly the same kind of change, and two copies of
+   * "what happens to a territory that is now half outside" is one copy too
+   * many. What is still this tool's own business is the sanity of the ring
+   * and the fact that a trim can only ever shrink.
    */
   function _install(poly) {
     // A ring that has been dragged by hand can cross itself, drift outside the
@@ -1787,55 +1790,24 @@ App.trim = (function () {
 
     if (App.history) App.history.push();
 
-    var layer = G.toLayer(poly.geometry, App.polygons.OUTER_STYLE);
-    if (!layer) {
+    // Before the swap: the tool is holding markers and a preview over a
+    // boundary that is about to be replaced.
+    if (s.trimMode) toggle();
+
+    var stats = App.polygons.replaceOuter(poly);
+    if (!stats) {
       alert(T("trim.failed"));
       return;
     }
-    layer.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-    });
-
-    s.outerPolygonLayerGroup.clearLayers();
-    s.outerPolygonLayerGroup.addLayer(layer);
-    s.outerPolygonLayer = layer;
-    s.outerPolygonDrawn = true;
-    App.polygons.attachOuterEvents(layer);
-
-    var kept = [];
-    App.polygons.clusterFeatures().forEach(function (feature) {
-      var before = _area(feature);
-      var clipped = null;
-      try {
-        clipped = G.intersect(feature, poly);
-      } catch (e) {
-        clipped = null;
-      }
-      if (!clipped || !clipped.geometry) return;
-      var after = _area(clipped);
-      if (after < (s.MIN_REMAINDER_M2 || 50)) return;
-
-      var properties = Object.assign({}, feature.properties || {});
-      if (Math.abs(after - before) > 1) delete properties.printed;
-      kept.push({
-        type: "Feature",
-        geometry: clipped.geometry,
-        properties: properties,
-      });
-    });
-
-    if (s.trimMode) toggle();
-
-    App.polygons.setClusters(kept);
-    if (s.clusters.length === 0) App.polygons.ensureDefaultCluster();
-    App.controls.refresh();
 
     console.log(
       ">>> Boundary trimmed —",
       Math.round(_area(poly)),
       "m², ",
-      s.clusters.length,
-      "territories kept",
+      stats.kept,
+      "territories kept,",
+      stats.dropped,
+      "dropped",
     );
   }
 

@@ -439,6 +439,9 @@ App.polygons = (function () {
 
     if (!opts || !opts.silent) refreshFilteredData();
     if (App.session) App.session.markDirty();
+    // Every change to what is covered lands here, which is what makes this
+    // the one place the uncovered remainder has to be recomputed from.
+    if (App.gaps) App.gaps.schedule();
     // Cut and merge only mean something once there are territories, and this
     // is the single choke point every cluster change goes through.
     if (App.controls) App.controls.refresh();
@@ -514,7 +517,7 @@ App.polygons = (function () {
       } catch (e) {
         remainder = null;
       }
-      // Not `> 1`: a square metre of leftover became a full territory —
+      // Not `> 1`: a square meter of leftover became a full territory —
       // counted in the info panel, printable as a card, and invisible at any
       // zoom anyone works at. Below the floor the scrap belongs to nobody,
       // which is the honest outcome for a scrap.
@@ -555,7 +558,10 @@ App.polygons = (function () {
     // rather than patched.
     if (App.labels) App.labels.refresh();
     refreshFilteredData();
-    // The one cluster mutation that does not go through setClusters().
+    // The one cluster mutation that does not go through setClusters() — so it
+    // is also the one that has to say so itself. A deleted territory leaves a
+    // hole exactly its own shape, which is the clearest case there is.
+    if (App.gaps) App.gaps.schedule();
     if (App.controls) App.controls.refresh();
     return true;
   }
@@ -1075,14 +1081,121 @@ App.polygons = (function () {
   }
 
   function attachOuterEvents(layer) {
-    layer.off("mouseover mouseout");
+    layer.off("mouseover mouseout contextmenu");
     layer.on("mouseover", function () {
-      if (s.editMode) return;
+      // Not while the shape is being reshaped: the restyle fights the
+      // editor's own highlight, and the pointer is aiming at a vertex marker
+      // rather than at the boundary as a whole.
+      if (s.editMode || s.outlineMode) return;
       layer.setStyle(OUTER_STYLE_HOVER);
     });
     layer.on("mouseout", function () {
+      if (s.outlineMode) return;
       layer.setStyle(OUTER_STYLE);
     });
+    // The boundary was the one thing on the map with no menu of its own, so
+    // everything that acts on it — reshaping it, re-downloading for it,
+    // trimming it — could only be reached from the toolbar, and only by
+    // somebody who already knew which button meant the outline.
+    layer.on("contextmenu", function (e) {
+      L.DomEvent.stopPropagation(e);
+      // While the outline tool is running the boundary is the subject, so the
+      // menu is its own — the same rule the territories follow for cut and
+      // merge.
+      if (s.outlineMode) {
+        App.outline.handleContextMenu(e.containerPoint);
+        return;
+      }
+      if (s.editMode || s.mergeMode || s.trimMode) return;
+      App.ui.showOuterContextMenu(e.containerPoint, layer);
+    });
+  }
+
+  /**
+   * Swap in a new outer boundary and bring the territories with it.
+   *
+   * Two tools reshape the boundary — the trim tool and the outline editor —
+   * and they need the same six things to happen afterwards, in the same
+   * order. Written twice they would be two answers to "what happens to a
+   * territory that is now half outside?", and the second one would be wrong
+   * about the printed marks, because that is the part that looks like an
+   * afterthought and is not.
+   *
+   * Territories are clipped rather than discarded: reshaping is usually the
+   * step before partitioning, but nothing stops it happening afterwards, and
+   * throwing away a hand-corrected partition to move one corner would be an
+   * expensive surprise. A territory whose shape actually changed loses its
+   * printed mark, for the same reason a cut one does — the card in somebody's
+   * hand no longer matches the ground.
+   *
+   * The caller owns the history entry and the sanity of the ring. This does
+   * not push(), because a caller that has already pushed would get two steps
+   * for one action.
+   *
+   * @param {Feature} poly the new boundary, already validated
+   * @returns {{kept:number, dropped:number, unmarked:number}|null}
+   */
+  function replaceOuter(poly) {
+    if (!poly || !poly.geometry) return null;
+
+    var layer = G.toLayer(poly.geometry, OUTER_STYLE);
+    if (!layer) return null;
+    layer.on("click", function (e) {
+      L.DomEvent.stopPropagation(e);
+    });
+
+    s.outerPolygonLayerGroup.clearLayers();
+    s.outerPolygonLayerGroup.addLayer(layer);
+    s.outerPolygonLayer = layer;
+    s.outerPolygonDrawn = true;
+    attachOuterEvents(layer);
+
+    var stats = { kept: 0, dropped: 0, unmarked: 0 };
+    var kept = [];
+
+    clusterFeatures().forEach(function (feature) {
+      var before = _areaOf(feature);
+      var clipped = null;
+      try {
+        clipped = G.intersect(feature, poly);
+      } catch (e) {
+        clipped = null;
+      }
+      if (!clipped || !clipped.geometry) {
+        stats.dropped++;
+        return;
+      }
+      var after = _areaOf(clipped);
+      if (after < (s.MIN_REMAINDER_M2 || 50)) {
+        stats.dropped++;
+        return;
+      }
+
+      var properties = Object.assign({}, feature.properties || {});
+      if (Math.abs(after - before) > 1 && properties.printed) {
+        delete properties.printed;
+        stats.unmarked++;
+      }
+      kept.push({
+        type: "Feature",
+        geometry: clipped.geometry,
+        properties: properties,
+      });
+    });
+
+    setClusters(kept);
+    if (s.clusters.length === 0) ensureDefaultCluster();
+    stats.kept = s.clusters.length;
+    if (App.controls) App.controls.refresh();
+    return stats;
+  }
+
+  function _areaOf(feature) {
+    try {
+      return turf.area(feature);
+    } catch (e) {
+      return 0;
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1225,6 +1338,7 @@ App.polygons = (function () {
     attachClusterEvents: attachClusterEvents,
     attachProxyEvents: attachProxyEvents,
     attachOuterEvents: attachOuterEvents,
+    replaceOuter: replaceOuter,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
     clusterAt: clusterAt,

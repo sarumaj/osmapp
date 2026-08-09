@@ -200,7 +200,7 @@ App.boundary = (function () {
       _preview(current);
       if (base) {
         detailOut.textContent = T("boundary.detailValue", {
-          metres: Math.round(TOLERANCES[tolIndex] * 111000),
+          meters: Math.round(TOLERANCES[tolIndex] * 111000),
           points: _countVertices(current.geometry),
         });
       }

@@ -74,6 +74,24 @@ App.ui = (function () {
       });
     }
 
+    // The uncovered count zooms to the biggest one rather than opening a
+    // list: there are rarely more than a handful, and the useful next move is
+    // to go and look at the largest.
+    var gaps = D.role(_panel, "gaps-btn");
+    if (gaps) {
+      gaps.addEventListener("click", function (e) {
+        e.preventDefault();
+        var found = App.gaps ? App.gaps.features() : [];
+        if (!found.length) return;
+        var layer = App.geometry.toLayer(found[0].geometry, {});
+        if (layer)
+          s.leafletMap.fitBounds(layer.getBounds(), {
+            padding: [60, 60],
+            maxZoom: 17,
+          });
+      });
+    }
+
     App.i18n.onChange(refreshInfo);
 
     App._loaded.push("ui");
@@ -207,6 +225,8 @@ App.ui = (function () {
       // nobody that the counter exists.
       D.toggleRole(_panel, "printed-row", hasClusters);
       if (hasClusters) D.text(_panel, "printed", info.printed || 0);
+
+      _syncGaps();
     }
 
     var hint = info.hintKey ? App.i18n.t(info.hintKey) : info.hint || "";
@@ -231,6 +251,20 @@ App.ui = (function () {
         App.i18n.t(flagged ? "info.clustersWarn" : "info.clustersHelp"),
       );
     }
+  }
+
+  /**
+   * The uncovered count, shown only when it is not zero.
+   *
+   * Unlike every other row here, the interesting value is the one that means
+   * something is wrong — so an empty answer is an absent row rather than a
+   * "0". Nobody needs to be told that the area is fully covered; that is what
+   * finished looks like.
+   */
+  function _syncGaps() {
+    var count = App.gaps ? App.gaps.count() : 0;
+    D.toggleRole(_panel, "gaps-row", count > 0);
+    if (count > 0) D.text(_panel, "gaps", count);
   }
 
   /** Re-render the panel from the last payload — after a language change or
@@ -333,12 +367,19 @@ App.ui = (function () {
    * Every exit resolves exactly once: the buttons, Escape (via _onKeyDown →
    * closeDialog → the teardown below), and any other dialog opening on top.
    *
+   * `altKey` adds a third button and makes the answer a string rather than a
+   * boolean. Existing callers pass no altKey, never see one, and keep the
+   * boolean they were written against — but a caller that does pass one must
+   * test for `=== "alt"` before testing truthiness, because "alt" is truthy.
+   * The one question that needs three answers is "replace this boundary?",
+   * where the third is "edit the one I have".
+   *
    * @param {{titleKey?:string, title?:string,
    *          messageKey?:string, message?:string,
    *          detail?:string,
-   *          okKey?:string, cancelKey?:string,
+   *          okKey?:string, cancelKey?:string, altKey?:string,
    *          danger?:boolean}} opts
-   * @returns {Promise<boolean>}
+   * @returns {Promise<boolean|"alt">}
    */
   function confirm(opts) {
     opts = opts || {};
@@ -374,6 +415,16 @@ App.ui = (function () {
       cancel.textContent = App.i18n.t(opts.cancelKey || "confirm.cancel");
       D.toggleClass(ok, "btn--danger", !!opts.danger);
       D.toggleClass(ok, "btn--primary", !opts.danger);
+
+      var alt = D.role(dialog, "alt");
+      D.toggleRole(dialog, "alt", !!opts.altKey);
+      if (opts.altKey && alt) {
+        alt.textContent = App.i18n.t(opts.altKey);
+        D.onRole(dialog, "alt", function () {
+          finish("alt");
+          closeDialog();
+        });
+      }
 
       D.onRole(dialog, "cancel", function () {
         closeDialog();
@@ -607,6 +658,55 @@ App.ui = (function () {
     ]);
   }
 
+  /**
+   * The boundary's own menu.
+   *
+   * Everything here was reachable only from the toolbar, and only by somebody
+   * who already knew which of the four buttons in the Area group acted on the
+   * outline. Reshaping in particular had no entry point at all — the boundary
+   * was write-once, so the correction for a corner in the wrong place was to
+   * draw the whole thing again and re-download for it.
+   */
+  function showOuterContextMenu(point, layer) {
+    return showContextMenu(point, [
+      {
+        labelKey: "menu.editOutline",
+        icon: "fa-vector-square",
+        onClick: function () {
+          App.outline.toggle();
+        },
+      },
+      {
+        labelKey: "menu.zoomOuter",
+        icon: "fa-magnifying-glass-plus",
+        onClick: function () {
+          s.leafletMap.fitBounds(layer.getBounds(), { padding: [50, 50] });
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "menu.trimOuter",
+        icon: "fa-compress",
+        disabled: !(
+          s.cachedBuildings &&
+          s.cachedBuildings.features &&
+          s.cachedBuildings.features.length
+        ),
+        onClick: function () {
+          App.trim.toggle();
+        },
+      },
+      {
+        labelKey: "menu.refetchOuter",
+        icon: "fa-cloud-arrow-down",
+        onlineOnly: true,
+        onClick: function () {
+          App.data.confirmAndFetch(layer.toGeoJSON(), { force: true });
+        },
+      },
+    ]);
+  }
+
   function closeContextMenu() {
     if (!s.contextMenu) return;
     D.remove(s.contextMenu);
@@ -646,6 +746,7 @@ App.ui = (function () {
     dialogNode: dialogNode,
     showContextMenu: showContextMenu,
     showPolygonContextMenu: showPolygonContextMenu,
+    showOuterContextMenu: showOuterContextMenu,
     closeContextMenu: closeContextMenu,
     isContextMenuOpen: isContextMenuOpen,
   };

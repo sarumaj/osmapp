@@ -426,7 +426,8 @@ body {
    ═══════════════════════════════════════════════════════════ */
 .cut-toolbar,
 .merge-toolbar,
-.trim-toolbar {
+.trim-toolbar,
+.outline-toolbar {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
@@ -452,7 +453,8 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .cut-toolbar,
   .merge-toolbar,
-  .trim-toolbar {
+  .trim-toolbar,
+  .outline-toolbar {
     animation: none;
   }
 }
@@ -1118,6 +1120,54 @@ body {
 .tb-item--select:focus-within {
   outline: 2px solid var(--c-accent);
   outline-offset: -2px;
+}
+
+/* ── Outline editor bar ────────────────────────────────────────────────── */
+/* Above the hint banner, which owns bottom: 30px — the same arrangement the
+   cut bar uses, and for the same reason: both tools explain a gesture. */
+.outline-toolbar {
+  bottom: 76px;
+  border-top-color: var(--c-accent);
+}
+
+.outline-toolbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.outline-toolbar__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.outline-toolbar__actions .btn--icon {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 5px 8px;
+}
+
+.outline-toolbar__actions kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+/* The one tooltip row that is an instruction rather than a fact. Quieter than
+   the data above it, because it says the same thing on every gap. */
+.feature-tooltip__row--hint {
+  margin-top: 3px;
+  font-style: italic;
+  opacity: 0.85;
 }
 
 /* ═══════════════════════════════════════════════════════════

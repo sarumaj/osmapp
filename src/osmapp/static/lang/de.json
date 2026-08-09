@@ -7,7 +7,8 @@
     "streets": "Straßen",
     "buildings": "Gebäude",
     "clusters": "Gebiete",
-    "aidNote": "Nur eine Orientierungshilfe am Bildschirm. Gebietskarten werden immer mit der OpenStreetMap-Ebene gedruckt."
+    "aidNote": "Nur eine Orientierungshilfe am Bildschirm. Gebietskarten werden immer mit der OpenStreetMap-Ebene gedruckt.",
+    "gaps": "Nicht abgedeckte Flächen"
   },
   "map": {
     "youAreHere": "Du bist hier"
@@ -80,7 +81,11 @@
     "undoIgnoreCount": "Letzte Änderung an den ausgeschlossenen Gebäuden rückgängig machen ({count} verfügbar)",
     "undoIgnoreNone": "Noch nichts rückgängig zu machen",
     "redoIgnoreCount": "Änderung an den ausgeschlossenen Gebäuden wiederherstellen ({count} verfügbar)",
-    "redoIgnoreNone": "Nichts wiederherzustellen"
+    "redoIgnoreNone": "Nichts wiederherzustellen",
+    "undoCornerCount": "Letzte Eckpunktänderung rückgängig machen ({count} verfügbar)",
+    "undoCornerNone": "Noch nichts rückgängig zu machen",
+    "redoCornerCount": "Eckpunktänderung wiederherstellen ({count} verfügbar)",
+    "redoCornerNone": "Nichts wiederherzustellen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -95,7 +100,9 @@
     "notLoaded": "Grenze gesetzt",
     "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen.",
     "clustersHelp": "Liste der Gebiete anzeigen",
-    "clustersWarn": "Einige Gebiete sind auf der Karte schwer zu finden — Liste öffnen"
+    "clustersWarn": "Einige Gebiete sind auf der Karte schwer zu finden — Liste öffnen",
+    "gapsLabel": "Nicht abgedeckt",
+    "gapsHelp": "Flächen innerhalb der Grenze, die in keinem Gebiet liegen — klicken, um zur größten zu springen"
   },
   "loading": {
     "cancel": "Abbrechen",
@@ -128,7 +135,11 @@
     "unmarkPrinted": "Markierung entfernen",
     "delete": "Löschen",
     "cut": "Dieses Gebiet teilen",
-    "mergeFrom": "Dieses zusammenführen mit…"
+    "mergeFrom": "Dieses zusammenführen mit…",
+    "editOutline": "Grenzverlauf bearbeiten",
+    "zoomOuter": "Auf die Grenze zoomen",
+    "trimOuter": "Auf die Gebäude zuschneiden",
+    "refetchOuter": "OSM-Daten neu laden"
   },
   "partition": {
     "title": "In Gebiete aufteilen",
@@ -222,7 +233,7 @@
     "adminLevel": "Verwaltungsebene {level}",
     "area": "{area} km²",
     "detail": "Detailgrad",
-    "detailValue": "±{metres} m · {points} Punkte",
+    "detailValue": "±{meters} m · {points} Punkte",
     "parts": "{count} getrennte Teile — nur der größte wird verwendet.",
     "tooBig": "Etwa {area} km², über der Grenze von {max} km². Der Umriss lässt sich trotzdem übernehmen, muss aber vor dem Laden der Daten verkleinert werden.",
     "useBoundary": "Grenze übernehmen",
@@ -465,7 +476,8 @@
     "resetTitle": "Alles zurücksetzen?",
     "reset": "Zurücksetzen",
     "clearPrintedTitle": "Druckmarkierungen entfernen?",
-    "clearPrinted": "Entfernen"
+    "clearPrinted": "Entfernen",
+    "editInstead": "Stattdessen bearbeiten"
   },
   "cut": {
     "vertices": "{count} Punkte",
@@ -503,7 +515,7 @@
       },
       "draw": {
         "title": "Oder die Grenze zeichnen",
-        "body": "Klicken setzt die Eckpunkte, Enter oder ein Doppelklick schließt die Fläche. Alles Weitere passiert innerhalb dieser Außengrenze."
+        "body": "Klicken setzt Eckpunkte, Enter oder Doppelklick schließt die Form. Alles Weitere geschieht innerhalb dieser äußeren Grenze. Sie ist nicht endgültig: diese Schaltfläche erneut anklicken — oder mit der rechten Maustaste auf die Grenze — um Eckpunkte zu verschieben, hinzuzufügen oder zu löschen."
       },
       "locate": {
         "title": "Standort finden",
@@ -563,7 +575,7 @@
       },
       "history": {
         "title": "Alles rückgängig machen",
-        "body": "Zurück und Erneut gehen durch Grenzänderungen, Schnitte und Zusammenführungen; Strg+Z funktioniert ebenfalls. Im Schneidewerkzeug und im Radierer nehmen sie stattdessen Punkte und Striche zurück — rückgängig heißt also immer das, was zuletzt getan wurde."
+        "body": "Rückgängig und Wiederherstellen gehen durch Grenzänderungen, Schnitte und Zusammenführungen zurück, Strg+Z ebenso. Im Schneidewerkzeug, im Grenz-Editor und im Radierer nehmen sie stattdessen Punkte, Ecken und Striche zurück — rückgängig heißt also immer das, was Sie zuletzt getan haben."
       },
       "layers": {
         "title": "Was angezeigt wird",
@@ -652,6 +664,50 @@
     "drawCancel": "Grenze verwerfen",
     "drawDouble": "Grenze schließen",
     "trimBack": "Letzte Änderung an den ausgeschlossenen Gebäuden rückgängig machen",
-    "trimForward": "Änderung an den ausgeschlossenen Gebäuden wiederherstellen"
+    "trimForward": "Änderung an den ausgeschlossenen Gebäuden wiederherstellen",
+    "groupOutline": "Grenzverlauf",
+    "outlineApply": "Neue Grenze übernehmen",
+    "outlineBack": "Letzte Eckpunktänderung rückgängig machen",
+    "outlineForward": "Eckpunktänderung wiederherstellen",
+    "outlineReset": "Grenze auf den Ausgangszustand zurücksetzen",
+    "outlineCancel": "Verlassen, ohne die Grenze zu ändern",
+    "outlineMove": "Ecke verschieben oder aus dem Punkt dazwischen eine neue ziehen",
+    "outlineDelete": "Ecke löschen"
+  },
+  "outline": {
+    "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
+    "corners": {
+      "one": "{count} Ecke",
+      "other": "{count} Ecken"
+    },
+    "apply": "Übernehmen",
+    "reset": "Zurücksetzen",
+    "cancel": "Abbrechen",
+    "undo": "Letzte Eckpunktänderung rückgängig machen",
+    "redo": "Eckpunktänderung wiederherstellen",
+    "unchanged": "unverändert",
+    "grown": "+{percent} % — {area} km²",
+    "shrunk": "−{percent} % — {area} km²",
+    "invalid": "Diese Form ist keine brauchbare Grenze.",
+    "noBoundary": "Zuerst eine äußere Grenze zeichnen oder suchen.",
+    "failed": "Die neue Grenze konnte nicht übernommen werden.",
+    "applyTitle": "Neue Grenze übernehmen?",
+    "applyMessage": "Die äußere Grenze wird ersetzt und die Gebiete werden daran zugeschnitten. Gebiete, deren Form sich ändert, verlieren ihre Druckmarkierung.",
+    "applyDetail": "{before} km² → {after} km²",
+    "clipped": {
+      "one": "{count} Gebiet ändert seine Form",
+      "other": "{count} Gebiete ändern ihre Form"
+    },
+    "applyOk": "Übernehmen",
+    "refetchTitle": "Neuen Bereich herunterladen?",
+    "refetchMessage": "Die Grenze reicht jetzt über den heruntergeladenen Bereich hinaus, dort fehlen also Straßen und Gebäude.",
+    "refetchOk": "Herunterladen"
+  },
+  "gaps": {
+    "title": "In keinem Gebiet",
+    "area": "{area} km²",
+    "clickHint": "Klicken, um daraus ein Gebiet zu machen",
+    "adopt": "Daraus ein Gebiet machen",
+    "adoptAll": "Aus jeder freien Fläche ein Gebiet machen"
   }
 }

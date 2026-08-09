@@ -552,7 +552,7 @@ and makes `polygonize` miss rings entirely.
 `geometry.unionHealed()` grows each input by 0.5 m before unioning and shrinks
 back after. A plain `turf.union` on territories whose shared boundary only
 _nearly_ coincides returns a MultiPolygon of touching pieces, and Leaflet then
-draws the internal outlines. Growing first closes gaps under a metre so the
+draws the internal outlines. Growing first closes gaps under a meter so the
 union genuinely dissolves.
 
 ### Printing
@@ -582,7 +582,7 @@ dialog, so every later adjustment re-composites from memory with no network.
 The trade is softness when zooming past that level — `TILE_ZOOM_BOOST` buys one
 more sharp zoom level for roughly four times the tiles.
 
-**Erase strokes are stored in lng/lat with a width in metres**, not canvas
+**Erase strokes are stored in lng/lat with a width in meters**, not canvas
 pixels. In pixel space, panning after erasing would slide every erasure off the
 street name it was hiding.
 

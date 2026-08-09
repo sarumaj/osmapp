@@ -7,7 +7,8 @@
     "streets": "Ulice",
     "buildings": "Budynki",
     "clusters": "Tereny",
-    "aidNote": "Tylko pomoc na ekranie. Karty terenów są zawsze drukowane na warstwie OpenStreetMap."
+    "aidNote": "Tylko pomoc na ekranie. Karty terenów są zawsze drukowane na warstwie OpenStreetMap.",
+    "gaps": "Obszary bez terenu"
   },
   "map": {
     "youAreHere": "Jesteś tutaj"
@@ -80,7 +81,11 @@
     "undoIgnoreCount": "Cofnij ostatnią zmianę wykluczonych budynków (dostępne: {count})",
     "undoIgnoreNone": "Nie ma czego cofnąć",
     "redoIgnoreCount": "Ponów zmianę wykluczonych budynków (dostępne: {count})",
-    "redoIgnoreNone": "Nie ma czego ponowić"
+    "redoIgnoreNone": "Nie ma czego ponowić",
+    "undoCornerCount": "Cofnij ostatnią zmianę narożnika (dostępne: {count})",
+    "undoCornerNone": "Nie ma czego cofnąć",
+    "redoCornerCount": "Ponów zmianę narożnika (dostępne: {count})",
+    "redoCornerNone": "Nie ma czego ponowić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -95,7 +100,9 @@
     "notLoaded": "Granica ustawiona",
     "hintNotLoaded": "Brak danych OSM — użyj przycisku Odśwież na pasku narzędzi, aby je pobrać.",
     "clustersHelp": "Pokaż listę terenów",
-    "clustersWarn": "Niektóre tereny trudno znaleźć na mapie — otwórz listę"
+    "clustersWarn": "Niektóre tereny trudno znaleźć na mapie — otwórz listę",
+    "gapsLabel": "Bez terenu",
+    "gapsHelp": "Obszary wewnątrz granicy nienależące do żadnego terenu — kliknij, aby powiększyć największy"
   },
   "loading": {
     "cancel": "Anuluj",
@@ -133,7 +140,11 @@
     "unmarkPrinted": "Usuń oznaczenie wydruku",
     "delete": "Usuń",
     "cut": "Podziel ten teren",
-    "mergeFrom": "Połącz ten z…"
+    "mergeFrom": "Połącz ten z…",
+    "editOutline": "Edytuj kształt granicy",
+    "zoomOuter": "Powiększ do granicy",
+    "trimOuter": "Przytnij do budynków",
+    "refetchOuter": "Pobierz dane OSM ponownie"
   },
   "partition": {
     "title": "Podziel na tereny",
@@ -240,7 +251,7 @@
     "adminLevel": "poziom administracyjny {level}",
     "area": "{area} km²",
     "detail": "Szczegółowość",
-    "detailValue": "±{metres} m · punktów: {points}",
+    "detailValue": "±{meters} m · punktów: {points}",
     "parts": {
       "one": "{count} rozłączna część — użyta zostanie tylko największa.",
       "few": "{count} rozłączne części — użyta zostanie tylko największa.",
@@ -492,7 +503,8 @@
     "resetTitle": "Wyczyścić wszystko?",
     "reset": "Wyczyść",
     "clearPrintedTitle": "Usunąć oznaczenia wydruku?",
-    "clearPrinted": "Usuń"
+    "clearPrinted": "Usuń",
+    "editInstead": "Zamiast tego edytuj"
   },
   "cut": {
     "vertices": {
@@ -540,7 +552,7 @@
       },
       "draw": {
         "title": "Albo narysuj granicę",
-        "body": "Klikaj, aby stawiać narożniki, a potem naciśnij Enter lub kliknij dwukrotnie, żeby zamknąć kształt. Wszystko pozostałe dzieje się wewnątrz tej granicy zewnętrznej."
+        "body": "Klikaj, aby stawiać narożniki, potem Enter lub dwuklik zamyka kształt. Wszystko inne dzieje się wewnątrz tej granicy zewnętrznej. Nie jest ostateczna: kliknij ten przycisk ponownie — albo kliknij granicę prawym przyciskiem — aby przesuwać, dodawać lub usuwać narożniki."
       },
       "locate": {
         "title": "Znajdź siebie",
@@ -600,7 +612,7 @@
       },
       "history": {
         "title": "Cofnij cokolwiek",
-        "body": "Cofnij i Ponów przechodzą przez zmiany granic, cięcia i połączenia; działa też Ctrl+Z. W narzędziu cięcia i w gumce cofają zamiast tego punkty i pociągnięcia, więc cofnięcie zawsze dotyczy tego, co zrobiono ostatnio."
+        "body": "Cofnij i ponów przechodzą wstecz przez zmiany granicy, cięcia i łączenia, Ctrl+Z też działa. W narzędziu cięcia, edytorze granicy i gumce cofają zamiast tego punkty, narożniki i pociągnięcia — cofnięcie zawsze dotyczy tego, co zrobiłeś ostatnio."
       },
       "layers": {
         "title": "Co jest widoczne",
@@ -689,6 +701,54 @@
     "drawCancel": "Porzuć granicę",
     "drawDouble": "Zamknij granicę",
     "trimBack": "Cofnij ostatnią zmianę wykluczonych budynków",
-    "trimForward": "Ponów zmianę wykluczonych budynków"
+    "trimForward": "Ponów zmianę wykluczonych budynków",
+    "groupOutline": "Kształt granicy",
+    "outlineApply": "Zastosuj nową granicę",
+    "outlineBack": "Cofnij ostatnią zmianę narożnika",
+    "outlineForward": "Ponów zmianę narożnika",
+    "outlineReset": "Przywróć granicę do stanu początkowego",
+    "outlineCancel": "Wyjdź bez zmiany granicy",
+    "outlineMove": "Przesuń narożnik lub dodaj nowy z kropki pomiędzy",
+    "outlineDelete": "Usuń narożnik"
+  },
+  "outline": {
+    "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
+    "corners": {
+      "one": "{count} narożnik",
+      "few": "{count} narożniki",
+      "many": "{count} narożników",
+      "other": "{count} narożnika"
+    },
+    "apply": "Zastosuj",
+    "reset": "Przywróć",
+    "cancel": "Anuluj",
+    "undo": "Cofnij ostatnią zmianę narożnika",
+    "redo": "Ponów zmianę narożnika",
+    "unchanged": "bez zmian",
+    "grown": "+{percent}% — {area} km²",
+    "shrunk": "−{percent}% — {area} km²",
+    "invalid": "Ten kształt nie nadaje się na granicę.",
+    "noBoundary": "Najpierw narysuj lub wyszukaj granicę zewnętrzną.",
+    "failed": "Nie udało się zastosować nowej granicy.",
+    "applyTitle": "Zastosować nową granicę?",
+    "applyMessage": "Granica zewnętrzna zostanie zastąpiona, a tereny przycięte do niej. Tereny, których kształt się zmieni, stracą oznaczenie wydruku.",
+    "applyDetail": "{before} km² → {after} km²",
+    "clipped": {
+      "one": "{count} teren zmieni kształt",
+      "few": "{count} tereny zmienią kształt",
+      "many": "{count} terenów zmieni kształt",
+      "other": "{count} terenu zmieni kształt"
+    },
+    "applyOk": "Zastosuj",
+    "refetchTitle": "Pobrać nowy obszar?",
+    "refetchMessage": "Granica wykracza teraz poza pobrany obszar, więc brakuje tam ulic i budynków.",
+    "refetchOk": "Pobierz"
+  },
+  "gaps": {
+    "title": "Poza wszystkimi terenami",
+    "area": "{area} km²",
+    "clickHint": "Kliknij, aby utworzyć teren",
+    "adopt": "Utwórz z tego teren",
+    "adoptAll": "Utwórz teren z każdego wolnego obszaru"
   }
 }

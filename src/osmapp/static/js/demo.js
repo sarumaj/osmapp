@@ -19,7 +19,7 @@
  * Fetching a real area instead would make the tour need Overpass, a working
  * connection and ten seconds of patience before it could say anything.
  *
- * The sample is therefore generated: a small grid village, laid out in metres
+ * The sample is therefore generated: a small grid village, laid out in meters
  * around a fixed point and projected to WGS84. Its streets are named "Sample
  * street 1" and so on, in the user's language, which is the honest way to
  * signal that none of this is real — better than a plausible-looking fake that
@@ -60,8 +60,8 @@ App.demo = (function () {
 
   var M_PER_DEG_LAT = 111320;
 
-  var AVENUES = [0, 190, 380, 570]; // east–west, metres north of ROOT
-  var STREETS = [0, 230, 460, 690, 920]; // north–south, metres east of ROOT
+  var AVENUES = [0, 190, 380, 570]; // east–west, meters north of ROOT
+  var STREETS = [0, 230, 460, 690, 920]; // north–south, meters east of ROOT
   var MARGIN = 70; // how far the outer boundary runs past the outermost street
   var OVERHANG = 40; // how far each street runs past the last crossing
 
@@ -113,10 +113,10 @@ App.demo = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Local metres (x east, y north) to [lng, lat].
+   * Local meters (x east, y north) to [lng, lat].
    *
    * Flat-earth on purpose. Over 900 m the error against a proper projection is
-   * centimetres, and the alternative is a projection library for a village
+   * centimeters, and the alternative is a projection library for a village
    * that does not exist.
    */
   function _project(x, y) {

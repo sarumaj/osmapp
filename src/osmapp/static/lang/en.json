@@ -7,7 +7,8 @@
     "streets": "Streets",
     "buildings": "Buildings",
     "clusters": "Territories",
-    "aidNote": "An on-screen aid only. Territory cards are always printed on the OpenStreetMap layer."
+    "aidNote": "An on-screen aid only. Territory cards are always printed on the OpenStreetMap layer.",
+    "gaps": "Uncovered areas"
   },
   "map": {
     "youAreHere": "You are here"
@@ -80,7 +81,11 @@
     "undoIgnoreCount": "Undo the last change to the excluded buildings ({count} available)",
     "undoIgnoreNone": "Nothing to undo yet",
     "redoIgnoreCount": "Redo a change to the excluded buildings ({count} available)",
-    "redoIgnoreNone": "Nothing to redo"
+    "redoIgnoreNone": "Nothing to redo",
+    "undoCornerCount": "Undo the last corner change ({count} available)",
+    "undoCornerNone": "Nothing to undo yet",
+    "redoCornerCount": "Redo a corner change ({count} available)",
+    "redoCornerNone": "Nothing to redo"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -95,7 +100,9 @@
     "notLoaded": "Boundary set",
     "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it.",
     "clustersHelp": "Show the list of territories",
-    "clustersWarn": "Some territories are hard to spot on the map — open the list"
+    "clustersWarn": "Some territories are hard to spot on the map — open the list",
+    "gapsLabel": "Uncovered",
+    "gapsHelp": "Areas inside the boundary that are in no territory — click to zoom to the largest"
   },
   "loading": {
     "cancel": "Cancel",
@@ -128,7 +135,11 @@
     "unmarkPrinted": "Mark as not printed",
     "delete": "Delete",
     "cut": "Split this territory",
-    "mergeFrom": "Merge this with…"
+    "mergeFrom": "Merge this with…",
+    "editOutline": "Edit the boundary shape",
+    "zoomOuter": "Zoom to the boundary",
+    "trimOuter": "Trim to the buildings",
+    "refetchOuter": "Re-download OSM data"
   },
   "partition": {
     "title": "Split into territories",
@@ -222,7 +233,7 @@
     "adminLevel": "admin level {level}",
     "area": "{area} km²",
     "detail": "Detail",
-    "detailValue": "±{metres} m · {points} points",
+    "detailValue": "±{meters} m · {points} points",
     "parts": "{count} detached parts — only the largest one is used.",
     "tooBig": "About {area} km², over the {max} km² download limit. The outline can still be used, but trim it before loading data.",
     "useBoundary": "Use boundary",
@@ -465,7 +476,8 @@
     "resetTitle": "Reset everything?",
     "reset": "Reset",
     "clearPrintedTitle": "Clear the printed marks?",
-    "clearPrinted": "Clear"
+    "clearPrinted": "Clear",
+    "editInstead": "Edit instead"
   },
   "cut": {
     "vertices": "{count} vertices",
@@ -503,7 +515,7 @@
       },
       "draw": {
         "title": "Or draw the boundary",
-        "body": "Click to place corners, then press Enter or double-click to close the shape. Everything else the app does happens inside this outer boundary."
+        "body": "Click to place corners, then press Enter or double-click to close the shape. Everything else the app does happens inside this outer boundary. It is not final: click this button again — or right-click the boundary — to move, add or delete its corners."
       },
       "locate": {
         "title": "Find yourself",
@@ -563,7 +575,7 @@
       },
       "history": {
         "title": "Undo anything",
-        "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool and the eraser they take back points and strokes instead, so undo always means whatever you last did."
+        "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool, the outline editor and the eraser they take back points, corners and strokes instead, so undo always means whatever you last did."
       },
       "layers": {
         "title": "What is shown",
@@ -652,6 +664,50 @@
     "drawCancel": "Abandon the boundary",
     "drawDouble": "Close the boundary",
     "trimBack": "Undo the last change to the excluded buildings",
-    "trimForward": "Redo a change to the excluded buildings"
+    "trimForward": "Redo a change to the excluded buildings",
+    "groupOutline": "Boundary shape",
+    "outlineApply": "Apply the new boundary",
+    "outlineBack": "Undo the last corner change",
+    "outlineForward": "Redo a corner change",
+    "outlineReset": "Put the boundary back as it was",
+    "outlineCancel": "Leave without changing the boundary",
+    "outlineMove": "Move a corner, or add one from the dot between two",
+    "outlineDelete": "Delete a corner"
+  },
+  "outline": {
+    "hint": "Drag a corner to move it · Click a corner to delete it · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
+    "corners": {
+      "one": "{count} corner",
+      "other": "{count} corners"
+    },
+    "apply": "Apply",
+    "reset": "Reset",
+    "cancel": "Cancel",
+    "undo": "Undo the last corner change",
+    "redo": "Redo a corner change",
+    "unchanged": "unchanged",
+    "grown": "+{percent}% — {area} km²",
+    "shrunk": "−{percent}% — {area} km²",
+    "invalid": "This shape is not a usable boundary.",
+    "noBoundary": "Draw or search for an outer boundary first.",
+    "failed": "Could not apply the new boundary.",
+    "applyTitle": "Apply the new boundary?",
+    "applyMessage": "The outer boundary is replaced and the territories are clipped to it. Territories that change shape lose their printed mark.",
+    "applyDetail": "{before} km² → {after} km²",
+    "clipped": {
+      "one": "{count} territory changes shape",
+      "other": "{count} territories change shape"
+    },
+    "applyOk": "Apply",
+    "refetchTitle": "Download the new area?",
+    "refetchMessage": "The boundary now reaches past the area that was downloaded, so the streets and buildings out there are missing.",
+    "refetchOk": "Download"
+  },
+  "gaps": {
+    "title": "Not in any territory",
+    "area": "{area} km²",
+    "clickHint": "Click to make it a territory",
+    "adopt": "Make this a territory",
+    "adoptAll": "Make every uncovered area a territory"
   }
 }
