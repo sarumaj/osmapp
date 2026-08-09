@@ -206,6 +206,9 @@ function load(opts = {}) {
     TRIM_OUTLIER_NEIGHBORS: 3,
     TRIM_OUTLIER_FACTOR: 3,
     TRIM_OUTLIER_MIN_M: 120,
+    TRIM_OUTLIER_LINK_FACTOR: 1.5,
+    TRIM_OUTLIER_GROUP_MAX: 8,
+    TRIM_OUTLIER_GROUP_SHARE: 0.05,
     TRIM_MARKER_MAX: 800,
     trimReachM: 60,
     trimDetailM: 15,
@@ -715,6 +718,69 @@ test("the decision does not depend on what is already excluded", () => {
   const first = trim.outliersIn(all);
   assert.equal(first.length, 2);
   assert.deepEqual(trim.outliersIn(all).map((e) => e.key), first.map((e) => e.key));
+});
+
+test("a hamlet far from the village is marked, all of it", () => {
+  // The case the per-building rule could not see. Five houses sitting together
+  // have each other, so every one of them looked perfectly well connected —
+  // and the boundary went on reaching a kilometre and a half to collect them.
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 40);
+  const hamlet = [];
+  for (let i = 0; i < 5; i++) hamlet.push(entry(at(ORIGIN, 1700 + (i % 3) * 35, 1600 + Math.floor(i / 3) * 35)));
+
+  const marked = trim.outliersIn(houses.concat(hamlet));
+  assert.equal(marked.length, hamlet.length, `expected the whole hamlet, got ${marked.length}`);
+  const keys = new Set(marked.map((e) => e.key));
+  hamlet.forEach((e) => assert.ok(keys.has(e.key), "every house in it goes together"));
+});
+
+test("half a hamlet is never marked without the other half", () => {
+  // Whatever the answer is, it is the same for every building in one place. A
+  // boundary drawn around three houses of five is not a shape anybody meant.
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 40);
+  const hamlet = [];
+  for (let i = 0; i < 4; i++) hamlet.push(entry(at(ORIGIN, 1500 + i * 30, 1500)));
+
+  const marked = new Set(trim.outliersIn(houses.concat(hamlet)).map((e) => e.key));
+  const inside = hamlet.filter((e) => marked.has(e.key)).length;
+  assert.ok(inside === 0 || inside === hamlet.length, `${inside} of ${hamlet.length} is not an answer`);
+});
+
+test("two hamlets near each other but far from the village both go", () => {
+  // Measured against the settlement rather than against whatever happens to
+  // be nearest: two hamlets three hundred metres apart and two kilometres out
+  // would otherwise vouch for each other and both stay.
+  const trim = load();
+  const houses = village(300, 300, 6, 6, 40);
+  const a = [0, 1, 2].map((i) => entry(at(ORIGIN, 1600 + i * 30, 1500)));
+  const b = [0, 1, 2].map((i) => entry(at(ORIGIN, 1900 + i * 30, 1500)));
+
+  const marked = trim.outliersIn(houses.concat(a, b));
+  assert.equal(marked.length, a.length + b.length);
+});
+
+test("a second village too big to be an accident is left alone", () => {
+  // Fifty houses two kilometres away is a place, not an outlier. Dropping it
+  // automatically would be the tool making a decision that costs somebody a
+  // hundred addresses; the box-drag is right there for saying so by hand.
+  const trim = load();
+  const houses = village(200, 200, 6, 6, 40);
+  const other = village(1400, 1400, 7, 7, 40);
+
+  assert.deepEqual(trim.outliersIn(houses.concat(other)), []);
+});
+
+test("a hamlet just outside the village is close enough to keep", () => {
+  // Small is only half the test. A cluster of four a couple of plots beyond
+  // the last street is the edge of the village, and marking it would be the
+  // tool trimming the thing it was pointed at.
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 40);
+  const edge = [0, 1, 2, 3].map((i) => entry(at(ORIGIN, 700 + (i % 2) * 30, 400 + Math.floor(i / 2) * 30)));
+
+  assert.deepEqual(trim.outliersIn(houses.concat(edge)), []);
 });
 
 test("a dense terrace has no outliers, however tight the spacing", () => {

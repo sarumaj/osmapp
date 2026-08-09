@@ -113,13 +113,21 @@ App.state = {
   // long link looking like a wire with a trumpet soldered to each end.
   TRIM_TIP_FACTOR: 2,
 
-  // Isolation is relative: a building is an outlier when the distance to its
-  // k-th nearest neighbor is FACTOR times the median for the area. A fixed
-  // radius cannot tell a lone farm from an ordinary house in a village where
-  // the plots are 80 m apart, and marked most of the latter.
-  TRIM_OUTLIER_NEIGHBORS: 3, // k
-  TRIM_OUTLIER_FACTOR: 3,
+  // Isolation is a property of a place, not of a building. Buildings are
+  // grouped by single linkage — anything within LINK_FACTOR × the median plot
+  // spacing of anything else is the same place — and a group is an outlier
+  // when it is both small and far. Measuring each building on its own asked
+  // "is this house alone?", and four houses two kilometers out answer no:
+  // they have each other, so a hamlet was never found however far it sat.
+  TRIM_OUTLIER_NEIGHBORS: 3, // k, for the median spacing that sets the scale
+  TRIM_OUTLIER_FACTOR: 3, // far: this many times the median
   TRIM_OUTLIER_MIN_M: 120, // floor: nothing inside this is ever "isolated"
+  TRIM_OUTLIER_LINK_FACTOR: 1.5, // short enough to keep two settlements apart
+  // Small: a share of everything downloaded, with a floor. A genuine second
+  // village of fifty houses is not an accident to be swept up automatically —
+  // that is a decision somebody should make by dragging a box over it.
+  TRIM_OUTLIER_GROUP_MAX: 8,
+  TRIM_OUTLIER_GROUP_SHARE: 0.05,
 
   // A group of kept buildings that is not connected to the main settlement is
   // joined to it by a corridor rather than dropped, so "what I keep, I keep"

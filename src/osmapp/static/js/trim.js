@@ -537,26 +537,27 @@ App.trim = (function () {
    * and arriving at the answer people want beats asking them to find the one
    * button that produces it.
    *
-   * The first version counted neighbors inside a fixed radius and was wrong
-   * twice over. Wrong absolutely: "fewer than three neighbors within 60 m"
-   * describes an ordinary house in a village where the plots are 80 m apart,
-   * so on exactly the rural areas these cards are printed for it marked almost
-   * everything. And wrong procedurally: it excluded buildings as it went and
-   * let later ones see the thinned-out result, so marks cascaded outward from
-   * the first sparse corner and pressing the button twice marked a different,
-   * larger set than pressing it once.
+   * Two rules have been wrong here before, and both were wrong in the same
+   * direction — they answered a question about one building when the thing
+   * being decided is about a place.
    *
-   * Both are fixed by measuring against the whole neighborhood instead of a
-   * constant. Every building's distance to its k-th nearest neighbor is
-   * computed once, over the entire pool and independent of what is already
-   * excluded, and a building is an outlier when that distance is several times
-   * the median for the area. A dense town and a strung-out hamlet each get
-   * judged by their own spacing, the answer does not depend on the order of
-   * the loop, and pressing the button again is a no-op.
+   * The first counted neighbors inside a fixed radius: "fewer than three
+   * within 60 m" describes an ordinary house in a village where the plots are
+   * 80 m apart, so on exactly the rural areas these cards are printed for it
+   * marked almost everything. It also excluded buildings as it went and let
+   * later ones see the thinned-out result, so marks cascaded and pressing the
+   * button twice marked a larger set than pressing it once.
    *
-   * The absolute floor is the one thing left that is not relative: in a
-   * terrace where the median gap is 12 m, three times that is still a house
-   * next door, and nothing at all should be called isolated inside 120 m.
+   * The second measured every building against the median spacing for the
+   * area, which fixed both of those and still could not see a hamlet: four
+   * houses sitting together two kilometers out are not isolated from each
+   * other, so none of them ever qualified and the boundary went on reaching
+   * for them.
+   *
+   * So the buildings are grouped first and the groups are judged. See
+   * outliersIn below; the short version is that a place is an outlier when it
+   * is both small and far, both measured against the area's own spacing, and
+   * that every building in such a place goes together.
    */
   function markOutliers() {
     if (!_pool || !_ignored) return 0;
@@ -578,6 +579,26 @@ App.trim = (function () {
   /**
    * Which of `entries` are unusually isolated.
    *
+   * Judged by group, not by building — which is the fix for the thing this
+   * rule kept getting wrong. Measuring each building's distance to its k-th
+   * nearest neighbor asks "is this house on its own?", and four houses sitting
+   * together two kilometres from anywhere answer *no*: they have each other.
+   * So a lone farm was found and a hamlet never was, however far out it sat,
+   * and the boundary went on reaching for it.
+   *
+   * The question the tool actually needs answered is "is this *place* on its
+   * own?". So the buildings are first clustered by single linkage — anything
+   * within a short hop of anything else is the same place — and then each
+   * place is measured against the main one. A place that is small and far is
+   * an outlier, and every building in it goes together, because half a hamlet
+   * is not a thing anybody wants a boundary drawn around.
+   *
+   * Both halves of "small and far" stay relative to the area. Far is still
+   * several times the median plot spacing, the same as before. Small is a
+   * share of everything downloaded, with a floor — a genuine second village
+   * of fifty houses is not an accident to be swept up automatically, and it
+   * is a decision somebody should make by dragging a box.
+   *
    * Pure, and takes the whole set rather than the un-excluded remainder, which
    * is what makes pressing the button twice a no-op.
    *
@@ -588,15 +609,52 @@ App.trim = (function () {
     if (!entries || entries.length < 3) return [];
 
     var k = Math.max(1, s.TRIM_OUTLIER_NEIGHBORS || 3);
-    var spacing = _neighborDistances(entries, k);
-    var median = _median(spacing);
+    var median = _median(_neighborDistances(entries, k));
     var threshold = Math.max(
       median * (s.TRIM_OUTLIER_FACTOR || 3),
       s.TRIM_OUTLIER_MIN_M || 120,
     );
+    // Short enough that two settlements a few hundred metres apart stay two
+    // settlements, long enough that a street with a gap in it stays one.
+    var link = Math.max(
+      median * (s.TRIM_OUTLIER_LINK_FACTOR || 1.5),
+      (s.TRIM_OUTLIER_MIN_M || 120) / 2,
+    );
+
+    var groups = _groupsWithin(entries, link);
+    if (groups.length < 2) {
+      console.log(">>> Outliers: one settlement, nothing to exclude");
+      return [];
+    }
+
+    var home = groups[0];
+    for (var i = 1; i < groups.length; i++)
+      if (groups[i].length > home.length) home = groups[i];
+
+    var maxSize = Math.max(
+      s.TRIM_OUTLIER_GROUP_MAX || 8,
+      Math.floor(entries.length * (s.TRIM_OUTLIER_GROUP_SHARE || 0.05)),
+    );
+    var reach = Math.max(threshold * 4, 2000);
+    var homeGrid = new SP.Grid(120);
+    home.forEach(function (index) {
+      homeGrid.addPoint(entries[index].centroid, index);
+    });
+
+    var marked = Object.create(null);
+    var places = 0;
+    groups.forEach(function (group) {
+      if (group === home) return;
+      if (group.length > maxSize) return;
+      if (_gapTo(entries, group, homeGrid, reach) <= threshold) return;
+      places++;
+      group.forEach(function (index) {
+        marked[index] = true;
+      });
+    });
 
     var out = entries.filter(function (entry, index) {
-      return spacing[index] > threshold;
+      return marked[index];
     });
     console.log(
       ">>> Outliers: median spacing",
@@ -604,11 +662,79 @@ App.trim = (function () {
       "m, threshold",
       Math.round(threshold),
       "m,",
+      groups.length,
+      "places,",
       out.length,
-      "of",
-      entries.length,
+      "buildings in",
+      places,
+      "of them",
     );
     return out;
+  }
+
+  /**
+   * Single-linkage groups: indices into `entries`, one array per place.
+   *
+   * Union-find over the pairs the grid says are close enough, rather than a
+   * distance matrix — the point of clustering thousands of buildings on every
+   * press of a button is that it has to cost about as much as not doing it.
+   */
+  function _groupsWithin(entries, distance) {
+    var parent = new Array(entries.length);
+    for (var i = 0; i < entries.length; i++) parent[i] = i;
+
+    function find(x) {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]]; // halve the path on the way up
+        x = parent[x];
+      }
+      return x;
+    }
+
+    function union(a, b) {
+      var ra = find(a);
+      var rb = find(b);
+      if (ra !== rb) parent[rb] = ra;
+    }
+
+    var grid = new SP.Grid(Math.max(60, distance));
+    entries.forEach(function (entry, index) {
+      grid.addPoint(entry.centroid, index);
+    });
+    var ring = Math.max(
+      1,
+      Math.ceil(distance / (grid.cell * SP.M_PER_DEG_LAT)),
+    );
+
+    entries.forEach(function (entry, index) {
+      var candidates = grid.candidates(entry.centroid, ring);
+      for (var c = 0; c < candidates.length; c++) {
+        var other = grid.items[candidates[c]].payload;
+        if (other <= index) continue;
+        if (SP.dist(entry.centroid, entries[other].centroid) <= distance)
+          union(index, other);
+      }
+    });
+
+    var byRoot = Object.create(null);
+    var groups = [];
+    entries.forEach(function (entry, index) {
+      var root = find(index);
+      var group = byRoot[root];
+      if (!group) groups.push((byRoot[root] = group = []));
+      group.push(index);
+    });
+    return groups;
+  }
+
+  /** Closest any member of `group` comes to the main settlement, in meters. */
+  function _gapTo(entries, group, homeGrid, reach) {
+    var best = Infinity;
+    for (var i = 0; i < group.length; i++) {
+      var hit = homeGrid.nearestPoint(entries[group[i]].centroid, reach);
+      if (hit && hit.dist < best) best = hit.dist;
+    }
+    return best;
   }
 
   /**
