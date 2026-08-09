@@ -2009,7 +2009,7 @@ App.print = (function () {
     var input = D.role(_dialog, "territory");
     if (!input || input.value.trim()) return;
     var number = App.labels ? App.labels.numberOf(_feature) : null;
-    if (number) input.value = App.i18n.n(number);
+    if (number) input.placeholder = App.i18n.n(number);
   }
 
   function close() {
