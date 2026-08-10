@@ -943,6 +943,7 @@ App.print = (function () {
       _noticeTimer = null;
     }
     if (_place && _place.url) URL.revokeObjectURL(_place.url);
+    App.shortcuts.pop("place");
     _placeDialog = D.remove(_placeDialog);
     _place = null;
   }
@@ -1073,6 +1074,7 @@ App.print = (function () {
     // own keyboard handler would otherwise pan the map on every arrow press.
     _placeKeys = _onPlaceKey;
     document.addEventListener("keydown", _placeKeys, true);
+    App.shortcuts.push(PLACE_KEYS);
     _placeDialog.focus();
   }
 
@@ -1980,6 +1982,7 @@ App.print = (function () {
       _retileTimer = null;
     }
     App.history.popScope("erase");
+    App.shortcuts.pop("print");
     _dialog = null;
     _feature = null;
     _eraseCursor = null;
@@ -2327,15 +2330,7 @@ App.print = (function () {
     D.onRole(_dialog, "cancel", close);
     D.onRole(_dialog, "print", _print);
 
-    // Ctrl+Enter (Cmd+Enter on a Mac) prints. Plain Enter deliberately does
-    // not: the Card group holds two text fields, and submitting a job from
-    // inside one of them is exactly the accident this avoids. Escape is
-    // already handled globally by ui.js.
-    _dialog.addEventListener("keydown", function (e) {
-      if (e.key !== "Enter" || !(e.ctrlKey || e.metaKey)) return;
-      e.preventDefault();
-      if (!_busy) _print();
-    });
+    App.shortcuts.push(PRINT_KEYS);
     // Bound directly rather than through D.onRole: that helper calls
     // preventDefault() on every click, which is right for the <button>s but
     // cancels an <a>'s navigation — the Open PDF link did nothing at all.
@@ -2486,6 +2481,170 @@ App.print = (function () {
     D.toggle(D.role(_dialog, "status"), !!text);
     D.toggle(D.role(_dialog, "status-spinner"), !!text && working !== false);
   }
+
+
+  // ══════════════════════════════════════════════════════════════════════
+  // KEYBOARD
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * The card screen answers the keyboard now.
+   *
+   * It had exactly one binding, written as a listener on the dialog node, and
+   * it was invisible: the sheet listed the keys of whatever tool was open
+   * behind the dialog and said nothing about the dialog itself — including
+   * that Ctrl+Enter prints, which is the one thing everybody here wants to
+   * do. Worse, "?" could not even be pressed, because a dialog blocked every
+   * binding that was not marked overModal and that was the only rule about
+   * dialogs there was.
+   *
+   * `exclusive` is that rule, replaced by something a dialog can participate
+   * in: nothing beneath this answers, and what this registers does.
+   *
+   * Every letter here is a control on the right-hand column, and the reason
+   * they are safe as bare letters is that nothing fires while a text field
+   * has focus — the two card fields are the only text in the dialog.
+   */
+  var PRINT_KEYS = {
+    id: "print",
+    titleKey: "shortcuts.groupPrint",
+    exclusive: true,
+    entries: [
+      {
+        // Plain Enter deliberately does not print: the Card group holds two
+        // text fields, and submitting a job from inside one of them is
+        // exactly the accident this avoids. Which is also why it is one of
+        // the two entries here that fires while typing — from inside those
+        // fields it is unambiguous, and it is where the hand already is.
+        combos: ["Mod+Enter"],
+        labelKey: "shortcuts.printGo",
+        whileTyping: true,
+        when: function () {
+          return !_busy;
+        },
+        run: function () {
+          _print();
+        },
+      },
+      {
+        combos: ["E"],
+        labelKey: "shortcuts.printErase",
+        run: function () {
+          var box = D.role(_dialog, "erase");
+          if (!box) return;
+          box.checked = !box.checked;
+          _syncEraseMode();
+        },
+      },
+      {
+        combos: ["F"],
+        labelKey: "shortcuts.printFit",
+        run: function () {
+          _view = _fitViewFor(_feature, _view.rotation);
+          _desiredEz = _view.ez;
+          _syncFrameControls();
+          _maybeRetile();
+          _schedulePaint();
+        },
+      },
+      {
+        // Turning the map is a drag on the preview or a pair of buttons, and
+        // both are awkward for the small correction that is most of what
+        // rotation is used for — a village street that runs slightly off the
+        // vertical.
+        combos: ["["],
+        labelKey: "shortcuts.printRotateCcw",
+        run: function () {
+          _setRotation(_view.rotation + ROTATION_STEP);
+        },
+      },
+      {
+        combos: ["]"],
+        labelKey: "shortcuts.printRotateCw",
+        run: function () {
+          _setRotation(_view.rotation - ROTATION_STEP);
+        },
+      },
+      {
+        combos: ["0"],
+        labelKey: "shortcuts.printRotateReset",
+        when: function () {
+          return !!_view && _view.rotation !== 0;
+        },
+        run: function () {
+          _setRotation(0);
+        },
+      },
+      {
+        combos: ["T"],
+        labelKey: "shortcuts.printPlace",
+        when: function () {
+          return !!_templateFile;
+        },
+        run: _openPlacement,
+      },
+      {
+        combos: ["Escape"],
+        labelKey: "shortcuts.printCancel",
+        whileTyping: true,
+        run: close,
+      },
+      { combos: ["Drag"], labelKey: "shortcuts.printPan", note: true },
+      { combos: ["Wheel"], labelKey: "shortcuts.printZoom", note: true },
+      // Shift starts the turn — the same thing the hint under the frame has
+      // always said. Alt is a modifier *within* that drag and does not start
+      // anything: held, the angle stops snapping to steps. Listing it on its
+      // own said the gesture was Alt-drag, which is not a gesture this dialog
+      // has, and on a Mac it read as ⌥ where the hint two inches away read
+      // Shift.
+      { combos: ["Shift+drag"], labelKey: "shortcuts.printRotateDrag", note: true },
+      {
+        combos: ["Shift+Alt+drag"],
+        labelKey: "shortcuts.printRotateFree",
+        note: true,
+      },
+      { combos: ["Shift+Wheel"], labelKey: "shortcuts.printRotateStep", note: true },
+    ],
+  };
+
+  /**
+   * The placement frame's keys, listed rather than bound.
+   *
+   * They are handled by _onPlaceKey on the capture phase, and they have to
+   * stay there: this dialog lives inside the Leaflet map container, whose own
+   * keyboard handler pans the map on an arrow press, so the event has to be
+   * stopped before it bubbles rather than merely answered when it arrives.
+   * The tour makes the same trade for the same reason.
+   *
+   * What was missing was not the behavior but the record of it: four distinct
+   * gestures — nudge, resize, coarse, fine — existed only in the source, and
+   * the readout under the frame has no room to explain them. So they are
+   * notes here, and the sheet is where they are written down.
+   */
+  var PLACE_KEYS = {
+    id: "place",
+    titleKey: "shortcuts.groupPlace",
+    exclusive: true,
+    entries: [
+      { combos: ["Enter"], labelKey: "shortcuts.placeSave", note: true },
+      { combos: ["Escape"], labelKey: "shortcuts.placeCancel", note: true },
+      { combos: ["Arrows"], labelKey: "shortcuts.placeNudge", note: true },
+      { combos: ["Mod+Arrows"], labelKey: "shortcuts.placeResize", note: true },
+      { combos: ["Shift+Arrows"], labelKey: "shortcuts.placeCoarse", note: true },
+      { combos: ["Alt+Arrows"], labelKey: "shortcuts.placeFine", note: true },
+      {
+        // The one that was not there at all. Cycling the detected boxes was a
+        // button on a dialog whose whole point is that your hands are on the
+        // arrow keys.
+        combos: ["S"],
+        labelKey: "shortcuts.placeSnap",
+        run: function () {
+          _cycleSnap();
+        },
+      },
+      { combos: ["Drag"], labelKey: "shortcuts.placeDrag", note: true },
+    ],
+  };
 
   function _opts() {
     return {

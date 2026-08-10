@@ -93,7 +93,9 @@ App.clustering = (function () {
     var total = s.cachedBuildings ? s.cachedBuildings.features.length : 0;
     var noBuildings = total === 0;
 
-    var dialog = App.ui.openDialog("tpl-cluster-dialog");
+    var dialog = App.ui.openDialog("tpl-cluster-dialog", function () {
+      App.shortcuts.pop("partition");
+    });
     var calc = D.role(dialog, "calc");
     var bldInput = D.role(dialog, "input-buildings");
     var kInput = D.role(dialog, "input-k");
@@ -160,7 +162,8 @@ App.clustering = (function () {
     D.onRole(dialog, "cancel", function () {
       App.ui.closeDialog();
     });
-    D.onRole(dialog, "submit", function () {
+
+    function submit() {
       var k = partitionCount();
       if (k === null) {
         sync();
@@ -170,6 +173,43 @@ App.clustering = (function () {
       if (k > 100 && !confirm(T("partition.confirmMany", { k: k }))) return;
       App.ui.closeDialog();
       runKMeansPartition(k, mode());
+    }
+
+    D.onRole(dialog, "submit", submit);
+
+    /**
+     * Type a number, press Enter.
+     *
+     * The dialog is two number fields and a pair of radios, and it had no
+     * keys at all: the one gesture every form in the world answers ended in
+     * nothing happening, and the only way out was to take a hand off the
+     * keyboard. `whileTyping`, because the field is exactly where you are
+     * when you mean it.
+     */
+    App.shortcuts.push({
+      id: "partition",
+      titleKey: "shortcuts.groupPartition",
+      exclusive: true,
+      entries: [
+        {
+          combos: ["Enter"],
+          labelKey: "shortcuts.partitionGo",
+          whileTyping: true,
+          when: function () {
+            return partitionCount() !== null;
+          },
+          run: submit,
+        },
+        {
+          combos: ["Escape"],
+          labelKey: "shortcuts.partitionCancel",
+          whileTyping: true,
+          run: function () {
+            App.ui.closeDialog();
+          },
+        },
+        { combos: ["Tab"], labelKey: "shortcuts.dialogFields", note: true },
+      ],
     });
   }
 

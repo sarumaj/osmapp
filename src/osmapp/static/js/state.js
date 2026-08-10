@@ -43,6 +43,12 @@ App.state = {
   trimDetailM: 15, // how far the traced edge may be straightened
   trimFollow: true, // snap and route the new edge along streets
   trimEdit: false, // the proposal is being dragged about by hand
+  // What counts as an outlying place, live from the trim toolbar. Both are
+  // relative to the area's own median plot spacing, which is why they can be
+  // sliders at all: the same two numbers mean the same thing in a terrace and
+  // in farmland. See TRIM_OUTLIER_* below for the argument.
+  trimOutlierFactor: 3, // far: this many times the median spacing
+  trimOutlierGroupMax: 8, // small: at most this many buildings in the group
 
   // ── Cut tool toggles (live, flipped from the cut toolbar) ─
   cutSnap: true, // snap vertices to the street network
@@ -122,14 +128,58 @@ App.state = {
   // "is this house alone?", and four houses two kilometers out answer no:
   // they have each other, so a hamlet was never found however far it sat.
   TRIM_OUTLIER_NEIGHBORS: 3, // k, for the median spacing that sets the scale
-  TRIM_OUTLIER_FACTOR: 3, // far: this many times the median
+  TRIM_OUTLIER_FACTOR: 3, // far: this many times the unit below
   TRIM_OUTLIER_MIN_M: 120, // floor: nothing inside this is ever "isolated"
   TRIM_OUTLIER_LINK_FACTOR: 1.5, // short enough to keep two settlements apart
-  // Small: a share of everything downloaded, with a floor. A genuine second
-  // village of fifty houses is not an accident to be swept up automatically —
-  // that is a decision somebody should make by dragging a box over it.
+
+  // How much of the main settlement's own extent counts as "far".
+  //
+  // The third term in the unit, and the one that makes the rule work in a
+  // city. Spacing and the floor between them say that anything more than
+  // 120 m from the built-up mass is isolated, which is true in farmland and
+  // nonsense in a town, where a block across a park is exactly that far and
+  // obviously still in the town. 2.5% of the main settlement's diagonal is
+  // below the floor for anything village-sized — so villages behave exactly
+  // as they did — and grows past it from about a five-kilometer town upward.
+  TRIM_OUTLIER_SPAN_SHARE: 0.025,
+
+  // Small: at most this many buildings in the group, and this number is now
+  // what is applied rather than a starting point. It used to be lifted to a
+  // share of everything downloaded, which meant a ceiling of two hundred in a
+  // city while the control beside it reported eight.
   TRIM_OUTLIER_GROUP_MAX: 8,
-  TRIM_OUTLIER_GROUP_SHARE: 0.05,
+
+  // The two of those that are worth a slider, and how far each may be pushed.
+  //
+  // LINK_FACTOR stays a constant on purpose: it decides what counts as one
+  // place, and a control for it would offer somebody the chance to split a
+  // village down the middle without ever being told that is what the number
+  // does.
+  //
+  // The bottom of the distance range is 1 rather than 1.5. It was 1.5 because
+  // below that the floor swallowed the difference and the slider was dead
+  // over its own first third; with the unit adaptive there is a real setting
+  // there — "only what is much farther out than the town is wide" is a
+  // reasonable thing to ask for on a coastline or a ribbon village.
+  TRIM_OUTLIER_FACTOR_MIN: 1,
+  TRIM_OUTLIER_FACTOR_MAX: 20,
+  TRIM_OUTLIER_GROUP_MIN: 1, // 1 is "single buildings only"
+  TRIM_OUTLIER_GROUP_LIMIT: 60,
+
+  // ── Corner handles ────────────────────────────────────────────────────
+  //
+  // Leaflet.Editable draws an 8 px handle, which is smaller than every
+  // published minimum for a pointer target and much smaller than what a
+  // trackpad can reliably hit. Missing one is not harmless: the click lands
+  // on whatever is underneath, which is the boundary in the outline editor
+  // and a building in trim mode. See vertices.js — the visible size is here,
+  // the invisible margin around it is in the stylesheet, because only the
+  // first of the two is something the eye has to live with.
+  VERTEX_SIZE_PX: 12,
+  // How far the eraser reaches from the pointer. Wider than the handle on
+  // purpose: it is a sweep rather than an aim, and a ring you have to thread
+  // is not faster than clicking.
+  VERTEX_ERASER_PX: 22,
 
   // A group of kept buildings that is not connected to the main settlement is
   // joined to it by a corridor rather than dropped, so "what I keep, I keep"

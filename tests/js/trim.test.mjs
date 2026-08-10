@@ -193,7 +193,17 @@ const L = {
 function load(opts = {}) {
   const window = {};
   const App = loadApp(
-    ["geometry.js", "spatial.js", "coverage.js", "network.js", "trim.js"],
+    [
+      "geometry.js",
+      "spatial.js",
+      "coverage.js",
+      "network.js",
+      // Before trim.js, exactly as index.html loads it: the key context is
+      // built at load time and asks this module for the eraser entry while
+      // doing it.
+      "vertices.js",
+      "trim.js",
+    ],
     { window, turf, document: { addEventListener() {} }, L },
   );
   App.state = {
@@ -209,6 +219,10 @@ function load(opts = {}) {
     TRIM_OUTLIER_LINK_FACTOR: 1.5,
     TRIM_OUTLIER_GROUP_MAX: 8,
     TRIM_OUTLIER_GROUP_SHARE: 0.05,
+    TRIM_OUTLIER_FACTOR_MIN: 1.5,
+    TRIM_OUTLIER_FACTOR_MAX: 10,
+    TRIM_OUTLIER_GROUP_MIN: 1,
+    TRIM_OUTLIER_GROUP_LIMIT: 60,
     TRIM_MARKER_MAX: 800,
     trimReachM: 60,
     trimDetailM: 15,
@@ -228,6 +242,9 @@ function load(opts = {}) {
       features: opts.streets || [],
     },
   };
+  // The toolbar writes the live settings here rather than passing them, so a
+  // fixture has to be able to say what the sliders are showing.
+  if (opts.state) Object.assign(App.state, opts.state);
   App.i18n = { t: (key) => key };
   App.dom = {};
   App.network.init();
@@ -800,6 +817,161 @@ test("two buildings are never enough to call one of them unusual", () => {
     trim.outliersIn([entry(at(ORIGIN, 100, 100)), entry(at(ORIGIN, 1800, 1800))]),
     [],
   );
+});
+
+// ── The outlier sliders ──────────────────────────────────────────────────────
+//
+// The rule ran at one setting and the only reply to its answer was to click
+// buildings one at a time. These two make the rule itself adjustable, and
+// both of them are the kind of control that fails silently: a slider that
+// changes nothing looks exactly like a slider on a rule that has no more to
+// give, and one that changes everything looks like a rule that was never
+// stable in the first place.
+
+test("pulling the distance in catches places a looser setting leaves alone", () => {
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 40);
+  // Far enough out to be a separate place, close enough that three times the
+  // median plot spacing does not reach it.
+  const hamlet = [0, 1, 2].map((i) => entry(at(ORIGIN, 900 + i * 30, 400)));
+  const all = houses.concat(hamlet);
+
+  assert.deepEqual(trim.outliersIn(all, { factor: 8 }), [], "far means far");
+  assert.equal(
+    trim.outliersIn(all, { factor: 1.5 }).length,
+    hamlet.length,
+    "and the whole place goes together when it does qualify",
+  );
+});
+
+test("the group slider is what decides a hamlet from a second village", () => {
+  // Ten houses two kilometers out. Under the default they are a place worth
+  // a decision by hand; wound up, they are an accident to sweep away — and
+  // that is the judgment the tool cannot make for somebody else.
+  const trim = load();
+  const houses = village(200, 200, 6, 6, 40);
+  const other = [];
+  for (let i = 0; i < 10; i++)
+    other.push(entry(at(ORIGIN, 1600 + (i % 5) * 30, 1500 + Math.floor(i / 5) * 30)));
+  const all = houses.concat(other);
+
+  assert.deepEqual(trim.outliersIn(all, { groupMax: 4 }), []);
+  assert.equal(trim.outliersIn(all, { groupMax: 20 }).length, other.length);
+});
+
+test("the settings come off the live state when nothing is passed", () => {
+  // The toolbar writes to state and the pass reads it; a default that reached
+  // for the constant instead would leave the sliders moving nothing at all.
+  const houses = village(400, 400, 6, 6, 40);
+  const hamlet = [0, 1, 2].map((i) => entry(at(ORIGIN, 900 + i * 30, 400)));
+  const all = houses.concat(hamlet);
+
+  const loose = load({ state: { trimOutlierFactor: 8 } });
+  assert.deepEqual(loose.outliersIn(all), []);
+
+  const tight = load({ state: { trimOutlierFactor: 1.5 } });
+  assert.equal(tight.outliersIn(all).length, hamlet.length);
+});
+
+test("the absolute floor still holds at the tightest setting", () => {
+  // TRIM_OUTLIER_MIN_M is what stops a purely relative rule from marking
+  // corner plots where the plots are eight meters apart, and the slider must
+  // not be a way around it: at factor 1 the unit is still the floor over the
+  // default factor, so the threshold is 40 m rather than 8.
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 8);
+  const next = [0, 1, 2].map((i) => entry(at(ORIGIN, 500 + i * 8, 400)));
+
+  assert.deepEqual(trim.outliersIn(houses.concat(next), { factor: 1 }), []);
+});
+
+// ── A city is not a village with more houses ─────────────────────────────────
+//
+// The rule was written against villages and judged distance against the plot
+// spacing with a 120 m floor underneath. In a city the floor decides the
+// question — plots are fifteen meters apart, so three times that is nothing —
+// and 120 m from the built-up mass is a block across a park. That is the
+// false positive people actually hit, and it could not be tuned away either:
+// ten times fifteen meters is still only 150.
+
+/** A dense town: `span` meters on a side, plots 25 m apart. */
+function town(originX, originY, span) {
+  const n = Math.round(span / 25);
+  return village(originX, originY, n, n, 25);
+}
+
+test("a block across the park is still in the town", () => {
+  const trim = load();
+  const houses = town(0, 0, 1500);
+  // Four buildings, 130 m beyond the last street — over the old 120 m floor
+  // and nowhere near out of town. The grid's last column is at 1475.
+  const block = [0, 1, 2, 3].map((i) =>
+    entry(at(ORIGIN, 1475 + 130 + (i % 2) * 25, 700 + Math.floor(i / 2) * 25)),
+  );
+
+  assert.deepEqual(
+    trim.outliersIn(houses.concat(block)),
+    [],
+    "130 m from a town 1.5 km across is not isolation",
+  );
+});
+
+test("the farm outside the town is still found", () => {
+  // The other half of the same test: a bigger unit must not make the rule
+  // blind. If a town could no longer name anything, the fix would be a
+  // switched-off feature rather than a corrected one.
+  const trim = load();
+  const houses = town(0, 0, 1500);
+  const farm = [entry(at(ORIGIN, 4200, 4200))];
+
+  assert.deepEqual(
+    trim.outliersIn(houses.concat(farm)).map((e) => e.key),
+    farm.map((e) => e.key),
+  );
+});
+
+test("a village is judged exactly as it was before the town term existed", () => {
+  // The span term is a maximum against the old floor, so anything small
+  // enough for the floor to win is untouched by all of this. Worth pinning:
+  // villages are what the tool is mostly pointed at, and a fix for cities
+  // that quietly retuned them would be a bad trade.
+  const trim = load();
+  const houses = village(400, 400, 6, 6, 40);
+  const hamlet = [0, 1, 2].map((i) => entry(at(ORIGIN, 1600 + i * 30, 1500)));
+  const edge = [0, 1, 2, 3].map((i) =>
+    entry(at(ORIGIN, 700 + (i % 2) * 30, 400 + Math.floor(i / 2) * 30)),
+  );
+
+  assert.equal(trim.outliersIn(houses.concat(hamlet)).length, 3, "the hamlet goes");
+  assert.deepEqual(trim.outliersIn(houses.concat(edge)), [], "the edge stays");
+});
+
+test("the group ceiling is the number the slider is showing", () => {
+  // It used to be lifted to a share of everything downloaded — which in a
+  // town of two thousand worked out at a hundred, while the control beside
+  // it said eight. A dozen buildings well outside the town is exactly the
+  // case that gap decided, and it must now be decided by the slider.
+  const trim = load();
+  const houses = town(0, 0, 1000);
+  const hamlet = [];
+  for (let i = 0; i < 12; i++)
+    hamlet.push(entry(at(ORIGIN, 3000 + (i % 4) * 25, 3000 + Math.floor(i / 4) * 25)));
+  const all = houses.concat(hamlet);
+
+  assert.deepEqual(trim.outliersIn(all, { groupMax: 8 }), [], "eight means eight");
+  assert.equal(trim.outliersIn(all, { groupMax: 20 }).length, hamlet.length);
+});
+
+test("the readout and the rule use the same unit", () => {
+  // The toolbar multiplies this by the slider and prints the result as a
+  // distance in meters. A second calculation for the label is how a readout
+  // starts describing something the pass is not doing.
+  const trim = load();
+  const houses = town(0, 0, 1500);
+  const far = [entry(at(ORIGIN, 5000, 5000))];
+  const unit = trim.isolationUnit(houses.concat(far));
+
+  assert.ok(unit > 40, `a town should push the unit past the floor, got ${unit}`);
 });
 
 // ── The sample the tour runs on ──────────────────────────────────────────────

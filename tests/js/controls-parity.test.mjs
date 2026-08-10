@@ -275,3 +275,113 @@ test("every modal tool explains itself with a hint banner", () => {
   assert.match(SOURCE.editing, /tpl-draw-hint/);
   assert.match(SOURCE.trim, /_hint = D\.mount/);
 });
+
+// ── Dialogs answer the keyboard too ──────────────────────────────────────────
+//
+// Every screen that takes over used to be a hole: App.shortcuts asked App.ui
+// whether a dialog was open and, if so, dispatched nothing that was not marked
+// overModal. The tools underneath were correctly silenced and the dialog got
+// nothing in exchange — so the print view's single binding sat on a listener
+// the sheet could not see, the partition dialog's two number fields did not
+// answer Enter, and "?" was blocked in exactly the screens with the most keys
+// worth listing.
+//
+// Read off the source for the same reason as everything above: standing these
+// up means a map, a PDF and a network.
+
+const DIALOG_SOURCE = {
+  print: readFileSync(join(JS_DIR, "print.js"), "utf8"),
+  clustering: readFileSync(join(JS_DIR, "clustering.js"), "utf8"),
+  boundary: readFileSync(join(JS_DIR, "boundary.js"), "utf8"),
+  ui: readFileSync(join(JS_DIR, "ui.js"), "utf8"),
+};
+
+const DIALOGS = [
+  { name: "print", module: "print", id: "print" },
+  { name: "placement", module: "print", id: "place" },
+  { name: "partition", module: "clustering", id: "partition" },
+  { name: "boundary", module: "boundary", id: "boundary" },
+  { name: "confirm", module: "ui", id: "confirm" },
+];
+
+for (const dialog of DIALOGS) {
+  test(`the ${dialog.name} dialog pushes a context and pops it again`, () => {
+    const source = DIALOG_SOURCE[dialog.module];
+    assert.match(
+      source,
+      new RegExp(`shortcuts\\.push\\(`),
+      `${dialog.name} never pushes a context`,
+    );
+    assert.match(
+      source,
+      new RegExp(`shortcuts\\.pop\\(["']${dialog.id}["']\\)`),
+      `${dialog.name} never pops "${dialog.id}" — a context that outlives its dialog answers for a screen that has closed`,
+    );
+  });
+}
+
+test("every dialog context is exclusive", () => {
+  // Without it the tool behind the dialog keeps answering, which is what
+  // being modal is supposed to prevent — and the blanket rule that used to
+  // provide it is exactly what these contexts replaced.
+  const ids = DIALOGS.map((d) => d.id);
+  const found = [];
+  for (const source of Object.values(DIALOG_SOURCE)) {
+    for (const match of source.matchAll(/id:\s*"([\w-]+)"[\s\S]{0,200}?exclusive:\s*true/g)) {
+      found.push(match[1]);
+    }
+  }
+  for (const id of ids) {
+    assert.ok(found.includes(id), `the "${id}" context is not exclusive`);
+  }
+});
+
+test("the print view no longer keeps its binding on the dialog node", () => {
+  // One listener, one key, invisible to the sheet. It is the pattern this
+  // registry exists to replace, and print.js was the last place using it.
+  const listeners = [
+    ...DIALOG_SOURCE.print.matchAll(/_dialog\.addEventListener\(\s*["']keydown["']/g),
+  ];
+  assert.equal(listeners.length, 0);
+});
+
+test("the placement frame keeps its capture listener, and says why", () => {
+  // The exception, and a deliberate one: the dialog lives inside the Leaflet
+  // map container, whose own handler pans on an arrow press, so the event has
+  // to be stopped before it bubbles rather than answered when it arrives. The
+  // keys are still listed — as notes — so the sheet knows about them.
+  assert.match(
+    DIALOG_SOURCE.print,
+    /addEventListener\("keydown", _placeKeys, true\)/,
+    "the capture listener is the placement frame's implementation",
+  );
+  assert.match(DIALOG_SOURCE.print, /var PLACE_KEYS = \{/);
+});
+
+test("the gestures the print view lists are the modifiers it reads", () => {
+  // The sheet said Alt-drag rotates, which is not a gesture this dialog has:
+  // Shift starts the turn and Alt only takes the snapping off it. On a Mac
+  // that rendered as ⌥ beside an on-screen hint that said Shift — two labels
+  // for one gesture, disagreeing.
+  //
+  // Checked against the handlers rather than against a list, because a list
+  // is what was wrong. Every modifier the pointer handlers test for has to
+  // appear in a combo, and nothing may claim a modifier they never read.
+  const source = DIALOG_SOURCE.print;
+
+  const rotateStart = /if \(e\.shiftKey\) \{[\s\S]{0,200}?_rotate = \{/.test(source);
+  assert.ok(rotateStart, "shift is what starts a rotation drag");
+
+  // Bounded rather than [^)]*: the angle argument has parentheses of its own.
+  const freeform = /_setRotation\([^;]{0,120}e\.altKey\)/.test(source);
+  assert.ok(freeform, "alt is what makes the angle freeform");
+
+  const context = source.slice(source.indexOf("var PRINT_KEYS = {"));
+  const body = context.slice(0, context.indexOf("\n  };"));
+  assert.match(body, /combos: \["Shift\+drag"\]/, "so Shift+drag must be listed");
+  assert.doesNotMatch(
+    body,
+    /combos: \["Alt\+drag"\]/,
+    "and Alt must not be listed as a gesture of its own",
+  );
+});

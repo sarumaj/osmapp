@@ -170,8 +170,23 @@ App.trim = (function () {
   };
 
   var _pool = null; // [{ feature, key, centroid, big }] — candidates
-  var _ignored = null; // Set of keys currently excluded
-  var _flagged = null; // Set of keys the outlier pass has ever named
+  var _byFeature = null; // feature → key, so painting a building is not a scan
+  // ── Who decided what ──────────────────────────────────────────────────
+  //
+  // The selection used to be one set of excluded keys, written to by both the
+  // automatic pass and the user. That was fine while the pass ran once, and
+  // it is not fine now that two sliders re-run it: re-running would either
+  // wipe every decision made by hand or pile the new answer on top of the old
+  // one, and neither is what moving a slider means.
+  //
+  // So the two are kept apart. `_auto` is the pass's current answer and is
+  // replaced wholesale whenever it runs; `_manual` holds only the buildings
+  // somebody has said something about, true for exclude and false for keep.
+  // `_ignored` is derived from both and never written to directly.
+  var _auto = null; // Set of keys the current pass names
+  var _manual = null; // Map key → true (exclude) / false (keep)
+  var _ignored = null; // derived: (_auto ∪ manual-excluded) ∖ manual-kept
+  var _scaleCache = null; // { entries, median, unit, groups, home } per pool
   var _result = null; // last computed proposal
   var _toolbar = null;
   var _hint = null;
@@ -228,11 +243,13 @@ App.trim = (function () {
   }
 
   function _start() {
+    _auto = new Set();
+    _manual = new Map();
     _ignored = new Set();
-    _flagged = new Set();
     _ignoreUndo = [];
     _ignoreRedo = [];
     _result = null;
+    _scaleCache = null;
     _pool = _buildPool();
 
     App.shortcuts.push(TRIM_KEYS);
@@ -287,12 +304,18 @@ App.trim = (function () {
     _hideToolbar();
     clearTimeout(_timer);
     _timer = null;
+    _auto = new Set();
+    _manual = new Map();
     _ignored = new Set();
-    _flagged = new Set();
     _ignoreUndo = [];
     _ignoreRedo = [];
     _pool = null;
+    _byFeature = null;
+    _scaleCache = null;
     _result = null;
+    // A held eraser whose mode has closed underneath it would get its release
+    // after the layer it was erasing had already been thrown away.
+    App.shortcuts.releaseAll();
     App.shortcuts.pop("trim");
     App.history.popScope("trim");
     App.ui.closeContextMenu();
@@ -315,6 +338,7 @@ App.trim = (function () {
    */
   function _buildPool() {
     var pool = [];
+    _byFeature = new Map();
     var outer = null;
     try {
       outer = G.getOuterFeature(s.outerPolygonLayer);
@@ -340,9 +364,11 @@ App.trim = (function () {
       }
 
       var id = feature.properties && feature.properties.osmid;
+      var key = id == null ? "ix:" + index : "osm:" + id;
+      _byFeature.set(feature, key);
       pool.push({
         feature: feature,
-        key: id == null ? "ix:" + index : "osm:" + id,
+        key: key,
         centroid: c,
         // Only buildings bigger than a raster cell need their footprint
         // stamped as well as their center; for a terraced house the center
@@ -366,11 +392,19 @@ App.trim = (function () {
     }
   }
 
+  /**
+   * A building's key, in constant time.
+   *
+   * This was a linear scan over the pool, and it is asked once per building
+   * by restyleBuildings() — which is called on every click, every box drag
+   * and every slider recompute. On a town with four thousand buildings that
+   * is sixteen million comparisons per interaction, which is the difference
+   * between a selection gesture that feels immediate and one that stutters.
+   */
   function _keyOf(feature) {
-    if (!feature || !_pool) return null;
-    for (var i = 0; i < _pool.length; i++)
-      if (_pool[i].feature === feature) return _pool[i].key;
-    return null;
+    if (!feature || !_byFeature) return null;
+    var key = _byFeature.get(feature);
+    return key === undefined ? null : key;
   }
 
   /** Read by polygons.js when it paints a building. */
@@ -380,11 +414,50 @@ App.trim = (function () {
     return key !== null && _ignored.has(key);
   }
 
-  /** Named by the outlier pass, whether or not it is currently excluded. */
+  /**
+   * Named by the pass and kept anyway — the amber ring.
+   *
+   * Derived rather than remembered. A set that only ever grew was right while
+   * the pass ran once; with the sliders live it would leave a mark on
+   * buildings the current settings no longer name, which is a mark that
+   * points at a decision nothing on screen is making any more.
+   */
   function isFlagged(feature) {
-    if (!s.trimMode || !_flagged) return false;
+    if (!s.trimMode || !_auto) return false;
     var key = _keyOf(feature);
-    return key !== null && _flagged.has(key);
+    return key !== null && _auto.has(key) && !_ignored.has(key);
+  }
+
+  /** How many the pass names and the user has overruled. */
+  function flaggedCount() {
+    if (!_auto) return 0;
+    var count = 0;
+    _auto.forEach(function (key) {
+      if (!_ignored.has(key)) count++;
+    });
+    return count;
+  }
+
+  // ── The derived set ───────────────────────────────────────────────────
+
+  /**
+   * Rebuild `_ignored` from the pass and the decisions taken by hand.
+   *
+   * Everything that changes either input ends here, and nothing anywhere
+   * writes to `_ignored` itself — which is what makes "a slider moves the
+   * machine's answer, a click moves yours" true rather than merely intended.
+   */
+  function _applySelection() {
+    _ignored = new Set();
+    if (_auto) _auto.forEach(function (key) {
+      _ignored.add(key);
+    });
+    if (_manual)
+      _manual.forEach(function (excluded, key) {
+        if (excluded) _ignored.add(key);
+        else _ignored.delete(key);
+      });
+    _selectionChanged();
   }
 
   function ignoredCount() {
@@ -414,9 +487,8 @@ App.trim = (function () {
   function _toggleIgnored(key) {
     if (s.trimEdit || key === null || key === undefined || !_ignored) return;
     pushIgnore();
-    if (_ignored.has(key)) _ignored.delete(key);
-    else _ignored.add(key);
-    _selectionChanged();
+    _manual.set(key, !_ignored.has(key));
+    _applySelection();
   }
 
   /** Clicking a building in trim mode toggles it. */
@@ -442,19 +514,27 @@ App.trim = (function () {
         pushIgnore();
         recorded = true;
       }
-      if (ignore) _ignored.add(entry.key);
-      else _ignored.delete(entry.key);
+      _manual.set(entry.key, ignore);
       changed++;
     });
-    if (changed) _selectionChanged();
+    if (changed) _applySelection();
     return changed;
   }
 
+  /**
+   * Nothing excluded at all — including by the pass.
+   *
+   * Emptying the manual overrides alone would leave the automatic answer
+   * standing, so the button that says Clear would clear the part nobody
+   * asked about and leave the part it proposed. Moving either outlier slider
+   * runs the pass again, which is the way back.
+   */
   function clearSelection() {
     if (!_ignored || _ignored.size === 0) return;
     pushIgnore();
-    _ignored = new Set();
-    _selectionChanged();
+    _auto = new Set();
+    _manual = new Map();
+    _applySelection();
   }
 
   // ── Markers ───────────────────────────────────────────────────────────
@@ -512,7 +592,7 @@ App.trim = (function () {
       var entry = _pool[i];
       var kind = _ignored.has(entry.key)
         ? "excluded"
-        : _flagged.has(entry.key)
+        : _auto.has(entry.key)
           ? "flagged"
           : null;
       if (!kind) continue;
@@ -592,26 +672,32 @@ App.trim = (function () {
    * is both small and far, both measured against the area's own spacing, and
    * that every building in such a place goes together.
    */
-  function markOutliers() {
+  function markOutliers(opts) {
     if (!_pool || !_ignored) return 0;
-    var marked = 0;
-    var recorded = false;
+    var next = new Set();
     outliersIn(_pool).forEach(function (entry) {
-      // The flag is permanent for the session even when the exclusion is not:
-      // putting a building back should not make it identical to the four
-      // thousand that were never in question, or finding it again — to check
-      // the decision, or to change it back — means hunting for it.
-      _flagged.add(entry.key);
-      if (_ignored.has(entry.key)) return;
-      if (!recorded) {
-        pushIgnore();
-        recorded = true;
-      }
-      _ignored.add(entry.key);
-      marked++;
+      next.add(entry.key);
     });
-    _selectionChanged();
-    return marked;
+
+    // Re-asserting the pass over the decisions taken by hand is what the
+    // button means and what a slider must never do. A slider that dropped
+    // every keep-this-one on every drag would be a control that punishes
+    // being touched twice; a button that left them in place would be a
+    // button that visibly does nothing once you have overruled it.
+    if (opts && opts.reassert) {
+      var stale = [];
+      _manual.forEach(function (excluded, key) {
+        if (!excluded && next.has(key)) stale.push(key);
+      });
+      if (stale.length) pushIgnore();
+      stale.forEach(function (key) {
+        _manual.delete(key);
+      });
+    }
+
+    _auto = next;
+    _applySelection();
+    return _auto.size;
   }
 
   /**
@@ -640,39 +726,58 @@ App.trim = (function () {
    * Pure, and takes the whole set rather than the un-excluded remainder, which
    * is what makes pressing the button twice a no-op.
    *
+   * ── The two numbers that are now sliders ──────────────────────────────
+   *
+   * `factor` and `groupMax` arrive as arguments with the live settings as
+   * their default, rather than being read from state here. That keeps this
+   * function a function — the tests ask it about made-up villages at settings
+   * no toolbar is showing — and it is also what lets the toolbar re-run it on
+   * every drag without a mode having to be open.
+   *
+   * Neither is a distance or a count that means anything on its own, which is
+   * the whole reason they can be offered at all: `factor` multiplies the
+   * area's own median plot spacing and `groupMax` is compared against a floor
+   * that scales with how much was downloaded. Somebody sliding them is
+   * sliding "how far out is far" and "how small is a hamlet", and both
+   * answers keep meaning the same thing in a terrace and in farmland.
+   *
    * @param {Array} entries objects carrying a `centroid`
+   * @param {{factor?: number, groupMax?: number}} [opts]
    * @returns {Array} the subset to exclude, in input order
    */
-  function outliersIn(entries) {
+  function outliersIn(entries, opts) {
     if (!entries || entries.length < 3) return [];
+    opts = opts || {};
 
-    var k = Math.max(1, s.TRIM_OUTLIER_NEIGHBORS || 3);
-    var median = _median(_neighborDistances(entries, k));
-    var threshold = Math.max(
-      median * (s.TRIM_OUTLIER_FACTOR || 3),
-      s.TRIM_OUTLIER_MIN_M || 120,
-    );
-    // Short enough that two settlements a few hundred meters apart stay two
-    // settlements, long enough that a street with a gap in it stays one.
-    var link = Math.max(
-      median * (s.TRIM_OUTLIER_LINK_FACTOR || 1.5),
-      (s.TRIM_OUTLIER_MIN_M || 120) / 2,
-    );
+    var factor = opts.factor;
+    if (factor == null) factor = s.trimOutlierFactor;
+    if (factor == null) factor = s.TRIM_OUTLIER_FACTOR || 3;
 
-    var groups = _groupsWithin(entries, link);
-    if (groups.length < 2) {
+    var scale = _scaleOf(entries);
+    if (!scale.groups || scale.groups.length < 2) {
       console.log(">>> Outliers: one settlement, nothing to exclude");
       return [];
     }
 
-    var home = groups[0];
-    for (var i = 1; i < groups.length; i++)
-      if (groups[i].length > home.length) home = groups[i];
+    var groups = scale.groups;
+    var home = scale.home;
+    var threshold = scale.unit * factor;
 
-    var maxSize = Math.max(
-      s.TRIM_OUTLIER_GROUP_MAX || 8,
-      Math.floor(entries.length * (s.TRIM_OUTLIER_GROUP_SHARE || 0.05)),
-    );
+    var groupMax = opts.groupMax;
+    if (groupMax == null) groupMax = s.trimOutlierGroupMax;
+    if (groupMax == null) groupMax = s.TRIM_OUTLIER_GROUP_MAX || 8;
+
+    // Exactly what the slider says, and nothing else.
+    //
+    // This used to be lifted to a share of everything downloaded, so that
+    // "at most eight buildings" would not be silly in a town of four
+    // thousand. The intent was right and the effect was the bug people
+    // actually hit: in a city the ceiling worked out at two hundred, so a
+    // whole block on the far side of a park was small enough to sweep away —
+    // and the readout beside the slider went on saying eight. A control that
+    // reports one number and applies another is worse than a blunt one, and
+    // the slider reaches sixty now for the towns that need it.
+    var maxSize = groupMax;
     var reach = Math.max(threshold * 4, 2000);
     var homeGrid = new SP.Grid(120);
     home.forEach(function (index) {
@@ -695,8 +800,12 @@ App.trim = (function () {
       return marked[index];
     });
     console.log(
-      ">>> Outliers: median spacing",
-      Math.round(median),
+      ">>> Outliers: spacing",
+      Math.round(scale.median),
+      "m, main settlement",
+      Math.round(_spanOf(entries, home)),
+      "m across, unit",
+      Math.round(scale.unit),
       "m, threshold",
       Math.round(threshold),
       "m,",
@@ -708,6 +817,104 @@ App.trim = (function () {
       "of them",
     );
     return out;
+  }
+
+  /**
+   * The measurements every judgement here is made against, worked out once.
+   *
+   * ── Why there is a unit at all ────────────────────────────────────────
+   *
+   * "Far" was the median plot spacing times the slider, with an absolute
+   * floor of 120 m underneath it. That is right in a village and wrong in a
+   * city, in a way that produced exactly the complaint this replaces: plots
+   * in a city sit maybe fifteen meters apart, so the floor decided the
+   * question, and *any* group more than 120 m from the main mass was called
+   * isolated. A block on the far side of a park, a terrace across a river, an
+   * estate behind a industrial strip — all of them are 150 to 300 m from
+   * their nearest neighbor and all of them are plainly still in the city.
+   * The slider could not rescue it either: ten times fifteen meters is still
+   * only 150.
+   *
+   * The missing term is how big the place is. A gap of 200 m means something
+   * quite different in a settlement 800 m across than in one 8 km across, and
+   * the main settlement is right there to be measured. So the unit is the
+   * largest of three things — the plot spacing, a floor, and a share of the
+   * main settlement's own extent — and the slider multiplies it. A village is
+   * unaffected, because its extent term comes out below the floor and the
+   * arithmetic reduces to what it was before. A city gets a unit several
+   * times larger, which is what stops it eating its own suburbs.
+   *
+   * ── Why it is cached ──────────────────────────────────────────────────
+   *
+   * None of it depends on the sliders: the linkage distance comes from the
+   * median spacing, and the groups come from the linkage. So a drag re-runs
+   * the two cheap comparisons per group and nothing else, instead of
+   * re-clustering four thousand buildings on every frame. Keyed on the array
+   * identity, which is what the pool is — and what a test's made-up village
+   * is too.
+   */
+  function _scaleOf(entries) {
+    if (_scaleCache && _scaleCache.entries === entries) return _scaleCache;
+
+    var k = Math.max(1, s.TRIM_OUTLIER_NEIGHBORS || 3);
+    var median = _median(_neighborDistances(entries, k));
+
+    // Short enough that two settlements a few hundred meters apart stay two
+    // settlements, long enough that a street with a gap in it stays one.
+    var link = Math.max(
+      median * (s.TRIM_OUTLIER_LINK_FACTOR || 1.5),
+      (s.TRIM_OUTLIER_MIN_M || 120) / 2,
+    );
+
+    var groups = _groupsWithin(entries, link);
+    var home = groups.length ? groups[0] : [];
+    for (var i = 1; i < groups.length; i++)
+      if (groups[i].length > home.length) home = groups[i];
+
+    // The floor is divided by the default factor so that the default setting
+    // reproduces the old number exactly: unit × 3 is 120 m in an area with
+    // nothing else to go on, which is where it has always been.
+    var base = Math.max(1, s.TRIM_OUTLIER_FACTOR || 3);
+    var unit = Math.max(
+      median,
+      (s.TRIM_OUTLIER_MIN_M || 120) / base,
+      _spanOf(entries, home) * (s.TRIM_OUTLIER_SPAN_SHARE || 0.025),
+    );
+
+    _scaleCache = {
+      entries: entries,
+      median: median,
+      unit: unit,
+      groups: groups,
+      home: home,
+    };
+    return _scaleCache;
+  }
+
+  /**
+   * How big the main settlement is, corner to corner, in meters.
+   *
+   * The diagonal of its bounding box rather than anything cleverer: what is
+   * being asked is only "village, town or city", and a measure that needs the
+   * shape to be convex or the density to be uniform would answer that same
+   * question with more ways to be wrong.
+   */
+  function _spanOf(entries, group) {
+    if (!group || group.length < 2) return 0;
+    var minLng = Infinity;
+    var maxLng = -Infinity;
+    var minLat = Infinity;
+    var maxLat = -Infinity;
+    group.forEach(function (index) {
+      var c = entries[index].centroid;
+      if (c[0] < minLng) minLng = c[0];
+      if (c[0] > maxLng) maxLng = c[0];
+      if (c[1] < minLat) minLat = c[1];
+      if (c[1] > maxLat) maxLat = c[1];
+    });
+    var width = (maxLng - minLng) * SP.lngScale((minLat + maxLat) / 2);
+    var height = (maxLat - minLat) * SP.M_PER_DEG_LAT;
+    return Math.sqrt(width * width + height * height);
   }
 
   /**
@@ -813,6 +1020,24 @@ App.trim = (function () {
       });
       return found.length >= k ? found[k - 1] : Infinity;
     });
+  }
+
+  /**
+   * What one notch of the isolation slider is worth here, in meters.
+   *
+   * The slider is a multiplier, and a multiplier with nothing to multiply is
+   * a number nobody can act on: "3×" says nothing about whether the farm at
+   * the end of the track is going to be caught. So the readout carries the
+   * distance it works out to, and it is the same number the pass uses rather
+   * than a second calculation that can drift from it.
+   *
+   * @param {Array} [entries] defaults to the pool, so the toolbar can ask
+   *   without knowing what the pool is and a test can ask without one.
+   */
+  function isolationUnit(entries) {
+    var pool = entries || _pool;
+    if (!pool || pool.length < 3) return 0;
+    return _scaleOf(pool).unit;
   }
 
   function _median(values) {
@@ -1546,6 +1771,10 @@ App.trim = (function () {
   /** Re-measure the hand-moved shape. The numbers have to follow the geometry. */
   function _afterEdit() {
     if (!_editLayer || !_result) return;
+    // A sweep deletes corners one at a time and this re-tests every kept
+    // building against the ring. Once at the end of the stroke, not once per
+    // corner — App.vertices calls back on release.
+    if (App.vertices.isErasing()) return;
     var poly;
     try {
       poly = G.largestPolygon(_editLayer.toGeoJSON());
@@ -1582,7 +1811,7 @@ App.trim = (function () {
   function _syncEditLocks() {
     if (!_toolbar) return;
     var locked = !!s.trimEdit;
-    ["reach", "detail", "follow"].forEach(function (role) {
+    ["reach", "detail", "follow", "isolation", "group"].forEach(function (role) {
       var node = D.role(_toolbar, role);
       if (node) node.disabled = locked;
     });
@@ -1628,6 +1857,37 @@ App.trim = (function () {
       _schedule();
     });
 
+    // ── The outlier sliders ─────────────────────────────────────────────
+    //
+    // The pass runs on arrival and used to be the end of the conversation:
+    // the only reply to "it took too much" or "it left the four farms in"
+    // was to click buildings one at a time, or drag a box, and to do that
+    // again on the next area. These two are the same conversation held with
+    // the rule instead of with its output — and because both are relative to
+    // the area's own spacing, a setting that suits one village keeps meaning
+    // the same thing in the next one.
+    var isolation = D.role(_toolbar, "isolation");
+    isolation.min = String(_scaled(s.TRIM_OUTLIER_FACTOR_MIN || 1));
+    isolation.max = String(_scaled(s.TRIM_OUTLIER_FACTOR_MAX || 20));
+    isolation.step = "1"; // tenths, see _scaled
+    isolation.value = String(_scaled(_factor()));
+    isolation.addEventListener("input", function () {
+      s.trimOutlierFactor = (parseInt(isolation.value, 10) || 30) / 10;
+      _syncOutliers();
+      _scheduleOutliers();
+    });
+
+    var group = D.role(_toolbar, "group");
+    group.min = String(s.TRIM_OUTLIER_GROUP_MIN || 1);
+    group.max = String(s.TRIM_OUTLIER_GROUP_LIMIT || 60);
+    group.step = "1";
+    group.value = String(_groupMax());
+    group.addEventListener("input", function () {
+      s.trimOutlierGroupMax = parseInt(group.value, 10) || 1;
+      _syncOutliers();
+      _scheduleOutliers();
+    });
+
     var edit = D.role(_toolbar, "edit");
     edit.checked = !!s.trimEdit;
     edit.addEventListener("change", function () {
@@ -1642,10 +1902,7 @@ App.trim = (function () {
     });
 
     D.onRole(_toolbar, "apply", apply);
-    D.onRole(_toolbar, "outliers", function () {
-      var marked = markOutliers();
-      if (marked === 0) alert(T("trim.noOutliers"));
-    });
+    D.onRole(_toolbar, "outliers", _runOutliers);
     D.onRole(_toolbar, "clear", clearSelection);
     D.onRole(_toolbar, "cancel", function () {
       if (s.trimMode) toggle();
@@ -1653,8 +1910,83 @@ App.trim = (function () {
 
     _syncReach();
     _syncDetail();
+    _syncOutliers();
     _syncEditLocks();
     _updateStatus();
+  }
+
+  // ── Outlier settings ──────────────────────────────────────────────────
+
+  /** Range inputs are integers, and the isolation factor is not. */
+  function _scaled(factor) {
+    return Math.round(factor * 10);
+  }
+
+  function _factor() {
+    var value = s.trimOutlierFactor;
+    if (value == null) value = s.TRIM_OUTLIER_FACTOR || 3;
+    return value;
+  }
+
+  function _groupMax() {
+    var value = s.trimOutlierGroupMax;
+    if (value == null) value = s.TRIM_OUTLIER_GROUP_MAX || 8;
+    return value;
+  }
+
+  /**
+   * Re-run the pass, a beat after the slider stops moving.
+   *
+   * Separate from _schedule and shorter: the pass clusters every building in
+   * the pool, and the shape recompute it triggers is debounced again on the
+   * far side. Running both on every frame of a drag would spend the whole
+   * drag computing the answer to a setting the slider has already left.
+   */
+  var _outlierTimer = null;
+
+  function _scheduleOutliers() {
+    clearTimeout(_outlierTimer);
+    _outlierTimer = setTimeout(function () {
+      _outlierTimer = null;
+      if (s.trimMode && !s.trimEdit) markOutliers();
+    }, 120);
+  }
+
+  /**
+   * The readouts.
+   *
+   * The isolation slider says what its multiplier comes to on the ground,
+   * because a multiplier on a number nobody has been told is not a control
+   * anybody can aim. The floor is part of that: below TRIM_OUTLIER_MIN_M the
+   * distance stops moving however far left the slider goes, and a readout
+   * that went on counting down would be describing an effect that is not
+   * happening.
+   */
+  function _syncOutliers() {
+    if (!_toolbar) return;
+    var unit = isolationUnit();
+    var meters = Math.round(unit * _factor());
+    D.text(
+      _toolbar,
+      "isolation-out",
+      unit > 0
+        ? T("trim.isolationValue", {
+            factor: App.i18n.n(Math.round(_factor() * 10) / 10),
+            meters: meters,
+          })
+        : T("trim.isolationBare", {
+            factor: App.i18n.n(Math.round(_factor() * 10) / 10),
+          }),
+    );
+
+    var max = _groupMax();
+    D.text(
+      _toolbar,
+      "group-out",
+      max <= 1
+        ? T("trim.groupSingle")
+        : T("trim.groupValue", { count: max }),
+    );
   }
 
   function _hideToolbar() {
@@ -1691,7 +2023,7 @@ App.trim = (function () {
     // The buildings the automatic pass named and the user put back. Worth its
     // own number: it is the one thing on screen that says how far the proposal
     // has been overruled by hand.
-    var kept = _flagged ? _flagged.size - ignoredCount() : 0;
+    var kept = flaggedCount();
     if (kept > 0) count += " · " + T("trim.flaggedCount", { count: kept });
     D.text(_toolbar, "count", count);
 
@@ -1873,6 +2205,18 @@ App.trim = (function () {
           setEdit(!s.trimEdit);
         },
       },
+      // Only while the proposal is being taken over by hand: with the latch
+      // off there are no corner handles on screen, and a key that silently
+      // does nothing is worse than one the sheet has greyed out.
+      App.vertices.eraserKey({
+        when: function () {
+          return !!s.trimEdit && !!_editLayer;
+        },
+        layer: function () {
+          return _editLayer;
+        },
+        onStroke: _afterEdit,
+      }),
       {
         combos: ["F"],
         labelKey: "trim.follow",
@@ -1915,8 +2259,16 @@ App.trim = (function () {
     ],
   };
 
+  /**
+   * The button, as opposed to the sliders.
+   *
+   * `reassert` is what stops it from being a no-op: the pass has already run,
+   * so pressing it can only mean "put your answer back over mine". Without
+   * that it would recompute the same set, find every one of them already
+   * excluded or already overruled, and change nothing at all.
+   */
   function _runOutliers() {
-    var marked = markOutliers();
+    var marked = markOutliers({ reassert: true });
     if (marked === 0) alert(T("trim.noOutliers"));
   }
 
@@ -1940,17 +2292,37 @@ App.trim = (function () {
     App.history.sync();
   }
 
+  /**
+   * Both halves, because both can change.
+   *
+   * The pass's answer used to be indistinguishable from the user's edits
+   * inside a snapshot, which was harmless while it was computed once. Clear
+   * empties it and the Outliers button replaces it, so a snapshot that only
+   * carried the derived set would undo those two by putting the *result*
+   * back while leaving the inputs saying something else.
+   *
+   * Slider moves are deliberately not on this stack, for the same reason the
+   * reach and detail sliders are not: they are settings rather than edits.
+   * Undoing past one therefore restores the pass's answer as it stood then,
+   * and moving the slider again re-syncs it.
+   */
   function _snapshotIgnored() {
-    var keys = [];
-    _ignored.forEach(function (key) {
-      keys.push(key);
+    var auto = [];
+    _auto.forEach(function (key) {
+      auto.push(key);
     });
-    return keys;
+    var manual = [];
+    _manual.forEach(function (excluded, key) {
+      manual.push([key, excluded]);
+    });
+    return { auto: auto, manual: manual };
   }
 
-  function _restoreIgnored(keys) {
-    _ignored = new Set(keys);
-    _selectionChanged();
+  function _restoreIgnored(shot) {
+    if (!shot) return;
+    _auto = new Set(shot.auto || []);
+    _manual = new Map(shot.manual || []);
+    _applySelection();
     App.history.sync();
   }
 
@@ -2064,6 +2436,8 @@ App.trim = (function () {
     isIgnored: isIgnored,
     isFlagged: isFlagged,
     ignoredCount: ignoredCount,
+    flaggedCount: flaggedCount,
+    isolationUnit: isolationUnit,
     detailM: detailM,
     handleBuildingClick: handleBuildingClick,
     markOutliers: markOutliers,

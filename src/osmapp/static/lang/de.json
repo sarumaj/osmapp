@@ -184,6 +184,15 @@
     "detail": "Kantendetail",
     "detailValue": "{meters} m begradigen",
     "detailFull": "jeder Bucht folgen",
+    "isolation": "Ab wann gilt etwas als abgelegen",
+    "isolationValue": "{factor}× · ab etwa {meters} m",
+    "isolationBare": "{factor}× der Maßstab des Gebiets",
+    "group": "Größter verworfener Ort",
+    "groupValue": {
+      "one": "bis zu {count} Gebäude zusammen",
+      "other": "bis zu {count} Gebäude zusammen"
+    },
+    "groupSingle": "nur einzelne Gebäude",
     "follow": "Straßen folgen",
     "adjust": "Ecken von Hand anpassen",
     "adjustHint": "Ecke ziehen zum Verschieben, Punkt auf einer Kante fügt eine hinzu, Klick auf eine Ecke entfernt sie. Die Regler sind so lange gesperrt.",
@@ -634,6 +643,26 @@
       "trimMarks": {
         "title": "Die Markierungen zeigen, was wegfällt",
         "body": "Die einzeln stehenden Höfe am Feldweg wurden automatisch ausgenommen, und jeder trägt eine Markierung, die bei jedem Zoom gleich groß bleibt. Ein Klick darauf behält das Gebäude doch — die Grenze formt sich dann am Weg entlang um es herum, statt so zu tun, als wäre es nicht da."
+      },
+      "outlineButton": {
+        "title": "Oder die vorhandene umformen",
+        "body": "Dieselbe Schaltfläche öffnet die Grenze erneut, sobald es eine gibt. Sie ist die Antwort auf eine Ecke an der falschen Stelle — und der Grund, warum eine aus einem Verwaltungsumriss übernommene Grenze ein Ausgangspunkt ist und kein Zustand, mit dem man leben muss."
+      },
+      "outline": {
+        "title": "Die Ecken verschieben",
+        "body": "Eckpunkt ziehen zum Verschieben, anklicken zum Löschen, den kleinen Punkt zwischen zweien ziehen fügt einen hinzu — und X halten wischt eine ganze Reihe auf einmal weg. Anzahl und Flächenänderung folgen jeder Bewegung. Beim Übernehmen werden die Gebiete auf den neuen Umriss beschnitten; wächst er über das Heruntergeladene hinaus, wird das Nachladen angeboten."
+      },
+      "numbers": {
+        "title": "Nummerieren",
+        "body": "Setzt die Nummer jedes Gebiets auf die Karte, sodass Zählen zum Lesen wird statt zum Suchen. Ein Nummernchip ist ein zweiter Griff an seinem Gebiet: Er reagiert auf Überfahren, wählt aus und öffnet dasselbe Menü wie die Fläche darunter — und trägt den Haken, sobald eine Karte erstellt wurde."
+      },
+      "gaps": {
+        "title": "Boden, den niemand abdeckt",
+        "body": "Ein gelöschtes Gebiet, ein zu dünn geschnittenes oder eine vergrößerte Grenze hinterlassen Flächen, die zu keiner Karte gehören — und auf dem Bildschirm sieht daran nichts falsch aus; man merkt es, wenn eine Straße auf gar keiner Karte steht. „Nicht abgedeckte Flächen“ einschalten zeichnet sie orange gestrichelt; ein Klick macht ein Gebiet daraus."
+      },
+      "shortcuts": {
+        "title": "Was kann ich drücken?",
+        "body": "Diese Führung erklärt den Ablauf einmal; jene Schaltfläche beantwortet die andere Frage — jedes Mal. Die Liste ist nach Werkzeug gruppiert, das aktuelle zuoberst, und sie wird aus derselben Registrierung erzeugt, die die Tasten ausführt — veralten kann sie also nicht. ? oder F1 öffnet sie von überall."
       }
     }
   },
@@ -645,6 +674,7 @@
     "hint": "Was eine Taste tut, hängt vom aktiven Werkzeug ab. Das aktive Werkzeug steht zuerst.",
     "close": "Schließen",
     "or": "oder",
+    "hold": "halten",
     "groupGlobal": "Überall",
     "groupCut": "Schneidewerkzeug",
     "groupMerge": "Zusammenführen",
@@ -686,10 +716,47 @@
     "outlineReset": "Grenze auf den Ausgangszustand zurücksetzen",
     "outlineCancel": "Verlassen, ohne die Grenze zu ändern",
     "outlineMove": "Ecke verschieben oder aus dem Punkt dazwischen eine neue ziehen",
-    "outlineDelete": "Ecke löschen"
+    "outlineDelete": "Ecke löschen",
+    "eraseVertices": "Gehalten Ecken wegwischen",
+    "groupConfirm": "Diese Rückfrage",
+    "confirmOk": "Ja",
+    "confirmCancel": "Nein",
+    "groupPrint": "Kartenansicht",
+    "printGo": "Karte erstellen",
+    "printErase": "Randradierer ein- oder ausschalten",
+    "printFit": "Gebiet in den Rahmen einpassen",
+    "printRotateCcw": "Karte nach links drehen",
+    "printRotateCw": "Karte nach rechts drehen",
+    "printRotateReset": "Norden wieder nach oben",
+    "printPlace": "Lage der Karte im Formular anpassen",
+    "printCancel": "Ohne Karte verlassen",
+    "printPan": "Karte im Rahmen verschieben",
+    "printZoom": "Hinein- und herauszoomen",
+    "printRotateFree": "Drehen ohne Rasterung",
+    "groupPlace": "Karte im Formular platzieren",
+    "placeSave": "Diese Platzierung übernehmen",
+    "placeCancel": "Platzierung unverändert lassen",
+    "placeNudge": "Rahmen verschieben",
+    "placeResize": "Rahmengröße ändern",
+    "placeCoarse": "In größeren Schritten verschieben oder skalieren",
+    "placeFine": "In kleineren Schritten verschieben oder skalieren",
+    "placeSnap": "Zum nächsten erkannten Feld springen",
+    "placeDrag": "Rahmen ziehen, an einer Ecke zum Skalieren",
+    "groupPartition": "In Gebiete aufteilen",
+    "partitionGo": "Jetzt aufteilen",
+    "partitionCancel": "Ohne Aufteilen verlassen",
+    "dialogFields": "Zwischen den Feldern wechseln",
+    "groupBoundary": "Vorgeschlagene Grenze",
+    "boundaryUse": "Diese Grenze übernehmen",
+    "boundaryCoarser": "Weniger Ecken",
+    "boundaryFiner": "Mehr Ecken",
+    "boundaryBox": "Stattdessen das Rechteck nehmen",
+    "boundaryCancel": "Grenze unverändert lassen",
+    "printRotateDrag": "Karte drehen",
+    "printRotateStep": "In kleinen Schritten drehen"
   },
   "outline": {
-    "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
+    "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
     "corners": {
       "one": "{count} Ecke",
       "other": "{count} Ecken"

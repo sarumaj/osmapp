@@ -733,14 +733,104 @@ body {
   cursor: not-allowed;
 }
 
-/* Leaflet.Editable draws its corner handles into its own pane; these just
-   make them big enough to grab on a trackpad and colored like the shape they
-   belong to rather than like Leaflet's default blue. */
-.leaflet-container.is-trimming .leaflet-vertex-icon,
-.leaflet-container.is-trimming .leaflet-middle-icon {
-  border-color: #0e6655;
+/* ── Corner handles ────────────────────────────────────────────────────
+   Leaflet.Editable's handle is 8 px, which is below every published minimum
+   for a pointer target and well below what a trackpad can hit; the size
+   itself is set in vertices.js, because it has to be on the icon before the
+   marker is made. What is here is the rest of the bargain.
+
+   The invisible margin is the half worth explaining. Growing the icon alone
+   would have to grow it to about 26 px to be comfortable, and 26-px dots on
+   every corner of a traced boundary are a shape you can no longer see for
+   its handles. So the drawn circle stays small and a pseudo-element that
+   nobody can see carries the extra reach. Pointer events land on it exactly
+   as they do on the parent, which is the whole trick. */
+.leaflet-vertex-icon,
+.leaflet-middle-icon {
+  border-radius: 50%;
+  border: 2px solid var(--c-accent, #2980b9);
   background: var(--c-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  box-sizing: border-box;
+  transition: box-shadow 0.08s ease-out;
 }
+
+.leaflet-vertex-icon::after,
+.leaflet-middle-icon::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+}
+
+/* The half-handles sit *on* the line, so an opaque circle there hides the
+   edge being adjusted. Same box to grab, a smaller dot to look at — the
+   transparent border is what shrinks the paint without shrinking the target,
+   and the fill has to be named again here because the shared rule above
+   paints these the color of the surface they sit on. */
+.leaflet-middle-icon {
+  border-width: 3px;
+  border-color: transparent;
+  background-color: var(--c-accent, #2980b9);
+  background-clip: content-box;
+}
+
+/* A ring rather than a scale. Leaflet positions a marker's icon with an
+   inline `transform`, so a transform from the stylesheet never applies —
+   and on the one occasion it did, it would put the handle somewhere other
+   than on its corner. */
+.leaflet-vertex-icon:hover,
+.leaflet-middle-icon:hover {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 0 0 4px rgba(41, 128, 185, 0.28);
+}
+
+.leaflet-container.is-trimming .leaflet-vertex-icon,
+.leaflet-container.is-outlining .leaflet-vertex-icon {
+  border-color: #0e6655;
+}
+
+.leaflet-container.is-trimming .leaflet-middle-icon,
+.leaflet-container.is-outlining .leaflet-middle-icon {
+  background-color: #0e6655;
+}
+
+/* ── The eraser ────────────────────────────────────────────────────────
+   While the key is held the handles stop answering the pointer: the sweep is
+   a movement across them, and a movement that starts on one would otherwise
+   pick it up and drag it instead of removing it. */
+.leaflet-container.is-erasing-vertices .leaflet-vertex-icon,
+.leaflet-container.is-erasing-vertices .leaflet-middle-icon {
+  pointer-events: none;
+}
+
+.leaflet-container.is-erasing-vertices,
+.leaflet-container.is-erasing-vertices .leaflet-interactive {
+  cursor: none;
+}
+
+/* The ring *is* the cursor, which is why the real one is hidden above: two
+   pointers on screen, one of which is not where the effect is, is worse than
+   none. Positioned by transform from the container's own top-left corner. */
+.vertex-eraser {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 650;
+  border-radius: 50%;
+  border: 2px dashed var(--c-danger);
+  background: rgba(231, 76, 60, 0.12);
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-vertex-icon,
+  .leaflet-middle-icon {
+    transition: none;
+  }
+}
+
 
 /* Shift and Alt drag a selection box, and a text-selection cursor while doing
    it makes the gesture feel like it is doing something else. */
@@ -1308,7 +1398,13 @@ body {
    Taller than the other dialogs and scrollable, because the list grows with
    the tool you are in: the global group alone is short, the global group
    under the cut tool's fourteen entries is not. */
+/* Stacked over whatever it is explaining, rather than replacing it: the sheet
+   can now be opened from inside the print dialog, and it is mounted after it
+   in the same layer. The bump is belt and braces — DOM order already decides
+   this — but a help sheet that renders *behind* the thing you asked about is
+   a failure nobody would think to look for. */
 .shortcuts-dialog {
+  z-index: calc(var(--z-dialog) + 10);
   min-width: min(460px, calc(100vw - 32px));
   max-width: min(520px, calc(100vw - 32px));
 }
@@ -1374,6 +1470,16 @@ body {
 
 .shortcuts-item__or {
   margin: 0 2px;
+}
+
+/* "Hold" rather than a chip: it is an instruction about the key beside it,
+   not a key of its own, and drawing it as a <kbd> would read as a modifier
+   nobody has. */
+.shortcuts-item__hold {
+  margin-right: 4px;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--c-text-dim);
 }
 
 /* Greyed rather than dropped: "Forward — no vertex to put back" is a more

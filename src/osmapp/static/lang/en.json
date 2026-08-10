@@ -184,6 +184,15 @@
     "detail": "Edge detail",
     "detailValue": "straighten {meters} m",
     "detailFull": "follow every bay",
+    "isolation": "How far out is isolated",
+    "isolationValue": "{factor}× · from about {meters} m out",
+    "isolationBare": "{factor}× the area's own scale",
+    "group": "Largest place dropped",
+    "groupValue": {
+      "one": "up to {count} building together",
+      "other": "up to {count} buildings together"
+    },
+    "groupSingle": "single buildings only",
     "follow": "Follow streets",
     "adjust": "Adjust corners by hand",
     "adjustHint": "Drag a corner to move it, an edge dot to add one, click a corner to remove it. The sliders are locked while this is on.",
@@ -634,6 +643,26 @@
       "trimMarks": {
         "title": "The marks show what is being dropped",
         "body": "The isolated farms out along the track were excluded automatically, and each one carries a mark that stays the same size however far you zoom out. Click a mark to keep that building after all — the boundary reshapes around it, along the track, rather than pretending it is not there."
+      },
+      "outlineButton": {
+        "title": "Or reshape the one you have",
+        "body": "The same button reopens the boundary once one exists. It is the answer to a corner in the wrong place, and it is the reason a boundary traced from an administrative outline is a starting point rather than something you are stuck with."
+      },
+      "outline": {
+        "title": "Move the corners",
+        "body": "Drag a corner to move it, click one to delete it, drag the small dot between two to add one — and hold X to sweep a whole run of them away at once. The count and the change in area follow every move. Applying clips the territories to the new outline; growing past what was downloaded offers to fetch the rest."
+      },
+      "numbers": {
+        "title": "Number them",
+        "body": "Puts each territory's number on the map, so counting them is reading rather than searching. A number chip is a second handle on its territory: it hovers, selects and opens the same menu as the shape underneath, and it carries the tick once a card has been made."
+      },
+      "gaps": {
+        "title": "Ground nobody covers",
+        "body": "Deleting a territory, cutting one thin or growing the boundary all leave patches that belong to no card, and nothing about them looks wrong on screen — you find out when a street is on no card at all. Switch \"Uncovered areas\" on and they are drawn in dashed orange; clicking one turns it into a territory."
+      },
+      "shortcuts": {
+        "title": "What can I press?",
+        "body": "This tour explains the workflow once; that button answers the other question, every time. The list is grouped by tool with the one you are in at the top, and it is generated from the same registry that runs the keys — so it cannot drift out of date. ? or F1 opens it from anywhere."
       }
     }
   },
@@ -645,6 +674,7 @@
     "hint": "What a key does depends on the tool you are in. The tool you are in now is listed first.",
     "close": "Close",
     "or": "or",
+    "hold": "hold",
     "groupGlobal": "Anywhere",
     "groupCut": "Cut tool",
     "groupMerge": "Merge tool",
@@ -686,10 +716,47 @@
     "outlineReset": "Put the boundary back as it was",
     "outlineCancel": "Leave without changing the boundary",
     "outlineMove": "Move a corner, or add one from the dot between two",
-    "outlineDelete": "Delete a corner"
+    "outlineDelete": "Delete a corner",
+    "eraseVertices": "Sweep corners away while held",
+    "groupConfirm": "This question",
+    "confirmOk": "Yes",
+    "confirmCancel": "No",
+    "groupPrint": "Card view",
+    "printGo": "Make the card",
+    "printErase": "Switch the border eraser on or off",
+    "printFit": "Fit the territory in the frame",
+    "printRotateCcw": "Turn the map left",
+    "printRotateCw": "Turn the map right",
+    "printRotateReset": "Put north back at the top",
+    "printPlace": "Adjust where the map sits on the form",
+    "printCancel": "Leave without making a card",
+    "printPan": "Move the map inside the frame",
+    "printZoom": "Zoom in and out",
+    "printRotateFree": "Turn without snapping to steps",
+    "groupPlace": "Placing the map on the form",
+    "placeSave": "Keep this placement",
+    "placeCancel": "Leave the placement as it was",
+    "placeNudge": "Move the frame",
+    "placeResize": "Resize the frame",
+    "placeCoarse": "Move or resize in bigger steps",
+    "placeFine": "Move or resize in smaller steps",
+    "placeSnap": "Jump to the next box found on the form",
+    "placeDrag": "Move the frame, or a corner to resize it",
+    "groupPartition": "Split into territories",
+    "partitionGo": "Split now",
+    "partitionCancel": "Leave without splitting",
+    "dialogFields": "Move between the fields",
+    "groupBoundary": "Suggested boundary",
+    "boundaryUse": "Take this boundary",
+    "boundaryCoarser": "Fewer corners",
+    "boundaryFiner": "More corners",
+    "boundaryBox": "Take the rectangle instead",
+    "boundaryCancel": "Leave the boundary as it is",
+    "printRotateDrag": "Turn the map",
+    "printRotateStep": "Turn in small steps"
   },
   "outline": {
-    "hint": "Drag a corner to move it · Click a corner to delete it · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
+    "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
     "corners": {
       "one": "{count} corner",
       "other": "{count} corners"

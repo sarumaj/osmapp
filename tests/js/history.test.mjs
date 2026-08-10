@@ -37,7 +37,9 @@ import { loadApp } from "./helpers/load.mjs";
  * reaching.
  */
 function setup() {
-  const window = {};
+  // shortcuts.js listens for keyup and for the window losing focus as well,
+  // to end a held key it would otherwise never hear the release of.
+  const window = { addEventListener() {} };
   const listeners = [];
   const document = {
     addEventListener(type, fn) {

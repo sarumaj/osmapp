@@ -29,10 +29,14 @@ const SQUARE = [ll(0, 0), ll(0, 1), ll(1, 1), ll(1, 0)];
 
 function setup() {
   const mapHandlers = {};
+  const container = { classList: { add() {}, remove() {} } };
   const document = { addEventListener() {} };
   const L = {
     latLng: (lat, lng) => ll(lat, lng),
     DomEvent: { stopPropagation() {} },
+    // The mode marks its container so the stylesheet can tell an outline
+    // handle from a trim one.
+    DomUtil: { addClass() {}, removeClass() {} },
   };
 
   let ring = SQUARE.slice();
@@ -53,12 +57,15 @@ function setup() {
     booleanValid: () => true,
   };
 
-  const App = loadApp(["shortcuts.js", "history.js", "outline.js"], {
-    window: {},
+  const App = loadApp(
+    ["shortcuts.js", "vertices.js", "history.js", "outline.js"],
+    {
+    window: { addEventListener() {} },
     document,
     L,
     turf,
-  });
+  },
+  );
 
   const noop = () => {};
   App.i18n = { t: (k) => k, n: (v) => String(v), onChange: noop };
@@ -101,6 +108,7 @@ function setup() {
         mapHandlers[type] = fn;
       },
       off() {},
+      getContainer: () => container,
       editTools: null,
     },
   };

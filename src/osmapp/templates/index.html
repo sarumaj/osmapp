@@ -571,9 +571,9 @@
 
     <template id="tpl-outline-hint">
       <div class="draw-hint" role="status" data-i18n="outline.hint">
-        Drag a corner to move it · Click a corner to delete it · Drag the
-        small dot between two corners to add one · Enter applies · ? for all
-        keys
+        Drag a corner to move it · Click a corner to delete it · Hold X and
+        sweep to rub out a run of them · Drag the small dot between two
+        corners to add one · Enter applies · ? for all keys
       </div>
     </template>
 
@@ -582,6 +582,13 @@
         Click territories to select them · Right-click for the menu · Enter
         merges · Backspace drops the last one · ? for all keys
       </div>
+    </template>
+
+    <!-- The eraser's reach, drawn where the pointer is. A gesture that
+         destroys what it passes over has to say how wide it is, or the first
+         sweep is a guess. -->
+    <template id="tpl-vertex-eraser">
+      <div class="vertex-eraser" aria-hidden="true"></div>
     </template>
 
     <template id="tpl-draw-hint">
@@ -700,6 +707,38 @@
             data-i18n-attrs="aria-label=trim.detail"
           />
           <output data-role="detail-out"></output>
+        </div>
+        <!-- The rule that proposes the exclusions, rather than its output.
+             Both are multiples of the area's own plot spacing, which is what
+             lets them be sliders: the same setting keeps meaning the same
+             thing in a terrace and in farmland. -->
+        <div class="trim-toolbar__row">
+          <label data-role="isolation-label" data-i18n="trim.isolation">
+            How far out is isolated
+          </label>
+          <input
+            type="range"
+            data-role="isolation"
+            min="10"
+            max="200"
+            step="1"
+            data-i18n-attrs="aria-label=trim.isolation"
+          />
+          <output data-role="isolation-out"></output>
+        </div>
+        <div class="trim-toolbar__row">
+          <label data-role="group-label" data-i18n="trim.group">
+            Largest place dropped
+          </label>
+          <input
+            type="range"
+            data-role="group"
+            min="1"
+            max="60"
+            step="1"
+            data-i18n-attrs="aria-label=trim.group"
+          />
+          <output data-role="group-out"></output>
         </div>
         <div class="trim-toolbar__opts">
           <label class="trim-toolbar__opt">
@@ -1349,6 +1388,10 @@
     <script src="{{ url_for('static', filename='js/store.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
     <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
+    <!-- Before trim.js and outline.js rather than beside them: both build
+         their key context at load time and both ask this module for the
+         eraser entry while doing it. -->
+    <script src="{{ url_for('static', filename='js/vertices.js') }}"></script>
     <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
     <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>

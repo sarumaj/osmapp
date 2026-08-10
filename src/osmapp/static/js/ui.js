@@ -99,6 +99,13 @@ App.ui = (function () {
 
   function _onKeyDown(e) {
     if (e.key !== "Escape") return;
+    // The shortcut sheet stacks on top of whatever is open, so while it is up
+    // it is the topmost thing on screen and the one Escape closes. It closes
+    // itself; this only has to stand down. Without that, asking for help over
+    // the print dialog and pressing Escape would close the print dialog and
+    // leave the help sheet describing a screen that is no longer there.
+    if (App.shortcuts && App.shortcuts.isSheetOpen && App.shortcuts.isSheetOpen())
+      return;
     if (App.print && App.print.isOpen()) {
       App.print.close();
       e.stopPropagation();
@@ -393,6 +400,7 @@ App.ui = (function () {
 
       // Anything that closes the dialog without an explicit yes is a no.
       var dialog = openDialog("tpl-confirm-dialog", function () {
+        App.shortcuts.pop("confirm");
         finish(false);
       });
 
@@ -429,18 +437,35 @@ App.ui = (function () {
       D.onRole(dialog, "cancel", function () {
         closeDialog();
       });
-      D.onRole(dialog, "ok", function () {
+      function accept() {
         finish(true);
         closeDialog();
-      });
+      }
+      D.onRole(dialog, "ok", accept);
 
-      // Enter accepts. Escape is handled globally and lands on the teardown
-      // above, so it needs nothing here.
-      dialog.addEventListener("keydown", function (e) {
-        if (e.key !== "Enter") return;
-        e.preventDefault();
-        finish(true);
-        closeDialog();
+      // Enter accepts, Escape declines. Both go through the registry now
+      // rather than through a listener on the dialog node: a prompt whose two
+      // keys are invisible to the sheet is a prompt where "?" lists the keys
+      // of the tool underneath and says nothing about the question actually
+      // on screen.
+      App.shortcuts.push({
+        id: "confirm",
+        titleKey: "shortcuts.groupConfirm",
+        exclusive: true,
+        entries: [
+          {
+            combos: ["Enter"],
+            labelKey: "shortcuts.confirmOk",
+            whileTyping: true,
+            run: accept,
+          },
+          {
+            combos: ["Escape"],
+            labelKey: "shortcuts.confirmCancel",
+            whileTyping: true,
+            run: closeDialog,
+          },
+        ],
       });
 
       ok.focus();

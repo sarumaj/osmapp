@@ -138,6 +138,8 @@ App.outline = (function () {
     // should follow it rather than jump when the mouse is let go.
     s.leafletMap.on("editable:vertex:drag", _sync);
 
+    L.DomUtil.addClass(s.leafletMap.getContainer(), "is-outlining");
+
     _hint = D.mountOnMap("tpl-outline-hint", s.leafletMap);
     _showToolbar();
     App.shortcuts.push(OUTLINE_KEYS);
@@ -146,6 +148,11 @@ App.outline = (function () {
   }
 
   function _stop() {
+    if (s.leafletMap)
+      L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-outlining");
+    // A sweep still running when the tool closes would be handed a layer
+    // that is about to be detached.
+    App.shortcuts.releaseAll();
     s.leafletMap.off("editable:vertex:dragend", _onVertexChange);
     s.leafletMap.off("editable:vertex:deleted", _onVertexChange);
     s.leafletMap.off("editable:vertex:new", _onVertexChange);
@@ -226,10 +233,25 @@ App.outline = (function () {
 
   /** Record the ring before the change the editor is about to report. */
   function _onVertexChange() {
+    // An eraser sweep is one gesture and gets one entry, recorded by
+    // _afterErase when the key comes up. Twenty steps to take back one swipe
+    // is an undo stack that describes the implementation rather than the
+    // work — and the readout still follows every corner, because that is
+    // what says the sweep is doing something.
+    if (App.vertices.isErasing()) {
+      _sync();
+      return;
+    }
     // The editor fires after the fact, so what goes on the stack is the state
     // that is on screen *now* and the entry recorded before it is the one
     // undo returns to. Keeping the pre-change ring instead would mean
     // snapshotting on mousedown and guessing which drags will move anything.
+    _pushUndo();
+    _sync();
+  }
+
+  /** One entry for the whole sweep, once the key is up. */
+  function _afterErase() {
     _pushUndo();
     _sync();
   }
@@ -338,6 +360,12 @@ App.outline = (function () {
           if (s.outlineMode) cancel();
         },
       },
+      App.vertices.eraserKey({
+        layer: function () {
+          return _layer;
+        },
+        onStroke: _afterErase,
+      }),
       { combos: ["Drag"], labelKey: "shortcuts.outlineMove", note: true },
       { combos: ["Click"], labelKey: "shortcuts.outlineDelete", note: true },
       { combos: ["Right-click"], labelKey: "shortcuts.menu", note: true },

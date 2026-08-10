@@ -173,6 +173,32 @@ App.tour = (function () {
       },
     },
     {
+      // The boundary is not write-once, and the only two places that said so
+      // were a clause at the end of the "draw" step and a right-click nobody
+      // has a reason to try. A modal tool with its own toolbar, its own undo
+      // scope and its own refetch prompt was reachable only by accident.
+      id: "outlineButton",
+      demo: true,
+      target: '[data-action="draw"]',
+      placement: "right",
+    },
+    {
+      id: "outline",
+      demo: true,
+      target: ".outline-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="draw"]',
+      enter: function () {
+        if (!App.state.outlineMode) App.outline.toggle();
+      },
+      exit: function () {
+        // cancel() rather than toggle(): the walkthrough must not leave the
+        // sample's boundary carrying whatever the demonstration did to it.
+        if (App.state.outlineMode) App.outline.cancel();
+      },
+    },
+    {
       id: "partitionButton",
       demo: true,
       target: '[data-action="partition"]',
@@ -233,6 +259,22 @@ App.tour = (function () {
       exit: function () {
         if (App.state.mergeMode) App.editing.toggleMergeMode();
       },
+    },
+    {
+      id: "numbers",
+      demo: true,
+      target: '[data-action="numbers"]',
+      placement: "right",
+    },
+    {
+      // The one feature on the layer switcher that is not a layer: it finds
+      // ground that belongs to no territory, which is the failure the rest of
+      // the app cannot show you because nothing looks wrong when it happens.
+      id: "gaps",
+      demo: true,
+      target: ".leaflet-control-layers",
+      placement: "left",
+      skipIfNoTarget: true,
     },
     {
       id: "territory",
@@ -310,6 +352,15 @@ App.tour = (function () {
     { id: "reset", target: '[data-action="reset"]', placement: "right" },
     { id: "language", target: ".tb-item--select", placement: "right" },
     { id: "offline" },
+    {
+      // The tour answers "what is this app for" once. This answers "what can
+      // I press right now", which is the question that comes up every time
+      // after that — and its button was the only one in the panel that no
+      // step pointed at.
+      id: "shortcuts",
+      target: '[data-action="shortcuts"]',
+      placement: "right",
+    },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
 

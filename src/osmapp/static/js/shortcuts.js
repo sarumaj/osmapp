@@ -45,10 +45,40 @@
  * are handled where the pointer state lives. Both kinds are listed; only the
  * first kind fires.
  *
+ * An entry with `hold: true` is the third kind: `run` on the way down and
+ * `release` on the way up, for a gesture that is only live while the key is
+ * held. The vertex eraser is the case that asked for it — a pointer that
+ * destroys what it touches must not be something you can leave switched on —
+ * and it went here rather than into a private keydown listener because a
+ * private listener is exactly what this module was written to replace: it
+ * cannot be ordered by the context stack and cannot be shown on the sheet.
+ *
+ * Two guarantees the holders rely on. Auto-repeat does not re-fire `run`,
+ * because a key held down is one press however many times the platform says
+ * so. And `release` is called if the window loses focus with the key down —
+ * Alt+Tab away mid-sweep and the keyup is delivered to somebody else, which
+ * without this would leave the gesture running with nothing to end it.
+ *
  * `when()` gates an entry that exists only some of the time — the trim tool's
  * F is locked while corners are being dragged by hand, and an entry that
  * cannot fire is greyed on the sheet rather than hidden, so the reason it is
  * unavailable is a thing you can see.
+ *
+ * ── Dialogs ───────────────────────────────────────────────────────────────
+ *
+ * A context marked `exclusive: true` is a barrier: nothing beneath it answers
+ * the keyboard, and the tool the dialog opened on top of keeps its keys without
+ * having to pop its own context. That is what a modal *is*, and it used to be
+ * enforced by asking App.ui whether any dialog was open at all — which was
+ * right about the tools underneath and wrong about the dialog itself, because
+ * it left the dialog with no way to register keys of its own. Every screen in
+ * the app that takes over now pushes an exclusive context, and the ones that
+ * have not been converted still get the old blanket rule.
+ *
+ * `whileTyping: true` is the exception to the exception. Nothing fires while a
+ * text field has focus, which is right for every single-letter shortcut and
+ * wrong for the one gesture people expect from a form: type a number, press
+ * Enter. Entries that mean something *while* you are typing say so.
  *
  * ── What this does not take over ──────────────────────────────────────────
  *
@@ -72,6 +102,7 @@ App.shortcuts = (function () {
   var _global = { id: "global", titleKey: "shortcuts.groupGlobal", entries: [] };
   var _bound = false;
   var _sheetOpen = false;
+  var _sheet = null; // the node, when the sheet is stacked over a dialog
 
   // ── Platform ──────────────────────────────────────────────────────────
   //
@@ -96,6 +127,11 @@ App.shortcuts = (function () {
     T = App.i18n.t;
     if (!_bound) {
       document.addEventListener("keydown", _onKeyDown);
+      document.addEventListener("keyup", _onKeyUp);
+      // Not "blur" on the document: a click into the map's own container
+      // blurs whatever had focus, and releasing the eraser every time the
+      // pointer lands somewhere would make a held key mean nothing.
+      window.addEventListener("blur", releaseAll);
       _bound = true;
     }
 
@@ -111,6 +147,12 @@ App.shortcuts = (function () {
         // of this pair.
         combos: ["?", "F1"],
         labelKey: "shortcuts.sheet",
+        // Every screen that takes over the keyboard still has to be able to
+        // say what it answers. This was the one binding whose whole job is
+        // to reveal the others and it was unavailable in exactly the screens
+        // with the most keys to reveal.
+        overModal: true,
+        whileTyping: true,
         run: toggleSheet,
       },
       {
@@ -323,9 +365,52 @@ App.shortcuts = (function () {
     return !!(App.tour && App.tour.isOpen && App.tour.isOpen());
   }
 
+  // ── Held keys ─────────────────────────────────────────────────────────
+  //
+  // Entries whose run() has fired and whose release() is owed, keyed by the
+  // lowercased key that started them. Keyed rather than a list so that the
+  // second keydown of an auto-repeat is recognizable as the same press.
+
+  var _held = Object.create(null);
+
+  function _startHold(entry, e) {
+    var key = String(e.key || "").toLowerCase();
+    if (_held[key]) return; // auto-repeat, or a second context answering
+    _held[key] = entry;
+    entry.run(e);
+  }
+
+  function _onKeyUp(e) {
+    if (!e || !e.key) return;
+    var key = String(e.key || "").toLowerCase();
+    var entry = _held[key];
+    if (!entry) return;
+    delete _held[key];
+    if (typeof entry.release === "function") entry.release(e);
+  }
+
+  /**
+   * End every hold, whatever is holding it.
+   *
+   * Called on window blur, and worth calling from a mode's own teardown: a
+   * tool that closes while its key is down would otherwise get the release
+   * after it has already thrown away the thing being released.
+   */
+  function releaseAll() {
+    Object.keys(_held).forEach(function (key) {
+      var entry = _held[key];
+      delete _held[key];
+      if (entry && typeof entry.release === "function") entry.release();
+    });
+  }
+
+  function isHeld(combo) {
+    return !!_held[parse(combo).key];
+  }
+
   function _onKeyDown(e) {
     if (!e || !e.key) return;
-    if (_isTyping(e.target)) return;
+    var typing = _isTyping(e.target);
 
     // While the sheet is up it is the modal, and the only key it answers is
     // the one that closes it. Undo firing behind a list of shortcuts would
@@ -334,34 +419,71 @@ App.shortcuts = (function () {
       if (_matches(parse("?"), e) || _matches(parse("F1"), e)) {
         e.preventDefault();
         toggleSheet();
+        return;
+      }
+      // The sheet is the topmost thing on screen, so it is the thing Escape
+      // closes — ui.js stands down for exactly as long as it is up, or
+      // asking for help over the print dialog would shut the print dialog.
+      if (_matches(parse("Escape"), e)) {
+        e.preventDefault();
+        closeSheet();
       }
       return;
     }
     if (_tourOpen()) return;
-    var modal = _modalOpen();
 
     var stack = _stack();
+    // Innermost exclusive context, if any: everything past it is a tool the
+    // dialog is covering.
+    var barrier = -1;
+    for (var b = 0; b < stack.length; b++) {
+      if (stack[b].exclusive) {
+        barrier = b;
+        break;
+      }
+    }
+    // A dialog that has not been given a context of its own still blocks the
+    // tools underneath, the way every dialog did before contexts existed.
+    var blanket = barrier < 0 && _modalOpen();
+
     for (var i = 0; i < stack.length; i++) {
       var entries = stack[i].entries || [];
+      var covered = blanket || (barrier >= 0 && i > barrier);
       for (var j = 0; j < entries.length; j++) {
         var entry = entries[j];
         if (entry.note || typeof entry.run !== "function") continue;
-        if (modal && !entry.overModal) continue;
+        if (covered && !entry.overModal) continue;
+        if (typing && !entry.whileTyping) continue;
         if (entry.when && !entry.when()) continue;
-        if (!_hits(entry, e)) continue;
+        if (!_hits(entry, e, typing)) continue;
         e.preventDefault();
-        entry.run(e);
+        if (entry.hold) _startHold(entry, e);
+        else entry.run(e);
         return;
       }
     }
   }
 
-  function _hits(entry, e) {
+  function _hits(entry, e, typing) {
     var combos = entry.combos || [];
     for (var i = 0; i < combos.length; i++) {
-      if (_matches(parse(combos[i]), e)) return true;
+      var spec = parse(combos[i]);
+      // A combo that produces a character never fires into a text field,
+      // whatever the entry says. "?" and F1 both open the sheet and only one
+      // of them can be typed — without this, whileTyping on that pair would
+      // mean somebody typing a question mark into the locality field gets a
+      // list of shortcuts and no question mark.
+      if (typing && _typesACharacter(spec)) continue;
+      if (_matches(spec, e)) return true;
     }
     return false;
+  }
+
+  /** A single printable key with no modifier that would stop it printing. */
+  function _typesACharacter(spec) {
+    return (
+      spec.key.length === 1 && !spec.ctrl && !spec.mod && !spec.alt
+    );
   }
 
   /** Fire a combo as though it had been typed — for tests and for the sheet. */
@@ -379,6 +501,11 @@ App.shortcuts = (function () {
     _onKeyDown(fake);
   }
 
+  /** The other half of a hold, for the same audience as trigger(). */
+  function triggerUp(combo) {
+    _onKeyUp({ key: parse(combo).key });
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // THE SHEET
   // ══════════════════════════════════════════════════════════════════════
@@ -388,8 +515,19 @@ App.shortcuts = (function () {
   }
 
   function toggleSheet() {
-    if (_sheetOpen) App.ui.closeDialog();
+    if (_sheetOpen) closeSheet();
     else openSheet();
+  }
+
+  function closeSheet() {
+    if (!_sheetOpen) return;
+    if (_sheet) {
+      _sheet = D.remove(_sheet);
+      _sheetOpen = false;
+      return;
+    }
+    // Opened as the dialog: its own teardown flips the flag.
+    App.ui.closeDialog();
   }
 
   /**
@@ -400,20 +538,30 @@ App.shortcuts = (function () {
    */
   function openSheet() {
     if (_sheetOpen) return;
-    var dialog = App.ui.openDialog("tpl-shortcuts-dialog", function () {
-      _sheetOpen = false;
-    });
+    var dialog;
+    if (App.ui.isDialogOpen()) {
+      // Mounted on top rather than opened as *the* dialog, the way the
+      // placement frame stacks over the print dialog. App.ui.openDialog()
+      // closes whatever is already up, and a help sheet that destroys the
+      // screen you asked for help about is not help — which is precisely
+      // what "?" did in every dialog in the app until now.
+      _sheet = D.mountOnMap("tpl-shortcuts-dialog", App.state.leafletMap);
+      dialog = _sheet;
+    } else {
+      dialog = App.ui.openDialog("tpl-shortcuts-dialog", function () {
+        _sheetOpen = false;
+      });
+    }
     _sheetOpen = true;
-    D.onRole(dialog, "close", function () {
-      App.ui.closeDialog();
-    });
+    D.onRole(dialog, "close", closeSheet);
     _renderSheet(dialog);
     var close = D.role(dialog, "close");
     if (close && close.focus) close.focus();
   }
 
   function _renderSheet(dialog) {
-    var root = dialog || (App.ui.dialogNode && App.ui.dialogNode());
+    var root =
+      dialog || _sheet || (App.ui.dialogNode && App.ui.dialogNode());
     if (!root) return;
     var host = D.role(root, "groups");
     if (!host) return;
@@ -436,6 +584,15 @@ App.shortcuts = (function () {
 
         var keys = D.role(row, "keys");
         keys.textContent = "";
+        // A key that has to stay down is a different instruction from a key
+        // that has to be pressed, and the caps look identical. The word is
+        // the only thing that distinguishes them.
+        if (entry.hold) {
+          var hold = document.createElement("span");
+          hold.className = "shortcuts-item__hold";
+          hold.textContent = T("shortcuts.hold");
+          keys.appendChild(hold);
+        }
         (entry.combos || []).forEach(function (combo, index) {
           if (index > 0) {
             var or = document.createElement("span");
@@ -471,7 +628,11 @@ App.shortcuts = (function () {
     keyCaps: keyCaps,
     hint: hint,
     trigger: trigger,
+    triggerUp: triggerUp,
+    releaseAll: releaseAll,
+    isHeld: isHeld,
     openSheet: openSheet,
+    closeSheet: closeSheet,
     toggleSheet: toggleSheet,
     isSheetOpen: isSheetOpen,
     isMac: isMac,

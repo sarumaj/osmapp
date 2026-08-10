@@ -149,7 +149,10 @@ App.boundary = (function () {
     var current = base || boxFeature;
     var tolIndex = 0;
 
-    var dialog = App.ui.openDialog("tpl-boundary-dialog", _clearPreview);
+    var dialog = App.ui.openDialog("tpl-boundary-dialog", function () {
+      App.shortcuts.pop("boundary");
+      _clearPreview();
+    });
 
     D.text(dialog, "name", _shortName(payload.name || geocode.name));
     D.text(dialog, "meta", _metaLine(payload));
@@ -225,6 +228,82 @@ App.boundary = (function () {
 
     D.onRole(dialog, "use", function () {
       if (current) _accept(current);
+    });
+
+    /**
+     * The detail slider is the reason this needs keys of its own.
+     *
+     * It is the one control here worth a second pass — coarser, look, coarser
+     * again — and doing that with the mouse means aiming at a slider thumb
+     * between each look. The arrows do it in place, and Enter takes what is
+     * on screen. The slider answers arrows itself once it has focus; these
+     * work before anything has been clicked at all, which is the state the
+     * dialog opens in.
+     */
+    function step(by) {
+      tolIndex = Math.max(
+        0,
+        Math.min(TOLERANCES.length - 1, tolIndex + by),
+      );
+      slider.value = String(tolIndex);
+      render();
+    }
+
+    App.shortcuts.push({
+      id: "boundary",
+      titleKey: "shortcuts.groupBoundary",
+      exclusive: true,
+      entries: [
+        {
+          combos: ["Enter"],
+          labelKey: "shortcuts.boundaryUse",
+          whileTyping: true,
+          when: function () {
+            return !!current;
+          },
+          run: function () {
+            if (current) _accept(current);
+          },
+        },
+        {
+          combos: ["ArrowRight", "ArrowUp"],
+          labelKey: "shortcuts.boundaryCoarser",
+          when: function () {
+            return !!base && tolIndex < TOLERANCES.length - 1;
+          },
+          run: function () {
+            step(1);
+          },
+        },
+        {
+          combos: ["ArrowLeft", "ArrowDown"],
+          labelKey: "shortcuts.boundaryFiner",
+          when: function () {
+            return !!base && tolIndex > 0;
+          },
+          run: function () {
+            step(-1);
+          },
+        },
+        {
+          combos: ["B"],
+          labelKey: "shortcuts.boundaryBox",
+          when: function () {
+            return !!base && !!boxFeature;
+          },
+          run: function () {
+            if (boxFeature) _accept(boxFeature);
+          },
+        },
+        {
+          combos: ["Escape"],
+          labelKey: "shortcuts.boundaryCancel",
+          whileTyping: true,
+          run: function () {
+            App.ui.closeDialog();
+          },
+        },
+      ],
     });
 
     render();

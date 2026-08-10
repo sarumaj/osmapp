@@ -64,6 +64,7 @@
     "greyscale",
     "healthcheck",
     "healthz",
+    "herauszoomen",
     "heroku",
     "HNAP",
     "housenumber",
@@ -146,6 +147,7 @@
     "pypirc",
     "PYTHONUNBUFFERED",
     "Radierstrich",
+    "Randradierer",
     "readback",
     "readdir",
     "readyz",
@@ -223,6 +225,7 @@
     "xmark",
     "xobjects",
     "Zoomstufe",
-    "Zurücklesen"
+    "Zurücklesen",
+    "zweien"
   ]
 }

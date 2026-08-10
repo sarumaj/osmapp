@@ -58,6 +58,14 @@
       }
     }
 
+    // Before anything draws a corner handle: the size lives on the icon
+    // class, and a marker already on the map keeps whatever size it was made
+    // with. The boundary drawer is the first thing that can make one, and it
+    // is reachable from the toolbar the moment the page settles.
+    App.vertices.init();
+    App.vertices.install();
+    App.vertices.watch(map);
+
     // ── Panes ───────────────────────────────────────────────────────────
     // Stacking used to be a side effect of the order things happened to be
     // drawn in: setClusters() builds cluster layers and then calls

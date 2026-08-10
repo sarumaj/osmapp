@@ -198,6 +198,17 @@
     "detail": "Szczegółowość krawędzi",
     "detailValue": "wygładzenie {meters} m",
     "detailFull": "każde wcięcie",
+    "isolation": "Od jakiej odległości to odosobnienie",
+    "isolationValue": "{factor}× · od około {meters} m",
+    "isolationBare": "{factor}× skala samego obszaru",
+    "group": "Największe odrzucane skupisko",
+    "groupValue": {
+      "one": "do {count} budynku razem",
+      "few": "do {count} budynków razem",
+      "many": "do {count} budynków razem",
+      "other": "do {count} budynku razem"
+    },
+    "groupSingle": "tylko pojedyncze budynki",
     "follow": "Podążaj za ulicami",
     "adjust": "Popraw narożniki ręcznie",
     "adjustHint": "Przeciągnij narożnik, aby go przesunąć, kropka na krawędzi dodaje nowy, kliknięcie narożnika go usuwa. Suwaki są w tym czasie zablokowane.",
@@ -671,6 +682,26 @@
       "trimMarks": {
         "title": "Znaczniki pokazują, co odpada",
         "body": "Odosobnione gospodarstwa przy drodze polnej zostały pominięte automatycznie, a każde ma znacznik, który przy każdym powiększeniu ma ten sam rozmiar. Kliknij znacznik, aby jednak zachować budynek — granica ukształtuje się wzdłuż drogi wokół niego, zamiast udawać, że go nie ma."
+      },
+      "outlineButton": {
+        "title": "Albo zmień kształt istniejącej",
+        "body": "Ten sam przycisk otwiera granicę ponownie, gdy już istnieje. To odpowiedź na narożnik w złym miejscu — i powód, dla którego granica przejęta z obrysu administracyjnego jest punktem wyjścia, a nie czymś, z czym trzeba zostać."
+      },
+      "outline": {
+        "title": "Przesuwanie narożników",
+        "body": "Przeciągnij narożnik, aby go przesunąć, kliknij, aby usunąć, przeciągnij kropkę między dwoma, aby dodać nowy — a przytrzymanie X ściera cały ich ciąg naraz. Liczba i zmiana powierzchni podążają za każdym ruchem. Zatwierdzenie przycina terytoria do nowego obrysu; jeśli wyjdzie poza pobrany obszar, aplikacja zaproponuje dociągnięcie reszty."
+      },
+      "numbers": {
+        "title": "Ponumeruj je",
+        "body": "Umieszcza numer każdego terytorium na mapie, dzięki czemu liczenie staje się czytaniem, a nie szukaniem. Plakietka z numerem to drugi uchwyt tego terytorium: reaguje na najechanie, zaznacza i otwiera to samo menu co kształt pod spodem, a po wydrukowaniu karty nosi znacznik."
+      },
+      "gaps": {
+        "title": "Teren, którego nikt nie obejmuje",
+        "body": "Usunięcie terytorium, zbyt cienkie cięcie albo powiększenie granicy zostawiają obszary nienależące do żadnej karty — i nic na ekranie nie wygląda na błąd; okazuje się to dopiero, gdy jakaś ulica nie trafiła na żadną kartę. Włącz „Obszary nieobjęte“, a zostaną narysowane pomarańczową przerywaną linią; kliknięcie zamienia je w terytorium."
+      },
+      "shortcuts": {
+        "title": "Co mogę nacisnąć?",
+        "body": "Ten przewodnik tłumaczy przebieg pracy raz; tamten przycisk odpowiada na drugie pytanie — za każdym razem. Lista jest pogrupowana według narzędzi, bieżące na górze, i powstaje z tego samego rejestru, który obsługuje klawisze — więc nie może się zdezaktualizować. ? albo F1 otwiera ją z dowolnego miejsca."
       }
     }
   },
@@ -682,6 +713,7 @@
     "hint": "Działanie klawisza zależy od aktywnego narzędzia. Aktywne narzędzie jest na początku listy.",
     "close": "Zamknij",
     "or": "lub",
+    "hold": "przytrzymaj",
     "groupGlobal": "Wszędzie",
     "groupCut": "Narzędzie cięcia",
     "groupMerge": "Łączenie",
@@ -723,10 +755,47 @@
     "outlineReset": "Przywróć granicę do stanu początkowego",
     "outlineCancel": "Wyjdź bez zmiany granicy",
     "outlineMove": "Przesuń narożnik lub dodaj nowy z kropki pomiędzy",
-    "outlineDelete": "Usuń narożnik"
+    "outlineDelete": "Usuń narożnik",
+    "eraseVertices": "Przytrzymaj i zamiataj narożniki",
+    "groupConfirm": "To pytanie",
+    "confirmOk": "Tak",
+    "confirmCancel": "Nie",
+    "groupPrint": "Widok karty",
+    "printGo": "Utwórz kartę",
+    "printErase": "Włącz lub wyłącz gumkę obramowania",
+    "printFit": "Dopasuj terytorium do ramki",
+    "printRotateCcw": "Obróć mapę w lewo",
+    "printRotateCw": "Obróć mapę w prawo",
+    "printRotateReset": "Przywróć północ na górę",
+    "printPlace": "Dopasuj położenie mapy na formularzu",
+    "printCancel": "Wyjdź bez tworzenia karty",
+    "printPan": "Przesuń mapę w ramce",
+    "printZoom": "Przybliż i oddal",
+    "printRotateFree": "Obracaj bez skokowego przyciągania",
+    "groupPlace": "Umieszczanie mapy na formularzu",
+    "placeSave": "Zachowaj to położenie",
+    "placeCancel": "Pozostaw położenie bez zmian",
+    "placeNudge": "Przesuń ramkę",
+    "placeResize": "Zmień rozmiar ramki",
+    "placeCoarse": "Przesuwaj lub skaluj większymi krokami",
+    "placeFine": "Przesuwaj lub skaluj mniejszymi krokami",
+    "placeSnap": "Przejdź do następnego wykrytego pola",
+    "placeDrag": "Przeciągnij ramkę, a narożnik zmienia rozmiar",
+    "groupPartition": "Podział na terytoria",
+    "partitionGo": "Podziel teraz",
+    "partitionCancel": "Wyjdź bez podziału",
+    "dialogFields": "Przechodź między polami",
+    "groupBoundary": "Proponowana granica",
+    "boundaryUse": "Użyj tej granicy",
+    "boundaryCoarser": "Mniej narożników",
+    "boundaryFiner": "Więcej narożników",
+    "boundaryBox": "Zamiast tego użyj prostokąta",
+    "boundaryCancel": "Pozostaw granicę bez zmian",
+    "printRotateDrag": "Obróć mapę",
+    "printRotateStep": "Obracaj małymi krokami"
   },
   "outline": {
-    "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
+    "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
     "corners": {
       "one": "{count} narożnik",
       "few": "{count} narożniki",
