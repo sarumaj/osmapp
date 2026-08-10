@@ -303,7 +303,18 @@
     "errNoTemplate": "Load a PDF template first.",
     "errTemplateLayout": "The template layout could not be read.",
     "attach": "Embed the project in the PDF",
-    "attachHint": "The card can then be imported to restore the boundary and the territories."
+    "attachHint": "The card can then be imported to restore the boundary and the territories.",
+    "decorations": "Scale and compass",
+    "scale": "Draw a scale bar",
+    "compass": "Draw a compass rose",
+    "decorationsHint": "Drawn on top of the finished card. The compass turns with the map so that north keeps pointing north; its letters and the scale bar stay upright.",
+    "scaleM": "{value} m",
+    "scaleKm": "{value} km",
+    "compassN": "N",
+    "compassE": "E",
+    "compassS": "S",
+    "compassW": "W",
+    "infoLayerHint": "The card also carries this territory's details as text hidden under the map: searchable and selectable in a PDF reader, and read aloud by a screen reader."
   },
   "place": {
     "title": "Position the map",

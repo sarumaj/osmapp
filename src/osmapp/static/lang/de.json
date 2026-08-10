@@ -303,7 +303,18 @@
     "errNoTemplate": "Lade zuerst eine PDF-Vorlage.",
     "errTemplateLayout": "Das Layout der Vorlage konnte nicht gelesen werden.",
     "attach": "Projekt in die PDF einbetten",
-    "attachHint": "Die Karte kann dann importiert werden, um Grenze und Gebiete wiederherzustellen."
+    "attachHint": "Die Karte kann dann importiert werden, um Grenze und Gebiete wiederherzustellen.",
+    "decorations": "Maßstab und Kompass",
+    "scale": "Maßstabsleiste zeichnen",
+    "compass": "Kompassrose zeichnen",
+    "decorationsHint": "Wird über die fertige Karte gezeichnet. Die Kompassrose dreht sich mit der Karte, damit Norden nach Norden zeigt; ihre Buchstaben und die Maßstabsleiste bleiben aufrecht.",
+    "scaleM": "{value} m",
+    "scaleKm": "{value} km",
+    "compassN": "N",
+    "compassE": "O",
+    "compassS": "S",
+    "compassW": "W",
+    "infoLayerHint": "Die Karte trägt die Angaben zu diesem Gebiet zusätzlich als Text unter der Karte: im PDF-Betrachter durchsuch- und markierbar und von einem Screenreader vorlesbar."
   },
   "place": {
     "title": "Karte positionieren",

@@ -326,7 +326,18 @@
     "errNoTemplate": "Najpierw wczytaj szablon PDF.",
     "errTemplateLayout": "Nie udało się odczytać układu szablonu.",
     "attach": "Osadź projekt w pliku PDF",
-    "attachHint": "Kartę można wtedy zaimportować, aby przywrócić granicę i tereny."
+    "attachHint": "Kartę można wtedy zaimportować, aby przywrócić granicę i tereny.",
+    "decorations": "Podziałka i kompas",
+    "scale": "Rysuj podziałkę liniową",
+    "compass": "Rysuj różę wiatrów",
+    "decorationsHint": "Rysowane na gotowej karcie. Róża wiatrów obraca się razem z mapą, aby północ wskazywała północ; jej litery i podziałka pozostają pionowo.",
+    "scaleM": "{value} m",
+    "scaleKm": "{value} km",
+    "compassN": "N",
+    "compassE": "E",
+    "compassS": "S",
+    "compassW": "W",
+    "infoLayerHint": "Karta niesie też opis tego terenu jako tekst ukryty pod mapą: można go wyszukać i zaznaczyć w czytniku PDF, a czytnik ekranu go odczyta."
   },
   "place": {
     "title": "Umieść mapę",

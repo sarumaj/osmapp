@@ -142,6 +142,35 @@ App.print = (function () {
   var EARTH_CIRCUMFERENCE_M = 40075016.686;
   var ATTRIBUTION = "© OpenStreetMap contributors";
 
+  /**
+   * Card furniture — the scale bar and the compass rose.
+   *
+   * Both are off by default and both are drawn last, on top of the finished
+   * card. Everything here is in points, because that is the unit the numbers
+   * were chosen in: a bar 5 pt high and 9 pt lettering are readable in the
+   * hand at arm's length, and they stay that size whatever the placeholder
+   * turns out to be. Multiplying by PX_PER_PT at draw time is what keeps a
+   * 300 dpi canvas from making them a third of a millimeter tall.
+   */
+  var DECOR_MARGIN_PT = 12;
+  var SCALE_MAX_FRACTION = 0.3; // of the card's width the bar may claim
+  var SCALE_SEGMENTS = 4; // alternating light and dark, as on a paper map
+  var SCALE_BAR_PT = 5;
+  var SCALE_FONT_PT = 9;
+  var COMPASS_RADIUS_PT = 20;
+  var COMPASS_FONT_PT = 9;
+  var COMPASS_NEEDLE = "#c0392b";
+  var HALO = "rgba(255,255,255,0.9)";
+  var INK = "#333";
+
+  /** The four points, clockwise from north. The letters are translated. */
+  var COMPASS_POINTS = [
+    { key: "print.compassN", bearing: 0, needle: true },
+    { key: "print.compassE", bearing: 90, needle: false },
+    { key: "print.compassS", bearing: 180, needle: false },
+    { key: "print.compassW", bearing: 270, needle: false },
+  ];
+
   // ── Session state ─────────────────────────────────────────────────────
   var _dialog = null;
   var _feature = null;
@@ -218,6 +247,8 @@ App.print = (function () {
     "sharpen",
     "contrast",
     "grayscale",
+    "scale",
+    "compass",
     "erase-size",
     "locality",
     "attach",
@@ -1468,7 +1499,10 @@ App.print = (function () {
     // So the mosaic is assembled unfiltered on a scratch canvas first and the
     // filter runs once over the finished, seamless image.
     var mosaic = filters.length ? _filterCanvas : null;
-    var target = mosaic ? mosaic.getContext("2d") : ctx;
+    // Through printFilters rather than getContext directly: this is the first
+    // call on the mosaic canvas, and the readback hint the software filter
+    // path needs is honored on the first call only.
+    var target = mosaic ? App.printFilters.mosaicContext(mosaic) : ctx;
 
     if (mosaic) {
       target.setTransform(1, 0, 0, 1, 0, 0);
@@ -1523,6 +1557,11 @@ App.print = (function () {
     ctx.globalAlpha = _opts().opacity;
     ctx.drawImage(_borderCanvas, 0, 0);
     ctx.restore();
+
+    // Last, on top of everything including the border. A scale bar with a red
+    // territory outline drawn through it is not a scale bar, and the eraser
+    // is aimed at the border rather than at the furniture.
+    _drawDecorations(ctx);
 
     if (missing > 0) {
       _setStatus(
@@ -1664,6 +1703,201 @@ App.print = (function () {
     ctx.fillStyle = "#333";
     ctx.fillText(ATTRIBUTION, x, y);
     ctx.restore();
+  }
+
+  // ── Card furniture ────────────────────────────────────────────────────
+
+  /**
+   * The largest 1, 2 or 5 × 10ⁿ metres that fits inside `maxMeters`.
+   *
+   * A scale bar whose end reads "just under 437 m" is a bar nobody measures
+   * with. The round number comes first and the bar is then drawn to whatever
+   * length that distance happens to be, rather than the other way round.
+   *
+   * @param {number} maxMeters
+   * @returns {number} 0 when there is no sensible answer
+   */
+  function _niceDistance(maxMeters) {
+    if (!(maxMeters > 0) || !isFinite(maxMeters)) return 0;
+    var decade = Math.pow(10, Math.floor(Math.log(maxMeters) / Math.LN10));
+    var best = decade; // 1 × 10ⁿ always fits: the decade is ≤ maxMeters
+    [2, 5].forEach(function (step) {
+      if (step * decade <= maxMeters) best = step * decade;
+    });
+    return best;
+  }
+
+  /**
+   * What the scale bar should say and how long it should be.
+   *
+   * Pure, and exported, because it is the half of the bar that can be wrong
+   * without looking wrong: a bar of the correct length under the wrong number
+   * is a card that measures distances incorrectly and says so confidently.
+   *
+   * @param {number} metersPerPixel
+   * @param {number} widthPx the full width of the card
+   * @returns {{meters: number, px: number, label: string}|null}
+   */
+  function scaleFor(metersPerPixel, widthPx) {
+    if (!(metersPerPixel > 0) || !(widthPx > 0)) return null;
+    var meters = _niceDistance(widthPx * SCALE_MAX_FRACTION * metersPerPixel);
+    if (!meters) return null;
+    return {
+      meters: meters,
+      px: meters / metersPerPixel,
+      label:
+        meters >= 1000
+          ? T("print.scaleKm", { value: App.i18n.n(meters / 1000) })
+          : T("print.scaleM", { value: App.i18n.n(meters) }),
+    };
+  }
+
+  /**
+   * The canvas direction a compass bearing points in, as a unit vector.
+   *
+   * The frame never turns — the map turns inside it — so a bearing has to be
+   * counter-rotated by the same angle the map was turned through. Exported
+   * for the same reason as scaleFor: a compass that is confidently wrong is
+   * worse than no compass, and off-by-a-sign is the whole failure mode.
+   *
+   * @param {number} bearingDeg clockwise from north
+   * @param {number} rotationDeg the frame's rotation, positive counter-clockwise
+   * @returns {[number, number]} +x is right, +y is down
+   */
+  function compassVector(bearingDeg, rotationDeg) {
+    var a = (bearingDeg - (rotationDeg || 0)) * DEG;
+    return [Math.sin(a), -Math.cos(a)];
+  }
+
+  /** Text with the same white halo the attribution uses, so it reads anywhere. */
+  function _haloText(ctx, text, x, y, size) {
+    ctx.lineWidth = Math.max(1, size * 0.28);
+    ctx.strokeStyle = HALO;
+    ctx.lineJoin = "round";
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = INK;
+    ctx.fillText(text, x, y);
+  }
+
+  /**
+   * A scale bar in the bottom-left corner.
+   *
+   * Drawn in canvas space rather than through the map transform: a scale bar
+   * that turned with the frame would be a diagonal ruler with sideways
+   * lettering. The distance it represents is still measured through the view,
+   * so it stays correct at any rotation.
+   */
+  function _drawScaleBar(ctx) {
+    var bar = scaleFor(_metersPerPixel(_view), RENDER_W);
+    if (!bar) return;
+
+    var margin = DECOR_MARGIN_PT * PX_PER_PT;
+    var height = SCALE_BAR_PT * PX_PER_PT;
+    var size = SCALE_FONT_PT * PX_PER_PT;
+    var x = margin;
+    var y = RENDER_H - margin - height;
+    var segment = bar.px / SCALE_SEGMENTS;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // A light backing first: OSM's forest green and water blue are dark
+    // enough to swallow a thin black outline on their own.
+    ctx.fillStyle = HALO;
+    ctx.fillRect(
+      x - height * 0.4,
+      y - height * 0.4,
+      bar.px + height * 0.8,
+      height * 1.8,
+    );
+
+    for (var i = 0; i < SCALE_SEGMENTS; i++) {
+      ctx.fillStyle = i % 2 === 0 ? INK : "#ffffff";
+      ctx.fillRect(x + i * segment, y, segment, height);
+    }
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, height * 0.12);
+    ctx.strokeRect(x, y, bar.px, height);
+
+    ctx.font = size + "px Arial, sans-serif";
+    ctx.textBaseline = "bottom";
+    ctx.textAlign = "left";
+    _haloText(ctx, "0", x, y - height * 0.5, size);
+    ctx.textAlign = "right";
+    _haloText(ctx, bar.label, x + bar.px, y - height * 0.5, size);
+
+    ctx.restore();
+  }
+
+  /**
+   * A compass rose in the top-right corner, opposite the attribution.
+   *
+   * The arms turn with the map and the letters do not. A rose whose lettering
+   * turned too would put an upside-down N on every card framed at 180°, and
+   * the one thing a compass has to be is legible.
+   */
+  function _drawCompass(ctx) {
+    var r = COMPASS_RADIUS_PT * PX_PER_PT;
+    var margin = DECOR_MARGIN_PT * PX_PER_PT;
+    var size = COMPASS_FONT_PT * PX_PER_PT;
+    var cx = RENDER_W - margin - r;
+    var cy = margin + r;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = HALO;
+    ctx.fill();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = Math.max(1, r * 0.04);
+    ctx.stroke();
+
+    ctx.font = "bold " + size + "px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    COMPASS_POINTS.forEach(function (point) {
+      var v = compassVector(point.bearing, _view.rotation);
+      var arm = r * 0.6;
+
+      if (point.needle) {
+        // A filled triangle rather than a line: north is the only direction
+        // anyone actually looks for, and it has to survive a greyscale card.
+        ctx.beginPath();
+        ctx.moveTo(cx + v[0] * arm, cy + v[1] * arm);
+        ctx.lineTo(cx - v[1] * r * 0.16, cy + v[0] * r * 0.16);
+        ctx.lineTo(cx + v[1] * r * 0.16, cy - v[0] * r * 0.16);
+        ctx.closePath();
+        ctx.fillStyle = COMPASS_NEEDLE;
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + v[0] * arm, cy + v[1] * arm);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = Math.max(1, r * 0.05);
+        ctx.stroke();
+      }
+
+      _haloText(
+        ctx,
+        T(point.key),
+        cx + v[0] * r * 0.82,
+        cy + v[1] * r * 0.82,
+        size,
+      );
+    });
+
+    ctx.restore();
+  }
+
+  function _drawDecorations(ctx) {
+    if (!_view) return;
+    var o = _opts();
+    if (o.scale) _drawScaleBar(ctx);
+    if (o.compass) _drawCompass(ctx);
   }
 
   function _drawBorder() {
@@ -2040,6 +2274,17 @@ App.print = (function () {
       });
     }
 
+    // The furniture is composited on the finished card rather than mixed into
+    // the tile mosaic, so switching either one costs a repaint and no refetch.
+    ["scale", "compass"].forEach(function (role) {
+      var box = D.role(_dialog, role);
+      if (!box) return;
+      box.addEventListener("change", function () {
+        _savePreferences();
+        _schedulePaint();
+      });
+    });
+
     D.onRole(_dialog, "rotate-ccw", function () {
       _setRotation(_view.rotation + ROTATION_STEP);
     });
@@ -2251,19 +2496,18 @@ App.print = (function () {
       erasing: D.role(_dialog, "erase").checked,
       locality: D.role(_dialog, "locality").value.trim(),
       territory: D.role(_dialog, "territory").value.trim(),
-      attach: _attachChecked(),
+      scale: _checked("scale"),
+      compass: _checked("compass"),
+      // Only meaningful on the template path: the no-template path hands a
+      // PNG to the browser's own print dialog, and there is no PDF of ours to
+      // attach anything to.
+      attach: _checked("attach"),
     };
   }
 
-  /**
-   * Whether the card carries the project it was printed from.
-   *
-   * Only meaningful on the template path: the no-template path hands a PNG to
-   * the browser's own print dialog, and there is no PDF of ours to attach
-   * anything to.
-   */
-  function _attachChecked() {
-    var box = D.role(_dialog, "attach");
+  /** A checkbox that may not be in the template, read as false when absent. */
+  function _checked(role) {
+    var box = D.role(_dialog, role);
     return !!(box && box.checked);
   }
 
@@ -2579,6 +2823,24 @@ App.print = (function () {
       form.append("territory_size", String(FIELDS.territory.size));
     }
 
+    // ── The hidden layer ────────────────────────────────────────────────
+    //
+    // The map on a card is a photograph: _paint composites tiles and street
+    // names into pixels, and by the time it reaches the PDF "Territory 7" is
+    // a shape made of dark dots, indistinguishable from a rooftop. So the
+    // sentences the tooltip shows are sent alongside the picture as text, and
+    // the server writes them into the page underneath the map, where the
+    // image hides them. The card looks identical and can be searched, copied
+    // and read aloud. See _draw_hidden_layer for why they are drawn in
+    // ordinary ink rather than in the PDF's invisible render mode.
+    //
+    // Sent from here rather than rebuilt on the server because this is where
+    // the language is known: a Polish congregation's card should carry Polish
+    // sentences, and the dictionary lives in the browser.
+    App.polygons.clusterLines(_feature).forEach(function (line) {
+      form.append("info", line);
+    });
+
     // The card carries the project it came from, so the printed sheet is also
     // the backup. See App.data.buildAttachmentPayload for what is left out and
     // why — the short version is everything that can be downloaded again.
@@ -2669,6 +2931,12 @@ App.print = (function () {
     close: close,
     undo: undo,
     redo: redo,
+    // The two halves of the card furniture that can be wrong without looking
+    // wrong. Everything else about a scale bar or a compass is visible at a
+    // glance; a bar under the wrong number and a needle off by a sign are
+    // not, and a card is read away from the screen that drew it.
+    scaleFor: scaleFor,
+    compassVector: compassVector,
     layout: function () {
       // A getter, not a reference: PLACEHOLDER and FIELDS are reassigned
       // whenever a template loads, so an exported object would go stale.

@@ -59,7 +59,11 @@ App.printFilters = (function () {
     try {
       var probe = document.createElement("canvas");
       probe.width = probe.height = PROBE_PX;
-      var ctx = probe.getContext("2d");
+      // The probe exists to be read back and nothing else, so it asks for the
+      // readback hint unconditionally. Chrome warns about repeated
+      // getImageData on a context that never asked for it, and this canvas
+      // does it three times in a row.
+      var ctx = probe.getContext("2d", { willReadFrequently: true });
       if (ctx) {
         // Readback is what the software path needs, so it is probed first and
         // on its own — a canvas can be readable without ctx.filter existing.
@@ -250,9 +254,32 @@ App.printFilters = (function () {
     return data;
   }
 
+  /**
+   * The 2D context for a canvas whose pixels will be read back every frame.
+   *
+   * Two things make this worth a function rather than an argument at the call
+   * site. The attribute is honored only on the *first* getContext call for a
+   * given canvas — every later call hands back the context that already
+   * exists and ignores what was asked for — so the hint has to be attached
+   * where the context is first created, which is print.js building the
+   * mosaic, not here where it is read. And it is worth asking for only when
+   * the software path is the one that will actually run: willReadFrequently
+   * moves the canvas off the GPU, which is the right trade when every frame
+   * is read back and the wrong one when no frame ever is.
+   *
+   * @param {HTMLCanvasElement} canvas
+   */
+  function mosaicContext(canvas) {
+    var support = _filterSupport();
+    var reads = !support.svg && support.pixels;
+    return reads
+      ? canvas.getContext("2d", { willReadFrequently: true })
+      : canvas.getContext("2d");
+  }
+
   /** Filter the finished mosaic in place, then stamp it onto the page. */
   function _drawFilteredMosaic(ctx, mosaic, ops) {
-    var mctx = mosaic.getContext("2d");
+    var mctx = mosaicContext(mosaic);
     try {
       var image = mctx.getImageData(0, 0, mosaic.width, mosaic.height);
       applyPixelFilters(image.data, mosaic.width, mosaic.height, ops);
@@ -271,6 +298,7 @@ App.printFilters = (function () {
     support: _filterSupport,
     applyPixelFilters: applyPixelFilters,
     drawFilteredMosaic: _drawFilteredMosaic,
+    mosaicContext: mosaicContext,
 
     // Exposed so the software path can be asserted against the SVG filters in
     // index.html it is supposed to reproduce exactly, rather than against

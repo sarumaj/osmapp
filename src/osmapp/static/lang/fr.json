@@ -303,7 +303,18 @@
     "errNoTemplate": "Chargez d'abord un modèle PDF.",
     "errTemplateLayout": "La mise en page du modèle n'a pas pu être lue.",
     "attach": "Intégrer le projet dans le PDF",
-    "attachHint": "La carte pourra alors être importée pour restaurer la limite et les territoires."
+    "attachHint": "La carte pourra alors être importée pour restaurer la limite et les territoires.",
+    "decorations": "Échelle et boussole",
+    "scale": "Tracer une barre d'échelle",
+    "compass": "Tracer une rose des vents",
+    "decorationsHint": "Tracées par-dessus la carte terminée. La rose tourne avec la carte pour que le nord reste au nord ; ses lettres et la barre d'échelle restent droites.",
+    "scaleM": "{value} m",
+    "scaleKm": "{value} km",
+    "compassN": "N",
+    "compassE": "E",
+    "compassS": "S",
+    "compassW": "O",
+    "infoLayerHint": "La carte porte aussi le descriptif de ce territoire en texte masqué sous la carte : recherchable et sélectionnable dans un lecteur PDF, et lu par un lecteur d'écran."
   },
   "place": {
     "title": "Positionner la carte",

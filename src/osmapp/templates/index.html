@@ -958,6 +958,23 @@
             </fieldset>
 
             <fieldset class="print-controls__group">
+              <legend data-i18n="print.decorations">Scale and compass</legend>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="scale" />
+                <span data-i18n="print.scale">Draw a scale bar</span>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="compass" />
+                <span data-i18n="print.compass">Draw a compass rose</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.decorationsHint">
+                Drawn on top of the finished card. The compass turns with the
+                map so that north keeps pointing north; its letters and the
+                scale bar stay upright.
+              </p>
+            </fieldset>
+
+            <fieldset class="print-controls__group">
               <legend data-i18n="print.border">Border</legend>
               <label class="print-controls__field">
                 <span data-i18n="print.color">Color</span>
@@ -1103,6 +1120,13 @@
               >
                 The card can then be imported to restore the boundary and the
                 territories. Only works with a template.
+              </p>
+              <!-- The one thing on a card that cannot announce itself: it is
+                   hidden by construction, and only says so here. -->
+              <p class="print-controls__hint" data-i18n="print.infoLayerHint">
+                The card also carries this territory's details as text hidden
+                under the map: searchable and selectable in a PDF reader, and
+                read aloud by a screen reader.
               </p>
               <div class="print-controls__row">
                 <button

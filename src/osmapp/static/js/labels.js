@@ -283,44 +283,51 @@ App.labels = (function () {
     if (!s || !s.innerPolygonsLayerGroup) return;
 
     _clear();
-    if (!_visible) return;
 
     var inert = !!s.editMode;
 
-    (s.clusters || []).forEach(function (entry, index) {
-      var row = _describe(entry, index);
-      _rows.push(row);
+    // Described whether or not the chips are drawn. The rows are the audit —
+    // the count, the too-small warning, the list dialog — and all of that is
+    // about the territories rather than about the numbers. Returning early
+    // here used to leave _rows empty, so switching the numbers off silently
+    // took the info panel's warning with them.
+    _rows = (s.clusters || []).map(_describe);
 
-      row.anchors.forEach(function (anchor, part) {
-        var marker = L.marker(anchor.latlng, {
-          icon: _icon(index + 1, {
-            printed: row.printed,
-            part: part > 0,
-            tiny: anchor.tiny,
-            selected: !!entry.layer._selected,
-            inert: inert,
-          }),
-          interactive: !inert,
-          keyboard: false,
-          // Well above anything else this group holds, so a chip is never
-          // the thing hidden when two territories nearly coincide.
-          zIndexOffset: 700,
+    if (_visible) {
+      _rows.forEach(function (row) {
+        var entry = s.clusters[row.index];
+
+        row.anchors.forEach(function (anchor, part) {
+          var marker = L.marker(anchor.latlng, {
+            icon: _icon(row.index + 1, {
+              printed: row.printed,
+              part: part > 0,
+              tiny: anchor.tiny,
+              selected: !!entry.layer._selected,
+              inert: inert,
+            }),
+            interactive: !inert,
+            keyboard: false,
+            // Well above anything else this group holds, so a chip is never
+            // the thing hidden when two territories nearly coincide.
+            zIndexOffset: 700,
+          });
+          anchor.marker = marker;
+          s.innerPolygonsLayerGroup.addLayer(marker);
+
+          if (inert) return;
+          App.polygons.attachProxyEvents(
+            marker,
+            entry.layer,
+            entry.feature,
+            function (on) {
+              var chip = _chip(marker);
+              if (chip) chip.classList.toggle("territory-label--hover", on);
+            },
+          );
         });
-        anchor.marker = marker;
-        s.innerPolygonsLayerGroup.addLayer(marker);
-
-        if (inert) return;
-        App.polygons.attachProxyEvents(
-          marker,
-          entry.layer,
-          entry.feature,
-          function (on) {
-            var chip = _chip(marker);
-            if (chip) chip.classList.toggle("territory-label--hover", on);
-          },
-        );
       });
-    });
+    }
   }
 
   /** Repaint one territory's chips as selected or not. */

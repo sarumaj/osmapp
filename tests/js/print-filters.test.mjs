@@ -96,14 +96,27 @@ function fakeContext(traits) {
   };
 }
 
-function loadFilters(traits) {
-  const document = {
-    createElement: () => ({
-      width: 0,
-      height: 0,
-      getContext: () => (traits === null ? null : fakeContext(traits)),
-    }),
+/** Records the attributes each getContext call asked for. */
+function fakeCanvas(traits, asked = []) {
+  let context = null;
+  return {
+    width: 0,
+    height: 0,
+    asked,
+    getContext(type, attributes) {
+      asked.push(attributes);
+      if (traits === null) return null;
+      // A real canvas hands back the context it already has and ignores the
+      // attributes on every call after the first. Modelled, because that is
+      // the whole reason mosaicContext exists.
+      if (!context) context = fakeContext(traits);
+      return context;
+    },
   };
+}
+
+function loadFilters(traits) {
+  const document = { createElement: () => fakeCanvas(traits) };
   return loadApp(["print-filters.js"], { document }).printFilters;
 }
 
@@ -350,4 +363,44 @@ test("no canvas at all is not an exception", () => {
 test("the probe result is cached", () => {
   const filters = loadFilters({ filter: "all", readable: true });
   assert.equal(filters.support(), filters.support());
+});
+
+
+// ── The readback hint ────────────────────────────────────────────────────────
+//
+// getImageData on a context that never asked for willReadFrequently is slow
+// and Chrome says so in the console. The attribute is honored on the *first*
+// getContext call for a canvas and ignored by every later one, which is why
+// asking at the readback site would have been a no-op: print.js creates the
+// mosaic's context long before print-filters.js reads it.
+
+test("the capability probe asks to be read back", () => {
+  const asked = [];
+  const document = { createElement: () => fakeCanvas({ filter: "all", readable: true }, asked) };
+  loadApp(["print-filters.js"], { document }).printFilters.support();
+  assert.deepEqual(asked[0], { willReadFrequently: true });
+});
+
+test("the mosaic asks for it when the software path is the one that runs", () => {
+  // No ctx.filter: every frame is filtered by reading the pixels back.
+  const filters = loadFilters({ filter: "none", readable: true });
+  const canvas = fakeCanvas({ filter: "none", readable: true });
+  filters.mosaicContext(canvas);
+  assert.deepEqual(canvas.asked, [{ willReadFrequently: true }]);
+});
+
+test("the mosaic does not ask for it when the browser filters natively", () => {
+  // willReadFrequently moves the canvas off the GPU. On the fast path nothing
+  // is ever read back, so that would be a slower map for no benefit at all.
+  const filters = loadFilters({ filter: "all", readable: true });
+  const canvas = fakeCanvas({ filter: "all", readable: true });
+  filters.mosaicContext(canvas);
+  assert.deepEqual(canvas.asked, [undefined]);
+});
+
+test("a browser that can neither filter nor read back is not asked either", () => {
+  const filters = loadFilters({ filter: "none", readable: false });
+  const canvas = fakeCanvas({ filter: "none", readable: false });
+  filters.mosaicContext(canvas);
+  assert.deepEqual(canvas.asked, [undefined]);
 });

@@ -39,6 +39,17 @@ _PROJECT_MAX_UNZIPPED = 32 * 1024 * 1024
 _FONT_NAME = "OsmAppSans"
 _font_ready = False
 
+# The hidden layer's type size, line spacing and inset from the map's edge, in
+# points. Nothing is ever seen, so these decide only two things: how big a
+# selection rectangle each line offers someone dragging across the map in a
+# reader, and how much margin there is against straying out from under the
+# image. Below _INFO_MIN_SIZE the layer is dropped rather than overflowed —
+# text that escapes the map is text printed on the card.
+_INFO_FONT_SIZE = 8.0
+_INFO_LEADING = 1.25
+_INFO_INSET = 4.0
+_INFO_MIN_SIZE = 2.0
+
 
 def _ensure_font() -> str:
     """Register a Unicode TTF once. Helvetica is WinAnsi and cannot render
@@ -169,7 +180,21 @@ def compose_pdf() -> Response:
     if not 0 <= page_index < page_count:
         return error_("The template has no page at that index.")
 
-    page = reader.pages[page_index]
+    # clone_from, not append(). append() copies the pages and rebuilds the
+    # catalog, which silently drops /Names /EmbeddedFiles — so a template that
+    # arrived with an attachment lost it, and anything attached below would
+    # have to be added after a rebuild that no longer knows about it. Cloning
+    # carries the whole document across, attachments included.
+    #
+    # Cloned here rather than after the merge, and the page taken from the
+    # *writer*. The writer copies the document at the moment it is built, so
+    # stamping the reader's page afterwards stamped a page that was never
+    # written: the card came out as the bare template, with no map and no
+    # locality on it, and nothing anywhere reported a failure. The preview was
+    # correct throughout, which is what made it look like a rendering problem.
+    writer = PdfWriter(clone_from=reader)
+    page = writer.pages[page_index]
+
     if int(page.get("/Rotate", 0) or 0) % 360:
         return error_("Rotated template pages are not supported.")
 
@@ -207,6 +232,13 @@ def compose_pdf() -> Response:
 
     overlay_buf = BytesIO()
     overlay = rl_canvas.Canvas(overlay_buf, pagesize=(page_w, page_h))
+
+    # Before the map, and that ordering is the whole mechanism. See
+    # _draw_hidden_layer.
+    _draw_hidden_layer(
+        overlay, request.form.getlist("info"), draw_x, draw_y, draw_w, draw_h
+    )
+
     overlay.drawImage(  # type: ignore[reportUnknownMemberType]
         art,
         draw_x,
@@ -237,13 +269,6 @@ def compose_pdf() -> Response:
         logger.exception("compose_pdf: merge failed")
         return error_("Could not stamp the map onto the template.", 500)
 
-    # clone_from, not append(). append() copies the pages and rebuilds the
-    # catalog, which silently drops /Names /EmbeddedFiles — so a template that
-    # arrived with an attachment lost it, and anything attached below would
-    # have to be added after a rebuild that no longer knows about it. Cloning
-    # carries the whole document across, attachments included.
-    writer = PdfWriter(clone_from=reader)
-
     project = request.files.get("project")
     if project is not None:
         try:
@@ -265,6 +290,92 @@ def compose_pdf() -> Response:
             "Content-Disposition": f'inline; filename="territory_map_{int(time.time())}.pdf"'
         },
     )
+
+
+def _draw_hidden_layer(
+    overlay: rl_canvas.Canvas,
+    lines: list[str],
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> None:
+    """Write the territory's description under the map, where it cannot be seen.
+
+    The map on a card is a photograph. `_paint` composites tiles and street
+    names into pixels, so by the time a card exists "Territory 7" is a shape
+    made of dark dots that no reader can tell from a rooftop. This puts the
+    sentences back as real text.
+
+    ── Why not invisible ink ──────────────────────────────────────────────
+
+    The obvious way to hide text in a PDF is text render mode 3 — laid out and
+    recorded, painted with no ink — which is what a scanner puts under a
+    scanned page. It was tried here first and the bytes were right: `3 Tr` in
+    the stream, a /ToUnicode map on the font, pypdf extracting it cleanly. It
+    still could not be selected in a reader, because whether invisible text
+    answers a selection is up to the viewer, and not all of them let it.
+
+    So the text is ordinary, and it is hidden the way the template's own
+    "map goes here" marker is hidden: by drawing it first and painting an
+    opaque image over the top. That marker stays selectable under the finished
+    card, which is the proof that this works in the reader that matters —
+    whichever one somebody actually opens the card in.
+
+    ── Staying underneath ────────────────────────────────────────────────
+
+    Ordinary text is only invisible while something covers it, so the bounds
+    given here are the *image's* rectangle rather than the placeholder's. The
+    two are not the same: a map is centred inside its box at its own aspect
+    ratio, and the bands that can leave above and below are page, not map.
+    Text straying into one would be printed on the card.
+
+    The type size is then shrunk until the longest line fits the width and all
+    of them fit the height, and the layer is dropped entirely rather than
+    drawn overflowing if that needs an absurd size. White ink is the second
+    line of defense: should any of this ever be wrong, white on white paper is
+    still nothing.
+
+    Failures are logged and swallowed. The font is the one thing here that can
+    be missing — it is a Git LFS object, and a checkout without LFS leaves a
+    pointer file reportlab refuses — and a card that prints without a layer
+    nobody can see beats no card at all.
+
+    :param lines: the sentences, already translated by the client.
+    :param x, y, width, height: the drawn image's rectangle, in page points.
+    """
+    lines = [line.strip() for line in lines if line and line.strip()]
+    if not lines or width <= 0 or height <= 0:
+        return
+
+    try:
+        font = _ensure_font()
+
+        # Height first, then width, then take whichever is smaller.
+        size = min(_INFO_FONT_SIZE, (height - 2 * _INFO_INSET) / (len(lines) * _INFO_LEADING))
+        widest = max(overlay.stringWidth(line, font, size) for line in lines)
+        room = width - 2 * _INFO_INSET
+        if widest > room:
+            size *= room / widest
+
+        if size < _INFO_MIN_SIZE:
+            logger.warning(
+                "compose_pdf: no room for the hidden text layer in a %.0f×%.0f pt map",
+                width,
+                height,
+            )
+            return
+
+        text = overlay.beginText()
+        text.setFont(font, size)  # type: ignore[reportUnknownMemberType]
+        text.setFillColorRGB(1, 1, 1)
+        text.setTextOrigin(x + _INFO_INSET, y + height - _INFO_INSET - size)
+        text.setLeading(size * _INFO_LEADING)
+        for line in lines:
+            text.textLine(line)
+        overlay.drawText(text)  # type: ignore[reportUnknownMemberType]
+    except Exception:
+        logger.exception("compose_pdf: could not write the hidden text layer")
 
 
 def _attach_project(writer: PdfWriter, raw: bytes) -> None:
