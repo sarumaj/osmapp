@@ -336,8 +336,7 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "W",
-    "infoLayerHint": "Karta niesie też opis tego terenu jako tekst ukryty pod mapą: można go wyszukać i zaznaczyć w czytniku PDF, a czytnik ekranu go odczyta."
+    "compassW": "W"
   },
   "place": {
     "title": "Umieść mapę",

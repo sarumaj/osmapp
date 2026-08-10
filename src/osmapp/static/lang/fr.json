@@ -313,8 +313,7 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "O",
-    "infoLayerHint": "La carte porte aussi le descriptif de ce territoire en texte masqué sous la carte : recherchable et sélectionnable dans un lecteur PDF, et lu par un lecteur d'écran."
+    "compassW": "O"
   },
   "place": {
     "title": "Positionner la carte",

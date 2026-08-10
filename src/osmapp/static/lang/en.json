@@ -313,8 +313,7 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "W",
-    "infoLayerHint": "The card also carries this territory's details as text hidden under the map: searchable and selectable in a PDF reader, and read aloud by a screen reader."
+    "compassW": "W"
   },
   "place": {
     "title": "Position the map",

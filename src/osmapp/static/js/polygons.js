@@ -258,15 +258,6 @@ App.polygons = (function () {
     });
   }
 
-  /** The same lookup by feature identity, for callers that hold one. */
-  function _findByFeature(feature) {
-    if (!feature) return null;
-    for (var i = 0; i < s.clusters.length; i++)
-      if (s.clusters[i].feature === feature)
-        return { index: i, entry: s.clusters[i] };
-    return null;
-  }
-
   function findCluster(layer) {
     for (var i = 0; i < s.clusters.length; i++)
       if (s.clusters[i].layer === layer)
@@ -668,36 +659,22 @@ App.polygons = (function () {
   }
 
   /**
-   * What the app knows about one territory, as plain-text lines.
-   *
-   * Resolved when it is asked for rather than when the layer is created —
-   * counts are filled in by refreshFilteredData(), which runs after
+   * Tooltip body, resolved when the tooltip opens rather than when the layer is
+   * created — counts are filled in by refreshFilteredData(), which runs after
    * setClusters() has already built the layers.
    *
-   * Two things describe a territory in words: the hover tooltip, and the
-   * invisible text layer the server writes into a printed card. Two copies of
-   * "what is worth saying about a territory" would drift apart on the first
-   * line either of them gained, so the sentences are built once, here, with
-   * no markup at all. The tooltip adds its own emphasis; the card adds
-   * nothing, because the only thing that ever reads it is a machine.
-   *
-   * Everything in the list is either a translated string or a number this app
+   * Everything in it is either a translated string or a number this app
    * computed, which is why — unlike the building and street tooltips below —
    * none of it needs escaping.
-   *
-   * @param {L.Layer|Object} target the territory, named either by the layer
-   *   the pointer is touching or by the feature print.js is holding. Two
-   *   callers, two handles on the same thing, and neither should have to
-   *   convert to the other's.
-   * @returns {string[]} the territory's name first, then whatever else is
-   *   known. Empty when the target is not one of the current territories.
    */
-  function clusterLines(target) {
-    var found = findCluster(target) || _findByFeature(target);
-    if (!found) return [];
+  function _tooltipContent(layer) {
+    var found = findCluster(layer);
+    if (!found) return "";
     var entry = found.entry;
 
-    var lines = [T("tooltip.territory", { n: found.index + 1 })];
+    var lines = [
+      "<strong>" + T("tooltip.territory", { n: found.index + 1 }) + "</strong>",
+    ];
 
     if (entry.counts) {
       lines.push(T("tooltip.buildings", { count: App.i18n.n(entry.counts.buildings) }));
@@ -725,19 +702,7 @@ App.polygons = (function () {
     var stamp = printedAt(entry.feature);
     if (stamp) lines.push(T("tooltip.printed", { date: _formatDate(stamp) }));
 
-    return lines;
-  }
-
-  /** The same sentences, with the tooltip's own emphasis on the first one. */
-  function _tooltipContent(layer) {
-    var lines = clusterLines(layer);
-    if (lines.length === 0) return "";
-    return (
-      "<strong>" +
-      lines[0] +
-      "</strong>" +
-      (lines.length > 1 ? "<br>" + lines.slice(1).join("<br>") : "")
-    );
+    return lines.join("<br>");
   }
 
   /** Locale-formatted day, falling back to the raw ISO date if unparseable. */
@@ -1381,7 +1346,6 @@ App.polygons = (function () {
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
     clusterAt: clusterAt,
-    clusterLines: clusterLines,
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,

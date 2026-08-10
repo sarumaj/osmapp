@@ -313,8 +313,7 @@
     "compassN": "N",
     "compassE": "O",
     "compassS": "S",
-    "compassW": "W",
-    "infoLayerHint": "Die Karte trägt die Angaben zu diesem Gebiet zusätzlich als Text unter der Karte: im PDF-Betrachter durchsuch- und markierbar und von einem Screenreader vorlesbar."
+    "compassW": "W"
   },
   "place": {
     "title": "Karte positionieren",

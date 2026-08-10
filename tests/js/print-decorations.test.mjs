@@ -211,21 +211,3 @@ test("the compass letters are translated rather than spelled out", () => {
   }
 });
 
-// ── The hidden layer ─────────────────────────────────────────────────────────
-//
-// The sentences are translated in the browser and posted beside the picture,
-// because the dictionary is here and rebuilding them on the server would mean
-// a second copy of it — and a Polish congregation printing English cards.
-
-test("the card is sent the same sentences the tooltip shows", () => {
-  assert.match(PRINT, /App\.polygons\.clusterLines\(_feature\)/);
-  assert.match(PRINT, /form\.append\("info", line\)/);
-});
-
-test("the sentences are built once, not restated here", () => {
-  // print.js must not grow its own idea of what a territory is worth saying
-  // about; polygons.clusterLines is the single source and the tooltip's too.
-  for (const key of ["tooltip.buildings", "tooltip.streets", "tooltip.areaM"]) {
-    assert.ok(!PRINT.includes(key), `${key} is being rebuilt in print.js`);
-  }
-});

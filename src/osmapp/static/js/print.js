@@ -2823,24 +2823,6 @@ App.print = (function () {
       form.append("territory_size", String(FIELDS.territory.size));
     }
 
-    // ── The hidden layer ────────────────────────────────────────────────
-    //
-    // The map on a card is a photograph: _paint composites tiles and street
-    // names into pixels, and by the time it reaches the PDF "Territory 7" is
-    // a shape made of dark dots, indistinguishable from a rooftop. So the
-    // sentences the tooltip shows are sent alongside the picture as text, and
-    // the server writes them into the page underneath the map, where the
-    // image hides them. The card looks identical and can be searched, copied
-    // and read aloud. See _draw_hidden_layer for why they are drawn in
-    // ordinary ink rather than in the PDF's invisible render mode.
-    //
-    // Sent from here rather than rebuilt on the server because this is where
-    // the language is known: a Polish congregation's card should carry Polish
-    // sentences, and the dictionary lives in the browser.
-    App.polygons.clusterLines(_feature).forEach(function (line) {
-      form.append("info", line);
-    });
-
     // The card carries the project it came from, so the printed sheet is also
     // the backup. See App.data.buildAttachmentPayload for what is left out and
     // why — the short version is everything that can be downloaded again.
