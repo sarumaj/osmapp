@@ -28,6 +28,16 @@
   --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
 
   --z-map-ui: 1000;
+  /* Readouts — the hint banner, the info panel — sit below anything that can
+     be clicked, because that is what they are: text about the thing rather
+     than the thing. The hint is mounted after the mode bar and the info panel
+     used to be on a hand-written 1200, so on the two levels below both of
+     them ended up on top of controls they were describing.
+
+     Everything on the map now takes one of these four, in this order:
+     readouts, mode bars, menus, dialogs. */
+  --z-status: 1040;
+  --z-mode-bar: 1060;
   --z-menu: 1100;
   --z-dialog: 2000;
   --z-overlay: 10000;
@@ -223,11 +233,16 @@ body {
 /* ═══════════════════════════════════════════════════════════
    Info panel
    ═══════════════════════════════════════════════════════════ */
+/* The panel is a readout, so it takes the readout level. On its old 1200 it
+   outranked every token in the file: a right-click near the bottom-right
+   corner opened the context menu *behind* the panel, and since the panel is
+   opaque and takes pointer events, the covered items could not be clicked
+   either. Same for a mode bar on a narrow window, below. */
 #info-panel {
   position: fixed;
   bottom: 30px;
   right: 20px;
-  z-index: 1200;
+  z-index: var(--z-status);
   background: var(--c-surface);
   padding: 10px 16px;
   border: 1px solid var(--c-border);
@@ -262,6 +277,18 @@ body {
   margin: 10px 0 0;
   font-size: var(--ui-fs-sm);
   color: var(--c-text-dim);
+}
+
+/* The panel claims the rightmost 280px of the bottom edge; a mode bar is
+   centred and up to 420px wide, so the two meet once the window is narrower
+   than 980px — and the panel's two counts are buttons, so an overlap costs
+   clicks whichever way the stacking goes. Below that width the mode is the
+   task and the counts can wait: dom.js sets .has-map-bar for as long as a
+   bar or the hint banner is on the map. */
+@media (max-width: 979px) {
+  body.has-map-bar #info-panel {
+    display: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -423,15 +450,48 @@ body {
    after a click on the map, with the accent of the toolbar button that turned
    the mode on — purple for Cut, amber for Merge — so the bar and the lit
    button read as the same thing.
+
+   ── The stack ────────────────────────────────────────────────────────────
+
+   Each of them used to anchor itself: bottom: 76px on the bar, bottom: 30px
+   on the banner, and 76 chosen because a one-line banner is 46px tall. Two
+   things went wrong with that. The offset was copied to three bars and missed
+   on the fourth, which is how the merge bar spent its life under the banner.
+   And the constant is only right while the banner is one line — cut's names
+   six gestures and wraps to two or three on a narrow window, growing straight
+   up through the gap and into the bar above it.
+
+   So neither one positions itself now. The stack is the only thing anchored
+   to the bottom edge; the bar and the banner are flex items in it, in that
+   order, and the gap between them is a gap property rather than a subtraction
+   somebody has to redo whenever a string gets longer. Nothing to keep in sync
+   and nothing that assumes a line count.
    ═══════════════════════════════════════════════════════════ */
+.map-bottom-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  z-index: var(--z-mode-bar);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  max-width: calc(100vw - 24px);
+  /* The stack is as tall as a mode bar plus a banner and mostly empty space:
+     left solid it would swallow drags on the map between them. Each child
+     takes its own events back — except the banner, which never wanted any. */
+  pointer-events: none;
+}
+
+.map-bottom-stack > * {
+  pointer-events: auto;
+}
+
 .cut-toolbar,
 .merge-toolbar,
 .trim-toolbar,
 .outline-toolbar {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-map-ui);
   background: var(--c-surface);
   border: 2px solid var(--c-border-strong);
   border-top-width: 4px;
@@ -446,7 +506,7 @@ body {
 @keyframes mode-bar-in {
   from {
     opacity: 0;
-    transform: translate(-50%, 10px);
+    transform: translateY(10px);
   }
 }
 
@@ -459,14 +519,11 @@ body {
   }
 }
 
-/* Cut mode also shows the hint banner, which owns bottom: 30px. */
 .cut-toolbar {
-  bottom: 76px;
   border-top-color: var(--c-cluster);
 }
 
 .merge-toolbar {
-  bottom: 30px;
   border-top-color: var(--c-warn);
   display: flex;
   gap: 8px;
@@ -570,7 +627,6 @@ body {
    this reshapes the working area rather than the territories inside it, and
    the bar should say which of the two it belongs to before it is read. */
 .trim-toolbar {
-  bottom: 76px; /* the hint banner owns bottom: 30px */
   border-top-color: var(--c-accent);
   width: min(420px, calc(100vw - 24px));
 }
@@ -745,12 +801,11 @@ body {
   cursor: grabbing !important;
 }
 
+/* Last in the stack, so it sits under the mode bar rather than beside it in
+   the source order — which of the two is mounted first depends on the mode,
+   and did decide the answer back when they overlapped. */
 .draw-hint {
-  position: absolute;
-  bottom: 30px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-menu);
+  order: 1;
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
   padding: 7px 18px;
@@ -759,6 +814,18 @@ body {
   pointer-events: none;
   max-width: calc(100vw - 24px);
   text-align: center;
+}
+
+/* The stack is centred on the bottom edge and the info panel is anchored to
+   the right of it, so a long banner — merge's names five keys — grows into
+   the panel's column on any window wide enough to keep the panel around.
+   Wrapping it a line earlier costs nothing; running under the counts costs
+   the counts. Below this width the panel is hidden instead (see #info-panel),
+   so the banner keeps the full width there. */
+@media (min-width: 980px) {
+  .draw-hint {
+    max-width: calc(100vw - 600px);
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1123,10 +1190,7 @@ body {
 }
 
 /* ── Outline editor bar ────────────────────────────────────────────────── */
-/* Above the hint banner, which owns bottom: 30px — the same arrangement the
-   cut bar uses, and for the same reason: both tools explain a gesture. */
 .outline-toolbar {
-  bottom: 76px;
   border-top-color: var(--c-accent);
 }
 

@@ -78,23 +78,73 @@ App.dom = (function () {
     return node;
   }
 
+  /**
+   * The furniture that lives on the bottom edge of the map: the hint banner
+   * and the four mode bars. Two things read this list — the stack they are
+   * mounted into, and the .has-map-bar flag the info panel watches, since it
+   * occupies the same edge and style.css hides it on a narrow window where
+   * the two would otherwise land on the same pixels.
+   */
+  var BOTTOM_BARS =
+    ".draw-hint,.cut-toolbar,.merge-toolbar,.trim-toolbar,.outline-toolbar";
+
+  /**
+   * Kept here rather than at the nine mount and unmount sites across
+   * editing.js, trim.js, outline.js and main.js: every one of them already
+   * goes through mountOnMap() and remove(), and a flag that four modules have
+   * to remember to clear is a flag that stays set after the one path nobody
+   * tested.
+   */
+  function _syncBottomBars() {
+    if (!document.querySelector || !document.body || !document.body.classList)
+      return;
+    document.body.classList.toggle(
+      "has-map-bar",
+      !!document.querySelector(BOTTOM_BARS),
+    );
+  }
+
   /** Remove a node if it is still attached. */
   function remove(node) {
     if (node && node.parentNode) node.parentNode.removeChild(node);
+    _syncBottomBars();
     return null;
   }
 
   /**
    * Mount a template into the Leaflet map container and shield it from
    * map drag/scroll/click handlers. Returns the node.
+   *
+   * Bottom-edge furniture goes into the stack instead of straight into the
+   * container, so the bar and the banner are laid out against each other
+   * rather than each against the bottom of the map.
    */
   function mountOnMap(templateId, map) {
-    var node = mount(templateId, map.getContainer());
+    var node = render(templateId);
+    var host = map.getContainer();
+    if (node.matches && node.matches(BOTTOM_BARS)) host = _bottomStack(host);
+    host.appendChild(node);
     if (window.L && L.DomEvent) {
       L.DomEvent.disableClickPropagation(node);
       L.DomEvent.disableScrollPropagation(node);
     }
+    _syncBottomBars();
     return node;
+  }
+
+  /**
+   * Made on first use and then left in place. Empty it has no children, so it
+   * has no height and nothing to hit — cheaper than teardown bookkeeping in
+   * remove(), which does not know a stack from any other parent.
+   */
+  function _bottomStack(container) {
+    var stack = container.querySelector(".map-bottom-stack");
+    if (!stack) {
+      stack = document.createElement("div");
+      stack.className = "map-bottom-stack";
+      container.appendChild(stack);
+    }
+    return stack;
   }
 
   return {
