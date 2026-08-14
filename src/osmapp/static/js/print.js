@@ -444,6 +444,18 @@ App.print = (function () {
   }
 
   function _detectLayout(file) {
+    return App.pdfdoc.withFallback(
+      "inspect_template",
+      function () {
+        return App.pdfdoc.inspectTemplate(file);
+      },
+      function () {
+        return _detectLayoutOnServer(file);
+      },
+    );
+  }
+
+  function _detectLayoutOnServer(file) {
     var form = new FormData();
     form.append("template", file);
     return fetch("/inspect_template", { method: "POST", body: form }).then(
@@ -955,16 +967,20 @@ App.print = (function () {
       return;
     }
 
-    var form = new FormData();
-    form.append("template", _templateFile);
-    form.append("page", String(_layout.page || 0));
+    var file = _templateFile;
+    var page = _layout.page || 0;
 
     _setStatus(T("print.renderingTemplate"));
-    fetch("/template_preview", { method: "POST", body: form })
-      .then(function (r) {
-        if (!r.ok) throw new Error("template_preview returned " + r.status);
-        return r.blob();
-      })
+    App.pdfdoc
+      .withFallback(
+        "template_preview",
+        function () {
+          return App.pdfdoc.renderPage(file, page);
+        },
+        function () {
+          return _renderPageOnServer(file, page);
+        },
+      )
       .then(function (blob) {
         _setStatus("");
         if (_dialog) _showPlacement(URL.createObjectURL(blob));
@@ -976,6 +992,18 @@ App.print = (function () {
           false,
         );
       });
+  }
+
+  function _renderPageOnServer(file, page) {
+    var form = new FormData();
+    form.append("template", file);
+    form.append("page", String(page));
+    return fetch("/template_preview", { method: "POST", body: form }).then(
+      function (r) {
+        if (!r.ok) throw new Error("template_preview returned " + r.status);
+        return r.blob();
+      },
+    );
   }
 
   function _showPlacement(url) {
@@ -2958,65 +2986,67 @@ App.print = (function () {
     doc.body.appendChild(img);
   }
 
-  /** Template supplied: stamp the map into the placeholder server-side. */
+  /**
+   * Template supplied: stamp the map into the placeholder.
+   *
+   * Composed in the browser, which is what makes a card printable with no
+   * network at all. /compose_pdf is still there and still correct, and
+   * App.pdfdoc falls back to it whenever the client path cannot finish — a
+   * browser too old for CompressionStream, a vendor file that never
+   * downloaded, a template pdf-lib refuses and pypdf tolerates.
+   */
   function _composePdf(blob) {
     var o = _opts();
-    var form = new FormData();
+    var spec = {
+      template: _templateFile,
+      image: blob,
+      // page lives on the layout, not the placeholder — sending
+      // PLACEHOLDER.page posted the string "undefined" and the server
+      // rejected the whole request.
+      page: _layout.page || 0,
+      box: {
+        x: PLACEHOLDER.x,
+        y: PLACEHOLDER.y,
+        width: PLACEHOLDER.width,
+        height: PLACEHOLDER.height,
+      },
+      fields: [],
+      project: null,
+    };
 
-    form.append("template", _templateFile);
-    form.append("image", blob, "territory.png");
-    // page lives on the layout, not the placeholder — sending PLACEHOLDER.page
-    // posted the string "undefined" and the server rejected the whole request.
-    form.append("page", String(_layout.page || 0));
-    form.append("x", String(PLACEHOLDER.x));
-    form.append("y", String(PLACEHOLDER.y));
-    form.append("width", String(PLACEHOLDER.width));
-    form.append("height", String(PLACEHOLDER.height));
-
-    if (o.locality) {
-      form.append("locality", o.locality);
-      form.append("locality_x", String(FIELDS.locality.x));
-      form.append("locality_y", String(FIELDS.locality.y));
-      form.append("locality_size", String(FIELDS.locality.size));
-    }
-    if (o.territory) {
-      form.append("territory", o.territory);
-      form.append("territory_x", String(FIELDS.territory.x));
-      form.append("territory_y", String(FIELDS.territory.y));
-      form.append("territory_size", String(FIELDS.territory.size));
-    }
+    ["locality", "territory"].forEach(function (name) {
+      if (!o[name] || !FIELDS[name]) return;
+      spec.fields.push({
+        name: name,
+        text: o[name],
+        x: FIELDS[name].x,
+        y: FIELDS[name].y,
+        size: FIELDS[name].size,
+      });
+    });
 
     // The card carries the project it came from, so the printed sheet is also
     // the backup. See App.data.buildAttachmentPayload for what is left out and
     // why — the short version is everything that can be downloaded again.
     if (o.attach) {
       try {
-        var payload = App.data.buildAttachmentPayload();
-        form.append(
-          "project",
-          new Blob([JSON.stringify(payload)], { type: "application/json" }),
-          "osmapp-project.json",
-        );
+        spec.project = App.data.buildAttachmentPayload();
       } catch (e) {
         // A card that prints without its backup beats no card at all.
         console.warn(">>> Could not attach the project state:", e.message);
       }
     }
 
-    return fetch("/compose_pdf", { method: "POST", body: form })
-      .then(function (r) {
-        if (!r.ok) {
-          return r.json().then(
-            function (data) {
-              throw new Error(data.error || "Server returned " + r.status);
-            },
-            function () {
-              throw new Error("Server returned " + r.status);
-            },
-          );
-        }
-        return r.blob();
-      })
+    return App.pdfdoc
+      .withFallback(
+        "compose_pdf",
+        function () {
+          return App.pdfdoc.compose(spec);
+        },
+        function () {
+          return _composeOnServer(spec);
+        },
+      )
       .then(function (pdf) {
         _releasePdf();
         _pdfUrl = URL.createObjectURL(pdf);
@@ -3058,6 +3088,52 @@ App.print = (function () {
         // without the outer handler overwriting the specific message above.
         return false;
       });
+  }
+
+  /** The original request, kept verbatim as the fallback path. */
+  function _composeOnServer(spec) {
+    var form = new FormData();
+
+    form.append("template", spec.template);
+    form.append("image", spec.image, "territory.png");
+    form.append("page", String(spec.page));
+    form.append("x", String(spec.box.x));
+    form.append("y", String(spec.box.y));
+    form.append("width", String(spec.box.width));
+    form.append("height", String(spec.box.height));
+
+    spec.fields.forEach(function (field) {
+      form.append(field.name, field.text);
+      form.append(field.name + "_x", String(field.x));
+      form.append(field.name + "_y", String(field.y));
+      form.append(field.name + "_size", String(field.size));
+    });
+
+    if (spec.project) {
+      form.append(
+        "project",
+        new Blob([JSON.stringify(spec.project)], {
+          type: "application/json",
+        }),
+        "osmapp-project.json",
+      );
+    }
+
+    return fetch("/compose_pdf", { method: "POST", body: form }).then(
+      function (r) {
+        if (!r.ok) {
+          return r.json().then(
+            function (data) {
+              throw new Error(data.error || "Server returned " + r.status);
+            },
+            function () {
+              throw new Error("Server returned " + r.status);
+            },
+          );
+        }
+        return r.blob();
+      },
+    );
   }
 
   function _releasePdf() {

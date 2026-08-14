@@ -40,6 +40,21 @@
       window.BASEMAPS = {{ basemaps | tojson }};
       // Kept as a fallback for the in-place switch path.
       window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
+      // Named here rather than loaded here. Together these are around two
+      // megabytes of PDF machinery that only the print and card-import paths
+      // ever touch, so pdfdoc.js pulls them in on first use; the service
+      // worker precaches them regardless, which is what makes composing a
+      // card offline work at all.
+      window.VENDOR = {
+        pdfLib: "{{ url_for('static', filename='vendor/unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js') }}",
+        fontkit: "{{ url_for('static', filename='vendor/unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js') }}",
+        pdfjs: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs') }}",
+        pdfjsWorker: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs') }}",
+        pdfjsStandardFonts: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/') }}",
+        // Was reportlab's alone. The client draws the card's two text fields
+        // now, and the standard 14 cannot render ł ą ę ś ż ź ć ń.
+        font: "{{ url_for('static', filename='fonts/DejaVuSans.ttf') }}",
+      };
     </script>
     <link
       rel="stylesheet"
@@ -1449,6 +1464,10 @@
     <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
     <script src="{{ url_for('static', filename='js/naming.js') }}"></script>
+    <!-- Ahead of both its callers: data.js reads it when a card is imported
+         and print.js when one is composed. Neither resolves it at load time,
+         but a module that two others reach for belongs in front of them. -->
+    <script src="{{ url_for('static', filename='js/pdfdoc.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data.js') }}"></script>
     <script src="{{ url_for('static', filename='js/session.js') }}"></script>
     <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>

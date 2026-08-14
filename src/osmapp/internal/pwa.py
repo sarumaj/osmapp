@@ -37,9 +37,11 @@ from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
 
 bp = Blueprint("pwa", __name__)
 
-# Directories precached on install. `fonts/` is deliberately absent: DejaVuSans
-# is used by reportlab on the server and never fetched by the browser.
-PRECACHE_DIRS = ("css", "js", "lang", "icons", "vendor")
+# Directories precached on install. `fonts/` is here because DejaVuSans stopped
+# being reportlab's alone: static/js/pdfdoc.js composes the card in the browser
+# and embeds the same face, and the standard 14 cannot render ł ą ę ś ż ź ć ń.
+# It is ~750 KB, which is the price of printing a card with no network.
+PRECACHE_DIRS = ("css", "fonts", "js", "lang", "icons", "vendor")
 
 THEME_COLOR = "#3388ff"  # --c-accent
 BACKGROUND_COLOR = "#ffffff"  # --c-surface
