@@ -45,6 +45,9 @@ const SOURCE = {
   ui: readFileSync(join(JS_DIR, "ui.js"), "utf8"),
   polygons: readFileSync(join(JS_DIR, "polygons.js"), "utf8"),
   outline: readFileSync(join(JS_DIR, "outline.js"), "utf8"),
+  controls: readFileSync(join(JS_DIR, "controls.js"), "utf8"),
+  shortcuts: readFileSync(join(JS_DIR, "shortcuts.js"), "utf8"),
+  labels: readFileSync(join(JS_DIR, "labels.js"), "utf8"),
 };
 
 /**
@@ -294,6 +297,7 @@ const DIALOG_SOURCE = {
   clustering: readFileSync(join(JS_DIR, "clustering.js"), "utf8"),
   boundary: readFileSync(join(JS_DIR, "boundary.js"), "utf8"),
   ui: readFileSync(join(JS_DIR, "ui.js"), "utf8"),
+  labels: readFileSync(join(JS_DIR, "labels.js"), "utf8"),
 };
 
 const DIALOGS = [
@@ -302,6 +306,9 @@ const DIALOGS = [
   { name: "partition", module: "clustering", id: "partition" },
   { name: "boundary", module: "boundary", id: "boundary" },
   { name: "confirm", module: "ui", id: "confirm" },
+  // The last screen that took over without registering anything, so "?" over
+  // it listed the keys of the map underneath and said nothing about the list.
+  { name: "territory list", module: "labels", id: "list" },
 ];
 
 for (const dialog of DIALOGS) {
@@ -319,6 +326,137 @@ for (const dialog of DIALOGS) {
     );
   });
 }
+
+// ── The main view answers the keyboard too ───────────────────────────────────
+//
+// The same asymmetry as everything above, one level out. Every modal tool in
+// the app binds a dozen keys; *entering* one of them was mouse-only, so the
+// shortcut sheet on the main map listed five lines one keystroke before it
+// listed fourteen — which reads as an app that mostly has no shortcuts.
+
+test("every key a toolbar button advertises is a key the app answers", () => {
+  // The tooltip is a promise. A button that says "— T" and a registry with no
+  // T in it is the documentation-drift this whole module exists to catch,
+  // pointed the other way.
+  const advertised = [...SOURCE.controls.matchAll(/\bshortcut:\s*"([^"]+)"/g)].map(
+    (m) => m[1],
+  );
+  assert.ok(advertised.length >= 8, "the toolbar advertises no keys at all");
+
+  const answered = new Set(
+    [SOURCE.controls, SOURCE.shortcuts]
+      .flatMap((source) => [...source.matchAll(/combos:\s*\[([^\]]+)\]/g)])
+      .flatMap((m) => [...m[1].matchAll(/"([^"]+)"/g)].map((c) => c[1])),
+  );
+
+  const unanswered = advertised.filter((key) => !answered.has(key));
+  assert.deepStrictEqual(unanswered, []);
+});
+
+test("entering a tool has a key, the way leaving one does", () => {
+  for (const label of [
+    "goDraw",
+    "goTrim",
+    "goSplit",
+    "goCut",
+    "goMerge",
+    "goNumbers",
+    "goPrint",
+    "goTour",
+  ]) {
+    assert.match(
+      SOURCE.controls,
+      new RegExp(`labelKey:\\s*"shortcuts\\.${label}"`),
+      `nothing enters the tool behind shortcuts.${label}`,
+    );
+  }
+});
+
+test("a mode-entry key stands down while a mode is running", () => {
+  // Single letters are only safe out here because the tools own them while
+  // they are open. Without the gate, T inside the merge tool starts trimming
+  // from underneath it — the tools bind their own letters, but only the ones
+  // they use.
+  assert.match(SOURCE.controls, /function _idle\(/);
+  assert.match(SOURCE.controls, /function _whenIdle\(/);
+  assert.match(SOURCE.controls, /\.map\(_whenIdle\)/);
+});
+
+// ── Menus ────────────────────────────────────────────────────────────────────
+
+test("right-clicking bare ground is not left to the browser", () => {
+  // Every menu in the app needed something under the pointer, so empty map
+  // fell through to the browser's own — including in the two modes whose hint
+  // banner promises a menu and whose menu is the only route to some of what
+  // they do.
+  assert.match(SOURCE.ui, /function showMapContextMenu/);
+  assert.match(SOURCE.main, /map\.on\("contextmenu"/);
+  assert.match(SOURCE.main, /App\.ui\.showMapContextMenu/);
+  // Cut is the one exception and has to stay one: it spends the right button
+  // on panning.
+  assert.match(SOURCE.main, /if \(s\.editMode\) return;/);
+});
+
+test("a menu never opens behind a dialog", () => {
+  // --z-menu is below --z-dialog, so one opened while a dialog is up renders
+  // underneath it: invisible, and still holding the document click listener
+  // that swallows the next click anywhere on the page.
+  assert.match(SOURCE.ui, /if \(isDialogOpen\(\)\) return null;/);
+});
+
+// ── Dialogs are modal for the mouse and the keyboard alike ───────────────────
+
+test("every dialog gets a veil and a way to ask for the keys", () => {
+  // aria-modal="true" was a claim about where focus and clicks can go, and it
+  // was true of neither: the map still panned, the toolbar was still live, and
+  // Tab walked straight out of the print dialog into it.
+  for (const id of ["tpl-dialog-veil", "tpl-dialog-help"]) {
+    assert.ok(INDEX.includes(`id="${id}"`), `${id} is missing`);
+  }
+  assert.match(SOURCE.ui, /D\.mountOnMap\("tpl-dialog-veil"/);
+  assert.match(SOURCE.ui, /function addHelpButton/);
+  assert.match(SOURCE.ui, /function trapFocus/);
+  // The placement frame mounts itself rather than going through openDialog,
+  // and it is the screen with the most gestures and the least room to write
+  // them down.
+  assert.match(DIALOG_SOURCE.print, /App\.ui\.addHelpButton\(_placeDialog\)/);
+});
+
+test("the sheet and the confirm prompt are the two that need no help button", () => {
+  // One is the help; the other is a sentence with two buttons. A "?" on
+  // either points at itself or at nothing.
+  const start = SOURCE.ui.indexOf("var NO_HELP");
+  assert.notEqual(start, -1, "NO_HELP is gone — every dialog now gets one");
+  const line = SOURCE.ui.slice(start, SOURCE.ui.indexOf("};", start));
+  assert.ok(line.includes("tpl-shortcuts-dialog"));
+  assert.ok(line.includes("tpl-confirm-dialog"));
+});
+
+// ── Printing has a button ────────────────────────────────────────────────────
+
+test("the thing the app exists to produce is reachable from the toolbar", () => {
+  // Printing was context-menu-only: a gesture you have to already know about,
+  // aimed at a shape you have to already have found. The tour conceded as
+  // much — it had a step whose job was to introduce a screen with no control.
+  assert.match(SOURCE.controls, /id:\s*"print"/);
+  assert.match(SOURCE.controls, /titleKey:\s*"toolbar\.print"/);
+  assert.ok(
+    INDEX.includes('data-role="print"'),
+    "the territory list has no printer beside its rows",
+  );
+  assert.match(SOURCE.labels, /App\.print\.printCluster/);
+});
+
+test("the row printer says what it needs rather than vanishing", () => {
+  // A card is composed from live tiles, and a control that disappears with
+  // the connection teaches nothing about why. pwa.js already drives this off
+  // a class on <body>, so the template asks for it and nothing watches.
+  const row = INDEX.slice(
+    INDEX.indexOf('id="tpl-territory-row"'),
+    INDEX.indexOf("</template>", INDEX.indexOf('id="tpl-territory-row"')),
+  );
+  assert.ok(row.includes("data-online-only"));
+});
 
 test("every dialog context is exclusive", () => {
   // Without it the tool behind the dialog keeps answering, which is what

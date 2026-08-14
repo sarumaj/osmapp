@@ -983,6 +983,10 @@ App.print = (function () {
     // dialog is already on screen, and the print dialog has to stay underneath.
     _placeDialog = D.mountOnMap("tpl-place-dialog", s.leafletMap);
     App.i18n.apply(_placeDialog);
+    // openDialog() adds this to everything it mounts; this one is mounted by
+    // hand, and it is the screen in the app with the most gestures and the
+    // least room to write them down.
+    App.ui.addHelpButton(_placeDialog);
 
     var loupe = D.role(_placeDialog, "loupe");
     if (loupe) LOUPE_SIZE = loupe.offsetWidth || LOUPE_SIZE;

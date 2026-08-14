@@ -277,6 +277,17 @@ App.tour = (function () {
       skipIfNoTarget: true,
     },
     {
+      // The button→screen pairing every other tool here gets. Printing had no
+      // button at all until now, which is why the two steps that follow —
+      // both about a right-click menu — were the whole of what the tour could
+      // say about the thing the app exists to produce.
+      id: "printButton",
+      demo: true,
+      target: '[data-action="print"]',
+      placement: "right",
+      available: _online,
+    },
+    {
       id: "territory",
       demo: true,
       target: ".polygon-context-menu",

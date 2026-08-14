@@ -103,6 +103,7 @@ App.shortcuts = (function () {
   var _bound = false;
   var _sheetOpen = false;
   var _sheet = null; // the node, when the sheet is stacked over a dialog
+  var _sheetIsDialog = false; // the sheet *is* App.ui's dialog
 
   // ── Platform ──────────────────────────────────────────────────────────
   //
@@ -163,7 +164,14 @@ App.shortcuts = (function () {
         labelKey: "shortcuts.escape",
         note: true,
       },
-      { combos: ["Right-click"], labelKey: "shortcuts.menuTerritory", note: true },
+      {
+        // Was "Menu for a territory", which is what it used to be: every
+        // menu in the app needed a shape under the pointer, so bare map fell
+        // through to the browser's own. There is one for empty ground now.
+        combos: ["Right-click"],
+        labelKey: "shortcuts.menuAnywhere",
+        note: true,
+      },
     ]);
 
     App._loaded.push("shortcuts");
@@ -327,10 +335,48 @@ App.shortcuts = (function () {
   // DISPATCH
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Input types that swallow a character. Everything else with an <input> tag
+   * — a checkbox, a slider, a color well, a file picker — takes focus without
+   * taking text.
+   *
+   * The distinction matters because "is a text field focused?" was being
+   * answered by the tag name, and the answer was wrong for most of the
+   * controls in the app's own dialogs. Click the print dialog's Sharpen box or
+   * touch its zoom slider and focus lands on an <input>; from that moment E,
+   * F, [, ], 0 and T were dead, though the sheet went on listing all six. The
+   * boundary dialog was worse: its one control is a range, so moving the
+   * Detail slider — the thing the dialog exists for — turned off the arrow
+   * keys documented to move it.
+   *
+   * A <select> stays on the typing side. Letters there drive the browser's own
+   * option typeahead, which is text entry by another name.
+   *
+   * Written as the list of things that are *not* text on purpose: the text
+   * types are open-ended and grow with the platform, the non-text ones are a
+   * closed set, and a type nobody here has heard of renders as a text box —
+   * so guessing "text" for it is both safer and what the browser does.
+   */
+  var NON_TEXT_INPUT_TYPES = {
+    button: true,
+    checkbox: true,
+    color: true,
+    file: true,
+    hidden: true,
+    image: true,
+    radio: true,
+    range: true,
+    reset: true,
+    submit: true,
+  };
+
   function _isTyping(target) {
     if (!target) return false;
     var tag = String(target.tagName || "").toUpperCase();
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+    if (tag === "TEXTAREA" || tag === "SELECT") return true;
+    if (tag === "INPUT") {
+      return !NON_TEXT_INPUT_TYPES[String(target.type || "text").toLowerCase()];
+    }
     return !!target.isContentEditable;
   }
 
@@ -351,8 +397,51 @@ App.shortcuts = (function () {
    */
   function _modalOpen() {
     if (App.print && App.print.isOpen && App.print.isOpen()) return true;
+    // The sheet opened as *the* dialog is a window onto the screen you are on,
+    // not a screen of its own. Counting it would make the sheet report every
+    // global key as unavailable at exactly the moment somebody is reading the
+    // sheet to find out which keys are available.
+    if (_sheetIsDialog) return false;
     if (App.ui && App.ui.isDialogOpen && App.ui.isDialogOpen()) return true;
     return false;
+  }
+
+  /**
+   * Who can answer right now — the one calculation behind both halves of this
+   * module.
+   *
+   * It used to live inline in _onKeyDown, and the sheet did not do it at all:
+   * it rendered every context on the stack as though all of them were live,
+   * so opening a dialog produced a list where the top group worked and the
+   * three groups under it were decoration. That is the failure this module was
+   * written to prevent, arrived at from the other side — the list and the
+   * behavior agreed about which keys exist and disagreed about which of them
+   * do anything.
+   *
+   * @returns {{stack:Array, covered:function(number, Object):boolean}}
+   */
+  function _reach() {
+    var stack = _stack();
+    // Innermost exclusive context, if any: everything past it is a tool the
+    // dialog is covering.
+    var barrier = -1;
+    for (var i = 0; i < stack.length; i++) {
+      if (stack[i].exclusive) {
+        barrier = i;
+        break;
+      }
+    }
+    // A dialog that has not been given a context of its own still blocks the
+    // tools underneath, the way every dialog did before contexts existed.
+    var blanket = barrier < 0 && _modalOpen();
+
+    return {
+      stack: stack,
+      covered: function (index, entry) {
+        if (entry && entry.overModal) return false;
+        return blanket || (barrier >= 0 && index > barrier);
+      },
+    };
   }
 
   /**
@@ -432,27 +521,15 @@ App.shortcuts = (function () {
     }
     if (_tourOpen()) return;
 
-    var stack = _stack();
-    // Innermost exclusive context, if any: everything past it is a tool the
-    // dialog is covering.
-    var barrier = -1;
-    for (var b = 0; b < stack.length; b++) {
-      if (stack[b].exclusive) {
-        barrier = b;
-        break;
-      }
-    }
-    // A dialog that has not been given a context of its own still blocks the
-    // tools underneath, the way every dialog did before contexts existed.
-    var blanket = barrier < 0 && _modalOpen();
+    var reach = _reach();
+    var stack = reach.stack;
 
     for (var i = 0; i < stack.length; i++) {
       var entries = stack[i].entries || [];
-      var covered = blanket || (barrier >= 0 && i > barrier);
       for (var j = 0; j < entries.length; j++) {
         var entry = entries[j];
         if (entry.note || typeof entry.run !== "function") continue;
-        if (covered && !entry.overModal) continue;
+        if (reach.covered(i, entry)) continue;
         if (typing && !entry.whileTyping) continue;
         if (entry.when && !entry.when()) continue;
         if (!_hits(entry, e, typing)) continue;
@@ -550,13 +627,50 @@ App.shortcuts = (function () {
     } else {
       dialog = App.ui.openDialog("tpl-shortcuts-dialog", function () {
         _sheetOpen = false;
+        _sheetIsDialog = false;
       });
+      _sheetIsDialog = true;
     }
     _sheetOpen = true;
     D.onRole(dialog, "close", closeSheet);
     _renderSheet(dialog);
     var close = D.role(dialog, "close");
     if (close && close.focus) close.focus();
+  }
+
+  /**
+   * The sheet as data: every group, every row, and whether the row would do
+   * anything if its combo were pressed right now.
+   *
+   * The rendering below is built from this rather than walking the stack
+   * itself, for the same reason the sheet is built from the registry at all —
+   * "what is drawn" and "what would fire" have to be one calculation or they
+   * drift. It is also the seam the tests use, because asserting on greyed-out
+   * rows through a DOM stub asserts mostly about the stub.
+   */
+  function snapshot() {
+    var reach = _reach();
+    return reach.stack.map(function (context, index) {
+      return {
+        id: context.id,
+        titleKey: context.titleKey,
+        entries: (context.entries || [])
+          .filter(function (entry) {
+            return entry.labelKey;
+          })
+          .map(function (entry) {
+            var covered = reach.covered(index, entry);
+            return {
+              labelKey: entry.labelKey,
+              combos: entry.combos || [],
+              hold: !!entry.hold,
+              note: !!entry.note,
+              covered: covered,
+              available: !covered && (!entry.when || entry.when()),
+            };
+          }),
+      };
+    });
   }
 
   function _renderSheet(dialog) {
@@ -567,20 +681,32 @@ App.shortcuts = (function () {
     if (!host) return;
     host.textContent = "";
 
-    _stack().forEach(function (context) {
-      var entries = (context.entries || []).filter(function (entry) {
-        return entry.labelKey;
-      });
-      if (!entries.length) return;
+    snapshot().forEach(function (group) {
+      if (!group.entries.length) return;
 
       var section = D.mount("tpl-shortcuts-group", host);
-      D.text(section, "title", T(context.titleKey));
+      var title = D.role(section, "title");
+      if (title) title.textContent = T(group.titleKey);
+
+      // A group every one of whose entries is behind the barrier is not a
+      // group with some keys greyed — it is a group that does not apply, and
+      // saying so once at the top beats saying nothing eleven times.
+      var buried = group.entries.every(function (entry) {
+        return entry.covered;
+      });
+      D.toggleClass(section, "is-covered", buried);
+      if (buried && title) {
+        var note = document.createElement("span");
+        note.className = "shortcuts-group__note";
+        note.textContent = T("shortcuts.covered");
+        title.appendChild(note);
+      }
+
       var list = D.role(section, "items");
 
-      entries.forEach(function (entry) {
+      group.entries.forEach(function (entry) {
         var row = D.mount("tpl-shortcuts-item", list);
-        var available = !entry.when || entry.when();
-        D.toggleClass(row, "is-unavailable", !available);
+        D.toggleClass(row, "is-unavailable", !entry.available);
 
         var keys = D.role(row, "keys");
         keys.textContent = "";
@@ -627,6 +753,7 @@ App.shortcuts = (function () {
     parse: parse,
     keyCaps: keyCaps,
     hint: hint,
+    snapshot: snapshot,
     trigger: trigger,
     triggerUp: triggerUp,
     releaseAll: releaseAll,

@@ -165,10 +165,12 @@ test("every toolbar button the tour points at exists in the toolbar", () => {
   assert.deepStrictEqual(missing, []);
 });
 
-test("offline drops both halves of the print pair", () => {
-  // The print view composes a card from live tiles. Keeping the menu entry
-  // while dropping the view it opens would introduce a button whose screen
-  // never arrives, which is the one thing worse than not mentioning it.
+test("offline drops every step in the print chain", () => {
+  // The print view composes a card from live tiles. Keeping the button or the
+  // menu entry while dropping the view they open would introduce a control
+  // whose screen never arrives, which is the one thing worse than not
+  // mentioning it. There are three of them now: the toolbar button, the menu
+  // entry that reaches the same place from a territory, and the view itself.
   const offline = loadApp(["util.js", "tour.js"], {
     window: { localStorage: fakeStorage(), location: { search: "" } },
     navigator: { onLine: false },
@@ -180,6 +182,7 @@ test("offline drops both halves of the print pair", () => {
     .map((step) => [step.id, step.available()]);
 
   assert.deepStrictEqual(gated, [
+    ["printButton", false],
     ["printMenu", false],
     ["print", false],
   ]);

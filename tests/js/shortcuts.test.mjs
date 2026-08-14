@@ -725,3 +725,99 @@ test("a combo that produces a character never fires into a text field", () => {
   h.key("F1", { target: TEXT_FIELD });
   assert.equal(h.shortcuts.isSheetOpen(), true, "but F1 is not a character");
 });
+
+// ── What the sheet promises is what the sheet does ───────────────────────────
+//
+// Both tests below are the same bug seen from two sides: a key was listed as
+// available and did nothing.
+
+test("a slider or a checkbox is not a text field", () => {
+  // "Is a text field focused?" was answered by the tag name, and most of the
+  // controls in the app's own dialogs are <input>. Click the print dialog's
+  // Sharpen box or touch its zoom slider and six of its eight keys went dead
+  // while the sheet went on listing all eight; the boundary dialog was worse,
+  // because its one control is a range and the keys it killed were the arrows
+  // documented to move it.
+  const h = setup();
+  h.fired = [];
+  h.shortcuts.push({
+    id: "dialog",
+    titleKey: "g",
+    exclusive: true,
+    entries: [
+      { combos: ["E"], labelKey: "erase", run: () => h.fired.push("erase") },
+    ],
+  });
+
+  for (const type of ["checkbox", "range", "color", "file", "radio"]) {
+    h.fired = [];
+    h.key("E", { target: { tagName: "INPUT", type } });
+    assert.deepEqual(h.fired, ["erase"], `${type} took the key`);
+  }
+
+  h.fired = [];
+  h.key("E", { target: { tagName: "INPUT", type: "text" } });
+  assert.deepEqual(h.fired, [], "a real text field still swallows it");
+
+  h.fired = [];
+  h.key("E", { target: { tagName: "INPUT" } });
+  assert.deepEqual(h.fired, [], "and so does one with no type at all");
+});
+
+test("the sheet greys what a modal has taken away", () => {
+  // The sheet rendered every context on the stack as though all of them were
+  // live, so a dialog produced a list whose top group worked and whose lower
+  // groups were decoration. Nothing was wrong with the dispatch; the list
+  // simply was not asking dispatch's question.
+  const h = setup();
+  h.shortcuts.push({
+    id: "tool",
+    titleKey: "tool",
+    entries: [{ combos: ["T"], labelKey: "toolKey", run: () => {} }],
+  });
+
+  const before = h.shortcuts.snapshot();
+  const toolBefore = before.find((group) => group.id === "tool");
+  assert.equal(toolBefore.entries[0].available, true);
+
+  h.shortcuts.push({
+    id: "dialog",
+    titleKey: "dialog",
+    exclusive: true,
+    entries: [{ combos: ["Enter"], labelKey: "go", run: () => {} }],
+  });
+
+  const after = h.shortcuts.snapshot();
+  assert.equal(
+    after.find((group) => group.id === "dialog").entries[0].available,
+    true,
+    "the dialog's own keys still work",
+  );
+  assert.equal(
+    after.find((group) => group.id === "tool").entries[0].available,
+    false,
+    "the tool underneath does not",
+  );
+
+  // Undo is the exception the barrier was written to keep: a dialog that has
+  // pushed a history scope is what Ctrl+Z is addressed to.
+  const global = after.find((group) => group.id === "global");
+  const sheetRow = global.entries.find((e) => e.labelKey === "shortcuts.sheet");
+  assert.equal(sheetRow.available, true, "? survives everything");
+});
+
+test("the sheet does not report itself as a modal covering the map", () => {
+  // openSheet() with nothing else on screen goes through App.ui.openDialog, so
+  // isDialogOpen() becomes true — and a blanket rule read off that would grey
+  // every global key at exactly the moment somebody is reading the list to
+  // find out which keys are live.
+  const h = setup();
+  h.shortcuts.openSheet();
+  assert.equal(h.isDialogOpen(), true, "it really is the dialog");
+
+  const global = h.shortcuts.snapshot().find((group) => group.id === "global");
+  assert.ok(
+    global.entries.every((entry) => !entry.covered),
+    "nothing global is covered by the sheet itself",
+  );
+});

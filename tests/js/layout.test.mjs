@@ -168,3 +168,53 @@ test("dom.js watches for every bar that owns the bottom edge", () => {
     );
   }
 });
+
+// ── Dialogs ──────────────────────────────────────────────────────────────────
+
+test("the action bar carries its own gap rather than borrowing one", () => {
+  // Every dialog ends in the same three-button row, and the space above it
+  // used to come from whatever happened to be the last thing in that
+  // particular dialog: 12 px from a hint, 12 from a calc line, 14 from a
+  // confirm detail — and nothing at all from the territory list, which ends
+  // in a bordered scroll box with no margin, so Close sat flush against the
+  // last row and read as part of the list.
+  assert.match(block(".app-dialog__actions"), /margin-top:\s*16px/);
+});
+
+test("the full-bleed footers opt out of it", () => {
+  // The print and placement bars are floors rather than trailing buttons:
+  // full width, a rule above, and negative margins that take them to the edge
+  // of the dialog. A 16 px gap above one would be a strip of background
+  // between the content and the rule.
+  const footer = block(".print-dialog__actions");
+  assert.match(footer, /margin:\s*0 -20px -16px/);
+  // Same specificity as the shared rule, so it only wins by coming after it.
+  assert.ok(
+    BARE.indexOf(".print-dialog__actions") >
+      BARE.indexOf(".app-dialog__actions"),
+    "the override has to be declared after the rule it overrides",
+  );
+});
+
+test("nothing that ends a dialog is left touching the buttons", () => {
+  // The bug was one component with no trailing margin, so the check is that
+  // every element that can be the last one before the action bar carries a
+  // bottom margin of its own. The bar's margin-top ought to be enough on its
+  // own — but it was not, for the one entry here that is a scrolling box
+  // rather than a paragraph, so both are stated and the two collapse.
+  // Listed rather than derived: the point is that adding a seventh dialog
+  // means adding a line here and thinking about it once.
+  for (const selector of [
+    ".app-dialog__hint",
+    ".app-dialog__calc",
+    ".confirm-dialog__detail",
+    ".shortcuts-dialog__groups",
+    ".territory-list__rows",
+  ]) {
+    assert.match(
+      block(selector),
+      /margin(-bottom)?:\s*[^;]*\b(?!0\b)\d+px/,
+      `${selector} ends a dialog with no space after it`,
+    );
+  }
+});

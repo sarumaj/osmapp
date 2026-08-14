@@ -85,7 +85,9 @@
     "undoCornerCount": "Letzte Eckpunktänderung rückgängig machen ({count} verfügbar)",
     "undoCornerNone": "Noch nichts rückgängig zu machen",
     "redoCornerCount": "Eckpunktänderung wiederherstellen ({count} verfügbar)",
-    "redoCornerNone": "Nichts wiederherzustellen"
+    "redoCornerNone": "Nichts wiederherzustellen",
+    "labelPrint": "Drucken",
+    "print": "Gebiet auswählen und dessen Karte drucken"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -96,7 +98,7 @@
     "clusters": "Gebiete",
     "printed": "Gedruckt",
     "hintLoaded": "Fläche aufteilen, dann schneiden, zusammenführen oder exportieren.",
-    "hintFiltered": "Rechtsklick auf ein Gebiet öffnet die Aktionen. Strg+Z macht die letzte Änderung rückgängig.",
+    "hintFiltered": "Rechtsklick auf ein Gebiet öffnet die Aktionen. {key} macht die letzte Änderung rückgängig.",
     "notLoaded": "Grenze gesetzt",
     "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen.",
     "clustersHelp": "Liste der Gebiete anzeigen",
@@ -123,7 +125,7 @@
   },
   "phase": {
     "samples": "Stichprobenpunkte werden gesammelt",
-    "kmeans": "K-Means-Clustering läuft",
+    "kmeans": "Gebäude werden gruppiert",
     "voronoi": "Voronoi-Zellen werden erzeugt",
     "graph": "Straßengraph wird aufgebaut",
     "trace": "Grenzen werden entlang der Straßen geführt",
@@ -140,7 +142,11 @@
     "editOutline": "Grenzverlauf bearbeiten",
     "zoomOuter": "Auf die Grenze zoomen",
     "trimOuter": "Auf die Gebäude zuschneiden",
-    "refetchOuter": "OSM-Daten neu laden"
+    "refetchOuter": "OSM-Daten neu laden",
+    "partition": "In Gebiete aufteilen",
+    "mapDraw": "Äußere Grenze zeichnen",
+    "mapTour": "Geführte Tour",
+    "mapShortcuts": "Tastenkürzel"
   },
   "partition": {
     "title": "In Gebiete aufteilen",
@@ -170,7 +176,7 @@
     "hint": "Gebiete anklicken zum Auswählen · Rechtsklick für das Menü · Enter führt zusammen · Rücktaste nimmt das letzte zurück · ? für alle Tasten"
   },
   "trim": {
-    "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · E passt die Ecken von Hand an · Enter übernimmt · Esc bricht ab",
+    "hint": "Abseits liegende Gebäude sind bereits ausgenommen · Gebäude oder Markierung anklicken, um das zu ändern · Umschalt+Ziehen nimmt einen Bereich aus · Alt+Ziehen nimmt ihn zurück · E passt die Ecken von Hand an · Rechtsklick öffnet das Menü · Enter übernimmt · ? zeigt alle Tasten",
     "ignored": {
       "one": "{count} Gebäude ausgenommen",
       "other": "{count} Gebäude ausgenommen"
@@ -228,7 +234,7 @@
   },
   "draw": {
     "hint": "Klicken setzt Punkte · Alt halten setzt das Einrasten aus · Rechts ziehen verschiebt die Karte · Rechtsklick öffnet das Menü · Enter oder Doppelklick schneidet · Rücktaste nimmt zurück · ? für alle Tasten",
-    "outerHint": "Klicken setzt Punkte · Enter oder Doppelklick beendet · Esc bricht ab"
+    "outerHint": "Klicken setzt Eckpunkte · Rücktaste nimmt einen zurück · Enter oder Doppelklick schließt ab · Esc bricht ab · ? zeigt alle Tasten"
   },
   "search": {
     "placeholder": "Adresse oder Ort suchen…",
@@ -393,7 +399,8 @@
     "warnSplit": "Aus mehreren Teilen: {n}.",
     "flagPrinted": "Karte bereits gedruckt",
     "flagSplit": "Besteht aus {n} Teilen",
-    "flagTiny": "Bei dieser Zoomstufe zu klein"
+    "flagTiny": "Bei dieser Zoomstufe zu klein",
+    "print": "Diese Karte drucken"
   },
   "feature": {
     "building": "Gebäude",
@@ -606,7 +613,7 @@
       },
       "info": {
         "title": "Wo man gerade steht",
-        "body": "Wie viele Straßen, Gebäude und Gebiete geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt."
+        "body": "Wie viele Straßen, Gebäude und Gebiete gerade geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt. Die Gebietszahl und die Zahl der unbedeckten Flächen sind Schaltflächen: die erste öffnet die Liste, die zweite springt zur größten Fläche, die zu keiner Karte gehört."
       },
       "files": {
         "title": "Die Arbeit mitnehmen",
@@ -663,6 +670,10 @@
       "shortcuts": {
         "title": "Was kann ich drücken?",
         "body": "Diese Führung erklärt den Ablauf einmal; jene Schaltfläche beantwortet die andere Frage — jedes Mal. Die Liste ist nach Werkzeug gruppiert, das aktuelle zuoberst, und sie wird aus derselben Registrierung erzeugt, die die Tasten ausführt — veralten kann sie also nicht. ? oder F1 öffnet sie von überall."
+      },
+      "printButton": {
+        "title": "Eine Karte drucken",
+        "body": "Das öffnet die Gebietsliste mit einem Drucker neben jeder Zeile — der Weg, wenn die Nummer schon feststeht. Dieselbe Ansicht liegt am Gebiet selbst einen Rechtsklick entfernt."
       }
     }
   },
@@ -685,7 +696,6 @@
     "undo": "Rückgängig",
     "redo": "Wiederherstellen",
     "menu": "Menü für dieses Werkzeug",
-    "menuTerritory": "Menü für ein Gebiet",
     "panRight": "Karte verschieben, ohne einen Punkt zu setzen",
     "cutFinish": "Entlang der Linie schneiden",
     "cutBack": "Letzten Punkt zurücknehmen",
@@ -753,7 +763,22 @@
     "boundaryBox": "Stattdessen das Rechteck nehmen",
     "boundaryCancel": "Grenze unverändert lassen",
     "printRotateDrag": "Karte drehen",
-    "printRotateStep": "In kleinen Schritten drehen"
+    "printRotateStep": "In kleinen Schritten drehen",
+    "menuAnywhere": "Menü für das, was unter dem Zeiger liegt",
+    "goDraw": "Äußere Grenze zeichnen oder ändern",
+    "goLocate": "Eigenen Standort anzeigen",
+    "goRefetch": "OSM-Daten neu laden",
+    "goTrim": "Grenze auf die Gebäude zuschneiden",
+    "goSplit": "Fläche in Gebiete aufteilen",
+    "goCut": "Ein Gebiet zerschneiden",
+    "goMerge": "Gebiete zusammenführen",
+    "goNumbers": "Gebietsnummern ein- oder ausblenden",
+    "goPrint": "Gebiet auswählen und dessen Karte drucken",
+    "goTour": "Geführte Tour öffnen",
+    "covered": "nicht, solange diese Ansicht offen ist",
+    "groupList": "Gebietsliste",
+    "listNumbers": "Nummern auf der Karte ein- oder ausblenden",
+    "listClose": "Liste schließen"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -794,5 +819,8 @@
     "dissolveTrim": "Schließen — die Grenze zurücknehmen",
     "dissolveAll": "Alle nicht abgedeckten Flächen schließen",
     "dissolveFailed": "Diese Fläche konnte nicht geschlossen werden."
+  },
+  "dialog": {
+    "help": "Tasten für diese Ansicht"
   }
 }

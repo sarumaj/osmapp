@@ -132,7 +132,7 @@
           <dd data-role="buildings">0</dd>
         </div>
         <div class="info-panel__stat" data-role="clusters-row" hidden>
-          <dt data-i18n="info.clusters">Clusters</dt>
+          <dt data-i18n="info.clusters">Territories</dt>
           <dd>
             <!-- The one stat that is a control: it opens the territory list,
                  because "14" is not an answer to "which fourteen?". -->
@@ -240,6 +240,35 @@
       </div>
     </template>
 
+    <!-- ── Dialog furniture ─────────────────────────────────────────────
+         Two things every dialog gets from App.ui.openDialog() rather than
+         from its own template, because "every dialog" is the requirement and
+         eight copies of it is how the ninth ends up without one.
+
+         The veil is what makes aria-modal="true" true: without it the map
+         still panned, the toolbar was still clickable, and a right-click
+         behind an open dialog opened a context menu at --z-menu — under the
+         dialog, invisible, and still eating the next click.
+
+         The help button is the same "?" the mode bars have advertised on
+         their hint banners all along, given to the screens that had no
+         banner to advertise it on. -->
+
+    <template id="tpl-dialog-veil">
+      <div class="dialog-veil"></div>
+    </template>
+
+    <template id="tpl-dialog-help">
+      <button
+        type="button"
+        class="app-dialog__help"
+        data-i18n-attrs="title=dialog.help;aria-label=dialog.help"
+      >
+        <i class="fa-solid fa-keyboard" aria-hidden="true"></i>
+        <span aria-hidden="true">?</span>
+      </button>
+    </template>
+
     <!-- Yes/no prompt. Every field is filled by App.ui.confirm(); the template
          only fixes the shape. -->
     <template id="tpl-confirm-dialog">
@@ -285,7 +314,7 @@
         <p class="territory-list__notes" data-role="notes" hidden></p>
         <label class="territory-list__toggle">
           <input type="checkbox" data-role="show-numbers" />
-          <span data-i18n="list.showNumbers">Show numbers on the map</span>
+          <span data-i18n="list.showNumbers">Show the numbers on the map</span>
         </label>
         <div class="territory-list__rows" data-role="rows"></div>
         <p
@@ -309,15 +338,33 @@
       </div>
     </template>
 
+    <!-- Two buttons, not one: the row goes to the territory and the printer
+         beside it makes its card. Printing used to be reachable only by
+         right-clicking the shape on the map, which is a gesture you have to
+         already know about and a shape you have to already have found. -->
     <template id="tpl-territory-row">
-      <button type="button" class="territory-row">
-        <span class="territory-row__num" data-role="num"></span>
-        <span class="territory-row__body">
-          <span class="territory-row__main" data-role="main"></span>
-          <span class="territory-row__meta" data-role="meta"></span>
-        </span>
-        <span class="territory-row__flags" data-role="flags"></span>
-      </button>
+      <div class="territory-row-wrap">
+        <button type="button" class="territory-row" data-role="go">
+          <span class="territory-row__num" data-role="num"></span>
+          <span class="territory-row__body">
+            <span class="territory-row__main" data-role="main"></span>
+            <span class="territory-row__meta" data-role="meta"></span>
+          </span>
+          <span class="territory-row__flags" data-role="flags"></span>
+        </button>
+        <!-- data-online-only rather than a hidden button: the card is composed
+             from live tiles, and a control that disappears with the connection
+             teaches nothing about why. -->
+        <button
+          type="button"
+          class="territory-row__print"
+          data-role="print"
+          data-online-only
+          data-i18n-attrs="title=list.print;aria-label=list.print"
+        >
+          <i class="fa-solid fa-print" aria-hidden="true"></i>
+        </button>
+      </div>
     </template>
 
     <template id="tpl-phase-item">
@@ -335,7 +382,7 @@
         aria-label="Auto-partition settings"
       >
         <h2 class="app-dialog__title" data-i18n="partition.title">
-          Auto-partition
+          Split into territories
         </h2>
         <p class="app-dialog__hint" data-i18n="partition.hint">
           Choose how the area is divided.
@@ -822,8 +869,8 @@
           Keyboard and mouse
         </h2>
         <p class="app-dialog__hint" data-i18n="shortcuts.hint">
-          What the keys do depends on the tool you are in. The tool you are in
-          now is first.
+          What a key does depends on the tool you are in. The tool you are in
+          now is listed first.
         </p>
         <div class="shortcuts-dialog__groups" data-role="groups"></div>
         <div class="app-dialog__actions">
@@ -936,15 +983,14 @@
               </div>
 
               <p class="print-controls__hint" data-i18n="print.frameHint">
-                Drag the map to move it, scroll to zoom. Hold Alt while dragging
-                the rotation slider for angles off the 15° marks.
+                Drag to move, scroll to zoom, Shift-drag to rotate.
               </p>
             </fieldset>
 
             <fieldset class="print-controls__group">
               <legend data-i18n="print.basemap">Basemap</legend>
               <label class="print-controls__field">
-                <span data-i18n="print.detail">Detail</span>
+                <span data-i18n="print.detail">Label size</span>
                 <input
                   type="range"
                   data-role="detail"
@@ -987,7 +1033,8 @@
                 role="status"
                 hidden
               >
-                Cards are always drawn on the OpenStreetMap basemap.
+                Cards are always drawn on the OpenStreetMap basemap, whichever
+                layer is shown on the map.
               </p>
               <p class="print-controls__hint" data-i18n="print.detailHint">
                 Three steps, each doubling the size of street names at the cost
@@ -1158,7 +1205,7 @@
                 hidden
               >
                 The card can then be imported to restore the boundary and the
-                territories. Only works with a template.
+                territories.
               </p>
               <div class="print-controls__row">
                 <button
@@ -1244,8 +1291,9 @@
             Drag the frame over the part of the card where the map should print.
           </p>
           <p class="app-dialog__hint" data-i18n="place.keys">
-            Arrow keys nudge by 1 pt · Shift for 10 pt · Alt for 0.1 pt · Ctrl to
-            resize · Enter to accept
+            Arrow keys nudge the map by 1 pt · Hold additionally Shift to move by
+            10 pt · Hold additionally Alt to move by 0.1 pt · Hold additionally
+            Ctrl to resize · Enter to accept
           </p>
 
           <!-- The wrapper centres; the stage must stay exactly the size of the

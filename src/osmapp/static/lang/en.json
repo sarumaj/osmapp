@@ -85,7 +85,9 @@
     "undoCornerCount": "Undo the last corner change ({count} available)",
     "undoCornerNone": "Nothing to undo yet",
     "redoCornerCount": "Redo a corner change ({count} available)",
-    "redoCornerNone": "Nothing to redo"
+    "redoCornerNone": "Nothing to redo",
+    "labelPrint": "Print",
+    "print": "Choose a territory and print its card"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -96,7 +98,7 @@
     "clusters": "Territories",
     "printed": "Printed",
     "hintLoaded": "Split the area, then cut, merge, or export.",
-    "hintFiltered": "Right-click a territory for actions. Ctrl+Z undoes the last change.",
+    "hintFiltered": "Right-click a territory for actions. {key} undoes the last change.",
     "notLoaded": "Boundary set",
     "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it.",
     "clustersHelp": "Show the list of territories",
@@ -123,7 +125,7 @@
   },
   "phase": {
     "samples": "Collecting sample points",
-    "kmeans": "Running K-Means clustering",
+    "kmeans": "Grouping the buildings",
     "voronoi": "Generating Voronoi cells",
     "graph": "Building street graph",
     "trace": "Tracing street boundaries",
@@ -140,7 +142,11 @@
     "editOutline": "Edit the boundary shape",
     "zoomOuter": "Zoom to the boundary",
     "trimOuter": "Trim to the buildings",
-    "refetchOuter": "Re-download OSM data"
+    "refetchOuter": "Re-download OSM data",
+    "partition": "Split into territories",
+    "mapDraw": "Draw the outer boundary",
+    "mapTour": "Guided tour",
+    "mapShortcuts": "Keyboard shortcuts"
   },
   "partition": {
     "title": "Split into territories",
@@ -170,7 +176,7 @@
     "hint": "Click territories to select them · Right-click for the menu · Enter merges · Backspace drops the last one · ? for all keys"
   },
   "trim": {
-    "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · E adjusts the corners by hand · Enter applies · Esc cancels",
+    "hint": "Isolated buildings are excluded for you · Click a building or its mark to change it · Shift-drag to exclude a box · Alt-drag to put them back · E adjusts the corners by hand · Right-click for the menu · Enter applies · ? for all keys",
     "ignored": {
       "one": "{count} building ignored",
       "other": "{count} buildings ignored"
@@ -228,7 +234,7 @@
   },
   "draw": {
     "hint": "Click to place vertices · Hold Alt to ignore snapping · Right-drag to pan · Right-click for the menu · Enter or double-click to cut · Backspace steps back · ? for all keys",
-    "outerHint": "Click to place vertices · Enter or double-click to finish · Esc to cancel"
+    "outerHint": "Click to place vertices · Backspace steps back · Enter or double-click to finish · Esc cancels · ? for all keys"
   },
   "search": {
     "placeholder": "Search for an address or place…",
@@ -393,7 +399,8 @@
     "warnSplit": "Drawn in separate pieces: {n}.",
     "flagPrinted": "Card already printed",
     "flagSplit": "In {n} separate pieces",
-    "flagTiny": "Too small to see at this zoom"
+    "flagTiny": "Too small to see at this zoom",
+    "print": "Print this card"
   },
   "feature": {
     "building": "Building",
@@ -606,7 +613,7 @@
       },
       "info": {
         "title": "Where you stand",
-        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step."
+        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step. The territory count and the uncovered count are buttons: the first opens the list, the second jumps to the largest patch nobody covers."
       },
       "files": {
         "title": "Take your work with you",
@@ -663,6 +670,10 @@
       "shortcuts": {
         "title": "What can I press?",
         "body": "This tour explains the workflow once; that button answers the other question, every time. The list is grouped by tool with the one you are in at the top, and it is generated from the same registry that runs the keys — so it cannot drift out of date. ? or F1 opens it from anywhere."
+      },
+      "printButton": {
+        "title": "Printing a card",
+        "body": "This opens the territory list with a printer beside every row, which is the way in when you know which number you want. The same view is one right-click away on the territory itself."
       }
     }
   },
@@ -685,7 +696,6 @@
     "undo": "Undo",
     "redo": "Redo",
     "menu": "Menu for this tool",
-    "menuTerritory": "Menu for a territory",
     "panRight": "Pan the map without placing a vertex",
     "cutFinish": "Cut along the line",
     "cutBack": "Take back the last vertex",
@@ -753,7 +763,22 @@
     "boundaryBox": "Take the rectangle instead",
     "boundaryCancel": "Leave the boundary as it is",
     "printRotateDrag": "Turn the map",
-    "printRotateStep": "Turn in small steps"
+    "printRotateStep": "Turn in small steps",
+    "menuAnywhere": "Menu for whatever is under the pointer",
+    "goDraw": "Draw or reshape the outer boundary",
+    "goLocate": "Show my location",
+    "goRefetch": "Re-download the OSM data",
+    "goTrim": "Trim the boundary to the buildings",
+    "goSplit": "Split the area into territories",
+    "goCut": "Cut a territory in two",
+    "goMerge": "Merge territories",
+    "goNumbers": "Show or hide the territory numbers",
+    "goPrint": "Choose a territory and print its card",
+    "goTour": "Open the guided tour",
+    "covered": "not while this screen is open",
+    "groupList": "Territory list",
+    "listNumbers": "Show or hide the numbers on the map",
+    "listClose": "Close the list"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
@@ -794,5 +819,8 @@
     "dissolveTrim": "Close it — trim the boundary back",
     "dissolveAll": "Close every uncovered area",
     "dissolveFailed": "That area could not be closed."
+  },
+  "dialog": {
+    "help": "Keys for this screen"
   }
 }

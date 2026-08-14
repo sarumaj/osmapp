@@ -39,6 +39,10 @@
   --z-status: 1040;
   --z-mode-bar: 1060;
   --z-menu: 1100;
+  /* Directly under the dialogs and over everything else on the map, which is
+     the whole job: a modal that leaves the toolbar clickable and the map
+     draggable behind it is not modal. */
+  --z-veil: 1990;
   --z-dialog: 2000;
   --z-overlay: 10000;
   /* Above the loading overlay: the tour explains the overlay too, and a
@@ -294,6 +298,16 @@ body {
 /* ═══════════════════════════════════════════════════════════
    Dialog
    ═══════════════════════════════════════════════════════════ */
+/* Mounted by openDialog(), removed by closeDialog(). Deliberately barely
+   visible: the dialogs are opaque boxes on a map somebody is still reading,
+   and the point is to stop the clicks rather than to stage the moment. */
+.dialog-veil {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-veil);
+  background: rgba(0, 0, 0, 0.18);
+}
+
 .app-dialog {
   position: absolute;
   top: 50%;
@@ -311,7 +325,32 @@ body {
 
 .app-dialog__title {
   margin: 0 0 4px;
+  /* Room for the help button, which is positioned rather than laid out — the
+     alternative is a header row in eight templates that do not otherwise have
+     one. */
+  padding-right: 34px;
   font-size: 15px;
+}
+
+.app-dialog__help {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 7px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text-dim);
+  font: var(--ui-fs-sm) / 1 var(--ui-font);
+  cursor: pointer;
+}
+.app-dialog__help:hover,
+.app-dialog__help:focus-visible {
+  background: var(--c-surface-hover);
+  color: var(--c-text);
 }
 
 .app-dialog__hint {
@@ -361,10 +400,24 @@ body {
   color: var(--c-danger);
 }
 
+/* The gap above the buttons belongs to the buttons.
+
+   It used to belong to whatever happened to sit above them, which meant every
+   dialog got a different answer and one got none at all: the hint carries a
+   12 px bottom margin, the calc line 12, the confirm detail 14 — and the
+   territory list ends in a bordered scroll box with no margin whatsoever, so
+   Close sat flush against the last row and read as part of the list.
+
+   Stated once here, it is the same everywhere. Adjacent siblings' vertical
+   margins collapse, so the dialogs whose last element already carries one end
+   up with 16 rather than with 16 plus that; and the print and placement bars
+   override the shorthand below, because those two are full-bleed footers with
+   a rule above them rather than three buttons after some content. */
 .app-dialog__actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  margin-top: 16px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1419,12 +1472,33 @@ body {
   margin-bottom: 14px;
 }
 
+/* The list scrolls, so the last group's trailing margin is not a gap before
+   anything — it is 14 px of empty scrollport that makes the sheet look like
+   it has more to show. */
+.shortcuts-group:last-child {
+  margin-bottom: 0;
+}
+
 .shortcuts-group__title {
   margin: 0 0 6px;
   font-size: var(--ui-fs-sm);
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--c-text-dim);
+}
+
+/* A whole group behind a modal barrier. Dimmed like an unavailable row, with
+   the reason spelled out once at the top rather than implied eleven times by
+   eleven grey lines. */
+.shortcuts-group.is-covered .shortcuts-group__list {
+  opacity: 0.45;
+}
+
+.shortcuts-group__note {
+  margin-left: 6px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-style: italic;
 }
 
 .shortcuts-group__list {
@@ -1750,23 +1824,55 @@ body {
   overflow-y: auto;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm, 4px);
+  /* Every other dialog ends in a paragraph, and a paragraph brings a bottom
+     margin with it — which is why the action bar's own margin-top was enough
+     for all of them and not for this one. This box is the only thing in the
+     app that ends a dialog and carries no margin at all, and it is also the
+     only one that establishes its own formatting context, so it states the
+     separation here rather than depending on the margin above it resolving
+     the way it should. The two collapse, so the result is still 16px. */
+  margin-bottom: 12px;
+}
+
+/* The rule that used to live on the row itself: it is the row as a whole that
+   is separated from the next one, not the half of it that zooms. */
+.territory-row-wrap {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--c-border);
+}
+.territory-row-wrap:last-child {
+  border-bottom: 0;
 }
 
 .territory-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 7px 10px;
   border: 0;
-  border-bottom: 1px solid var(--c-border);
   background: none;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
-.territory-row:last-child {
-  border-bottom: 0;
+
+.territory-row__print {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 0;
+  border-left: 1px solid var(--c-border);
+  background: none;
+  color: var(--c-text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+.territory-row__print:hover,
+.territory-row__print:focus-visible {
+  background: rgba(155, 89, 182, 0.12);
+  color: var(--c-cluster);
 }
 .territory-row:hover,
 .territory-row:focus-visible {

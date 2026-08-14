@@ -85,7 +85,9 @@
     "undoCornerCount": "Cofnij ostatnią zmianę narożnika (dostępne: {count})",
     "undoCornerNone": "Nie ma czego cofnąć",
     "redoCornerCount": "Ponów zmianę narożnika (dostępne: {count})",
-    "redoCornerNone": "Nie ma czego ponowić"
+    "redoCornerNone": "Nie ma czego ponowić",
+    "labelPrint": "Drukuj",
+    "print": "Wybierz teren i wydrukuj jego kartę"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -96,7 +98,7 @@
     "clusters": "Tereny",
     "printed": "Wydrukowane",
     "hintLoaded": "Podziel obszar, a potem tnij, łącz lub eksportuj.",
-    "hintFiltered": "Kliknij teren prawym przyciskiem, aby zobaczyć opcje. Ctrl+Z cofa ostatnią zmianę.",
+    "hintFiltered": "Kliknij teren prawym przyciskiem, aby zobaczyć opcje. {key} cofa ostatnią zmianę.",
     "notLoaded": "Granica ustawiona",
     "hintNotLoaded": "Brak danych OSM — użyj przycisku Odśwież na pasku narzędzi, aby je pobrać.",
     "clustersHelp": "Pokaż listę terenów",
@@ -128,7 +130,7 @@
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",
-    "kmeans": "Grupowanie metodą K-średnich",
+    "kmeans": "Grupowanie budynków",
     "voronoi": "Tworzenie komórek Woronoja",
     "graph": "Budowanie grafu ulic",
     "trace": "Prowadzenie granic wzdłuż ulic",
@@ -145,7 +147,11 @@
     "editOutline": "Edytuj kształt granicy",
     "zoomOuter": "Powiększ do granicy",
     "trimOuter": "Przytnij do budynków",
-    "refetchOuter": "Pobierz dane OSM ponownie"
+    "refetchOuter": "Pobierz dane OSM ponownie",
+    "partition": "Podziel na tereny",
+    "mapDraw": "Narysuj granicę zewnętrzną",
+    "mapTour": "Przewodnik",
+    "mapShortcuts": "Skróty klawiszowe"
   },
   "partition": {
     "title": "Podziel na tereny",
@@ -180,7 +186,7 @@
     "hint": "Klikaj tereny, aby je zaznaczyć · Prawy przycisk otwiera menu · Enter łączy · Backspace cofa ostatni · ? pokazuje wszystkie klawisze"
   },
   "trim": {
-    "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · E pozwala poprawić narożniki ręcznie · Enter zatwierdza · Esc anuluje",
+    "hint": "Odosobnione budynki są już pominięte · Kliknij budynek lub jego znacznik, aby to zmienić · Shift+przeciągnięcie pomija obszar · Alt+przeciągnięcie przywraca · E pozwala poprawić narożniki ręcznie · Prawy przycisk otwiera menu · Enter zatwierdza · ? pokazuje wszystkie klawisze",
     "ignored": {
       "one": "{count} pominięty budynek",
       "few": "{count} pominięte budynki",
@@ -248,7 +254,7 @@
   },
   "draw": {
     "hint": "Klikaj, aby stawiać punkty · Przytrzymaj Alt, aby wyłączyć przyciąganie · Przeciągaj prawym, aby przesuwać mapę · Prawy przycisk otwiera menu · Enter lub dwuklik tnie · Backspace cofa · ? pokazuje wszystkie klawisze",
-    "outerHint": "Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Esc anuluje"
+    "outerHint": "Kliknięcie stawia wierzchołek · Backspace cofa ostatni · Enter lub dwuklik zamyka · Esc anuluje · ? pokazuje wszystkie klawisze"
   },
   "search": {
     "placeholder": "Szukaj adresu lub miejscowości…",
@@ -422,7 +428,8 @@
     "warnSplit": "Złożone z osobnych części: {n}.",
     "flagPrinted": "Karta już wydrukowana",
     "flagSplit": "Składa się z {n} części",
-    "flagTiny": "Zbyt małe przy tym powiększeniu"
+    "flagTiny": "Zbyt małe przy tym powiększeniu",
+    "print": "Wydrukuj tę kartę"
   },
   "feature": {
     "building": "Budynek",
@@ -645,7 +652,7 @@
       },
       "info": {
         "title": "Gdzie jesteś",
-        "body": "Ile ulic, budynków i terenów jest wczytanych, wraz z podpowiedzią, jaki krok ma teraz sens."
+        "body": "Ile ulic, budynków i terenów jest teraz wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Liczba terenów i liczba obszarów nieobjętych to przyciski: pierwszy otwiera listę, drugi przenosi do największego miejsca, którego nie obejmuje żadna karta."
       },
       "files": {
         "title": "Zabierz pracę ze sobą",
@@ -702,6 +709,10 @@
       "shortcuts": {
         "title": "Co mogę nacisnąć?",
         "body": "Ten przewodnik tłumaczy przebieg pracy raz; tamten przycisk odpowiada na drugie pytanie — za każdym razem. Lista jest pogrupowana według narzędzi, bieżące na górze, i powstaje z tego samego rejestru, który obsługuje klawisze — więc nie może się zdezaktualizować. ? albo F1 otwiera ją z dowolnego miejsca."
+      },
+      "printButton": {
+        "title": "Drukowanie karty",
+        "body": "Otwiera listę terenów z drukarką przy każdym wierszu — droga dla kogoś, kto zna już numer. Ten sam widok jest o jedno kliknięcie prawym przyciskiem od samego terenu."
       }
     }
   },
@@ -724,7 +735,6 @@
     "undo": "Cofnij",
     "redo": "Ponów",
     "menu": "Menu tego narzędzia",
-    "menuTerritory": "Menu terenu",
     "panRight": "Przesuń mapę bez stawiania punktu",
     "cutFinish": "Tnij wzdłuż linii",
     "cutBack": "Cofnij ostatni punkt",
@@ -792,7 +802,22 @@
     "boundaryBox": "Zamiast tego użyj prostokąta",
     "boundaryCancel": "Pozostaw granicę bez zmian",
     "printRotateDrag": "Obróć mapę",
-    "printRotateStep": "Obracaj małymi krokami"
+    "printRotateStep": "Obracaj małymi krokami",
+    "menuAnywhere": "Menu tego, co jest pod kursorem",
+    "goDraw": "Narysuj lub zmień granicę zewnętrzną",
+    "goLocate": "Pokaż moje położenie",
+    "goRefetch": "Pobierz dane OSM ponownie",
+    "goTrim": "Dopasuj granicę do budynków",
+    "goSplit": "Podziel obszar na tereny",
+    "goCut": "Przetnij teren",
+    "goMerge": "Połącz tereny",
+    "goNumbers": "Pokaż lub ukryj numery terenów",
+    "goPrint": "Wybierz teren i wydrukuj jego kartę",
+    "goTour": "Otwórz przewodnik",
+    "covered": "nie, gdy ten widok jest otwarty",
+    "groupList": "Lista terenów",
+    "listNumbers": "Pokaż lub ukryj numery na mapie",
+    "listClose": "Zamknij listę"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -837,5 +862,8 @@
     "dissolveTrim": "Zamknij — cofnij granicę",
     "dissolveAll": "Zamknij wszystkie obszary bez terenu",
     "dissolveFailed": "Nie udało się zamknąć tego obszaru."
+  },
+  "dialog": {
+    "help": "Klawisze dla tego widoku"
   }
 }

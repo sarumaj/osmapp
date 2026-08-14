@@ -85,7 +85,9 @@
     "undoCornerCount": "Annuler la dernière modification de sommet ({count} disponibles)",
     "undoCornerNone": "Rien à annuler pour l’instant",
     "redoCornerCount": "Rétablir une modification de sommet ({count} disponibles)",
-    "redoCornerNone": "Rien à rétablir"
+    "redoCornerNone": "Rien à rétablir",
+    "labelPrint": "Imprimer",
+    "print": "Choisir un territoire et imprimer sa fiche"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -96,7 +98,7 @@
     "clusters": "Territoires",
     "printed": "Imprimé",
     "hintLoaded": "Divisez la zone, puis coupez, fusionnez ou exportez.",
-    "hintFiltered": "Clic droit sur un territoire pour les actions. Ctrl+Z annule la dernière modification.",
+    "hintFiltered": "Clic droit sur un territoire pour les actions. {key} annule la dernière modification.",
     "notLoaded": "Limite définie",
     "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger.",
     "clustersHelp": "Afficher la liste des territoires",
@@ -123,7 +125,7 @@
   },
   "phase": {
     "samples": "Collecte des points d'échantillon",
-    "kmeans": "Exécution du regroupement K-Means",
+    "kmeans": "Regroupement des bâtiments",
     "voronoi": "Génération des cellules de Voronoï",
     "graph": "Construction du graphe de rues",
     "trace": "Tracé des limites de rues",
@@ -140,7 +142,11 @@
     "editOutline": "Modifier le tracé de la limite",
     "zoomOuter": "Zoomer sur la limite",
     "trimOuter": "Ajuster aux bâtiments",
-    "refetchOuter": "Retélécharger les données OSM"
+    "refetchOuter": "Retélécharger les données OSM",
+    "partition": "Diviser en territoires",
+    "mapDraw": "Tracer la limite extérieure",
+    "mapTour": "Visite guidée",
+    "mapShortcuts": "Raccourcis clavier"
   },
   "partition": {
     "title": "Diviser en territoires",
@@ -170,7 +176,7 @@
     "hint": "Cliquez les territoires pour les sélectionner · Clic droit pour le menu · Entrée fusionne · Retour arrière retire le dernier · ? pour toutes les touches"
   },
   "trim": {
-    "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · E ajuste les angles à la main · Entrée applique · Échap annule",
+    "hint": "Les bâtiments isolés sont déjà exclus · Cliquez un bâtiment ou sa marque pour changer · Maj+glisser exclut une zone · Alt+glisser les rétablit · E ajuste les angles à la main · Clic droit ouvre le menu · Entrée applique · ? affiche toutes les touches",
     "ignored": {
       "one": "{count} bâtiment exclu",
       "other": "{count} bâtiments exclus"
@@ -228,7 +234,7 @@
   },
   "draw": {
     "hint": "Cliquez pour poser des sommets · Maintenez Alt pour ignorer l’aimantation · Clic droit glissé pour déplacer la carte · Clic droit pour le menu · Entrée ou double-clic pour découper · Retour arrière revient en arrière · ? pour toutes les touches",
-    "outerHint": "Cliquez pour placer des sommets · Entrée ou double-clic pour terminer · Échap pour annuler"
+    "outerHint": "Cliquez pour poser des sommets · Retour arrière en retire un · Entrée ou double-clic termine · Échap annule · ? affiche toutes les touches"
   },
   "search": {
     "placeholder": "Rechercher une adresse ou un lieu…",
@@ -393,7 +399,8 @@
     "warnSplit": "En plusieurs morceaux : {n}.",
     "flagPrinted": "Carte déjà imprimée",
     "flagSplit": "En {n} morceaux séparés",
-    "flagTiny": "Trop petit à ce niveau de zoom"
+    "flagTiny": "Trop petit à ce niveau de zoom",
+    "print": "Imprimer cette fiche"
   },
   "feature": {
     "building": "Bâtiment",
@@ -606,7 +613,7 @@
       },
       "info": {
         "title": "Où vous en êtes",
-        "body": "Combien de rues, bâtiments et territoires sont actuellement chargés, avec un conseil sur la prochaine étape sensée."
+        "body": "Combien de rues, de bâtiments et de territoires sont chargés, avec une indication sur l'étape suivante. Le nombre de territoires et celui des zones non couvertes sont des boutons : le premier ouvre la liste, le second saute à la plus grande zone que ne couvre aucune fiche."
       },
       "files": {
         "title": "Emportez votre travail",
@@ -663,6 +670,10 @@
       "shortcuts": {
         "title": "Sur quoi puis-je appuyer ?",
         "body": "Cette visite explique le déroulé une fois ; ce bouton répond à l’autre question, à chaque fois. La liste est groupée par outil, celui en cours en tête, et elle est produite par le registre même qui exécute les touches — elle ne peut donc pas se périmer. ? ou F1 l’ouvre depuis n’importe où."
+      },
+      "printButton": {
+        "title": "Imprimer une fiche",
+        "body": "Ceci ouvre la liste des territoires avec une imprimante à côté de chaque ligne — la voie à prendre quand le numéro est déjà connu. Le même écran est à un clic droit sur le territoire lui-même."
       }
     }
   },
@@ -685,7 +696,6 @@
     "undo": "Annuler",
     "redo": "Rétablir",
     "menu": "Menu de cet outil",
-    "menuTerritory": "Menu d’un territoire",
     "panRight": "Déplacer la carte sans poser de sommet",
     "cutFinish": "Découper le long de la ligne",
     "cutBack": "Retirer le dernier sommet",
@@ -753,7 +763,22 @@
     "boundaryBox": "Prendre plutôt le rectangle",
     "boundaryCancel": "Laisser la limite inchangée",
     "printRotateDrag": "Tourner la carte",
-    "printRotateStep": "Tourner par petits paliers"
+    "printRotateStep": "Tourner par petits paliers",
+    "menuAnywhere": "Menu de ce qui est sous le pointeur",
+    "goDraw": "Tracer ou remodeler la limite extérieure",
+    "goLocate": "Afficher ma position",
+    "goRefetch": "Retélécharger les données OSM",
+    "goTrim": "Ajuster la limite aux bâtiments",
+    "goSplit": "Diviser la zone en territoires",
+    "goCut": "Couper un territoire en deux",
+    "goMerge": "Fusionner des territoires",
+    "goNumbers": "Afficher ou masquer les numéros de territoire",
+    "goPrint": "Choisir un territoire et imprimer sa fiche",
+    "goTour": "Ouvrir la visite guidée",
+    "covered": "pas tant que cet écran est ouvert",
+    "groupList": "Liste des territoires",
+    "listNumbers": "Afficher ou masquer les numéros sur la carte",
+    "listClose": "Fermer la liste"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -794,5 +819,8 @@
     "dissolveTrim": "Refermer — reculer la limite",
     "dissolveAll": "Refermer toutes les zones non couvertes",
     "dissolveFailed": "Cette zone n’a pas pu être refermée."
+  },
+  "dialog": {
+    "help": "Touches de cet écran"
   }
 }

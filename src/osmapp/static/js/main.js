@@ -149,6 +149,7 @@
 
     // ── Map events ──────────────────────────────────────────────────────
     map.on("move zoom", App.ui.closeContextMenu);
+    map.on("contextmenu", _onMapContextMenu);
     map.on("editable:drawing:commit", function (e) {
       _adoptPolygon(s, map, e.layer);
     });
@@ -169,6 +170,37 @@
     console.log(">>> Ready. Draw an outer polygon to begin.");
 
     _restoreSession(s);
+  }
+
+  /**
+   * Right-click on bare map.
+   *
+   * The layer handlers in polygons.js, gaps.js and trim.js all stop
+   * propagation, so this only ever runs when there was nothing under the
+   * pointer — which used to mean the browser's own menu, even in the modes
+   * whose hint banner says "Right-click for the menu" and whose menu is the
+   * only place some of their actions live.
+   *
+   * The cut tool is the one exception and has to stay one: it watches the
+   * right button on the map container to pan with, and a menu opened from a
+   * drag that happens to end where it started would fight the gesture.
+   */
+  function _onMapContextMenu(e) {
+    var s = App.state;
+    if (s.editMode) return;
+    if (s.mergeMode) {
+      App.editing.handleModeContextMenu(e.containerPoint, null, null);
+      return;
+    }
+    if (s.trimMode) {
+      App.trim.handleContextMenu(e.containerPoint, null);
+      return;
+    }
+    if (s.outlineMode) {
+      App.outline.handleContextMenu(e.containerPoint);
+      return;
+    }
+    App.ui.showMapContextMenu(e.containerPoint);
   }
 
   /**

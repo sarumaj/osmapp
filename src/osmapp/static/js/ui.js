@@ -236,7 +236,12 @@ App.ui = (function () {
       _syncGaps();
     }
 
-    var hint = info.hintKey ? App.i18n.t(info.hintKey) : info.hint || "";
+    // hintParams rather than a pre-formatted string: refreshInfo() replays the
+    // last payload after a language change, and a string built at call time
+    // would come back in the old language.
+    var hint = info.hintKey
+      ? App.i18n.t(info.hintKey, info.hintParams)
+      : info.hint || "";
     D.text(_panel, "hint", hint);
     D.toggleRole(_panel, "hint", !!hint);
   }
@@ -314,6 +319,10 @@ App.ui = (function () {
       clusters: clusters,
       printed: printed || 0,
       hintKey: "info.hintFiltered",
+      // The one place in the app that named a key in prose, and it named the
+      // wrong one on a Mac. App.shortcuts already knows how to draw a combo
+      // for the keyboard in front of the user.
+      hintParams: { key: App.shortcuts.hint("Mod+Z") },
     });
   }
 
@@ -327,11 +336,25 @@ App.ui = (function () {
    * @returns {HTMLElement} the dialog root — query it with App.dom.role()
    */
   var _dialogOnClose = null;
+  var _veil = null;
+
+  /**
+   * Dialogs that bring their own way out and would be worse for a second one.
+   *
+   * The shortcut sheet *is* the help, and a confirm is one sentence with two
+   * buttons — a "?" on either would point at itself or at nothing.
+   */
+  var NO_HELP = { "tpl-shortcuts-dialog": true, "tpl-confirm-dialog": true };
 
   function openDialog(templateId, onClose) {
     closeDialog();
     _dialogOnClose = onClose || null;
+    // Before the dialog, so DOM order agrees with the z-index rather than
+    // relying on it alone.
+    _veil = D.mountOnMap("tpl-dialog-veil", s.leafletMap);
     _dialog = D.mountOnMap(templateId, s.leafletMap);
+    if (!NO_HELP[templateId]) addHelpButton(_dialog);
+    trapFocus(_dialog);
     return _dialog;
   }
 
@@ -339,7 +362,68 @@ App.ui = (function () {
     var teardown = _dialogOnClose;
     _dialogOnClose = null;
     _dialog = D.remove(_dialog);
+    _veil = D.remove(_veil);
     if (teardown) teardown();
+  }
+
+  /**
+   * The "?" every mode bar has advertised on its hint banner, given to the
+   * screens that have no banner.
+   *
+   * The key has worked inside dialogs since App.shortcuts learned about
+   * `overModal`, but nothing on screen said so — which made it a shortcut for
+   * people who had already read the shortcut list. Public because the PDF
+   * placement frame mounts itself rather than going through openDialog: it
+   * stacks over the print dialog, and openDialog would close the thing it is
+   * stacking over.
+   */
+  function addHelpButton(dialog) {
+    if (!dialog || dialog.querySelector(".app-dialog__help")) return null;
+    var button = D.render("tpl-dialog-help");
+    button.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      App.shortcuts.toggleSheet();
+    });
+    dialog.appendChild(button);
+    return button;
+  }
+
+  var FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]), ' +
+    'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  /**
+   * Keep Tab inside the dialog.
+   *
+   * aria-modal="true" is a claim about where focus can go, and it was only
+   * ever true of the mouse: Tab walked straight out of the print dialog into
+   * the toolbar behind it, where every button was still live. The veil covers
+   * the mouse; this covers the keyboard.
+   *
+   * Nothing here answers Escape — App.shortcuts owns that, and a second
+   * listener would close two things per press.
+   */
+  function trapFocus(dialog) {
+    dialog.addEventListener("keydown", function (e) {
+      if (e.key !== "Tab") return;
+      var items = [].slice
+        .call(dialog.querySelectorAll(FOCUSABLE))
+        .filter(function (node) {
+          return node.offsetParent !== null || node === document.activeElement;
+        });
+      if (!items.length) return;
+      var first = items[0];
+      var last = items[items.length - 1];
+      // Focus outside the dialog entirely — the map took it, or nothing has
+      // it yet — comes back to the top rather than continuing round the page.
+      if (dialog.contains(document.activeElement)) {
+        if (!e.shiftKey && document.activeElement !== last) return;
+        if (e.shiftKey && document.activeElement !== first) return;
+      }
+      e.preventDefault();
+      (e.shiftKey ? last : first).focus();
+    });
   }
 
   /**
@@ -493,9 +577,17 @@ App.ui = (function () {
    *                onlineOnly?:boolean, separator?:boolean,
    *                onClick?:Function}>} items
    *   A `separator: true` entry draws a divider and nothing else.
-   * @returns {HTMLElement} the menu root
+   * @returns {HTMLElement|null} the menu root, or null while a dialog owns
+   *   the screen
    */
   function showContextMenu(point, items) {
+    // --z-menu is below --z-dialog, so a menu opened while a dialog is up
+    // renders behind it: invisible, and still holding the document click
+    // listener that swallows the next click anywhere. The veil stops the
+    // pointer from reaching the map at all, but the tour opens menus
+    // programmatically and print.js mounts the placement frame outside
+    // openDialog, so the rule is stated here rather than left to geometry.
+    if (isDialogOpen()) return null;
     closeContextMenu();
     var menu = D.mountOnMap("tpl-context-menu", s.leafletMap);
 
@@ -710,6 +802,18 @@ App.ui = (function () {
       },
       { separator: true },
       {
+        // Every Area-group action was here except the one that comes next in
+        // the workflow, which meant the boundary's own menu stopped exactly
+        // where the boundary stops being the subject — and the step people
+        // are looking for right after drawing one was the trip to the corner.
+        labelKey: "menu.partition",
+        icon: "fa-shapes",
+        disabled: !(s.cachedStreets && s.cachedStreets.features),
+        onClick: function () {
+          App.clustering.showClusterDialog();
+        },
+      },
+      {
         labelKey: "menu.trimOuter",
         icon: "fa-compress",
         disabled: !(
@@ -727,6 +831,57 @@ App.ui = (function () {
         onlineOnly: true,
         onClick: function () {
           App.data.confirmAndFetch(layer.toGeoJSON(), { force: true });
+        },
+      },
+    ]);
+  }
+
+  /**
+   * The menu for empty ground.
+   *
+   * Every showContextMenu() call site needed something under the cursor — a
+   * territory, a building, the boundary — so a right-click on bare map fell
+   * through to the browser's own menu. Two of the mode hints already promised
+   * otherwise ("Right-click for the menu"), and the modes whose menu is the
+   * only place some of their actions live were the ones you had to know to
+   * aim at a shape to reach.
+   *
+   * Kept short on purpose: this is the menu with no subject, so it holds the
+   * things that have no subject either.
+   */
+  function showMapContextMenu(point) {
+    var hasBoundary = !!s.outerPolygonLayer;
+    var hasData = !!(s.cachedStreets && s.cachedStreets.features);
+    return showContextMenu(point, [
+      {
+        labelKey: hasBoundary ? "menu.editOutline" : "menu.mapDraw",
+        icon: hasBoundary ? "fa-vector-square" : "fa-draw-polygon",
+        onClick: function () {
+          if (hasBoundary) App.outline.toggle();
+          else s.leafletMap.editTools.startPolygon();
+        },
+      },
+      {
+        labelKey: "menu.partition",
+        icon: "fa-shapes",
+        disabled: !(hasBoundary && hasData),
+        onClick: function () {
+          App.clustering.showClusterDialog();
+        },
+      },
+      { separator: true },
+      {
+        labelKey: "menu.mapShortcuts",
+        icon: "fa-keyboard",
+        onClick: function () {
+          App.shortcuts.toggleSheet();
+        },
+      },
+      {
+        labelKey: "menu.mapTour",
+        icon: "fa-circle-question",
+        onClick: function () {
+          App.tour.start();
         },
       },
     ]);
@@ -769,9 +924,11 @@ App.ui = (function () {
     closeDialog: closeDialog,
     isDialogOpen: isDialogOpen,
     dialogNode: dialogNode,
+    addHelpButton: addHelpButton,
     showContextMenu: showContextMenu,
     showPolygonContextMenu: showPolygonContextMenu,
     showOuterContextMenu: showOuterContextMenu,
+    showMapContextMenu: showMapContextMenu,
     closeContextMenu: closeContextMenu,
     isContextMenuOpen: isContextMenuOpen,
   };

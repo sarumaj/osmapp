@@ -18,6 +18,12 @@
  *                 "Draw or search for an outer boundary first" does.
  *   active()    — toggle state, for the modal cut and merge tools.
  *   titleFn()   — a tooltip that has to be recomputed (undo/redo depth).
+ *   shortcut    — the key that does the same thing, drawn into the tooltip
+ *                 the way undo and redo have always carried theirs. Named
+ *                 `shortcut` rather than `key` because a group already has a
+ *                 `key` and the two would read as the same field. The binding
+ *                 itself is registered in _registerKeys() below, and a test
+ *                 pins the two lists to each other.
  *
  * refresh() re-evaluates all three for every button and is called from the few
  * places that change the answers: a fetch, a cluster change, a history push, a
@@ -106,6 +112,7 @@ App.controls = (function () {
           labelKey: "toolbar.labelDraw",
           titleKey: "toolbar.draw",
           accent: "blue",
+          shortcut: "D",
           // The polygon tool is also the way back into an existing boundary —
           // clicking it with one already set offers "edit instead" — so it
           // lights up while that editor is running. Without this the app
@@ -122,6 +129,7 @@ App.controls = (function () {
           labelKey: "toolbar.labelLocate",
           titleKey: "toolbar.locate",
           accent: "blue",
+          shortcut: "G",
           onClick: _locate,
         },
         {
@@ -131,6 +139,7 @@ App.controls = (function () {
           titleKey: "toolbar.refetch",
           disabledTitleKey: "toolbar.needsBoundary",
           accent: "blue",
+          shortcut: "R",
           enabled: hasBoundary,
           onClick: _refetch,
         },
@@ -144,6 +153,7 @@ App.controls = (function () {
           titleKey: "toolbar.trim",
           disabledTitleKey: "toolbar.needsBuildings",
           accent: "blue",
+          shortcut: "T",
           enabled: function () {
             return hasBoundary() && hasBuildings();
           },
@@ -167,6 +177,7 @@ App.controls = (function () {
           titleKey: "toolbar.partition",
           disabledTitleKey: "toolbar.needsData",
           accent: "purple",
+          shortcut: "S",
           enabled: function () {
             return hasBoundary() && hasData();
           },
@@ -181,6 +192,7 @@ App.controls = (function () {
           titleKey: "toolbar.cut",
           disabledTitleKey: "toolbar.needsTerritories",
           accent: "purple",
+          shortcut: "C",
           enabled: hasClusters,
           active: function () {
             return !!s.editMode;
@@ -196,6 +208,7 @@ App.controls = (function () {
           titleKey: "toolbar.merge",
           disabledTitleKey: "toolbar.needsTwoTerritories",
           accent: "yellow",
+          shortcut: "M",
           enabled: hasTwoClusters,
           active: function () {
             return !!s.mergeMode;
@@ -214,6 +227,7 @@ App.controls = (function () {
           titleKey: "toolbar.numbers",
           disabledTitleKey: "toolbar.needsTerritories",
           accent: "purple",
+          shortcut: "N",
           enabled: hasClusters,
           active: function () {
             return App.labels.isVisible();
@@ -221,6 +235,24 @@ App.controls = (function () {
           onClick: function () {
             App.labels.setVisible(!App.labels.isVisible());
             refresh();
+          },
+        },
+        {
+          // The app exists to produce cards, and until now the only way to
+          // ask for one was to right-click the right shape on the map: a
+          // gesture you have to already know about, aimed at a polygon you
+          // have to already have found. This opens the list instead, where
+          // every row has a printer and a number beside it.
+          id: "print",
+          icon: "fa-print",
+          labelKey: "toolbar.labelPrint",
+          titleKey: "toolbar.print",
+          disabledTitleKey: "toolbar.needsTerritories",
+          accent: "green",
+          shortcut: "P",
+          enabled: hasClusters,
+          onClick: function () {
+            App.labels.openList();
           },
         },
         {
@@ -335,6 +367,7 @@ App.controls = (function () {
           labelKey: "toolbar.labelHelp",
           titleKey: "toolbar.help",
           accent: "blue",
+          shortcut: "H",
           onClick: function () {
             App.tour.start();
           },
@@ -348,6 +381,7 @@ App.controls = (function () {
           labelKey: "toolbar.labelShortcuts",
           titleKey: "toolbar.shortcuts",
           accent: "blue",
+          shortcut: "?",
           onClick: function () {
             App.shortcuts.toggleSheet();
           },
@@ -405,8 +439,134 @@ App.controls = (function () {
       refresh();
     });
 
+    _registerKeys();
     refresh();
     App._loaded.push("controls");
+  }
+
+  // ── Keys for the toolbar ──────────────────────────────────────────────
+
+  /**
+   * Nothing here existed before, and the shape of the gap was odd: every
+   * modal tool in the app answers a dozen keys, and *entering* one of them
+   * was mouse-only. So the shortcut sheet on the main map listed five lines —
+   * help, escape, right-click, undo, redo — one keystroke before listing
+   * fourteen, which reads as an app that mostly has no shortcuts.
+   *
+   * Two rules make single letters safe here.
+   *
+   *   • `_idle()` — none of these fire while a modal tool is running. The
+   *     tools bind their own letters and are innermost on the stack, but only
+   *     for the letters they use: without this, T inside the merge tool would
+   *     start trimming from underneath it.
+   *   • The registry already refuses to fire a character-producing combo into
+   *     a text field, so the search box and the card fields are unaffected.
+   *
+   * Availability reuses the buttons' own predicates rather than restating
+   * them, so an entry that is greyed on the sheet is greyed for the same
+   * reason the button is.
+   */
+  function _registerKeys() {
+    App.shortcuts.global(
+      [
+        { combos: ["D"], labelKey: "shortcuts.goDraw", run: _draw },
+        { combos: ["G"], labelKey: "shortcuts.goLocate", run: _locateFromKey },
+        {
+          combos: ["R"],
+          labelKey: "shortcuts.goRefetch",
+          when: hasBoundary,
+          run: _refetch,
+        },
+        {
+          combos: ["T"],
+          labelKey: "shortcuts.goTrim",
+          when: function () {
+            return hasBoundary() && hasBuildings();
+          },
+          run: function () {
+            App.trim.toggle();
+          },
+        },
+        {
+          combos: ["S"],
+          labelKey: "shortcuts.goSplit",
+          when: function () {
+            return hasBoundary() && hasData();
+          },
+          run: function () {
+            App.clustering.showClusterDialog();
+          },
+        },
+        {
+          combos: ["C"],
+          labelKey: "shortcuts.goCut",
+          when: hasClusters,
+          run: function () {
+            App.editing.toggleEditMode();
+          },
+        },
+        {
+          combos: ["M"],
+          labelKey: "shortcuts.goMerge",
+          when: hasTwoClusters,
+          run: function () {
+            App.editing.toggleMergeMode();
+          },
+        },
+        {
+          combos: ["N"],
+          labelKey: "shortcuts.goNumbers",
+          when: hasClusters,
+          run: function () {
+            App.labels.setVisible(!App.labels.isVisible());
+            refresh();
+          },
+        },
+        {
+          combos: ["P"],
+          labelKey: "shortcuts.goPrint",
+          when: hasClusters,
+          run: function () {
+            App.labels.openList();
+          },
+        },
+        {
+          combos: ["H"],
+          labelKey: "shortcuts.goTour",
+          run: function () {
+            App.tour.start();
+          },
+        },
+      ].map(_whenIdle),
+    );
+  }
+
+  /** No modal tool is running and no boundary is being drawn. */
+  function _idle() {
+    if (s.editMode || s.mergeMode || s.trimMode || s.outlineMode) return false;
+    var tools = s.leafletMap && s.leafletMap.editTools;
+    return !(tools && tools.drawing());
+  }
+
+  /**
+   * Fold _idle() into whatever the entry already asked for, so the sheet greys
+   * every one of these while a tool owns the keyboard — which is also the
+   * honest answer to "what can I press right now".
+   */
+  function _whenIdle(entry) {
+    var own = entry.when;
+    entry.when = own
+      ? function () {
+          return _idle() && own();
+        }
+      : _idle;
+    return entry;
+  }
+
+  /** _locate() spins the icon on the node it was clicked from; there is none. */
+  function _locateFromKey() {
+    var item = _items.locate;
+    _locate(item ? item.node : null);
   }
 
   // ── Layer control ─────────────────────────────────────────────────────
@@ -441,8 +601,12 @@ App.controls = (function () {
     // was drawn against.
     overlays[T("layers.gaps")] = s.gapsLayerGroup;
 
+    // Three basemaps, five overlays and a note is a nine-line box, and it was
+    // pinned open at every width. On a phone that is the top-right corner of
+    // the map gone, next to a toolbar that already collapses itself for the
+    // same reason — so it uses the same threshold.
     _layerControl = L.control
-      .layers(bases, overlays, { collapsed: false })
+      .layers(bases, overlays, { collapsed: window.innerWidth < NARROW_PX })
       .addTo(_map);
 
     _mountAidNote();
@@ -513,7 +677,8 @@ App.controls = (function () {
   /**
    * @param {{id:string, icon:string, iconClass?:string, labelKey:string,
    *          titleKey?:string, disabledTitleKey?:string, accent?:string,
-   *          onClick?:Function, setup?:Function, href?:string}} spec
+   *          shortcut?:string, onClick?:Function, setup?:Function,
+   *          href?:string}} spec
    *   href turns the button into a real external link: click propagation is
    *   stopped so the map does not see it, but nothing is prevented, so
    *   navigation still happens.
@@ -645,6 +810,16 @@ App.controls = (function () {
       return;
     }
     if (!spec.titleKey) return;
+    // A key belonging to a button is part of what the button is, so it goes in
+    // the tooltip the way undo and redo have always carried theirs — which
+    // means the mapping is no longer declarative and the title has to be
+    // computed here instead.
+    if (spec.shortcut) {
+      node.removeAttribute("data-i18n-attrs");
+      node.title = _withKey(T(spec.titleKey), spec.shortcut);
+      node.setAttribute("aria-label", node.title);
+      return;
+    }
     node.setAttribute(
       "data-i18n-attrs",
       "title=" + spec.titleKey + ";aria-label=" + spec.titleKey,
@@ -761,7 +936,9 @@ App.controls = (function () {
       alert(T("alert.noGeolocation"));
       return;
     }
-    var icon = D.role(node, "icon");
+    // Null when the shortcut fired it rather than a click: there is nothing
+    // to spin, and everything below already tolerates that.
+    var icon = node ? D.role(node, "icon") : null;
     var original = icon ? icon.className : "";
     if (icon) icon.className = "tb-item__icon fa-solid fa-spinner fa-spin";
 

@@ -493,6 +493,7 @@ App.labels = (function () {
    */
   function openList() {
     var dialog = App.ui.openDialog("tpl-territory-list", function () {
+      App.shortcuts.pop("list");
       _dialog = null;
     });
     _dialog = dialog;
@@ -509,6 +510,35 @@ App.labels = (function () {
         if (App.controls) App.controls.refresh();
       });
     }
+
+    // The last screen in the app that took over without registering anything,
+    // so "?" over it listed the keys of the map underneath and said nothing
+    // about the list itself. N is the same letter the toolbar uses for the
+    // same switch, which is the point of having one.
+    App.shortcuts.push({
+      id: "list",
+      titleKey: "shortcuts.groupList",
+      exclusive: true,
+      entries: [
+        {
+          combos: ["N"],
+          labelKey: "shortcuts.listNumbers",
+          run: function () {
+            if (!toggle) return;
+            toggle.checked = !toggle.checked;
+            setVisible(toggle.checked);
+            if (App.controls) App.controls.refresh();
+          },
+        },
+        {
+          combos: ["Escape"],
+          labelKey: "shortcuts.listClose",
+          run: function () {
+            App.ui.closeDialog();
+          },
+        },
+      ],
+    });
 
     var entries = s.clusters || [];
     var shown = entries.map(function (entry, index) {
@@ -564,10 +594,19 @@ App.labels = (function () {
       )
         _flag(flags, "fa-magnifying-glass-plus", "is-tiny", T("list.flagTiny"));
 
-      node.addEventListener("click", function (e) {
-        e.preventDefault();
+      D.onRole(node, "go", function () {
         App.ui.closeDialog();
         focus(row.index);
+      });
+
+      // The list is the answer to "which fourteen?", and the next question is
+      // always "print that one". The template marks the button
+      // data-online-only, so pwa.js's <body> class greys it out without
+      // anything here having to watch the connection.
+      D.onRole(node, "print", function () {
+        if (!entry || !entry.feature) return;
+        App.ui.closeDialog();
+        App.print.printCluster(entry.feature);
       });
     });
   }
