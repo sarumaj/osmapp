@@ -1,9 +1,9 @@
-"""Detect where the map goes in a card template.
+"""Work out where the map belongs on a card template.
 
-The placeholder is a real stroked rectangle in the page content stream and the
-field positions are real dotted leader runs, so both can be measured rather
-than hardcoded. Hardcoding meant every edit to the template silently produced a
-map in the wrong place at the wrong aspect ratio.
+Both things needed here are genuinely drawn on the page: the placeholder is a
+stroked rectangle in the content stream, and the field positions are runs of
+leader dots. So they get measured. Hardcoding them meant that any edit to the
+template put the map somewhere else at some other aspect ratio, quietly.
 """
 
 import re
@@ -12,20 +12,20 @@ from typing import Any
 from pypdf import PageObject, PdfReader
 from pypdf.generic import ContentStream
 
-# Text that marks the map area. Extend freely — a template that has none falls
-# back to the largest text-free rectangle.
+# Wording that labels the map area. Add to it freely; where none of it shows
+# up, detection falls back to the biggest rectangle with no text inside it.
 MARKERS = re.compile(r"MIEJSCE NA MAP|MAPA TERENU|MAP AREA|KARTENFELD", re.IGNORECASE)
 LEADER = re.compile(r"^[.\u2026]{4,}$")
-MIN_SIDE_PT = 40.0  # below this it is a rule or a hairline, not a box
-MAX_PAGE_FRACTION = 0.90  # above this it is the page frame, not the map box
+MIN_SIDE_PT = 40.0  # anything thinner is a rule or a hairline, not a box
+MAX_PAGE_FRACTION = 0.90  # anything bigger is the page frame, not the map box
 
-# A 6-element (a b c d e f) PDF transformation matrix represented as a tuple.
+# One PDF transformation matrix — (a b c d e f) — carried about as a tuple.
 Matrix = tuple[float, float, float, float, float, float]
 
-# (x, y, width, height) rectangle in points.
+# A rectangle in points: x, y, width, height.
 Rect = tuple[float, float, float, float]
 
-# (x, y, font-size, text) text item extracted from a page.
+# One run of text lifted off a page: x, y, font size, string.
 TextItem = tuple[float, float, float, str]
 
 
@@ -45,11 +45,11 @@ def _apply(m: Matrix, x: float, y: float) -> tuple[float, float]:
 
 
 def _rectangles(page: PageObject, reader: PdfReader) -> list[Rect]:
-    """Every `re` operator, mapped through the current transform.
+    """Each `re` operator, pushed through whatever transform is in force.
 
-    Tracking the CTM matters: a template produced by a word processor often
-    wraps its drawing in a scale, and untransformed coordinates would be off by
-    that factor without looking obviously wrong.
+    Following the CTM is not optional. Word processors like to wrap their
+    output in a scale, and coordinates read straight off the stream come out
+    wrong by exactly that factor — wrong quietly, which is the bad kind.
     """
     cs = ContentStream(page.get_contents(), reader)
     ctm: Matrix = (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
@@ -120,14 +120,14 @@ def _placeholder_for(page: PageObject, reader: PdfReader) -> dict[str, float] | 
         return all(x <= px <= x + w and y <= py <= y + h for px, py in points)
 
     if marks:
-        # Several rectangles enclose the marker — the card frame does too. The
-        # smallest one that still contains it is the map box.
+        # More than one rectangle will enclose the marker; the card's own
+        # frame does. Take the smallest of those and that is the map box.
         fitting = [c for c in candidates if holds(c, marks)]
         if fitting:
             best = min(fitting, key=lambda c: c[2] * c[3])
             return dict(zip(("x", "y", "width", "height"), best))
 
-    # No marker: prefer the largest rectangle with no text inside it.
+    # Nothing marked: fall back to the biggest rectangle holding no text.
     empties = [
         c for c in candidates if not any(holds(c, [(x, y)]) for x, y, _, _ in items)
     ]
@@ -137,7 +137,7 @@ def _placeholder_for(page: PageObject, reader: PdfReader) -> dict[str, float] | 
 
 
 def _fields_for(page: PageObject) -> dict[str, dict[str, float]]:
-    """Dotted leader runs, left to right, become the writable field anchors."""
+    """Runs of leader dots, read left to right, are where the fields get written."""
     leaders: list[tuple[float, float, float]] = sorted(
         ((x, y, size) for x, y, size, t in _text_items(page) if LEADER.match(t)),
         key=lambda item: item[0],
@@ -154,7 +154,7 @@ def _fields_for(page: PageObject) -> dict[str, dict[str, float]]:
 
 
 def inspect_template(stream: Any) -> dict[str, Any]:
-    """Page size, map placeholder and field anchors for a card template."""
+    """For one card template: page size, the map box, and where the fields go."""
     reader = PdfReader(stream)
     if reader.is_encrypted:
         raise ValueError("encrypted template")

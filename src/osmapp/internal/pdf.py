@@ -1,4 +1,4 @@
-"""PDF composition — stamps the rendered map onto an uploaded template."""
+"""Card composition: lays the finished map into a template the user supplied."""
 
 import gzip
 import json
@@ -23,15 +23,15 @@ from .responses import BadRequest, error_, json_
 logger = logging.getLogger("osm_app")
 bp = Blueprint("pdf", __name__)
 
-# The name the project state is embedded under. Fixed, because reading it back
-# is a lookup rather than a search — and because a card that arrives with an
-# unrelated attachment should not be mistaken for one of ours.
+# Fixed filename for the embedded project state. Fixed so that recovering it
+# later is one name lookup instead of a hunt through every attachment, and so a
+# card that turns up carrying somebody else's file is not mistaken for ours.
 PROJECT_ATTACHMENT_NAME = "osmapp-project.json.gz"
 
-# Generous for a boundary and a few hundred territories, and far under
-# anything that would make a card awkward to email. The client strips the OSM
-# cache before sending, so hitting this means something is wrong rather than
-# something is big.
+# Roomy enough for an outline plus a few hundred territories, and nowhere near
+# the size that makes a card annoying to mail around. The browser drops the OSM
+# cache before it uploads anything, so tripping this limit points at a bug
+# rather than at a genuinely large project.
 _PROJECT_MAX_BYTES = 8 * 1024 * 1024
 _PROJECT_MAX_UNZIPPED = 32 * 1024 * 1024
 
@@ -41,8 +41,8 @@ _font_ready = False
 
 
 def _ensure_font() -> str:
-    """Register a Unicode TTF once. Helvetica is WinAnsi and cannot render
-    ł ą ę ś ż ź ć ń, which is every Polish locality name."""
+    """Load a Unicode TTF, once per process. WinAnsi is all Helvetica offers and
+    it has no ł ą ę ś ż ź ć ń, so half the place names in Poland come out wrong."""
     global _font_ready
     if not _font_ready:
         pdfmetrics.registerFont(TTFont(_FONT_NAME, str(FONT_PATH)))  # type: ignore[reportUnknownMemberType]
@@ -64,12 +64,11 @@ def inspect_template_route() -> Response:
 
 @bp.route("/extract_project", methods=["POST"])
 def extract_project() -> Response:
-    """Read the project state back out of a printed card.
+    """Pull the project state back out of a card that was printed with one.
 
-    The counterpart to the attachment written by compose_pdf. Done here rather
-    than in the browser because the parsing is already here: pypdf is a
-    dependency, and a JavaScript PDF parser added for one lookup would be a
-    second implementation of a format this app already reads.
+    The other half of the attachment compose_pdf writes. static/js/pdfdoc.js
+    does this in the browser now and drops through to here only when it cannot,
+    so this route is the safety net rather than the usual path.
     """
     document = request.files.get("pdf")
     if document is None:
@@ -88,13 +87,13 @@ def extract_project() -> Response:
     if not versions:
         return error_("That PDF does not carry a saved project.", 404)
 
-    # A PDF may hold several files under one name. The last is the most
-    # recently written, which is the one a re-composed card would have added.
+    # A single name can cover several embedded files. Take the last one:
+    # re-composing a card appends, so the newest copy sits at the end.
     blob = versions[-1]
     try:
         raw = gzip.decompress(blob)
     except (OSError, EOFError):
-        # Written by an older build, before the payload was compressed.
+        # An older build wrote this, back when the payload went in as-is.
         raw = blob
 
     if len(raw) > _PROJECT_MAX_UNZIPPED:
@@ -169,18 +168,18 @@ def compose_pdf() -> Response:
     if not 0 <= page_index < page_count:
         return error_("The template has no page at that index.")
 
-    # clone_from, not append(). append() copies the pages and rebuilds the
-    # catalog, which silently drops /Names /EmbeddedFiles — so a template that
-    # arrived with an attachment lost it, and anything attached below would
-    # have to be added after a rebuild that no longer knows about it. Cloning
-    # carries the whole document across, attachments included.
+    # clone_from here, not append(). append() re-copies the pages and builds a
+    # fresh catalog, and /Names /EmbeddedFiles does not survive that: a template
+    # that showed up with an attachment lost it, and anything we wanted to add
+    # below would be going into a catalog that had forgotten the tree existed.
+    # Cloning brings the document over whole.
     #
-    # Cloned here rather than after the merge, and the page taken from the
-    # *writer*. The writer copies the document at the moment it is built, so
-    # stamping the reader's page afterwards stamped a page that was never
-    # written: the card came out as the bare template, with no map and no
-    # locality on it, and nothing anywhere reported a failure. The preview was
-    # correct throughout, which is what made it look like a rendering problem.
+    # Note where the clone happens — before the merge — and that the page is
+    # taken off the *writer*. A writer copies the document when it is built, so
+    # stamping the reader's page after that point stamped a page nobody was
+    # going to write out. What came off the printer was the naked template: no
+    # map, no locality, and not one error logged anywhere. The preview kept
+    # working throughout, which is why this looked like a rendering fault.
     writer = PdfWriter(clone_from=reader)
     page = writer.pages[page_index]
 
@@ -189,8 +188,8 @@ def compose_pdf() -> Response:
 
     box = page.mediabox
     page_w, page_h = float(box.width), float(box.height)
-    # A non-zero mediabox origin shifts the whole coordinate system; the
-    # overlay is drawn at 0,0 so the offset has to come back out.
+    # An origin away from 0,0 moves the entire coordinate system. The overlay
+    # goes down at 0,0, so that shift has to be added back by hand.
     origin_x, origin_y = float(box.left), float(box.bottom)
 
     if not (
@@ -258,7 +257,7 @@ def compose_pdf() -> Response:
         except BadRequest as exc:
             return error_(str(exc))
         except Exception:
-            # A card that prints without its backup beats no card at all.
+            # Losing the backup is survivable. Losing the card is not.
             logger.exception("compose_pdf: could not attach the project state")
 
     out = BytesIO()
@@ -275,17 +274,17 @@ def compose_pdf() -> Response:
 
 
 def _attach_project(writer: PdfWriter, raw: bytes) -> None:
-    """Embed the project state so the printed card can rebuild the session.
+    """Tuck the project state into the card so a session can be rebuilt from it.
 
-    Stored gzipped under a fixed name. gzip because the payload is JSON full of
-    repeated coordinate digits and compresses roughly four to one, and because
-    the alternative — a PDF that is a megabyte of map and three megabytes of
-    geometry — is a card nobody can email.
+    Gzipped, under the fixed name above. Gzip because the payload is JSON made
+    largely of repeated coordinate digits and shrinks by roughly four to one,
+    and because the other outcome — one megabyte of map and three of geometry —
+    is a file nobody can send to anyone.
 
-    Validated here rather than trusted: this ends up in a file that is handed
-    to other people, and "whatever bytes the browser sent" is not a thing to
-    put in one. A payload that is not JSON, or is too large, is a bug on the
-    client rather than something to pass through silently.
+    Checked rather than taken on faith. This lands in a document that gets
+    handed to other people, and "whatever the browser posted" has no business
+    being in one. Malformed JSON or an oversized payload means the client is
+    broken, and waving it through would only hide that.
     """
     if len(raw) > _PROJECT_MAX_BYTES:
         raise BadRequest("The project state is too large to attach.")

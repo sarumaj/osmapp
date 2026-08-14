@@ -1,12 +1,12 @@
 /**
- * The parts of pdfdoc.js that used to be internal/template.py.
+ * Whatever in pdfdoc.js used to live in internal/template.py.
  *
- * Only the pure geometry is exercised here. Loading pdf-lib and pdf.js and
- * composing a real PDF is an integration test that needs a browser and a
- * template file; what is worth pinning without one is the placeholder choice,
- * because it is the piece that can be wrong without looking wrong. A map box
- * detected one rectangle too far out puts the map on top of the card's own
- * frame, and the only way to notice is to print one.
+ * Nothing but the pure geometry runs here. Pulling in pdf-lib and pdf.js and
+ * building a real PDF is an integration test wanting a browser and a template
+ * file. What can be nailed down without either is the placeholder choice,
+ * since that is the piece capable of being wrong while looking fine. Detect
+ * the map box one rectangle too far out and the map lands on the card's own
+ * frame — and the only way anyone finds out is by printing one.
  */
 
 import test from "node:test";
@@ -76,8 +76,8 @@ test("no usable rectangle is reported rather than guessed", () => {
 
 test("dotted leaders become the field anchors, left to right", () => {
   const pdfdoc = load();
-  // Deliberately out of order: the territory box sits to the right on the
-  // card, and the content stream is under no obligation to draw it second.
+  // Out of order on purpose. The territory box is the right-hand one on the
+  // card, and nothing obliges the content stream to draw it second.
   const fields = pdfdoc._fieldsFor([
     text(479, 761.88, "..............", 14),
     text(122.3, 761.88, "…………", 14),
@@ -96,10 +96,10 @@ test("a template with one leader gets one field, not a shifted pair", () => {
   assert.deepEqual(Object.keys(fields), ["locality"]);
 });
 
-// pdf.js hands a whole path over as sub-operator codes plus one flat run of
-// numbers, so reading a rectangle out means knowing what every other
-// sub-operator consumes. Miscount by one and every rectangle after the first
-// curve is nonsense — which is the failure that looks like a detector bug.
+// A whole path reaches us as sub-operator codes plus one flat run of numbers,
+// so pulling a rectangle out means knowing what each of the others eats. Be off
+// by one and every rectangle after the first curve is garbage — a failure that
+// presents itself as a bug in the detector.
 const OPS = {
   moveTo: 13,
   lineTo: 14,
@@ -129,8 +129,8 @@ test("rectangles survive a path that also contains curves", () => {
 test("the current transform is applied, not ignored", () => {
   const pdfdoc = load();
   const out = [];
-  // Half scale, shifted 10pt right and 20pt up — what a word processor's
-  // wrapping `cm` looks like.
+  // Halved, then moved 10pt right and 20pt up: roughly what a word
+  // processor's wrapping `cm` does.
   pdfdoc._pathRects(
     [[OPS.rectangle], [60, 800, 200, 100]],
     OPS,

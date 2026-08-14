@@ -156,13 +156,13 @@ App.pdfdoc = (function () {
   function _open(lib, bytes) {
     return lib.getDocument({
       data: bytes,
-      // Templates exported by a word processor often reference the standard 14
-      // rather than embedding them, and getTextContent needs the metrics to
-      // recover the characters. Without this the markers and the dotted
-      // leaders come back as empty strings.
+      // Word-processor exports tend to point at the standard 14 rather than
+      // embed anything, and getTextContent wants the metrics before it can
+      // recover characters. Leave this out and both the markers and the leader
+      // dots come back as empty strings.
       standardFontDataUrl: _vendor().pdfjsStandardFonts,
-      // Nothing here needs generated code, and refusing it keeps the app
-      // compatible with a strict script-src.
+      // Nothing here needs code generated at runtime, and turning it down
+      // keeps a strict script-src workable.
       isEvalSupported: false,
     }).promise;
   }
@@ -172,11 +172,11 @@ App.pdfdoc = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Run `client`, and on any failure run `server` instead.
+   * Try `client`; on anything going wrong, hand the job to `server`.
    *
-   * Offline is the exception: there is no server to ask, and the second
-   * failure would replace a message about this PDF with a message about the
-   * network. The one the client produced is the one worth showing.
+   * Offline breaks the rule. There is no server to ask, and the second failure
+   * would swap a message about this particular PDF for a message about the
+   * network. The client's complaint is the one worth putting on screen.
    */
   function withFallback(label, client, server) {
     var attempt;
@@ -217,12 +217,12 @@ App.pdfdoc = (function () {
     });
   }
 
-  /** gzip, or the payload unchanged where the browser has no CompressionStream. */
+  /** gzip — or the payload untouched, on a browser with no CompressionStream. */
   function _gzip(bytes) {
     if (typeof window.CompressionStream !== "function") {
-      // internal/pdf.py reads an uncompressed attachment too — it tries gzip
-      // and keeps the raw bytes when that fails — so this stays readable
-      // everywhere, just larger.
+      // internal/pdf.py copes with an uncompressed attachment: it attempts
+      // gzip and falls back to the raw bytes. So this still opens anywhere. It
+      // is just bigger.
       return Promise.resolve(bytes);
     }
     return _collect(
@@ -231,7 +231,7 @@ App.pdfdoc = (function () {
   }
 
   function _gunzip(bytes) {
-    // Not gzip: written by a build from before the payload was compressed.
+    // No gzip header, so a build from before compression wrote this one.
     if (!(bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b)) {
       return Promise.resolve(bytes);
     }
@@ -248,14 +248,14 @@ App.pdfdoc = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Every rectangle the page draws, in page coordinates.
+   * Every rectangle drawn on the page, in page coordinates.
    *
-   * The current transform has to be tracked for the same reason the Python
-   * version tracked it: a template produced by a word processor usually wraps
-   * its drawing in a scale, and untransformed coordinates would be wrong by
-   * that factor without looking wrong. Form XObjects are followed as well,
-   * which the pypdf version did not do — a template whose card is a single
-   * embedded form had no candidate rectangles at all there.
+   * The transform gets tracked here for the same reason it did in Python:
+   * word processors habitually wrap their drawing in a scale, and coordinates
+   * taken raw would be wrong by that factor while looking perfectly fine. This
+   * version also descends into Form XObjects, which pypdf never did — over
+   * there, a template whose card sits inside one embedded form produced no
+   * candidate rectangles whatsoever.
    */
   function _rectangles(page, ops) {
     return page.getOperatorList().then(function (list) {
@@ -313,7 +313,7 @@ App.pdfdoc = (function () {
     return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
   }
 
-  /** How many numbers each path sub-operator consumes. */
+  /** Numbers consumed by each path sub-operator. */
   var PATH_ARITY = {
     moveTo: 2,
     lineTo: 2,
@@ -325,14 +325,14 @@ App.pdfdoc = (function () {
   };
 
   /**
-   * Pull the `re` operators out of one constructPath.
+   * Recover the `re` operators from a single constructPath.
    *
-   * pdf.js hands the whole path over as a list of sub-operators and one flat
-   * run of numbers, so the run has to be walked with the arity table above to
-   * know which four belong to a rectangle. The shape of the outer arguments
-   * has changed across pdf.js majors — a trailing bounding box came and went —
-   * so only the first two entries are read, and anything unrecognized ends the
-   * walk rather than misreading the rest of the numbers.
+   * What pdf.js hands over is a list of sub-operators plus one flat run of
+   * numbers, so the run gets walked against the arity table above to work out
+   * which four belong to a rectangle. The outer argument shape has shifted
+   * between pdf.js majors — a trailing bounding box appeared and later left
+   * again — so only the first two entries are touched, and an unfamiliar
+   * sub-operator ends the walk instead of misreading everything after it.
    */
   function _pathRects(args, ops, ctm, out) {
     var codes = args && args[0];
@@ -385,7 +385,7 @@ App.pdfdoc = (function () {
     };
   }
 
-  /** Text runs with their baseline position and rendered size. */
+  /** Runs of text, with baseline position and the size they render at. */
   function _textItems(page) {
     return page.getTextContent().then(function (content) {
       var items = [];
@@ -458,8 +458,8 @@ App.pdfdoc = (function () {
 
     var best = null;
     if (marks.length) {
-      // Several rectangles enclose the marker — the card frame does too. The
-      // smallest one that still contains it is the map box.
+      // Plenty of rectangles enclose the marker, the card frame among them.
+      // The smallest that still does is the map box.
       var fitting = candidates.filter(function (c) {
         return _holds(c, marks);
       });
@@ -471,7 +471,7 @@ App.pdfdoc = (function () {
     }
 
     if (!best) {
-      // No marker: prefer the largest rectangle with no text inside it.
+      // No marker anywhere: take the biggest rectangle holding no text.
       var empty = candidates.filter(function (c) {
         return !items.some(function (item) {
           return _holds(c, [[item.x, item.y]]);
@@ -486,7 +486,7 @@ App.pdfdoc = (function () {
     return { placeholder: best, candidates: candidates };
   }
 
-  /** Dotted leader runs, left to right, become the writable field anchors. */
+  /** Leader dots, read left to right, mark where the fields are written. */
   function _fieldsFor(items) {
     var leaders = items
       .filter(function (item) {
@@ -511,13 +511,13 @@ App.pdfdoc = (function () {
   }
 
   /**
-   * Page size, map placeholder and field anchors for a card template.
+   * For a card template: page size, the map box, and where the fields go.
    *
-   * Also returns every rectangle that survived filtering, which the server
-   * route never did. print.js has always read `layout.candidates` to drive the
-   * placement dialog's snapping, and on a detected layout that list was
-   * silently empty — snapping only ever worked on a layout that had already
-   * been positioned by hand once.
+   * This also hands back every rectangle that got through filtering, which the
+   * server route never bothered to. print.js has always read
+   * `layout.candidates` to drive snapping in the placement dialog, and on a
+   * detected layout that list came through empty without comment — so snapping
+   * only ever did anything on a layout somebody had already placed by hand.
    */
   function inspectTemplate(file) {
     return Promise.all([_reader(), _bytes(file)])
@@ -545,8 +545,8 @@ App.pdfdoc = (function () {
     return doc.getPage(number).then(function (page) {
       if ((page.rotate || 0) % 360) return _inspectPages(doc, number + 1);
 
-      // page.view is [x0, y0, x1, y1]; measurements come out relative to its
-      // origin so that draw time can add the origin back exactly once.
+      // page.view arrives as [x0, y0, x1, y1]. Measuring relative to its
+      // origin lets draw time put the origin back exactly once.
       var view = page.view;
       var originX = view[0];
       var originY = view[1];
@@ -608,8 +608,8 @@ App.pdfdoc = (function () {
             canvas.width = Math.max(1, Math.round(viewport.width));
             canvas.height = Math.max(1, Math.round(viewport.height));
             var context = canvas.getContext("2d");
-            // A PDF page has no background of its own, and a card rendered
-            // onto transparency is a black rectangle in a dark-mode browser.
+            // PDF pages carry no background. Render a card onto transparency
+            // and a dark-mode browser shows a black rectangle.
             context.fillStyle = "#ffffff";
             context.fillRect(0, 0, canvas.width, canvas.height);
             return page.render({ canvasContext: context, viewport: viewport })
@@ -646,20 +646,20 @@ App.pdfdoc = (function () {
   /**
    * @param {Object} spec
    * @param {File}   spec.template
-   * @param {Blob}   spec.image      the rendered map, PNG
+   * @param {Blob}   spec.image      the finished map, as PNG
    * @param {number} spec.page
    * @param {Object} spec.box        {x, y, width, height} in points
    * @param {Array}  spec.fields     [{text, x, y, size}]
-   * @param {Object} [spec.project]  embedded so the card is also the backup
+   * @param {Object} [spec.project]  goes in so the card doubles as a backup
    * @returns {Promise<Blob>}
    */
   function compose(spec) {
     return Promise.all([_writer(), _bytes(spec.template), _bytes(spec.image)])
       .then(function (parts) {
         var PDFLib = parts[0].lib;
-        // Not `ignoreEncryption` — the server refused encrypted templates and
-        // so does this. A card is a document handed to somebody else; quietly
-        // stripping a password off one is not this app's decision to make.
+        // No `ignoreEncryption`. The server turned encrypted templates away
+        // and this does the same. Cards get handed to other people, and
+        // silently taking a password off one is not ours to decide.
         return PDFLib.PDFDocument.load(parts[1]).then(function (doc) {
           doc.registerFontkit(parts[0].fontkit);
           return _stamp(PDFLib, doc, parts[2], spec);
@@ -694,10 +694,10 @@ App.pdfdoc = (function () {
       throw new Error("Rotated template pages are not supported.");
     }
 
-    // The crop box, not the media box: pdf.js reports page.view as the two
-    // intersected, so that is the box the placeholder was measured against and
-    // drawing against anything else would shift the map by the difference.
-    // Identical on every template where the two agree, which is nearly all.
+    // Crop box, not media box. pdf.js gives page.view as the intersection of
+    // the two, so that is what the placeholder was measured against; drawing
+    // against anything else moves the map by whatever the difference is. Where
+    // the two boxes agree — nearly always — this is the same thing.
     var media = page.getCropBox ? page.getCropBox() : page.getMediaBox();
     if (
       box.x < 0 ||
@@ -713,9 +713,9 @@ App.pdfdoc = (function () {
         throw new Error("The map image has no pixels.");
       }
 
-      // Contain, not cover: the canvas already carries the placeholder's
-      // aspect ratio, so this normally divides out exactly and only matters
-      // for a card composed from an older saved view.
+      // Contain rather than cover. The canvas already holds the placeholder's
+      // aspect ratio, so in practice this divides out exactly; it only bites
+      // on a card built from an older saved view.
       var drawH = box.height;
       var drawW = (png.width / png.height) * drawH;
       if (drawW > box.width) {
@@ -723,8 +723,8 @@ App.pdfdoc = (function () {
         drawH = (png.height / png.width) * drawW;
       }
 
-      // pdf-lib draws in user space, so a mediabox that does not start at the
-      // origin shifts everything; the offset goes back in here.
+      // pdf-lib works in user space, so a mediabox starting anywhere but the
+      // origin displaces the lot. The offset is put back right here.
       page.drawImage(png, {
         x: media.x + box.x + (box.width - drawW) / 2,
         y: media.y + box.y + (box.height - drawH) / 2,
@@ -742,10 +742,10 @@ App.pdfdoc = (function () {
           page.drawText(field.text, {
             x: media.x + field.x,
             y: media.y + field.y,
-            // 10, not field.size. reportlab hardcoded 10 and the detected
-            // leader size is often 14, so honoring it here would change every
-            // card printed from a template someone has already tuned against.
-            // Worth revisiting — on both paths at once.
+            // 10 rather than field.size. reportlab had 10 baked in, and the
+            // leader size that detection reports is frequently 14, so obeying
+            // it would move the text on every card printed from a template
+            // somebody already tuned. Worth fixing — but on both paths at once.
             size: 10,
             font: font,
           });
@@ -756,11 +756,12 @@ App.pdfdoc = (function () {
   }
 
   /**
-   * DejaVuSans, subsetted.
+   * DejaVuSans, cut down to what is used.
    *
-   * The standard 14 are WinAnsi and cannot render ł ą ę ś ż ź ć ń, which is
-   * every second Polish locality name. Subsetting is the one place this beats
-   * the server outright: only the glyphs actually on the card are embedded.
+   * WinAnsi is what the standard 14 give you, and it has no ł ą ę ś ż ź ć ń —
+   * that is every other locality name in Poland. Subsetting is the single
+   * place this genuinely beats the server: only glyphs that appear on the card
+   * make it into the file.
    */
   function _font(doc) {
     return fetch(_vendor().font)
@@ -780,7 +781,7 @@ App.pdfdoc = (function () {
     try {
       raw = new TextEncoder().encode(JSON.stringify(spec.project));
     } catch (err) {
-      // A card that prints without its backup beats no card at all.
+      // Losing the backup is survivable. Losing the card is not.
       console.warn(">>> Could not serialize the project state:", err.message);
       return doc.save();
     }
@@ -831,11 +832,11 @@ App.pdfdoc = (function () {
   }
 
   /**
-   * The last file embedded under `name`, or null.
+   * Whichever file was embedded last under `name`, else null.
    *
-   * /EmbeddedFiles is a name tree, so it is either a flat /Names array or a
-   * /Kids chain of them; both shapes turn up in the wild and pdf-lib hands
-   * over the raw dictionaries rather than resolving either.
+   * /EmbeddedFiles is a name tree, meaning either one flat /Names array or a
+   * /Kids chain of them. Both turn up out there, and pdf-lib passes the raw
+   * dictionaries along without resolving either shape.
    */
   function _attachment(PDFLib, doc, name) {
     var names = doc.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
@@ -889,8 +890,8 @@ App.pdfdoc = (function () {
     renderPage: renderPage,
     compose: compose,
     extractProject: extractProject,
-    // Exported for the tests: the geometry is the part that can be wrong
-    // without looking wrong, and it is pure.
+    // Out for the tests. The geometry is pure, and it is the part capable of
+    // being wrong while looking entirely reasonable.
     _placeholderFor: _placeholderFor,
     _fieldsFor: _fieldsFor,
     _pathRects: _pathRects,
