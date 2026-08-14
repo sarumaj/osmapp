@@ -29,14 +29,14 @@ import { loadApp } from "./helpers/load.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const INDEX = readFileSync(
-  join(ROOT, "src", "osmapp", "templates", "index.html"),
+  join(ROOT, "src", "osmapp", "templates", "index.html.j2"),
   "utf8",
 );
 
 // ── Canvas stubs ─────────────────────────────────────────────────────────────
 
 /**
- * A 2d context that models one browser's filter behaviour.
+ * A 2d context that models one browser's filter behavior.
  *
  * @param {{filter?: "none"|"css"|"all", readable?: boolean, farble?: number}} traits
  *   filter: which filter strings are accepted at all. "css" accepts the
@@ -120,7 +120,7 @@ function loadFilters(traits) {
   return loadApp(["print-filters.js"], { document }).printFilters;
 }
 
-/** An RGBA buffer filled with one colour. */
+/** An RGBA buffer filled with one color. */
 function flat(width, height, [r, g, b, a = 255]) {
   const data = new Uint8ClampedArray(width * height * 4);
   for (let i = 0; i < width * height; i++) {
@@ -298,7 +298,7 @@ test("no enabled filter leaves the data untouched", () => {
 
 test("the filters run in the SVG chain's order", () => {
   // sharpen, then contrast, then grayscale. Running grayscale first would give
-  // a different answer for a coloured edge, and the printed card would not
+  // a different answer for a colored edge, and the printed card would not
   // match the preview on the browsers that take the SVG path.
   const w = 3;
   const chained = flat(w, w, [200, 60, 20]);

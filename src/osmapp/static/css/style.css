@@ -2020,8 +2020,14 @@ body {
   font-weight: 600;
 }
 
-/* Phone: full-width targets, with the link on its own line above the two
-   buttons rather than squeezing three onto one. */
+/* The second verb in the footer. Sized with the primary so the pair reads as
+   two ways of finishing rather than a button and an afterthought. */
+.print-dialog__save {
+  min-width: 132px;
+}
+
+/* Phone: full-width targets, with the link on its own line above the
+   buttons rather than squeezing all of them onto one. */
 @media (max-width: 560px) {
   .print-dialog__actions,
   .place-dialog__actions {
@@ -2033,7 +2039,20 @@ body {
     flex: 1 1 auto;
   }
 
-  .print-dialog__pdf {
+  .print-dialog__open {
+    flex-basis: 100%;
+  }
+
+  /* Three buttons on one phone line leaves each of them a word wide in
+     German, so the pair that finishes the job takes a line of its own and
+     Cancel keeps the one below it. */
+  .print-dialog__save,
+  .print-dialog__go {
+    flex-basis: 40%;
+  }
+
+  .print-dialog__actions [data-role="cancel"] {
+    order: 1;
     flex-basis: 100%;
   }
 }

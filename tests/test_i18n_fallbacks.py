@@ -50,7 +50,7 @@ def collapse(text: str) -> str:
 
 
 def fallbacks() -> list[tuple[str, str]]:
-    source = (ROOT / "templates" / "index.html").read_text(encoding="utf-8")
+    source = (ROOT / "templates" / "index.html.j2").read_text(encoding="utf-8")
     found: list[tuple[str, str]] = []
     for match in NODE.finditer(source):
         inner = match.group(3)

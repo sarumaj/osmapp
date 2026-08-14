@@ -197,7 +197,9 @@ App.print = (function () {
   var _rotationDragging = false; // true only while the slider handle is held
 
   var _templateFile = null;
-  var _pdfUrl = null;
+  // blob: URL of the last card composed here, whichever format it came out
+  // in. One at a time: composing again replaces it.
+  var _outUrl = null;
   var _busy = false;
 
   /**
@@ -1956,13 +1958,14 @@ App.print = (function () {
   function _setBusy(busy) {
     _busy = busy;
     D.toggleClass(D.role(_dialog, "print"), "is-disabled", busy);
+    D.toggleClass(D.role(_dialog, "download"), "is-disabled", busy);
     D.toggleClass(D.role(_dialog, "cancel"), "is-disabled", busy);
     _preview.classList.toggle("is-busy", busy);
   }
 
   function _teardown() {
     _closePlacement();
-    _releasePdf();
+    _releaseOutput();
     if (_eraseRO) {
       _eraseRO.disconnect();
       _eraseRO = null;
@@ -2318,17 +2321,22 @@ App.print = (function () {
       _schedulePaint();
     });
     D.onRole(_dialog, "cancel", close);
-    D.onRole(_dialog, "print", _print);
+    D.onRole(_dialog, "print", function () {
+      _run("print");
+    });
+    D.onRole(_dialog, "download", function () {
+      _run("download");
+    });
 
     App.shortcuts.push(PRINT_KEYS);
     // Bound directly rather than through D.onRole: that helper calls
     // preventDefault() on every click, which is right for the <button>s but
-    // cancels an <a>'s navigation — the Open PDF link did nothing at all.
+    // cancels an <a>'s navigation — the Open link did nothing at all.
     // The dialog container already has disableClickPropagation, so the map
     // never sees this click either way.
-    var openPdf = D.role(_dialog, "open-pdf");
-    if (openPdf) {
-      openPdf.addEventListener("click", function () {
+    var openFile = D.role(_dialog, "open-file");
+    if (openFile) {
+      openFile.addEventListener("click", function () {
         _setStatus("");
       });
     }
@@ -2513,7 +2521,21 @@ App.print = (function () {
           return !_busy;
         },
         run: function () {
-          _print();
+          _run("print");
+        },
+      },
+      {
+        // The other half of the footer, and the combo everyone already tries
+        // there. It fires while typing for the same reason Mod+Enter does,
+        // and preventDefault() keeps it from saving the page instead.
+        combos: ["Mod+S"],
+        labelKey: "shortcuts.printSave",
+        whileTyping: true,
+        when: function () {
+          return !_busy;
+        },
+        run: function () {
+          _run("download");
         },
       },
       {
@@ -2860,7 +2882,21 @@ App.print = (function () {
     });
   }
 
-  function _print() {
+  /**
+   * The two ways a finished card leaves this dialog.
+   *
+   * They used not to be two, and which one you got was decided three
+   * fieldsets away: with no template the card went straight to the browser's
+   * print dialog and could never be saved, and with a template it was
+   * downloaded and could never be printed. Same button, opposite meanings.
+   *
+   * What is composed is the same artefact either way, so composition happens
+   * once in _compose() and the action decides only what is done with the blob
+   * it resolves — printed, saved, or both, one after the other.
+   *
+   * @param {"print"|"download"} action
+   */
+  function _run(action) {
     if (!_view || _busy) return;
     // Captured now rather than read later: Escape closes the dialog even
     // mid-composition, and the teardown nulls _feature before this chain
@@ -2870,36 +2906,20 @@ App.print = (function () {
     var locality = _opts().locality;
     _setBusy(true);
 
-    _setStatus(T("print.waitingTiles"));
-    _awaitTiles()
+    _compose()
+      .then(function (out) {
+        _publish(out);
+        return action === "print" ? _sendToPrinter(out) : _saveFile(out);
+      })
       .then(function () {
-        _setStatus(T("print.encoding"));
-        return new Promise(function (resolve) {
-          _preview.toBlob(resolve, "image/png");
-        });
-      })
-      .then(function (blob) {
-        if (!blob) throw new Error(T("print.errRender"));
-        if (!_templateFile) return _printImage(blob);
-        _setStatus(T("print.buildingPdf"));
-        return _composePdf(blob);
-      })
-      .then(function (ok) {
-        // _composePdf reports its own failures and resolves false rather than
-        // throwing, so that the status pill keeps the specific "could not
-        // build the PDF" wording instead of the generic one. That means the
-        // success path has to be tested here rather than assumed from the
-        // absence of a throw.
-        if (ok === false) return;
-
         // Only names that reached a card go in the dropdown.
         _rememberLocality(locality);
 
-        // On the no-template path this is optimistic: the browser's own print
-        // dialog is fire-and-forget and we never hear whether it was
-        // cancelled. Optimistic is the right way round, though — a territory
-        // wrongly marked is one right-click away from being un-marked, while
-        // one wrongly left unmarked is a card printed twice.
+        // Optimistic, and deliberately so on both paths: the browser's own
+        // print dialog is fire-and-forget and a download can be cancelled in
+        // the shelf. A territory wrongly marked is one right-click away from
+        // being un-marked, while one wrongly left unmarked is a card printed
+        // twice.
         App.polygons.markPrinted(target, true);
       })
       .catch(function (err) {
@@ -2910,38 +2930,193 @@ App.print = (function () {
       });
   }
 
+  /**
+   * Render the card: a PNG of the map alone, or the PDF it is stamped into.
+   *
+   * @returns {Promise<{blob: Blob, name: string, pdf: boolean}>}
+   */
+  function _compose() {
+    var o = _opts();
+    _setStatus(T("print.waitingTiles"));
+    return _awaitTiles()
+      .then(function () {
+        _setStatus(T("print.encoding"));
+        return new Promise(function (resolve) {
+          _preview.toBlob(resolve, "image/png");
+        });
+      })
+      .then(function (blob) {
+        if (!blob) throw new Error(T("print.errRender"));
+        if (!_templateFile)
+          return { blob: blob, name: _fileName(o, "png"), pdf: false };
+        _setStatus(T("print.buildingPdf"));
+        return _composePdf(blob, o).then(function (pdf) {
+          return { blob: pdf, name: _fileName(o, "pdf"), pdf: true };
+        });
+      });
+  }
+
+  /**
+   * What the card is called on disk, in either format.
+   *
+   * The timestamp is a fallback for an unnumbered territory only: two cards
+   * of number 12 are meant to overwrite each other, two cards of nothing in
+   * particular are not.
+   */
+  function _fileName(o, ext) {
+    var name =
+      "territory_map" +
+      (o.locality ? "-" + o.locality.replace(/\s+/g, "_") : "") +
+      (o.territory
+        ? "-" + o.territory.replace(/\s+/g, "_")
+        : "-" + Math.floor(Date.now() / 1000)) +
+      "." +
+      ext;
+
+    // make sure name contains only filename-safe characters
+    return name.replace(/[^a-zA-Z0-9_\-\.]/g, "_").toLowerCase();
+  }
+
+  /**
+   * Hand the composed file to the Open button.
+   *
+   * The URL is not revoked when the action finishes, because both actions
+   * give the blob to something that reads it later — a print frame that has
+   * not painted yet, or a tab nobody has opened. It is released when the next
+   * card replaces it or the dialog closes.
+   */
+  function _publish(out) {
+    _releaseOutput();
+    _outUrl = URL.createObjectURL(out.blob);
+    if (!_dialog) return;
+    var open = D.role(_dialog, "open-file");
+    if (!open) return;
+    open.href = _outUrl;
+    D.toggle(open, true);
+  }
+
+  /** Save the card, whatever it turned out to be. */
+  function _saveFile(out) {
+    var link = document.createElement("a");
+    link.href = _outUrl;
+    link.download = out.name;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    _setStatus(T("print.saved", { name: out.name }), false);
+  }
+
+  /** Print the card, whatever it turned out to be. */
+  function _sendToPrinter(out) {
+    var job = out.pdf ? _printPdf(_outUrl) : _printImage(_outUrl);
+    return job.then(function (ok) {
+      // A refusal is not an error: the file exists and the Open button is
+      // already pointing at it. Printing a PDF goes through the browser's own
+      // viewer, and not every one of them lets a frame drive it.
+      _setStatus(T(ok ? "print.sent" : "print.errPrint"), false);
+    });
+  }
+
   /** No template: print the map on its own, sized to the card's map box. */
-  function _printImage(blob) {
-    var url = URL.createObjectURL(blob);
-    var frame = document.createElement("iframe");
-    frame.style.cssText =
-      "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
-    document.body.appendChild(frame);
+  function _printImage(url) {
+    return _printFrame(function (frame, done) {
+      var doc = frame.contentDocument;
+      var style = doc.createElement("style");
+      style.textContent =
+        "@page { size: " +
+        PLACEHOLDER.width +
+        "pt " +
+        PLACEHOLDER.height +
+        "pt; margin: 0; }" +
+        "html,body{margin:0;padding:0;}" +
+        "img{display:block;width:100%;height:100%;object-fit:contain;}";
+      doc.head.appendChild(style);
 
-    var doc = frame.contentDocument;
-    var style = doc.createElement("style");
-    style.textContent =
-      "@page { size: " +
-      PLACEHOLDER.width +
-      "pt " +
-      PLACEHOLDER.height +
-      "pt; margin: 0; }" +
-      "html,body{margin:0;padding:0;}" +
-      "img{display:block;width:100%;height:100%;object-fit:contain;}";
-    doc.head.appendChild(style);
+      var img = doc.createElement("img");
+      img.onload = function () {
+        done(_askFrameToPrint(frame));
+      };
+      img.onerror = function () {
+        done(false);
+      };
+      img.src = url;
+      doc.body.appendChild(img);
+    });
+  }
 
-    var img = doc.createElement("img");
-    img.onload = function () {
-      frame.contentWindow.focus();
-      frame.contentWindow.print();
-      _setStatus("");
+  /** Template supplied: hand the composed PDF to the browser's own viewer. */
+  function _printPdf(url) {
+    return _printFrame(function (frame, done) {
+      frame.onload = function () {
+        // load fires when the document has arrived, not when the viewer has
+        // laid it out, and asking too early prints a blank sheet in more
+        // than one browser.
+        setTimeout(function () {
+          done(_askFrameToPrint(frame));
+        }, 400);
+      };
+      frame.onerror = function () {
+        done(false);
+      };
+      frame.src = url;
+    });
+  }
+
+  /**
+   * A hidden frame that outlives the call.
+   *
+   * It cannot be removed when print() returns: the print dialog reads the
+   * document while it is up, and in the browsers whose dialog does not block
+   * the script, tearing the frame down straight away prints nothing at all.
+   * A minute is longer than anyone spends choosing a printer and short enough
+   * that a session does not collect frames.
+   *
+   * @param {function(HTMLIFrameElement, function(boolean)): void} fill
+   * @returns {Promise<boolean>} whether the browser accepted the job
+   */
+  function _printFrame(fill) {
+    return new Promise(function (resolve) {
+      var frame = document.createElement("iframe");
+      frame.style.cssText =
+        "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+      document.body.appendChild(frame);
+
+      var settled = false;
+      // Nothing about a viewer that never loads is worth waiting on forever.
+      // The file exists either way, and the Open button says where it is.
+      var giveUp = setTimeout(function () {
+        done(false);
+      }, 15000);
       setTimeout(function () {
-        URL.revokeObjectURL(url);
         frame.remove();
       }, 60000);
-    };
-    img.src = url;
-    doc.body.appendChild(img);
+
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(giveUp);
+        resolve(ok);
+      }
+
+      try {
+        fill(frame, done);
+      } catch (e) {
+        console.warn(">>> The print frame could not be filled:", e.message);
+        done(false);
+      }
+    });
+  }
+
+  /** Drive the frame's own print, reporting whether it could be driven. */
+  function _askFrameToPrint(frame) {
+    try {
+      frame.contentWindow.focus();
+      frame.contentWindow.print();
+      return true;
+    } catch (e) {
+      console.warn(">>> The print frame refused:", e.message);
+      return false;
+    }
   }
 
   /**
@@ -2950,9 +3125,10 @@ App.print = (function () {
    * Composed in the browser, which is what lets a card be printed with no
    * network at all. There is no server route behind this any more — see
    * pdfdoc.js — so a failure here is reported rather than retried elsewhere.
+   *
+   * @returns {Promise<Blob>}
    */
-  function _composePdf(blob) {
-    var o = _opts();
+  function _composePdf(blob, o) {
     var spec = {
       template: _templateFile,
       image: blob,
@@ -2993,53 +3169,19 @@ App.print = (function () {
       }
     }
 
-    return App.pdfdoc.compose(spec).then(function (pdf) {
-        _releasePdf();
-        _pdfUrl = URL.createObjectURL(pdf);
-        var name =
-          "territory_map" +
-          (o.locality
-            ? "-" + o.locality.replace(/\s+/g, "_")
-            : ""
-          ) +
-          (o.territory
-            ? "-" + o.territory.replace(/\s+/g, "_")
-            : "-" + Math.floor(Date.now() / 1000)) +
-          ".pdf";
-
-        // make sure name contains only filename-safe characters
-        name = name.replace(/[^a-zA-Z0-9_\-\.]/g, "_").toLowerCase();
-
-        var link = document.createElement("a");
-        link.href = _pdfUrl;
-        link.download = name;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-
-        if (_dialog) {
-          var open = D.role(_dialog, "open-pdf");
-          open.href = _pdfUrl;
-          D.toggle(open, true);
-          // Browsers block window.open once the click gesture has expired, so
-          // the file is downloaded and the Open button waits for a real click.
-          _setStatus(T("print.saved", { name: name }), false);
-        }
-        return true;
-      })
-      .catch(function (err) {
-        console.error(">>> PDF composition failed:", err);
-        _setStatus(T("print.errPdf", { message: err.message }), false);
-        // Reported, not rethrown — the caller needs to know this failed
-        // without the outer handler overwriting the specific message above.
-        return false;
-      });
+    return App.pdfdoc.compose(spec).catch(function (err) {
+      console.error(">>> PDF composition failed:", err);
+      // Rethrown with the specific wording rather than reported and
+      // swallowed: _run's handler writes whatever message reaches it, and
+      // "could not build the PDF" is more use than "could not render".
+      throw new Error(T("print.errPdf", { message: err.message }));
+    });
   }
 
-  function _releasePdf() {
-    if (_pdfUrl) {
-      URL.revokeObjectURL(_pdfUrl);
-      _pdfUrl = null;
+  function _releaseOutput() {
+    if (_outUrl) {
+      URL.revokeObjectURL(_outUrl);
+      _outUrl = null;
     }
   }
 

@@ -11,7 +11,7 @@ bp = Blueprint("views", __name__)
 
 def _render_app(lang: str) -> str:
     return render_template(
-        "index.html",
+        "index.html.j2",
         lang=lang,
         lang_paths=language_paths(),
         basemaps=client_basemaps(),

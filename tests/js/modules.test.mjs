@@ -27,7 +27,7 @@ import { loadApp } from "./helpers/load.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const JS_DIR = join(ROOT, "src", "osmapp", "static", "js");
-const INDEX = readFileSync(join(ROOT, "src", "osmapp", "templates", "index.html"), "utf8");
+const INDEX = readFileSync(join(ROOT, "src", "osmapp", "templates", "index.html.j2"), "utf8");
 
 /** The js/*.js files index.html loads, in order. */
 const LISTED = [...INDEX.matchAll(/filename='js\/([\w.-]+\.js)'/g)].map((m) => m[1]);

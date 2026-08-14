@@ -109,7 +109,7 @@ def service_worker() -> Response:
     """
     version, urls = asset_manifest()
     body = render_template(
-        "sw.js",
+        "sw.js.j2",
         version=version,
         precache=urls,
         navigations=sorted(set(language_paths().values())),

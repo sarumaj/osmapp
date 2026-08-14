@@ -1254,15 +1254,19 @@
              floor of the dialog rather than as three more grey rectangles at
              the end of a fieldset. -->
         <div class="app-dialog__actions print-dialog__actions">
+          <!-- Shown once a card has been composed, and it no longer cares
+               which format that was: the same link opens a PDF in the
+               viewer and a PNG in a tab. It is the way out when a browser
+               will not let the print frame drive its own viewer. -->
           <a
-            class="btn btn--ghost print-dialog__pdf"
-            data-role="open-pdf"
+            class="btn btn--ghost print-dialog__open"
+            data-role="open-file"
             target="_blank"
             rel="noopener"
-            data-i18n="print.openPdf"
+            data-i18n="print.openFile"
             hidden
           >
-            Open PDF
+            Open the card
           </a>
           <button
             type="button"
@@ -1271,6 +1275,18 @@
             data-i18n="print.cancel"
           >
             Cancel
+          </button>
+          <!-- Two verbs, both live whether or not a template is loaded. What
+               each one does to the card is the same in both formats; only the
+               file extension differs. -->
+          <button
+            type="button"
+            class="btn btn--ghost print-dialog__save"
+            data-role="download"
+            data-i18n="print.download"
+            data-i18n-attrs="title=print.downloadHint"
+          >
+            Download
           </button>
           <button
             type="button"

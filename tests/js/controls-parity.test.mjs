@@ -15,7 +15,7 @@
  *
  * So the assertions here are about symmetry, not about behavior: a tool that
  * can undo can redo, a modal tool commits and cancels the same way as its
- * neighbours, and every action on a toolbar has a key beside it. Those are
+ * neighbors, and every action on a toolbar has a key beside it. Those are
  * properties of the whole control surface, and they are the properties that
  * decay one reasonable-looking commit at a time.
  *
@@ -33,7 +33,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const JS_DIR = join(ROOT, "src", "osmapp", "static", "js");
 const INDEX = readFileSync(
-  join(ROOT, "src", "osmapp", "templates", "index.html"),
+  join(ROOT, "src", "osmapp", "templates", "index.html.j2"),
   "utf8",
 );
 

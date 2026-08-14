@@ -24,7 +24,7 @@ import { loadApp } from "./helpers/load.mjs";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const JS_DIR = join(ROOT, "src", "osmapp", "static", "js");
 const INDEX = readFileSync(
-  join(ROOT, "src", "osmapp", "templates", "index.html"),
+  join(ROOT, "src", "osmapp", "templates", "index.html.j2"),
   "utf8",
 );
 const PRINT = readFileSync(join(JS_DIR, "print.js"), "utf8");
@@ -210,4 +210,3 @@ test("the compass letters are translated rather than spelled out", () => {
     assert.match(PRINT, new RegExp(`print\\.${key}`));
   }
 });
-
