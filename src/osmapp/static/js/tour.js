@@ -285,7 +285,6 @@ App.tour = (function () {
       demo: true,
       target: '[data-action="print"]',
       placement: "right",
-      available: _online,
     },
     {
       id: "territory",
@@ -312,7 +311,6 @@ App.tour = (function () {
       placement: "right",
       highlight: "ring",
       reopenIfGone: true,
-      available: _online,
       enter: _openSampleMenu,
       exit: function () {
         App.ui.closeContextMenu();
@@ -324,9 +322,6 @@ App.tour = (function () {
       target: ".print-controls",
       dock: "bottom-left",
       highlight: "ring",
-      // The preview composes itself from live tiles. Offline it would open on
-      // an error message, which teaches the wrong thing about the feature.
-      available: _online,
       enter: function () {
         var entry = App.demo.firstCluster();
         if (entry) App.print.printCluster(entry.feature);
@@ -374,17 +369,6 @@ App.tour = (function () {
     },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
-
-  /**
-   * Steps that would open on an error message rather than on the feature.
-   *
-   * Both the print entry in the context menu and the print view itself need
-   * tiles to compose a card, so offline they are dropped together — leaving
-   * one of the pair in would introduce a button whose screen never comes.
-   */
-  function _online() {
-    return navigator.onLine !== false;
-  }
 
   /** Right-click a sample territory, without anybody having to right-click. */
   function _openSampleMenu() {

@@ -1,60 +1,67 @@
 /**
- * pdfdoc.js — the PDF work that used to happen in Python, done in the browser.
+ * pdfdoc.js — the PDF jobs that used to run in Python, run here instead.
  *
- * Four things the server did and this does instead: measure a card template
- * (/inspect_template), rasterize one of its pages for the placement dialog
- * (/template_preview), stamp the rendered map onto it (/compose_pdf), and read
- * a saved project back out of a printed card (/extract_project).
+ * Four of them. Measuring a card template, turning one of its pages into a
+ * bitmap for the placement dialog, pressing the rendered map into it, and
+ * lifting a saved project back out of a card that was already printed.
  *
- * Why it moved
- *   Everything else this app asks the server for — Overpass, Nominatim, tiles —
- *   needs the network no matter where the code runs. The PDF routes did not,
- *   and they were the only thing standing between "the tiles are cached, the
- *   territories are in localStorage" and a card in your hand. Offline is not
- *   the same as serverless; this is the part of serverless that buys offline.
+ * Why bother
+ *   Every other request this app makes — Overpass, Nominatim, tiles — wants a
+ *   network, wherever the code happens to run. The PDF routes never did. They
+ *   were simply the last thing between "tiles cached, territories sitting in
+ *   localStorage" and an actual card. Working offline and working without a
+ *   server are different goals; this is the slice of the second that delivers
+ *   the first.
  *
- * The server routes are still there and are still correct. Every entry point
- * below is called through `withFallback`, so a browser that cannot do the work
- * — no CompressionStream, a vendor file that never downloaded, a template that
- * trips something in pdf.js that pypdf shrugs at — lands on the old path
- * instead of on an error. Except when offline, where there is nothing to fall
- * back to and the client's own message is the honest one.
+ * There is no server side to this any more. /inspect_template,
+ * /template_preview, /compose_pdf and /extract_project are gone, and so are
+ * internal/pdf.py, internal/template.py, pypdf, pypdfium2 and reportlab. They
+ * survived one release as a fallback and nothing ever reached them. Carrying a
+ * second implementation of all four jobs, in another language, against the day
+ * the first one breaks is a great deal of code to maintain for a path with no
+ * users — and an untested path is not a safety net anyway. So failures here
+ * are failures: `ensure()` says up front whether the machinery is present, and
+ * everything below reports its own trouble instead of handing the job on.
  *
- * Libraries, loaded on first use rather than at startup: pdf-lib (+fontkit)
- * writes PDFs, pdf.js reads them. Together they are about two megabytes, which
- * is worth paying for when someone prints and not worth paying for on a page
- * load that never opens the print dialog. The service worker precaches them
- * either way, so "on first use" is a parse cost, not a download.
+ * The libraries arrive on first use, not at boot. pdf-lib (with fontkit) does
+ * the writing, pdf.js does the reading. Call it two megabytes between them,
+ * which is fine to spend on somebody who prints and pointless to spend on a
+ * page view that never touches the print dialog. Either way the service worker
+ * has already precached them, so "first use" costs parsing, not bandwidth.
  *
- * Coordinates
- *   Rectangles come out of here relative to the mediabox origin and go back in
- *   the same way, with the origin added at draw time. The server measured
- *   absolute and then added the origin again when drawing, which double-counts
- *   on a page whose mediabox does not start at 0,0. Identical output for every
- *   template that does, which is very nearly all of them.
+ * On coordinates
+ *   Rectangles leave here measured from the mediabox origin and come back the
+ *   same way, with the origin folded in when something is drawn. The old
+ *   server route measured in absolute terms and then added the origin a second
+ *   time at draw time, so a page whose mediabox started anywhere but 0,0 got
+ *   counted twice.
  */
 var App = window.App || {};
 
 App.pdfdoc = (function () {
   "use strict";
 
-  // Mirrors internal/pdf.py — the name the project state is embedded under,
-  // and the caps a card is allowed to carry. Kept in step by hand: a card
-  // written here has to be readable by the server route and the other way
-  // round.
+  // The name the state is filed under and the ceilings a card may carry.
+  // These used to have to agree with internal/pdf.py by hand; nothing else
+  // reads or writes the attachment now, so this is the only definition. The
+  // name stays fixed regardless: recovering the state later is one lookup
+  // instead of a hunt, and a card carrying somebody else's file is not
+  // mistaken for ours.
   var PROJECT_ATTACHMENT_NAME = "osmapp-project.json.gz";
   var PROJECT_MAX_BYTES = 8 * 1024 * 1024;
   var PROJECT_MAX_UNZIPPED = 32 * 1024 * 1024;
 
-  // Mirrors internal/template.py. Extend MARKERS freely — a template with
-  // none falls back to the largest text-free rectangle.
+  // Detection thresholds, inherited from the Python that used to do this.
+  // MARKERS can grow as needed; a template matching none of it falls back to
+  // the largest rectangle without text.
   var MARKERS = /MIEJSCE NA MAP|MAPA TERENU|MAP AREA|KARTENFELD/i;
   var LEADER = /^[.\u2026]{4,}$/;
   var MIN_SIDE_PT = 40.0;
   var MAX_PAGE_FRACTION = 0.9;
 
-  // pypdfium2 rendered the placement preview at this scale; matching it keeps
-  // the dialog's pixel-per-point maths identical on both paths.
+  // The scale pypdfium2 rendered the placement preview at. Kept because the
+  // dialog's pixels-per-point arithmetic was written against it, not because
+  // there is anything left to stay in step with.
   var PREVIEW_SCALE = 110 / 72;
 
   // ══════════════════════════════════════════════════════════════════════
@@ -66,20 +73,23 @@ App.pdfdoc = (function () {
   }
 
   /**
-   * True when the client path is worth attempting at all.
+   * Throw unless the machinery is at least declared.
    *
-   * Only checks that the URLs were inlined. Whether the files are actually
-   * reachable is what the fallback is for — asking that here would mean a
-   * network round trip before deciding whether to avoid the network.
+   * All this confirms is that the URLs reached the page. Whether the files
+   * behind them can actually be fetched is discovered by fetching them, and
+   * the loaders below report that in their own words — more use than a
+   * boolean. With nothing left to fall back to, the point of asking early is
+   * to fail with a sentence somebody can act on.
    */
-  function supported() {
+  function ensure() {
     var v = _vendor();
-    return !!(v.pdfLib && v.fontkit && v.pdfjs && v.font);
+    if (v.pdfLib && v.fontkit && v.pdfjs && v.font) return;
+    throw new Error("This build is missing its PDF libraries.");
   }
 
   var _scripts = {};
 
-  /** Inject a classic <script> once, resolving when the global appears. */
+  /** Add a classic <script> tag once, settling when its global shows up. */
   function _script(url, global) {
     if (_scripts[url]) return _scripts[url];
     _scripts[url] = new Promise(function (resolve, reject) {
@@ -96,8 +106,9 @@ App.pdfdoc = (function () {
       };
       document.head.appendChild(el);
     }).catch(function (err) {
-      // Not cached: a failure now is usually the service worker not having
-      // precached this build yet, and the next attempt may well succeed.
+      // Deliberately not remembered. A failure at this point usually means
+      // the service worker has not precached this build yet, so trying again
+      // later stands a decent chance.
       delete _scripts[url];
       throw err;
     });
@@ -106,7 +117,7 @@ App.pdfdoc = (function () {
 
   var _pdfLib = null;
 
-  /** pdf-lib with fontkit registered — everything that *writes* a PDF. */
+  /** pdf-lib, fontkit registered: the half of this file that *writes*. */
   function _writer() {
     if (_pdfLib) return _pdfLib;
     var v = _vendor();
@@ -127,12 +138,12 @@ App.pdfdoc = (function () {
   var _pdfJs = null;
 
   /**
-   * pdf.js — everything that *reads* a PDF.
+   * pdf.js — the half that *reads*.
    *
-   * An ES module, so it arrives through import() rather than a script tag.
-   * The worker is same-origin and precached; without workerSrc pdf.js falls
-   * back to parsing on the main thread, which locks the UI on a page that has
-   * a photograph in it.
+   * Ships as an ES module, so it comes in via import() instead of a script
+   * tag. Its worker is same-origin and precached. Leave workerSrc unset and
+   * pdf.js parses on the main thread instead, which freezes the interface the
+   * moment a page contains a photograph.
    */
   function _reader() {
     if (_pdfJs) return _pdfJs;
@@ -168,37 +179,6 @@ App.pdfdoc = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════════
-  // FALLBACK
-  // ══════════════════════════════════════════════════════════════════════
-
-  /**
-   * Try `client`; on anything going wrong, hand the job to `server`.
-   *
-   * Offline breaks the rule. There is no server to ask, and the second failure
-   * would swap a message about this particular PDF for a message about the
-   * network. The client's complaint is the one worth putting on screen.
-   */
-  function withFallback(label, client, server) {
-    var attempt;
-    if (!supported()) return server();
-    try {
-      attempt = client();
-    } catch (err) {
-      attempt = Promise.reject(err);
-    }
-    if (!attempt || typeof attempt.then !== "function") return server();
-
-    return attempt.catch(function (err) {
-      if (navigator.onLine === false) throw err;
-      console.warn(
-        ">>> " + label + " fell back to the server:",
-        (err && err.message) || err,
-      );
-      return server();
-    });
-  }
-
-  // ══════════════════════════════════════════════════════════════════════
   // BYTES
   // ══════════════════════════════════════════════════════════════════════
 
@@ -211,7 +191,7 @@ App.pdfdoc = (function () {
     });
   }
 
-  function _collect(stream) {
+   function _collect(stream) {
     return new Response(stream).arrayBuffer().then(function (buf) {
       return new Uint8Array(buf);
     });
@@ -220,9 +200,9 @@ App.pdfdoc = (function () {
   /** gzip — or the payload untouched, on a browser with no CompressionStream. */
   function _gzip(bytes) {
     if (typeof window.CompressionStream !== "function") {
-      // internal/pdf.py copes with an uncompressed attachment: it attempts
-      // gzip and falls back to the raw bytes. So this still opens anywhere. It
-      // is just bigger.
+      // _gunzip below takes an uncompressed payload as it comes, and so did
+      // the Python that used to read these, so a card written on such a
+      // browser still opens anywhere. It is just bigger.
       return Promise.resolve(bytes);
     }
     return _collect(
@@ -520,6 +500,7 @@ App.pdfdoc = (function () {
    * only ever did anything on a layout somebody had already placed by hand.
    */
   function inspectTemplate(file) {
+    ensure();
     return Promise.all([_reader(), _bytes(file)])
       .then(function (parts) {
         return _open(parts[0], parts[1]);
@@ -590,6 +571,7 @@ App.pdfdoc = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function renderPage(file, pageIndex) {
+    ensure();
     var index = Math.min(8, Math.max(0, pageIndex | 0));
     return Promise.all([_reader(), _bytes(file)])
       .then(function (parts) {
@@ -654,6 +636,7 @@ App.pdfdoc = (function () {
    * @returns {Promise<Blob>}
    */
   function compose(spec) {
+    ensure();
     return Promise.all([_writer(), _bytes(spec.template), _bytes(spec.image)])
       .then(function (parts) {
         var PDFLib = parts[0].lib;
@@ -809,6 +792,7 @@ App.pdfdoc = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   function extractProject(file) {
+    ensure();
     return Promise.all([_writer(), _bytes(file)])
       .then(function (parts) {
         return parts[0].lib.PDFDocument.load(parts[1]).then(function (doc) {
@@ -884,8 +868,7 @@ App.pdfdoc = (function () {
   }
 
   return {
-    supported: supported,
-    withFallback: withFallback,
+    ensure: ensure,
     inspectTemplate: inspectTemplate,
     renderPage: renderPage,
     compose: compose,

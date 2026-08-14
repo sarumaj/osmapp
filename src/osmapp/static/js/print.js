@@ -9,8 +9,8 @@
  *
  * Layout
  *   Where the map goes on the card is measured from the template, not
- *   hardcoded. /inspect_template finds the placeholder rectangle and the field
- *   anchors; the placement dialog lets that guess be corrected by hand; the
+ *   hardcoded. App.pdfdoc.inspectTemplate finds the placeholder rectangle and
+ *   the field anchors; the placement dialog corrects that guess by hand; the
  *   result is remembered per template, keyed on a hash of its bytes. The
  *   canvas takes its aspect ratio from the resolved placeholder, so editing
  *   the card can no longer silently letterbox the map.
@@ -444,26 +444,7 @@ App.print = (function () {
   }
 
   function _detectLayout(file) {
-    return App.pdfdoc.withFallback(
-      "inspect_template",
-      function () {
-        return App.pdfdoc.inspectTemplate(file);
-      },
-      function () {
-        return _detectLayoutOnServer(file);
-      },
-    );
-  }
-
-  function _detectLayoutOnServer(file) {
-    var form = new FormData();
-    form.append("template", file);
-    return fetch("/inspect_template", { method: "POST", body: form }).then(
-      function (r) {
-        if (!r.ok) throw new Error("inspect_template returned " + r.status);
-        return r.json();
-      },
-    );
+    return App.pdfdoc.inspectTemplate(file);
   }
 
   /** A saved box wins; otherwise detect one and remember it. */
@@ -527,9 +508,9 @@ App.print = (function () {
   /**
    * Show the embed option only when there is a PDF to embed into.
    *
-   * The attachment is written by compose_pdf, which only runs on the template
-   * path — without one the card goes to the browser's own print dialog as an
-   * image and there is no file of ours to carry anything. A checkbox that is
+   * The attachment is written by App.pdfdoc.compose, which only runs on the
+   * template path — without one the card goes to the browser's own print
+   * dialog as an image and there is no file of ours to carry anything. A
    * ticked, remembered, and quietly does nothing is worse than no checkbox:
    * it promises the card is a restore point when it is not.
    */
@@ -967,20 +948,9 @@ App.print = (function () {
       return;
     }
 
-    var file = _templateFile;
-    var page = _layout.page || 0;
-
     _setStatus(T("print.renderingTemplate"));
     App.pdfdoc
-      .withFallback(
-        "template_preview",
-        function () {
-          return App.pdfdoc.renderPage(file, page);
-        },
-        function () {
-          return _renderPageOnServer(file, page);
-        },
-      )
+      .renderPage(_templateFile, _layout.page || 0)
       .then(function (blob) {
         _setStatus("");
         if (_dialog) _showPlacement(URL.createObjectURL(blob));
@@ -992,18 +962,6 @@ App.print = (function () {
           false,
         );
       });
-  }
-
-  function _renderPageOnServer(file, page) {
-    var form = new FormData();
-    form.append("template", file);
-    form.append("page", String(page));
-    return fetch("/template_preview", { method: "POST", body: form }).then(
-      function (r) {
-        if (!r.ok) throw new Error("template_preview returned " + r.status);
-        return r.blob();
-      },
-    );
   }
 
   function _showPlacement(url) {
@@ -2989,11 +2947,9 @@ App.print = (function () {
   /**
    * Template supplied: stamp the map into the placeholder.
    *
-   * Composed in the browser, which is what makes a card printable with no
-   * network at all. /compose_pdf is still there and still correct, and
-   * App.pdfdoc falls back to it whenever the client path cannot finish — a
-   * browser too old for CompressionStream, a vendor file that never
-   * downloaded, a template pdf-lib refuses and pypdf tolerates.
+   * Composed in the browser, which is what lets a card be printed with no
+   * network at all. There is no server route behind this any more — see
+   * pdfdoc.js — so a failure here is reported rather than retried elsewhere.
    */
   function _composePdf(blob) {
     var o = _opts();
@@ -3037,17 +2993,7 @@ App.print = (function () {
       }
     }
 
-    return App.pdfdoc
-      .withFallback(
-        "compose_pdf",
-        function () {
-          return App.pdfdoc.compose(spec);
-        },
-        function () {
-          return _composeOnServer(spec);
-        },
-      )
-      .then(function (pdf) {
+    return App.pdfdoc.compose(spec).then(function (pdf) {
         _releasePdf();
         _pdfUrl = URL.createObjectURL(pdf);
         var name =
@@ -3088,52 +3034,6 @@ App.print = (function () {
         // without the outer handler overwriting the specific message above.
         return false;
       });
-  }
-
-  /** The original request, kept verbatim as the fallback path. */
-  function _composeOnServer(spec) {
-    var form = new FormData();
-
-    form.append("template", spec.template);
-    form.append("image", spec.image, "territory.png");
-    form.append("page", String(spec.page));
-    form.append("x", String(spec.box.x));
-    form.append("y", String(spec.box.y));
-    form.append("width", String(spec.box.width));
-    form.append("height", String(spec.box.height));
-
-    spec.fields.forEach(function (field) {
-      form.append(field.name, field.text);
-      form.append(field.name + "_x", String(field.x));
-      form.append(field.name + "_y", String(field.y));
-      form.append(field.name + "_size", String(field.size));
-    });
-
-    if (spec.project) {
-      form.append(
-        "project",
-        new Blob([JSON.stringify(spec.project)], {
-          type: "application/json",
-        }),
-        "osmapp-project.json",
-      );
-    }
-
-    return fetch("/compose_pdf", { method: "POST", body: form }).then(
-      function (r) {
-        if (!r.ok) {
-          return r.json().then(
-            function (data) {
-              throw new Error(data.error || "Server returned " + r.status);
-            },
-            function () {
-              throw new Error("Server returned " + r.status);
-            },
-          );
-        }
-        return r.blob();
-      },
-    );
   }
 
   function _releasePdf() {

@@ -600,9 +600,7 @@ App.labels = (function () {
       });
 
       // The list is the answer to "which fourteen?", and the next question is
-      // always "print that one". The template marks the button
-      // data-online-only, so pwa.js's <body> class greys it out without
-      // anything here having to watch the connection.
+      // always "print that one".
       D.onRole(node, "print", function () {
         if (!entry || !entry.feature) return;
         App.ui.closeDialog();

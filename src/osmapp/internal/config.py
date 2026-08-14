@@ -11,7 +11,9 @@ SCRIPT_DIR = Path(__file__).resolve().parent.parent  # project root
 TEMPLATE_DIR = SCRIPT_DIR / "templates"
 STATIC_DIR = SCRIPT_DIR / "static"
 I18N_DIR = STATIC_DIR / "lang"
-FONT_PATH = STATIC_DIR / "fonts" / "DejaVuSans.ttf"
+# static/fonts holds DejaVuSans, which nothing here opens: the browser fetches
+# it as an ordinary static asset and embeds it into the card itself. No
+# constant points at it, and pwa.py precaches the directory by name.
 
 # ── Overpass / Nominatim ───────────────────────────────────────────────────────
 
@@ -122,6 +124,10 @@ GEOCODE_MIN_INTERVAL = float(os.environ.get("GEOCODE_MIN_INTERVAL", "1.0"))  # N
 BOUNDARY_THRESHOLD = float(os.environ.get("BOUNDARY_THRESHOLD", "0.0001"))
 BOUNDARY_MAX_THRESHOLD = 0.01
 
-# ── Upload limit ───────────────────────────────────────────────────────────────
+# ── Request body limit ─────────────────────────────────────────────────────────
+#
+# Nothing is uploaded any more — template PDFs stopped crossing the wire when
+# composition moved into the browser. What is left are the GeoJSON polygons the
+# fetch routes take, and this is the ceiling on those.
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024

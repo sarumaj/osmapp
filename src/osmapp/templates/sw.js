@@ -31,11 +31,6 @@
  *   everything else network-only     Overpass and Nominatim need a live
  *                                    server. Caching them would only mean
  *                                    answering with lies.
- *
- * PDF composition used to be on that last line. It is not any more: pdfdoc.js
- * does the work in the browser and only falls back to /compose_pdf and friends
- * when it cannot, which offline it never gets the chance to. That is what the
- * vendor precache above is carrying the weight for.
  */
 
 "use strict";

@@ -1,108 +1,29 @@
-"""Three things that fail quietly.
+"""Two things that fail quietly.
 
-`inspect_template` is a heuristic over drawing operations — pick the wrong
-rectangle and the map lands in the wrong box on a card someone then prints a
-hundred of. The dictionaries and their call sites fall back to English without
-a warning when a key is missing or a plural is called without a count. The PWA
-cache version is the only thing that tells a browser a deploy happened.
+The dictionaries and their call sites fall back to English without a warning
+when a key is missing or a plural is called without a count. The PWA cache
+version is the only thing that tells a browser a deploy happened.
+
+Template detection used to be the third. It moved into the browser with the
+rest of the PDF work, and `tests/js/pdfdoc.test.mjs` covers the same ground —
+the marked box beating the page frame, the smallest enclosing rectangle, the
+largest empty one, and leader dots becoming named fields.
 """
 
 import json
 import os
 import re
-from collections.abc import Callable
-from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 from flask import Flask
-from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas as rl_canvas
 
 from osmapp import create_app
 from osmapp.internal import pwa as pwa_module
 from osmapp.internal.config import I18N_DIR, STATIC_DIR
 from osmapp.internal.i18n import DEFAULT_LANG, SUPPORTED_LANGS
 from osmapp.internal.pwa import asset_manifest
-from osmapp.internal.template import inspect_template
-
-PAGE_W, PAGE_H = A4
-
-
-def build_pdf(draw: Callable[[rl_canvas.Canvas], None]) -> BytesIO:
-    buf = BytesIO()
-    pdf = rl_canvas.Canvas(buf, pagesize=A4)
-    draw(pdf)
-    pdf.showPage()
-    pdf.save()
-    buf.seek(0)
-    return buf
-
-
-def test_the_marked_box_wins_over_the_page_frame():
-    """A full-bleed border would otherwise swallow the whole card."""
-
-    def draw(pdf: rl_canvas.Canvas):
-        pdf.setFont("Helvetica", 9)
-        pdf.rect(15, 15, PAGE_W - 30, PAGE_H - 30)
-        pdf.rect(60, 400, 300, 250)
-        pdf.drawString(100, 500, "MIEJSCE NA MAPĘ")
-
-    placeholder = inspect_template(build_pdf(draw))["placeholder"]
-    assert placeholder["x"] == pytest.approx(60, abs=1)
-    assert placeholder["width"] == pytest.approx(300, abs=1)
-    assert placeholder["height"] == pytest.approx(250, abs=1)
-
-
-def test_the_smallest_enclosing_rectangle_wins():
-    """A section box also contains the marker; the map box is the tight one."""
-
-    def draw(pdf: rl_canvas.Canvas):
-        pdf.setFont("Helvetica", 9)
-        pdf.rect(40, 350, 400, 350)
-        pdf.rect(60, 400, 300, 250)
-        pdf.drawString(100, 500, "MAP AREA")
-
-    assert inspect_template(build_pdf(draw))["placeholder"]["width"] == pytest.approx(
-        300, abs=1
-    )
-
-
-def test_without_a_marker_the_largest_empty_rectangle_wins():
-    def draw(pdf: rl_canvas.Canvas):
-        pdf.setFont("Helvetica", 9)
-        pdf.rect(60, 600, 200, 120)
-        pdf.rect(60, 200, 400, 300)
-        pdf.rect(60, 60, 450, 100)
-        pdf.drawString(100, 100, "Notes")
-
-    placeholder = inspect_template(build_pdf(draw))["placeholder"]
-    assert placeholder["width"] == pytest.approx(400, abs=1)
-    assert placeholder["height"] == pytest.approx(300, abs=1)
-
-
-def test_dotted_leaders_become_named_fields():
-    def draw(pdf: rl_canvas.Canvas):
-        pdf.setFont("Helvetica", 9)
-        pdf.rect(60, 400, 300, 250)
-        pdf.drawString(100, 500, "MAP AREA")
-        pdf.drawString(60, 120, "." * 30)
-        pdf.drawString(300, 120, "." * 20)
-
-    fields = inspect_template(build_pdf(draw))["fields"]
-    assert set(fields) == {"locality", "territory"}
-    assert fields["locality"]["x"] < fields["territory"]["x"]
-
-
-def test_a_template_with_no_rectangles_is_rejected():
-    def draw(pdf: rl_canvas.Canvas):
-        pdf.setFont("Helvetica", 12)
-        pdf.drawString(100, 700, "Just some text")
-
-    with pytest.raises(ValueError, match="placeholder"):
-        inspect_template(build_pdf(draw))
-
 
 PLURAL_CATEGORIES = {"zero", "one", "two", "few", "many", "other"}
 JS_DIR = STATIC_DIR / "js"

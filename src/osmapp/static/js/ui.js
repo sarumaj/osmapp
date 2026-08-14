@@ -1,20 +1,6 @@
 /**
  * ui.js — the single owner of every piece of chrome outside the map:
  * loading overlay, info panel, context menu, modal dialogs.
- *
- * Changes from the previous version:
- *   • No HTML strings. All markup comes from <template> via App.dom.
- *   • One overlay API. editing.js's private _showSpinner/_hideSpinner pair
- *     (which fought the clustering overlay over inline `display` values) is
- *     gone; the overlay has a `data-mode` attribute and CSS decides what
- *     shows. showBusy() and showPhases() are the two modes.
- *   • The overlay's Cancel button takes a callback instead of an inline
- *     onclick="App.clustering.cancelPartition()" in the HTML.
- *   • Info panel writes into fixed nodes rather than replacing innerHTML.
- *   • confirm() replaces window.confirm() for anything that has to say more
- *     than one sentence or run after an await.
- *   • The export button's visibility is no longer this module's business:
- *     App.controls.refresh() disables it in place instead of hiding it.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -726,9 +712,10 @@ App.ui = (function () {
         },
       },
       {
+        // Not onlineOnly. The card is composed in the browser now, and the
+        // basemap under it comes from the service worker's tile cache.
         labelKey: "menu.print",
         icon: "fa-print",
-        onlineOnly: true,
         onClick: function () {
           App.print.printCluster(feature);
         },

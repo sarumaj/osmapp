@@ -16,7 +16,6 @@ from .internal.config import (
 from .internal.data import bp as data_bp
 from .internal.geocode import bp as geocode_bp
 from .internal.headers import init_osmnx
-from .internal.pdf import bp as pdf_bp
 from .internal.pwa import bp as pwa_bp
 from .internal.tiles import bp as tiles_bp
 from .internal.tiles import prune_tiles
@@ -45,11 +44,10 @@ def create_app() -> Flask:
     limiter.exempt(pwa_bp)  # the manifest and the worker are static and tiny
     limiter.limit("6 per minute")(data_bp)  # /service/data is expensive
     limiter.limit("30 per minute")(geocode_bp)  # /service/geocode is expensive
-    limiter.limit("12 per minute")(pdf_bp)  # /service/compose_pdf is expensive
 
     init_osmnx(OVERPASS_URL, OVERPASS_TIMEOUT)
 
-    for blueprint in (views_bp, data_bp, geocode_bp, tiles_bp, pdf_bp, pwa_bp):
+    for blueprint in (views_bp, data_bp, geocode_bp, tiles_bp, pwa_bp):
         app.register_blueprint(blueprint)
 
     @app.errorhandler(429)

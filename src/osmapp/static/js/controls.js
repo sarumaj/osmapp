@@ -963,9 +963,9 @@ App.controls = (function () {
   function _setupImportButton(node) {
     var input = document.createElement("input");
     input.type = "file";
-    // A printed card is a project too: compose_pdf embeds the boundary and
-    // the territories in every PDF it builds, so the sheet on somebody's desk
-    // is a restore point.
+    // A printed card is a project too: App.pdfdoc.compose embeds the boundary
+    // and the territories in every PDF it builds, so the sheet on somebody's
+    // desk is a restore point.
     input.accept = ".geojson,.json,.pdf";
     input.hidden = true;
     document.body.appendChild(input);

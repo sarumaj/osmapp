@@ -367,14 +367,15 @@
           </span>
           <span class="territory-row__flags" data-role="flags"></span>
         </button>
-        <!-- data-online-only rather than a hidden button: the card is composed
-             from live tiles, and a control that disappears with the connection
-             teaches nothing about why. -->
+        <!-- No longer data-online-only. Composition is client-side, and the
+             basemap comes out of the tile cache, so a card can be produced
+             from an aeroplane. Tiles nobody has looked at are missing rather
+             than wrong, and the print preview shows exactly that before
+             anything is exported. -->
         <button
           type="button"
           class="territory-row__print"
           data-role="print"
-          data-online-only
           data-i18n-attrs="title=list.print;aria-label=list.print"
         >
           <i class="fa-solid fa-print" aria-hidden="true"></i>

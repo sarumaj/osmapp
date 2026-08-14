@@ -165,27 +165,27 @@ test("every toolbar button the tour points at exists in the toolbar", () => {
   assert.deepStrictEqual(missing, []);
 });
 
-test("offline drops every step in the print chain", () => {
-  // The print view composes a card from live tiles. Keeping the button or the
-  // menu entry while dropping the view they open would introduce a control
-  // whose screen never arrives, which is the one thing worse than not
-  // mentioning it. There are three of them now: the toolbar button, the menu
-  // entry that reaches the same place from a territory, and the view itself.
+test("offline drops no step, the print chain included", () => {
+  // This used to assert the opposite. The three print steps — the toolbar
+  // button, the menu entry that reaches the same place from a territory, and
+  // the view itself — were dropped offline because composing a card needed
+  // /compose_pdf. It does not any more, so a tour that skips them offline
+  // would be hiding a feature that works.
+  //
+  // Kept rather than deleted because the failure it guards against is still
+  // live: gate one of the three and not the other two and you get a button
+  // whose screen never arrives.
   const offline = loadApp(["util.js", "tour.js"], {
     window: { localStorage: fakeStorage(), location: { search: "" } },
     navigator: { onLine: false },
   }).tour;
 
-  const gated = offline
+  const unavailable = offline
     .steps()
-    .filter((step) => step.available)
-    .map((step) => [step.id, step.available()]);
+    .filter((step) => step.available && !step.available())
+    .map((step) => step.id);
 
-  assert.deepStrictEqual(gated, [
-    ["printButton", false],
-    ["printMenu", false],
-    ["print", false],
-  ]);
+  assert.deepStrictEqual(unavailable, []);
 });
 
 // ── Suppression ──────────────────────────────────────────────────────────────

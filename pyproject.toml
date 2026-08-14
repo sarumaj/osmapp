@@ -35,13 +35,7 @@ dependencies = [
     # Line-separator
     "osmnx==2.1.1",
     # Line-separator
-    "pypdf==6.14.2",
-    # Line-separator
-    "pypdfium2==5.12.1",
-    # Line-separator
     "random-header-generator==1.2",
-    # Line-separator
-    "reportlab==5.0.0",
     # Line-separator
     "shapely==2.1.2",
     # Line-separator

@@ -547,15 +547,7 @@ App.data = (function () {
   function _readProjectFromPdf(file) {
     App.ui.showBusy(T("loading.readingCard"));
     return App.pdfdoc
-      .withFallback(
-        "extract_project",
-        function () {
-          return App.pdfdoc.extractProject(file);
-        },
-        function () {
-          return _readProjectFromPdfOnServer(file);
-        },
-      )
+      .extractProject(file)
       .catch(function (err) {
         console.error(">>> Could not read the card:", err);
         alert(T("alert.importNoProject", { message: err.message }));
@@ -567,26 +559,6 @@ App.data = (function () {
       });
   }
 
-  /** The original request, kept verbatim as the fallback path. */
-  function _readProjectFromPdfOnServer(file) {
-    var form = new FormData();
-    form.append("pdf", file, file.name || "card.pdf");
-
-    return fetch("/extract_project", { method: "POST", body: form }).then(
-      function (response) {
-        return response.json().then(
-          function (body) {
-            if (!response.ok)
-              throw new Error(body.error || String(response.status));
-            return body;
-          },
-          function () {
-            throw new Error(String(response.status));
-          },
-        );
-      },
-    );
-  }
 
   function _applyImported(payload) {
     var restored;
