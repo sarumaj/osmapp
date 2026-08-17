@@ -1,4 +1,14 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "group:allNonMajor"]
+  "extends": ["config:recommended", "group:allNonMajor"],
+  "packageRules": [
+    {
+      "matchManagers": ["npm"],
+      "postUpgradeTasks": {
+        "commands": ["npm install", "npm run vendor"],
+        "executionMode": "branch",
+        "fileFilters": ["src/osmapp/static/vendor/**/*", "package-lock.json"]
+      }
+    }
+  ]
 }
