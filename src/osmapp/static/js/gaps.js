@@ -224,9 +224,24 @@ App.gaps = (function () {
     var covered = null;
     var failed = 0;
 
-    for (var i = 0; i < features.length; i++) {
-      var f = G.feat(features[i]);
-      if (!f || !f.geometry) continue;
+    // One pass over the whole collection when it works — the same answer the
+    // fold below produces, for roughly a third of the time, and this is the
+    // single most expensive thing the gap layer does.
+    var all = [];
+    for (var j = 0; j < features.length; j++) {
+      var g = G.feat(features[j]);
+      if (g && g.geometry) all.push(g);
+    }
+    if (!all.length) return { feature: null, failed: 0 };
+    try {
+      var once = turf.union(turf.featureCollection(all));
+      if (once && once.geometry) return { feature: once, failed: 0 };
+    } catch (e) {
+      /* fall through to the counted fold */
+    }
+
+    for (var i = 0; i < all.length; i++) {
+      var f = all[i];
       if (!covered) {
         covered = f;
         continue;

@@ -83,19 +83,44 @@ App.geometry = (function () {
    * things that are already known to belong together, where a partial answer
    * is more useful than none.
    *
+   * turf unions a whole collection in one pass, and that is three to four
+   * times faster than folding pair by pair: the fold re-walks the growing
+   * accumulator on every step, so the shape everything has been merged into
+   * so far is paid for again each time. Measured on twelve territories of a
+   * hundred vertices each, the fold takes about 385 ms against 107 ms for the
+   * single call, for a result identical to the last decimal.
+   *
+   * It is only a fast path, though. One unusable shape fails the whole
+   * collection, and the fold below is what turns that into a partial answer —
+   * so a failure here is not an error, it is the reason the loop still
+   * exists.
+   *
    * @returns {Feature|null} null only when the list contributes nothing
    */
   function unionAll(features) {
+    var all = [];
+    for (var j = 0; j < features.length; j++) {
+      var g = feat(features[j]);
+      if (g && g.geometry) all.push(g);
+    }
+    if (!all.length) return null;
+    if (all.length === 1) return all[0];
+
+    try {
+      var once = turf.union(turf.featureCollection(all));
+      if (once && once.geometry) return once;
+    } catch (e) {
+      /* fall through and fold, which can still salvage most of it */
+    }
+
     var acc = null;
-    for (var i = 0; i < features.length; i++) {
-      var f = feat(features[i]);
-      if (!f || !f.geometry) continue;
+    for (var i = 0; i < all.length; i++) {
       if (!acc) {
-        acc = f;
+        acc = all[i];
         continue;
       }
       try {
-        acc = union(acc, f) || acc;
+        acc = union(acc, all[i]) || acc;
       } catch (e) {
         /* keep what we have and carry on */
       }

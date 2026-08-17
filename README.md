@@ -163,6 +163,10 @@ Tests cover only things that fail **silently and consequentially** — loud
 failures (404, startup error, blank page) aren't worth the maintenance. The JS
 suite uses Node's built-in runner with no dependencies. `.github/workflows/ci.yml`
 runs both suites on every push/PR; the Heroku deploy job requires both to pass.
+Both emit JUnit XML in CI — `--junitxml` for pytest, Node's built-in `junit`
+reporter alongside `spec` so the log stays readable — and a check run turns
+that into a summary and inline annotations on the failing test. Publishing is
+best-effort: a fork PR has a read-only token and gets the log instead.
 
 ### Releasing
 

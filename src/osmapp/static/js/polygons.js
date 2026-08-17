@@ -625,6 +625,35 @@ App.polygons = (function () {
   }
 
   /**
+   * Undo what bindTooltip's accessibility wiring did to the element.
+   *
+   * Leaflet 1.9's `unbindTooltip` takes its own event map off the layer, but
+   * the focus and blur listeners it put on the *element* are added with
+   * `DomEvent.on` and never removed (see `_addFocusListenersOnLayer`). The
+   * focus one reads `this._tooltip._source` with no guard, so once the
+   * tooltip is gone the next focus on that path throws
+   *
+   *     Cannot set properties of null (setting '_source')
+   *
+   * from inside Leaflet, with an app stack that names nothing of ours. Cut
+   * and outline mode both switch tooltips off, which is exactly the state
+   * that leaves a live listener pointing at a null tooltip.
+   *
+   * Removing them before every rebind also stops them stacking: a rebind
+   * clears `_tooltipHandlersAdded`, so each mode switch used to add another
+   * pair to the same element.
+   */
+  function _dropFocusListeners(target) {
+    if (!L || !L.DomEvent) return;
+    var el = typeof target.getElement === "function" && target.getElement();
+    if (el) {
+      L.DomEvent.off(el, "focus blur");
+      return;
+    }
+    if (target.eachLayer) target.eachLayer(_dropFocusListeners);
+  }
+
+  /**
    * @param {L.Layer} target what the pointer touches
    * @param {L.Layer} [source] the cluster layer the text describes, when the
    *   two are not the same thing — a number chip is a target that stands for
@@ -634,6 +663,7 @@ App.polygons = (function () {
     source = source || target;
     target.closeTooltip();
     target.unbindTooltip();
+    _dropFocusListeners(target);
     var opts = TOOLTIP_MODES[_tooltipMode];
     if (opts)
       target.bindTooltip(function () {
