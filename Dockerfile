@@ -1,4 +1,4 @@
-FROM node:22-slim AS vendor
+FROM node:24-slim AS vendor
 
 WORKDIR /build
 
