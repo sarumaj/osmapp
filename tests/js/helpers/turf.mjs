@@ -40,7 +40,7 @@ const BUNDLE = join(
   "cdn.jsdelivr.net",
   "npm",
   "turf",
-  "turf@6.5.0",
+  "turf",
   "turf.min.js",
 );
 

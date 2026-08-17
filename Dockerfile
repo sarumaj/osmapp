@@ -7,7 +7,7 @@ RUN npm ci
 COPY scripts/ ./scripts/
 RUN npm run vendor
 
-FROM python:3.13-slim AS builder
+FROM python:3.14-slim AS builder
 
 ENV PIP_ONLY_BINARY=:all: \
     PIP_NO_CACHE_DIR=1
@@ -23,7 +23,7 @@ RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \
     /opt/venv/bin/pip install .
 
-FROM python:3.13-slim AS runtime
+FROM python:3.14-slim AS runtime
 
 RUN useradd --create-home --uid 10001 osmapp && \
     mkdir -p /var/cache/osmapp/tiles && \

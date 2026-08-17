@@ -1,0 +1,114 @@
+name: Renovate vendor sync
+
+on:
+  pull_request:
+    branches: ["renovate/**"]
+    types:
+      - opened # Renovate creates the PR
+      - synchronize # Renovate pushes new commits or rebases
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number (e.g. 42)"
+        required: true
+        type: string
+
+concurrency:
+  group: renovate-vendor-${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' && github.actor == 'renovate[bot]')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            echo "number=${{ inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Determine PR head branch
+        id: branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH=$(gh pr view ${{ steps.pr.outputs.number }} --json headRefName -q .headRefName)
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR head branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.branch.outputs.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Fetch base branch and check for dependency changes
+        id: changed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BASE=$(gh pr view ${{ steps.pr.outputs.number }} --json baseRefName -q .baseRefName)
+          git fetch origin "$BASE"
+          CHANGED=$(git diff --name-only "origin/$BASE" HEAD -- package.json package-lock.json | wc -l)
+          if [ "$CHANGED" -gt 0 ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "Dependency files changed — will regenerate vendor"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No dependency file changes — skipping"
+          fi
+
+      - name: Setup Node
+        if: steps.changed.outputs.run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.changed.outputs.run == 'true'
+        run: npm install
+
+      - name: Clean old vendor files
+        if: steps.changed.outputs.run == 'true'
+        run: rm -rf src/osmapp/static/vendor/
+
+      - name: Regenerate vendor files
+        if: steps.changed.outputs.run == 'true'
+        run: npm run vendor
+
+      - name: Commit and push
+        if: steps.changed.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A src/osmapp/static/vendor/
+          if git diff --cached --quiet; then
+            echo "No vendor changes to commit"
+          else
+            git commit -m "chore: regenerate vendor files [skip ci]"
+            git push
+          fi
+
+      - name: Debug info (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "=== PR #${{ steps.pr.outputs.number }} ==="
+          gh pr view ${{ steps.pr.outputs.number }} --json title,author,state,headRefName,baseRefName
+          echo "=== Installed versions ==="
+          npm ls --depth=0 2>/dev/null || true
+          echo "=== Git status ==="
+          git status
+          echo "=== Vendor dir ==="
+          find src/osmapp/static/vendor -type f | head -40
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -447,15 +447,12 @@ test("the thing the app exists to produce is reachable from the toolbar", () => 
   assert.match(SOURCE.labels, /App\.print\.printCluster/);
 });
 
-test("the row printer says what it needs rather than vanishing", () => {
-  // A card is composed from live tiles, and a control that disappears with
-  // the connection teaches nothing about why. pwa.js already drives this off
-  // a class on <body>, so the template asks for it and nothing watches.
-  const row = INDEX.slice(
-    INDEX.indexOf('id="tpl-territory-row"'),
-    INDEX.indexOf("</template>", INDEX.indexOf('id="tpl-territory-row"')),
-  );
-  assert.ok(row.includes("data-online-only"));
+test("the row printer stays live offline", () => {
+  // Composition is client-side and the basemap comes out of the tile cache,
+  // so the printer no longer hides when the connection goes.
+  const start = INDEX.indexOf('id="tpl-territory-row"');
+  const row = INDEX.slice(start, INDEX.indexOf("</template>", start));
+  assert.ok(!row.includes("data-online-only"));
 });
 
 test("every dialog context is exclusive", () => {

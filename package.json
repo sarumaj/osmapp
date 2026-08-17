@@ -47,7 +47,7 @@
         "version": "leaflet",
         "dest": [
           "unpkg.com",
-          "leaflet@{version}",
+          "leaflet",
           "dist"
         ],
         "files": [
@@ -79,7 +79,7 @@
         "dest": [
           "cdn.jsdelivr.net",
           "npm",
-          "leaflet-control-geocoder@{version}",
+          "leaflet-control-geocoder",
           "dist"
         ],
         "files": [
@@ -111,7 +111,7 @@
         "dest": [
           "cdn.jsdelivr.net",
           "npm",
-          "leaflet-editable@{version}",
+          "leaflet-editable",
           "src"
         ],
         "files": [
@@ -130,7 +130,7 @@
           "cdn.jsdelivr.net",
           "npm",
           "turf",
-          "turf@{version}"
+          "turf"
         ],
         "files": [
           {
@@ -148,7 +148,7 @@
           "cdnjs.cloudflare.com",
           "ajax",
           "libs",
-          "font-awesome@{version}"
+          "font-awesome"
         ],
         "files": [
           {
@@ -178,7 +178,7 @@
         "version": "pdf-lib",
         "dest": [
           "unpkg.com",
-          "pdf-lib@{version}",
+          "pdf-lib",
           "dist"
         ],
         "files": [
@@ -196,7 +196,7 @@
         "dest": [
           "unpkg.com",
           "@pdf-lib",
-          "fontkit@{version}",
+          "fontkit",
           "dist"
         ],
         "files": [
@@ -215,7 +215,7 @@
         "dest": [
           "cdn.jsdelivr.net",
           "npm",
-          "pdfjs-dist@{version}"
+          "pdfjs-dist"
         ],
         "files": [
           {
