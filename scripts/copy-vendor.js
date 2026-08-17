@@ -21,9 +21,7 @@
 //   • The key is the package name, and the version comes from the package's
 //     own package.json. Nothing about a version is written down twice.
 //   • "dest" is a path under destRoot, matching the CDN URL.
-//   • "src" is a path inside the package, or a list of candidates tried in
-//     order — pdf-lib and pdfjs-dist have both moved their build outputs
-//     between majors, and a list survives that without a code change.
+//   • "src" is one exact path inside the package.
 //   • "out" defaults to the file name of "src", which is what most entries
 //     want. Give it only to rename, or to place the file in a subdirectory.
 //   • "mode" is inferred and rarely written: a directory is copied whole, an
@@ -34,6 +32,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -50,21 +49,20 @@ const cfg = pkg.vendorConfig;
 if (!cfg) throw new Error('package.json has no "vendorConfig" section');
 
 const destRoot = resolve(root, cfg.destRoot);
+
 if (!destRoot.startsWith(root + sep))
   throw new Error(`destRoot must stay inside the repository: ${cfg.destRoot}`);
 
 const rel = (p) => relative(root, p);
 const inPackage = (name, path) => resolve(root, "node_modules", name, path);
 
-function pick(name, candidates) {
-  for (const candidate of candidates) {
-    const path = inPackage(name, candidate);
-    if (existsSync(path)) return path;
-  }
+function locate(name, src) {
+  const path = inPackage(name, src);
+  if (existsSync(path)) return path;
   throw new Error(
-    `${name}: none of [${candidates.join(", ")}] exist — the package layout ` +
-      `changed, so the vendorConfig in package.json and the <script> paths ` +
-      `in index.html both need updating`,
+    `${name}: ${src} does not exist — the package layout changed, so both ` +
+      `the vendorConfig in package.json and the vendored URLs in ` +
+      `templates/index.html.j2 need updating`,
   );
 }
 
@@ -79,6 +77,7 @@ function modeOf(src) {
 const percent = (before, after) =>
   `-${((1 - after.length / before.length) * 100).toFixed(1)}%`;
 
+/** Each mode copies src to dst and returns what to print about it. */
 const MODES = {
   async minjs(src, dst) {
     const code = readFileSync(src, "utf8");
@@ -132,9 +131,8 @@ let count = 0;
 for (const [name, pcfg] of packages) {
   console.log(`--- ${name} ---`);
   for (const file of pcfg.files) {
-    const candidates = Array.isArray(file.src) ? file.src : [file.src];
-    const src = pick(name, candidates);
-    const dst = resolve(destRoot, pcfg.dest, file.out ?? basename(candidates[0]));
+    const src = locate(name, file.src);
+    const dst = resolve(destRoot, pcfg.dest, file.out ?? basename(file.src));
     const mode = file.mode ?? modeOf(src);
     const copy = MODES[mode];
     if (!copy) throw new Error(`${name}: unknown mode "${mode}"`);
@@ -147,3 +145,28 @@ for (const [name, pcfg] of packages) {
 }
 
 console.log(`Done — ${count} entries from ${packages.length} packages.`);
+
+const TEMPLATES = resolve(root, "src/osmapp/templates");
+const referenced = new Map();
+
+for (const file of readdirSync(TEMPLATES)) {
+  const text = readFileSync(resolve(TEMPLATES, file), "utf8");
+  for (const [path] of text.matchAll(/vendor\/[A-Za-z0-9@._/-]+/g)) {
+    referenced.set(path.replace(/^vendor\//, "").replace(/\/$/, ""), file);
+  }
+}
+
+const missing = [...referenced].filter(
+  ([path]) => !existsSync(resolve(destRoot, path)),
+);
+
+if (missing.length) {
+  const lines = missing.map(([path, file]) => `  ${path}  (${file})`);
+  throw new Error(
+    `the templates reference ${missing.length} vendored path(s) that were ` +
+      `not produced:\n${lines.join("\n")}\n` +
+      `Either vendorConfig's "out" is wrong or the template needs updating.`,
+  );
+}
+
+console.log(`Checked ${referenced.size} vendored paths named in templates.`);

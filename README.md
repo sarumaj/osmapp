@@ -94,6 +94,11 @@ behind. Paths under `static/vendor/` deliberately omit the version segment the
 CDN URLs carry, which is why a bump does not touch the `<script>` tags or
 `window.VENDOR` in `templates/index.html`.
 
+Each `src` in `vendorConfig` is one exact path with no fallback, and the run
+ends by reading every `vendor/...` URL out of `templates/` and requiring it to
+exist. A package that moves its build output therefore fails the vendor step
+instead of quietly producing a tree the page cannot load.
+
 pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached and
 load on first use, not at boot — so a page view that never opens the print
 dialog never parses them.

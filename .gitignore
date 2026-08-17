@@ -321,5 +321,6 @@ vite.config.ts.timestamp-*
 cache/
 .tile_cache/
 
-# Allow dist in src
-!src/**/dist/
+# Force build and dist directories
+!src/**/vendor/**/dist/
+!src/**/vendor/**/build/

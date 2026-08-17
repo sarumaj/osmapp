@@ -88,14 +88,14 @@
       "@pdf-lib/fontkit": {
         "dest": "unpkg.com/@pdf-lib/fontkit/dist",
         "files": [
-          { "src": ["dist/fontkit.umd.min.js", "dist/fontkit.umd.js"] }
+          { "src": "dist/fontkit.umd.min.js" }
         ]
       },
       "pdfjs-dist": {
         "dest": "cdn.jsdelivr.net/npm/pdfjs-dist",
         "files": [
-          { "src": ["build/pdf.min.mjs", "build/pdf.min.js", "legacy/build/pdf.min.mjs"], "out": "build/pdf.min.mjs" },
-          { "src": ["build/pdf.worker.min.mjs", "build/pdf.worker.min.js", "legacy/build/pdf.worker.min.mjs"], "out": "build/pdf.worker.min.mjs" },
+          { "src": "build/pdf.min.mjs", "out": "build/pdf.min.mjs" },
+          { "src": "build/pdf.worker.min.mjs", "out": "build/pdf.worker.min.mjs" },
           { "src": "standard_fonts" }
         ]
       }
