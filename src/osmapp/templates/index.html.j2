@@ -29,53 +29,54 @@
     {% endfor -%}
     <link rel="alternate" hreflang="x-default" href="{{ lang_paths['en'] }}" />
     <script>
-      // The server picks the language from the URL and inlines the dictionary,
-      // so there is no fetch waterfall and no untranslated first paint.
+      // The server inlines the language dictionary here so the page renders
+      // already translated — no extra fetch needed before first paint.
       window.APP_LANG = {{ lang | tojson }};
       window.LANG_PATHS = {{ lang_paths | tojson }};
       window.I18N_BUNDLE = {{ i18n_bundle | tojson }};
-      // Which basemaps exist, decided server-side by config.AID_LAYERS. Only
-      // proxied URLs, so the browser talks to one origin and swapping a
-      // provider never touches the client.
+      // Available basemap layers, determined server-side via config.AID_LAYERS.
+      // All URLs are proxied through the same origin, so changing tile
+      // providers requires no client-side changes.
       window.BASEMAPS = {{ basemaps | tojson }};
-      // Kept as a fallback for the in-place switch path.
+      // Fallback URL for loading a different language dictionary at runtime
+      // (used when switching languages without a page reload).
       window.I18N_URL = "{{ url_for('static', filename='lang/LANG.json') }}";
-      // Named here rather than loaded here. Together these are around two
-      // megabytes of PDF machinery that only the print and card-import paths
-      // ever touch, so pdfdoc.js pulls them in on first use; the service
-      // worker precaches them regardless, which is what makes composing a
-      // card offline work at all.
+      // These are ~2 MB of PDF libraries used only for printing territory
+      // cards and importing PDF card data. They are loaded lazily by pdfdoc.js
+      // on first use; the service worker precaches them so offline printing
+      // works.
       window.VENDOR = {
-        pdfLib: "{{ url_for('static', filename='vendor/unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js') }}",
-        fontkit: "{{ url_for('static', filename='vendor/unpkg.com/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js') }}",
-        pdfjs: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs') }}",
-        pdfjsWorker: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs') }}",
-        pdfjsStandardFonts: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/') }}",
-        // Was reportlab's alone. The client draws the card's two text fields
-        // now, and the standard 14 cannot render ł ą ę ś ż ź ć ń.
+        pdfLib: "{{ url_for('static', filename='vendor/unpkg.com/pdf-lib/dist/pdf-lib.min.js') }}",
+        fontkit: "{{ url_for('static', filename='vendor/unpkg.com/@pdf-lib/fontkit/dist/fontkit.umd.min.js') }}",
+        pdfjs: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist/build/pdf.min.mjs') }}",
+        pdfjsWorker: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist/build/pdf.worker.min.mjs') }}",
+        pdfjsStandardFonts: "{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/pdfjs-dist/standard_fonts/') }}",
+        // DejaVu Sans covers Polish diacritics (ł ą ę ś ż ź ć ń) that PDF's
+        // standard 14 fonts cannot render.
         font: "{{ url_for('static', filename='fonts/DejaVuSans.ttf') }}",
       };
     </script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='vendor/unpkg.com/leaflet@1.9.4/dist/leaflet.css') }}"
+      href="{{ url_for('static', filename='vendor/unpkg.com/leaflet/dist/leaflet.css') }}"
     />
-    <script src="{{ url_for('static', filename='vendor/unpkg.com/leaflet@1.9.4/dist/leaflet.js') }}"></script>
-    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/turf/turf@6.5.0/turf.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/unpkg.com/leaflet/dist/leaflet.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/turf/turf/turf.min.js') }}"></script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='vendor/cdnjs.cloudflare.com/ajax/libs/font-awesome@7.3.0/css/all.min.css') }}"
+      href="{{ url_for('static', filename='vendor/cdnjs.cloudflare.com/ajax/libs/font-awesome/css/all.min.css') }}"
     />
   </head>
 
   <body>
-    <!-- Filters for the print preview's basemap tiles, referenced by ctx.filter
-       in print.js. They MUST live inside an <svg> root: a bare <filter> in
-       HTML is parsed as an unknown HTML element, not an SVG filter, and
-       url(#id) then resolves to nothing. Never applied to the border or the
-       attribution, which are drawn as vectors and are already sharp. -->
+    <!-- SVG filters applied to basemap tiles in the print preview (see
+         ctx.filter in print.js). They must live inside an <svg> root: a bare
+         <filter> in HTML is parsed as an unknown element, and url(#id) will
+         not resolve. These filters only affect raster tiles; the border and
+         attribution are drawn as vector layers and are already sharp. -->
     <svg width="0" height="0" style="position: absolute" aria-hidden="true">
-      <!-- Unsharp mask. The kernel sums to 1, so brightness is unchanged. -->
+      <!-- Unsharp mask. The kernel sums to 1, so overall brightness is
+           preserved. -->
       <filter id="tile-sharpen" color-interpolation-filters="sRGB">
         <feConvolveMatrix
           order="3"
@@ -87,7 +88,8 @@
         />
       </filter>
 
-      <!-- Gentle S-curve on R, G, B; alpha untouched. -->
+      <!-- S-curve contrast adjustment on R, G, B channels; alpha is
+           untouched. -->
       <filter id="tile-contrast" color-interpolation-filters="sRGB">
         <feComponentTransfer>
           <feFuncR type="table" tableValues="0 0.15 0.45 0.55 0.85 1" />
@@ -96,8 +98,8 @@
         </feComponentTransfer>
       </filter>
 
-      <!-- ITU-R BT.709 luminance coefficients, matching CSS grayscale(100%)
-         exactly. Alpha is preserved. -->
+      <!-- Grayscale conversion using ITU-R BT.709 luminance coefficients,
+           matching CSS grayscale(100%). Alpha is preserved. -->
       <filter id="tile-grayscale" color-interpolation-filters="sRGB">
         <feColorMatrix
           type="matrix"
@@ -112,7 +114,8 @@
     <div id="map"></div>
 
     <!-- ═══════════════════════════════════════════════════════════════════
-         LIVE UI  — structure only, no content built in JS strings
+         LIVE UI — static HTML structure only; all dynamic content is set
+         from JS, never built as JS strings.
          ═══════════════════════════════════════════════════════════════ -->
 
     <div id="loading-overlay" data-mode="simple" hidden>
@@ -136,7 +139,7 @@
       <p class="info-panel__title" data-role="title" data-i18n="info.prompt">
         Draw a polygon to load data.
       </p>
-      <!-- The stat labels are static; the values come from App.ui.setInfo(). -->
+      <!-- Labels are static; values are populated by App.ui.setInfo(). -->
       <dl class="info-panel__stats" data-role="stats" hidden>
         <div class="info-panel__stat">
           <dt data-i18n="info.streets">Streets</dt>
@@ -149,8 +152,9 @@
         <div class="info-panel__stat" data-role="clusters-row" hidden>
           <dt data-i18n="info.clusters">Territories</dt>
           <dd>
-            <!-- The one stat that is a control: it opens the territory list,
-                 because "14" is not an answer to "which fourteen?". -->
+            <!-- This stat is a button (not plain text) because the count
+                 alone ("14") doesn't show *which* territories — clicking
+                 opens the full list. -->
             <button
               type="button"
               class="info-panel__count"
@@ -175,10 +179,9 @@
           <dt data-i18n="info.printed">Printed</dt>
           <dd data-role="printed">0</dd>
         </div>
-        <!-- Shown only when there is something uncovered. The count is the
-             thing nobody goes looking for: the map looks finished either
-             way, and the first sign is a street on no card. Clicking it
-             zooms to the largest one. -->
+        <!-- Only visible when some streets are not covered by any territory.
+             The count is easy to miss — the map looks complete either way.
+             Clicking zooms to the largest uncovered area. -->
         <div class="info-panel__stat" data-role="gaps-row" hidden>
           <dt data-i18n="info.gapsLabel">Uncovered</dt>
           <dd>
@@ -205,13 +208,14 @@
     </aside>
 
     <!-- ═══════════════════════════════════════════════════════════════════
-         TEMPLATES — cloned by App.dom.render(), never string-concatenated
+         TEMPLATES — <template> elements cloned by App.dom.render();
+         never assembled via string concatenation.
          ═══════════════════════════════════════════════════════════════ -->
 
     <!-- ── Toolbar ──────────────────────────────────────────────────────
-         One control instead of a dozen stacked bars. controls.js clones
-         tpl-toolbar-group per section and tpl-toolbar-button per action, so
-         the grouping lives in one array there rather than in the markup. -->
+         A single toolbar panel. controls.js clones tpl-toolbar-group per
+         section and tpl-toolbar-button per action, so the grouping is
+         defined in a JS array rather than in this markup. -->
 
     <template id="tpl-toolbar-panel">
       <div class="tb-panel" role="toolbar" aria-label="Tools">
@@ -256,18 +260,17 @@
     </template>
 
     <!-- ── Dialog furniture ─────────────────────────────────────────────
-         Two things every dialog gets from App.ui.openDialog() rather than
-         from its own template, because "every dialog" is the requirement and
-         eight copies of it is how the ninth ends up without one.
+         Shared elements injected into every dialog by App.ui.openDialog(),
+         so each dialog template doesn't need to duplicate them.
 
-         The veil is what makes aria-modal="true" true: without it the map
-         still panned, the toolbar was still clickable, and a right-click
-         behind an open dialog opened a context menu at --z-menu — under the
-         dialog, invisible, and still eating the next click.
+         The veil is a full-screen overlay that blocks interaction with the
+         map and toolbar behind the dialog. Without it, aria-modal="true"
+         is not effectively enforced — the map can still be panned, buttons
+         behind the dialog can still be clicked, and right-clicks can open
+         a context menu underneath the dialog.
 
-         The help button is the same "?" the mode bars have advertised on
-         their hint banners all along, given to the screens that had no
-         banner to advertise it on. -->
+         The help button provides keyboard-shortcut access on dialogs that
+         don't have a hint banner (which is where other modes show the "?"). -->
 
     <template id="tpl-dialog-veil">
       <div class="dialog-veil"></div>
@@ -284,8 +287,8 @@
       </button>
     </template>
 
-    <!-- Yes/no prompt. Every field is filled by App.ui.confirm(); the template
-         only fixes the shape. -->
+    <!-- Yes/no confirmation dialog. All fields are populated by
+         App.ui.confirm(); this template only defines the layout. -->
     <template id="tpl-confirm-dialog">
       <div
         class="app-dialog confirm-dialog"
@@ -300,9 +303,9 @@
           <button type="button" class="btn btn--ghost" data-role="cancel">
             Cancel
           </button>
-          <!-- Shown only when a caller passes altKey. The one question that
-               needs three answers is "replace this boundary?", where the
-               third is "edit the one I have". -->
+          <!-- Optional third button, shown when the caller passes altKey.
+               Used for "replace this boundary?" where the third option is
+               "edit the existing one instead". -->
           <button type="button" class="btn btn--ghost" data-role="alt" hidden>
             Edit instead
           </button>
@@ -314,8 +317,8 @@
     </template>
 
     <!-- ── Territory list ───────────────────────────────────────────────
-         Opened from the territory count in the info panel. One row per
-         counted territory; clicking one zooms to it and flashes it. -->
+         Dialog opened from the territory count in the info panel. One row
+         per territory; clicking a row zooms to it on the map. -->
 
     <template id="tpl-territory-list">
       <div
@@ -353,10 +356,9 @@
       </div>
     </template>
 
-    <!-- Two buttons, not one: the row goes to the territory and the printer
-         beside it makes its card. Printing used to be reachable only by
-         right-clicking the shape on the map, which is a gesture you have to
-         already know about and a shape you have to already have found. -->
+    <!-- Each territory row has two actions: the main button navigates to
+         the territory on the map, and the print button beside it generates
+         a printable card for that territory. -->
     <template id="tpl-territory-row">
       <div class="territory-row-wrap">
         <button type="button" class="territory-row" data-role="go">
@@ -367,11 +369,6 @@
           </span>
           <span class="territory-row__flags" data-role="flags"></span>
         </button>
-        <!-- No longer data-online-only. Composition is client-side, and the
-             basemap comes out of the tile cache, so a card can be produced
-             from an aeroplane. Tiles nobody has looked at are missing rather
-             than wrong, and the print preview shows exactly that before
-             anything is exported. -->
         <button
           type="button"
           class="territory-row__print"
@@ -574,12 +571,11 @@
       </div>
     </template>
 
-    <!-- Cut and trim have each had one of these from the start; merge is
-         just as modal and just as unexplained, and had none. -->
     <!-- ── Outline editor ───────────────────────────────────────────────
-         Same shell as the cut, merge and trim bars. The vertex handles are
-         Leaflet.Editable's, so this bar carries only what the library has no
-         opinion about: how far the shape has moved, and the way out. -->
+         Same layout shell as the cut and trim toolbars. Vertex dragging
+         handles are provided by Leaflet.Editable, so this toolbar only
+         carries what the library doesn't: a corner count, the shape's
+         displacement, and apply/cancel controls. -->
 
     <template id="tpl-outline-toolbar">
       <div class="outline-toolbar" role="toolbar" aria-label="Edit boundary">
@@ -647,9 +643,9 @@
       </div>
     </template>
 
-    <!-- The eraser's reach, drawn where the pointer is. A gesture that
-         destroys what it passes over has to say how wide it is, or the first
-         sweep is a guess. -->
+    <!-- Visual indicator showing the eraser brush size at the pointer
+         position, so the user can see how wide the erase stroke will be
+         before dragging. -->
     <template id="tpl-vertex-eraser">
       <div class="vertex-eraser" aria-hidden="true"></div>
     </template>
@@ -689,10 +685,6 @@
             <kbd>F</kbd>
           </label>
         </div>
-        <!-- Back had no forward twin, though redoPoint() has existed as long
-             as it has and Ctrl+Z's counterpart already reached it. A tool
-             that can take a vertex back and cannot put one back is a tool
-             where the safe move is to start again. -->
         <div class="cut-toolbar__actions">
           <button
             type="button"
@@ -730,9 +722,8 @@
       </div>
     </template>
 
-    <!-- Same shell as the cut and merge bars: a mode is a mode, and three
-         different-looking boxes saying "you are in a mode now" would be three
-         things to learn instead of one. -->
+    <!-- Same layout shell as the cut and merge toolbars for visual
+         consistency across editing modes. -->
     <template id="tpl-trim-toolbar">
       <div class="trim-toolbar" role="toolbar" aria-label="Trim boundary">
         <div class="trim-toolbar__head">
@@ -771,10 +762,10 @@
           />
           <output data-role="detail-out"></output>
         </div>
-        <!-- The rule that proposes the exclusions, rather than its output.
-             Both are multiples of the area's own plot spacing, which is what
-             lets them be sliders: the same setting keeps meaning the same
-             thing in a terrace and in farmland. -->
+        <!-- Controls the rule that proposes exclusions, not the output
+             directly. Values are multiples of the area's own plot spacing,
+             so the same slider setting has consistent meaning across
+             dense terraces and open farmland. -->
         <div class="trim-toolbar__row">
           <label data-role="isolation-label" data-i18n="trim.isolation">
             How far out is isolated
@@ -809,9 +800,9 @@
             <span data-i18n="trim.follow">Follow streets</span>
             <kbd>F</kbd>
           </label>
-          <!-- A latch, not a free-for-all: while it is on the sliders and the
-               selection are locked, because a recompute would throw the
-               adjustment away. -->
+          <!-- When this is checked, the sliders and selection are locked
+               to prevent manual adjustments from being discarded by a
+               recompute. -->
           <label class="trim-toolbar__opt">
             <input type="checkbox" data-role="edit" />
             <span data-i18n="trim.adjust">Adjust corners by hand</span>
@@ -827,9 +818,6 @@
           >
             Apply
           </button>
-          <!-- The checkboxes above have carried their key on a <kbd> since
-               the tool shipped; the buttons beside them had none, and had no
-               keys either. Both halves of that are fixed. -->
           <button type="button" class="btn btn--ghost" data-role="outliers">
             <span data-i18n="trim.outliers">Outliers</span>
             <kbd>O</kbd>
@@ -851,9 +839,9 @@
     </template>
 
     <!-- ── Context menu ─────────────────────────────────────────────────
-         One shell, filled by App.ui.showContextMenu() from a list of items.
-         Every mode that has a toolbar in the corner also has a menu under
-         the cursor, and they are the same menu. -->
+         A single shell populated by App.ui.showContextMenu() from a list
+         of items. Every editing mode that has a toolbar also gets a
+         right-click context menu using this same template. -->
 
     <template id="tpl-context-menu">
       <div class="polygon-context-menu" role="menu"></div>
@@ -871,8 +859,9 @@
     </template>
 
     <!-- ── Keyboard sheet ───────────────────────────────────────────────
-         Rendered from App.shortcuts' registry, never written by hand: the
-         list that documents the keys is the list that dispatches them. -->
+         The shortcuts dialog is rendered from App.shortcuts' registry —
+         the same data structure that dispatches key presses also
+         populates this list, so the documentation can never go stale. -->
 
     <template id="tpl-shortcuts-dialog">
       <div
@@ -1159,13 +1148,12 @@
             <fieldset class="print-controls__group">
               <legend data-i18n="print.card">Card</legend>
               <!-- Both fields are suggested rather than filled: the guess goes
-                   in the placeholder and every candidate goes in the datalist,
-                   so a congregation whose wording differs from OSM's types
-                   over the hint instead of deleting it. autocomplete is off so
-                   the browser's own history of past form values does not
-                   compete with the list we built from the map. The datalist
-                   ids are assigned by print.js at open time — a template is
-                   cloned, and a hardcoded id would collide with itself. -->
+                   in the placeholder and every candidate goes in the datalist.
+                   autocomplete is off so the browser's own history of past
+                   form values does not compete with the list we built from
+                   the map. Datalist ids are assigned by print.js at open
+                   time, since a template can be cloned multiple times and a
+                   hardcoded id would collide. -->
               <label class="print-controls__field">
                 <span data-i18n="print.locality">Locality</span>
                 <input
@@ -1201,11 +1189,10 @@
               >
                 No template — the map prints on its own.
               </p>
-              <!-- Checked by default: the whole value of this is that it
-                   happens without anyone remembering to ask for it. The
-                   checkbox exists because the card then carries the entire
-                   territory plan, and somebody handing one sheet to one
-                   person may not want to hand over the rest of it. -->
+              <!-- Checked by default so the project data is embedded
+                   automatically. The checkbox lets users exclude it when
+                   handing a single card to someone who shouldn't see the
+                   full territory plan. -->
               <label
                 class="print-controls__check"
                 data-role="attach-row"
@@ -1247,17 +1234,13 @@
           </div>
         </div>
 
-        <!-- The footer band. It is a flex sibling of the body rather than the
-             last thing inside the scrolling settings column, so the two
-             buttons that finish or abandon the job cannot be scrolled away —
-             and it is full-bleed with a rule above it, so it reads as the
-             floor of the dialog rather than as three more grey rectangles at
-             the end of a fieldset. -->
+        <!-- Action bar is a flex sibling of the body (not inside the
+             scrolling settings column) so the primary buttons are always
+             visible and can't be scrolled out of view. -->
         <div class="app-dialog__actions print-dialog__actions">
-          <!-- Shown once a card has been composed, and it no longer cares
-               which format that was: the same link opens a PDF in the
-               viewer and a PNG in a tab. It is the way out when a browser
-               will not let the print frame drive its own viewer. -->
+          <!-- Appears after a card has been generated. Opens the output
+               file in a new tab — useful when the browser won't let the
+               print frame drive its built-in viewer. -->
           <a
             class="btn btn--ghost print-dialog__open"
             data-role="open-file"
@@ -1276,9 +1259,6 @@
           >
             Cancel
           </button>
-          <!-- Two verbs, both live whether or not a template is loaded. What
-               each one does to the card is the same in both formats; only the
-               file extension differs. -->
           <button
             type="button"
             class="btn btn--ghost print-dialog__save"
@@ -1313,11 +1293,8 @@
           Position the map
         </h2>
 
-        <!-- Same three bands as the print dialog: a fixed title, a body that
-             takes whatever is left and scrolls, and an action bar that cannot
-             be scrolled away. On a laptop the page image alone is most of the
-             viewport, so before this the Use-this-area button sat below the
-             fold on exactly the templates that needed the most adjusting. -->
+        <!-- Same three-band layout as the print dialog: fixed title,
+             scrollable body, and a fixed action bar that stays visible. -->
         <div class="place-dialog__body">
           <p class="app-dialog__hint" data-i18n="place.hint">
             Drag the frame over the part of the card where the map should print.
@@ -1328,8 +1305,9 @@
             Ctrl to resize · Enter to accept
           </p>
 
-          <!-- The wrapper centres; the stage must stay exactly the size of the
-             rendered page image, because .place-box is positioned against it. -->
+          <!-- The wrapper centers the stage; the stage must match the
+               rendered page image exactly because .place-box is positioned
+               relative to it. -->
           <div class="place-stage-wrap">
             <div class="place-stage" data-role="stage">
               <img class="place-page" data-role="page" alt="" />
@@ -1389,21 +1367,22 @@
     </template>
 
     <!-- ── Guided tour ──────────────────────────────────────────────────
-         One template for the whole thing. The veil swallows clicks, the spot
-         is a transparent box whose enormous box-shadow *is* the dimming (so
-         the highlighted control stays at full brightness without cutting a
-         hole in anything), and the bubble carries the text.
+         A single template for the entire tour. The veil blocks clicks on
+         the page behind it. The spot is a transparent box with a large
+         box-shadow that creates the dimming effect — the highlighted
+         control stays at full brightness because the shadow spreads outward
+         from the spot, not inward. The bubble holds the step text.
 
-         Mounted on <body> rather than the map container, because several of
-         the things it points at — the search field, the layer switcher — are
-         Leaflet controls that sit above anything mounted inside the map. -->
+         Mounted on <body> (not the map container) because some targets —
+         the search field, the layer switcher — are Leaflet controls that
+         render above anything inside the map container. -->
     <template id="tpl-tour">
       <div class="tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
         <div class="tour__veil" data-role="veil"></div>
         <div class="tour__spot" data-role="spot" hidden></div>
-        <!-- Second ring, for the button that opened the thing the spot is on.
-             After the spot in the source so that it paints over the dimming,
-             which is the spot's own box-shadow. -->
+        <!-- Second highlight ring for the button that opened the control
+             being pointed at. Placed after the spot so it paints over the
+             dimming (which is the spot's own box-shadow). -->
         <div class="tour__spot tour__origin" data-role="origin" hidden></div>
 
         <div class="tour__bubble" data-role="bubble" tabindex="-1">
@@ -1422,8 +1401,8 @@
           <h2 class="tour__title" id="tour-title" data-role="title"></h2>
           <p class="tour__body" data-role="body"></p>
 
-          <!-- Filled by tour.js with one button per step: progress to look
-               at, and a way back to a step that went past too fast. -->
+          <!-- Filled by tour.js with one dot button per step, for
+               navigation between steps. -->
           <div class="tour__dots" data-role="dots"></div>
 
           <div class="tour__actions">
@@ -1454,23 +1433,23 @@
     </template>
 
     <!-- Vendor -->
-    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-editable@1.3.0/src/Leaflet.Editable.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-editable/src/Leaflet.Editable.min.js') }}"></script>
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.css') }}"
+      href="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.css') }}"
     />
-    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder@4.0.0/dist/Control.Geocoder.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.min.js') }}"></script>
 
-    <!-- App modules — order matters (state first, main last) -->
+    <!-- App modules — load order matters (state first, main last) -->
     <script src="{{ url_for('static', filename='js/util.js') }}"></script>
     <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
     <script src="{{ url_for('static', filename='js/state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/store.js') }}"></script>
     <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
     <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
-    <!-- Before trim.js and outline.js rather than beside them: both build
-         their key context at load time and both ask this module for the
-         eraser entry while doing it. -->
+    <!-- Must load before trim.js and outline.js: both build their keyboard
+         context at load time and request the eraser shortcut from this
+         module. -->
     <script src="{{ url_for('static', filename='js/vertices.js') }}"></script>
     <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
@@ -1481,9 +1460,9 @@
     <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
     <script src="{{ url_for('static', filename='js/naming.js') }}"></script>
-    <!-- Ahead of both its callers: data.js reads it when a card is imported
-         and print.js when one is composed. Neither resolves it at load time,
-         but a module that two others reach for belongs in front of them. -->
+    <!-- Must load before its callers: data.js uses it when importing a card
+         and print.js uses it when composing one. Neither resolves it at load
+         time, but a shared dependency belongs ahead of its consumers. -->
     <script src="{{ url_for('static', filename='js/pdfdoc.js') }}"></script>
     <script src="{{ url_for('static', filename='js/data.js') }}"></script>
     <script src="{{ url_for('static', filename='js/session.js') }}"></script>
