@@ -2,7 +2,7 @@ name: Build, Test and Deploy OSM App
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
@@ -14,6 +14,10 @@ on:
         type: boolean
   repository_dispatch:
     types: [deploy-trigger]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
