@@ -610,7 +610,9 @@ App.ui = (function () {
         e.preventDefault();
         e.stopPropagation();
         closeContextMenu();
+        console.time(label);
         if (item.onClick) item.onClick();
+        console.timeEnd(label);
       });
     });
 

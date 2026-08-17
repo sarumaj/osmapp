@@ -121,7 +121,9 @@ App.dom = (function () {
     node.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
+      console.time("onRole " + name);
       handler(e, node);
+      console.timeEnd("onRole " + name);
     });
     return node;
   }

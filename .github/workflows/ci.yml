@@ -124,6 +124,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [vendor]
+    permissions:
+      contents: read
+      checks: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -141,13 +144,26 @@ jobs:
         run: pip install -e ".[test]"
 
       - name: Test
-        run: pytest
+        run: pytest --junitxml=junit-python.xml
+
+      - name: Report
+        if: always()
+        continue-on-error: true
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: junit-python.xml
+          check_name: Test (Python) results
+          detailed_summary: true
+          fail_on_failure: false
 
   test_javascript:
     name: Test (Node)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [vendor]
+    permissions:
+      contents: read
+      checks: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -160,7 +176,21 @@ jobs:
           node-version: 24
 
       - name: Test
-        run: node --test "tests/js/*.test.mjs"
+        run: |
+          node --test \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=junit --test-reporter-destination=junit-node.xml \
+            "tests/js/*.test.mjs"
+
+      - name: Report
+        if: always()
+        continue-on-error: true
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: junit-node.xml
+          check_name: Test (Node) results
+          detailed_summary: true
+          fail_on_failure: false
 
   build_and_release:
     name: Deploy OSM App to Heroku

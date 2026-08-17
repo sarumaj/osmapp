@@ -214,3 +214,63 @@ test("largestPolygon picks the biggest part of a MultiPolygon", () => {
   const picked = G.largestPolygon(both);
   assert.ok(Math.abs(turf.area(picked) - turf.area(big)) < 1);
 });
+
+// ── unionAll ─────────────────────────────────────────────────────────────────
+//
+// unionAll takes the whole collection to turf in one call and only folds pair
+// by pair when that fails. The fold is three to four times slower — it re-walks
+// the accumulated shape on every step — and it is the reason the gap layer
+// could block the main thread for seconds after every edit. What has to stay
+// true through that change is the contract the callers were written against:
+// the same answer, and a partial answer rather than none when one member is
+// unusable.
+
+test("unionAll dissolves the shared edges of adjacent squares", () => {
+  const a = square(turf, 0, 50, 0.001);
+  const b = square(turf, 0.001, 50, 0.001);
+  const c = square(turf, 0.002, 50, 0.001);
+
+  const merged = G.unionAll([a, b, c]);
+
+  assert.equal(merged.geometry.type, "Polygon", "one shape, not three");
+  const expected = turf.area(a) + turf.area(b) + turf.area(c);
+  assert.ok(Math.abs(turf.area(merged) - expected) / expected < 1e-6);
+});
+
+test("unionAll agrees with folding pair by pair", () => {
+  const parts = [0, 1, 2, 3].map((i) => square(turf, i * 0.001, 50, 0.001));
+
+  let folded = parts[0];
+  for (let i = 1; i < parts.length; i++) {
+    folded = turf.union(turf.featureCollection([folded, parts[i]]));
+  }
+
+  const once = G.unionAll(parts);
+  assert.ok(Math.abs(turf.area(once) - turf.area(folded)) < 1e-6);
+});
+
+test("one unusable member costs its own contribution, not the whole answer", () => {
+  // A non-numeric coordinate fails the collection as a whole — turf rejects
+  // the input before it clips anything — so this is the case the fold exists
+  // to salvage. gaps.js depends on it: a covered set that loses a territory
+  // announces that territory's ground as uncovered.
+  const a = square(turf, 0, 50, 0.001);
+  const b = square(turf, 0.001, 50, 0.001);
+  const broken = {
+    type: "Feature",
+    properties: {},
+    geometry: { type: "Polygon", coordinates: [[["x", 50], [0.01, 50], [0.01, 50.01], [0.009, 50.01], ["x", 50]]] },
+  };
+
+  const merged = G.unionAll([a, b, broken]);
+
+  assert.ok(merged, "the good shapes still come back");
+  const expected = turf.area(a) + turf.area(b);
+  assert.ok(Math.abs(turf.area(merged) - expected) / expected < 1e-6);
+});
+
+test("unionAll handles the trivial lists without calling turf at all", () => {
+  const a = square(turf, 0, 50, 0.001);
+  assert.equal(G.unionAll([]), null);
+  assert.equal(turf.area(G.unionAll([a])), turf.area(a));
+});
