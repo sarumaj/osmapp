@@ -45,7 +45,7 @@ jobs:
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Checkout PR head branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ steps.branch.outputs.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
