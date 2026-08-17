@@ -2,7 +2,6 @@ name: Renovate vendor sync
 
 on:
   pull_request:
-    branches: ["renovate/**"]
     types:
       - opened # Renovate creates the PR
       - synchronize # Renovate pushes new commits or rebases
