@@ -1,27 +1,96 @@
-# .github/workflows/renovate-vendor.yml
 name: Renovate vendor sync
+
 on:
   pull_request:
     branches: ["renovate/**"]
     paths:
-      - "package-lock.json"
       - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Pull request number (e.g. 42)"
+        required: true
+        type: string
+
+concurrency:
+  group: renovate-vendor-${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   vendor:
     runs-on: ubuntu-latest
-    if: github.actor == 'renovate[bot]'
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' && github.actor == 'renovate[bot]')
     permissions:
       contents: write
+      pull-requests: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Determine PR number
+        id: pr
+        run: |
+          if [ -n "${{ inputs.pr_number }}" ]; then
+            echo "number=${{ inputs.pr_number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ steps.pr.outputs.number }}/head
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install
-      - run: npm run vendor
-      - run: |
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Regenerate vendor files
+        run: npm run vendor
+
+      - name: Determine PR head branch
+        id: branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH=$(gh pr view ${{ steps.pr.outputs.number }} --json headRefName -q .headRefName)
+          echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Resolved PR head branch: $BRANCH"
+
+      - name: Commit and push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ steps.branch.outputs.name }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add src/osmapp/static/vendor/
-          git commit -m "chore: regenerate vendor files" || true
-          git push
+          if git diff --cached --quiet; then
+            echo "No vendor changes to commit"
+          else
+            git commit -m "chore: regenerate vendor files [skip ci]"
+            # We're in detached HEAD after checking out refs/pull/{N}/head,
+            # so push the commit directly to the PR's head branch.
+            git push origin "HEAD:$BRANCH"
+          fi
+
+      - name: Debug info (manual runs only)
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          echo "=== PR #${{ steps.pr.outputs.number }} ==="
+          gh pr view ${{ steps.pr.outputs.number }} --json title,author,state,headRefName,baseRefName
+          echo "=== Installed versions ==="
+          npm ls --depth=0 2>/dev/null || true
+          echo "=== Git status ==="
+          git status
+          echo "=== Vendor dir ==="
+          find src/osmapp/static/vendor -type f | head -40
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
