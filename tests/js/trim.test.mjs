@@ -123,6 +123,7 @@ const turf = {
     properties: {},
     geometry: { type: "Point", coordinates },
   }),
+  featureCollection: (features) => ({ type: "FeatureCollection", features }),
   bbox(feature) {
     const points = coordsOf(feature);
     const xs = points.map((p) => p[0]);
@@ -147,7 +148,7 @@ const turf = {
    * inside the boundary, in which case it survives, or it sticks out, in which
    * case it is cut back to the boundary. Both are rectangles here.
    */
-  intersect(a, b) {
+  intersect({ features: [a, b] }) {
     const ring = outerRing(a);
     if (ring.every((p) => inRing(p, outerRing(b)))) return a;
     const [aw, as, ae, an] = turf.bbox(a);

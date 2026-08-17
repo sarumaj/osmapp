@@ -44,205 +44,59 @@
     "destRoot": "src/osmapp/static/vendor",
     "packages": {
       "leaflet": {
-        "version": "leaflet",
-        "dest": [
-          "unpkg.com",
-          "leaflet",
-          "dist"
-        ],
+        "dest": "unpkg.com/leaflet/dist",
         "files": [
-          {
-            "src": [
-              "dist/leaflet-src.js"
-            ],
-            "out": "leaflet.js",
-            "mode": "minjs"
-          },
-          {
-            "src": [
-              "dist/leaflet.css"
-            ],
-            "out": "leaflet.css",
-            "mode": "mincss"
-          },
-          {
-            "src": [
-              "dist/images"
-            ],
-            "out": "images",
-            "mode": "dir"
-          }
+          { "src": "dist/leaflet-src.js", "out": "leaflet.js" },
+          { "src": "dist/leaflet.css" },
+          { "src": "dist/images" }
         ]
       },
       "leaflet-control-geocoder": {
-        "version": "leaflet-control-geocoder",
-        "dest": [
-          "cdn.jsdelivr.net",
-          "npm",
-          "leaflet-control-geocoder",
-          "dist"
-        ],
+        "dest": "cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist",
         "files": [
-          {
-            "src": [
-              "dist/Control.Geocoder.js"
-            ],
-            "out": "Control.Geocoder.min.js",
-            "mode": "minjs"
-          },
-          {
-            "src": [
-              "dist/Control.Geocoder.css"
-            ],
-            "out": "Control.Geocoder.css",
-            "mode": "mincss"
-          },
-          {
-            "src": [
-              "dist/Control.Geocoder.js.map"
-            ],
-            "out": "Control.Geocoder.js.map",
-            "mode": "raw"
-          }
+          { "src": "dist/Control.Geocoder.js", "out": "Control.Geocoder.min.js" },
+          { "src": "dist/Control.Geocoder.css" },
+          { "src": "dist/Control.Geocoder.js.map" }
         ]
       },
       "leaflet-editable": {
-        "version": "leaflet-editable",
-        "dest": [
-          "cdn.jsdelivr.net",
-          "npm",
-          "leaflet-editable",
-          "src"
-        ],
+        "dest": "cdn.jsdelivr.net/npm/leaflet-editable/src",
         "files": [
-          {
-            "src": [
-              "src/Leaflet.Editable.js"
-            ],
-            "out": "Leaflet.Editable.min.js",
-            "mode": "minjs"
-          }
+          { "src": "src/Leaflet.Editable.js", "out": "Leaflet.Editable.min.js" }
         ]
       },
       "@turf/turf": {
-        "version": "@turf/turf",
-        "dest": [
-          "cdn.jsdelivr.net",
-          "npm",
-          "turf",
-          "turf"
-        ],
+        "dest": "cdn.jsdelivr.net/npm/turf/turf",
         "files": [
-          {
-            "src": [
-              "turf.min.js"
-            ],
-            "out": "turf.min.js",
-            "mode": "raw"
-          }
+          { "src": "turf.min.js" }
         ]
       },
       "@fortawesome/fontawesome-free": {
-        "version": "@fortawesome/fontawesome-free",
-        "dest": [
-          "cdnjs.cloudflare.com",
-          "ajax",
-          "libs",
-          "font-awesome"
-        ],
+        "dest": "cdnjs.cloudflare.com/ajax/libs/font-awesome",
         "files": [
-          {
-            "src": [
-              "css/all.css"
-            ],
-            "out": "css/all.min.css",
-            "mode": "mincss"
-          },
-          {
-            "src": [
-              "webfonts/fa-brands-400.woff2"
-            ],
-            "out": "webfonts/fa-brands-400.woff2",
-            "mode": "raw"
-          },
-          {
-            "src": [
-              "webfonts/fa-solid-900.woff2"
-            ],
-            "out": "webfonts/fa-solid-900.woff2",
-            "mode": "raw"
-          }
+          { "src": "css/all.css", "out": "css/all.min.css" },
+          { "src": "webfonts/fa-brands-400.woff2", "out": "webfonts/fa-brands-400.woff2" },
+          { "src": "webfonts/fa-solid-900.woff2", "out": "webfonts/fa-solid-900.woff2" }
         ]
       },
       "pdf-lib": {
-        "version": "pdf-lib",
-        "dest": [
-          "unpkg.com",
-          "pdf-lib",
-          "dist"
-        ],
+        "dest": "unpkg.com/pdf-lib/dist",
         "files": [
-          {
-            "src": [
-              "dist/pdf-lib.min.js"
-            ],
-            "out": "pdf-lib.min.js",
-            "mode": "raw"
-          }
+          { "src": "dist/pdf-lib.min.js" }
         ]
       },
       "@pdf-lib/fontkit": {
-        "version": "@pdf-lib/fontkit",
-        "dest": [
-          "unpkg.com",
-          "@pdf-lib",
-          "fontkit",
-          "dist"
-        ],
+        "dest": "unpkg.com/@pdf-lib/fontkit/dist",
         "files": [
-          {
-            "src": [
-              "dist/fontkit.umd.min.js",
-              "dist/fontkit.umd.js"
-            ],
-            "out": "fontkit.umd.min.js",
-            "mode": "raw"
-          }
+          { "src": ["dist/fontkit.umd.min.js", "dist/fontkit.umd.js"] }
         ]
       },
       "pdfjs-dist": {
-        "version": "pdfjs-dist",
-        "dest": [
-          "cdn.jsdelivr.net",
-          "npm",
-          "pdfjs-dist"
-        ],
+        "dest": "cdn.jsdelivr.net/npm/pdfjs-dist",
         "files": [
-          {
-            "src": [
-              "build/pdf.min.mjs",
-              "build/pdf.min.js",
-              "legacy/build/pdf.min.mjs"
-            ],
-            "out": "build/pdf.min.mjs",
-            "mode": "raw"
-          },
-          {
-            "src": [
-              "build/pdf.worker.min.mjs",
-              "build/pdf.worker.min.js",
-              "legacy/build/pdf.worker.min.mjs"
-            ],
-            "out": "build/pdf.worker.min.mjs",
-            "mode": "raw"
-          },
-          {
-            "src": [
-              "standard_fonts"
-            ],
-            "out": "standard_fonts",
-            "mode": "dir"
-          }
+          { "src": ["build/pdf.min.mjs", "build/pdf.min.js", "legacy/build/pdf.min.mjs"], "out": "build/pdf.min.mjs" },
+          { "src": ["build/pdf.worker.min.mjs", "build/pdf.worker.min.js", "legacy/build/pdf.worker.min.mjs"], "out": "build/pdf.worker.min.mjs" },
+          { "src": "standard_fonts" }
         ]
       }
     }

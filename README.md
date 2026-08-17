@@ -86,10 +86,13 @@ npm run vendor
 ```
 
 Run this after any `package.json` dependency bump and **commit the result** —
-the deploy workflow builds from a plain checkout with no Node step. Versions are
-pinned exactly; paths under `static/vendor/` include the version number, so a
-bump also means updating `<script>` tags and `window.VENDOR` in
-`templates/index.html`.
+the deploy workflow builds from a plain checkout with no Node step. On Renovate
+PRs the CI workflow does it and folds the result into Renovate's own commit, so
+this is only needed for a bump made by hand. The script wipes `static/vendor/`
+before it writes, so a package dropped from `vendorConfig` leaves nothing
+behind. Paths under `static/vendor/` deliberately omit the version segment the
+CDN URLs carry, which is why a bump does not touch the `<script>` tags or
+`window.VENDOR` in `templates/index.html`.
 
 pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached and
 load on first use, not at boot — so a page view that never opens the print

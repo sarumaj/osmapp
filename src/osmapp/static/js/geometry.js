@@ -8,9 +8,10 @@
  * The file has four parts:
  *
  *   • **Turf wrappers.** union, intersect and difference are called from here
- *     and nowhere else, so that turf's v6 argument conventions — Features
- *     only, never bare geometries — are satisfied in one place. unionHealed()
- *     is the one to reach for when merging territories.
+ *     and nowhere else, so that turf's argument conventions — Features only,
+ *     never bare geometries, and both operands in one FeatureCollection since
+ *     v7 — are satisfied in one place. unionHealed() is the one to reach for
+ *     when merging territories.
  *   • **Polygon normalization.** GeoJSON permits several shapes for the same
  *     thing, and Leaflet produces different ones depending on how a layer was
  *     built. These functions reduce any of them to what a caller wants.
@@ -31,13 +32,13 @@ App.geometry = (function () {
   "use strict";
 
   // ══════════════════════════════════════════════════════════════════════
-  // TURF WRAPPERS — Turf v6 signatures live here and nowhere else
+  // TURF WRAPPERS — Turf signatures live here and nowhere else
   // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Wrap a bare geometry in a Feature, passing Features through untouched.
    *
-   * turf v6 rejects a bare geometry where it expects a Feature, and callers in
+   * turf rejects a bare geometry where it expects a Feature, and callers in
    * this app hold both — layer.toGeoJSON() gives a Feature, while a cluster's
    * stored `.geometry` is bare. Every wrapper below normalizes through here so
    * that no caller has to know which it is holding.
@@ -48,16 +49,30 @@ App.geometry = (function () {
     return turf.feature(x);
   }
 
+  /**
+   * Both operands as the FeatureCollection turf v7 wants.
+   *
+   * v6 took the two shapes as separate arguments; v7 takes one collection and
+   * throws "Must have at least 2 geometries" when handed the old form. The
+   * throw is the failure mode to watch for, because most callers here are
+   * wrapped in a try/catch that treats a throw as "these shapes do not
+   * overlap" — so the version mismatch does not surface as an error, it
+   * surfaces as a union that never dissolves anything.
+   */
+  function pair(a, b) {
+    return turf.featureCollection([feat(a), feat(b)]);
+  }
+
   function union(a, b) {
-    return turf.union(feat(a), feat(b));
+    return turf.union(pair(a, b));
   }
 
   function intersect(a, b) {
-    return turf.intersect(feat(a), feat(b));
+    return turf.intersect(pair(a, b));
   }
 
   function difference(a, b) {
-    return turf.difference(feat(a), feat(b));
+    return turf.difference(pair(a, b));
   }
 
   /**

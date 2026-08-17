@@ -1,0 +1,247 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: "Re-run the vendor sync against this PR (leave empty to skip)"
+        required: false
+        type: string
+      deploy:
+        description: "Deploy to Heroku after the tests pass"
+        required: false
+        default: false
+        type: boolean
+  repository_dispatch:
+    types: [deploy-trigger]
+
+permissions:
+  contents: read
+
+jobs:
+  vendor:
+    name: Sync vendored assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      (github.event_name == 'pull_request' && contains(github.actor, 'renovate')) ||
+      (github.event_name == 'workflow_dispatch' && inputs.pr_number != '')
+    permissions:
+      contents: write
+      pull-requests: read
+    concurrency:
+      group: vendor-${{ inputs.pr_number || github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - name: Resolve the pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            number="${{ github.event.pull_request.number }}"
+            head="${{ github.event.pull_request.head.ref }}"
+            base="${{ github.event.pull_request.base.ref }}"
+          else
+            number="${{ inputs.pr_number }}"
+            read -r head base < <(
+              gh pr view "$number" --json headRefName,baseRefName \
+                -q '.headRefName + " " + .baseRefName'
+            )
+          fi
+          {
+            echo "number=$number"
+            echo "head=$head"
+            echo "base=$base"
+          } >> "$GITHUB_OUTPUT"
+          echo "PR #$number: $head -> $base"
+
+      - name: Check out the head branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.pr.outputs.head }}
+          fetch-depth: 0
+          lfs: true
+
+      - name: Look for dependency changes
+        id: changed
+        run: |
+          set -euo pipefail
+          base="origin/${{ steps.pr.outputs.base }}"
+          git fetch --no-tags origin "${{ steps.pr.outputs.base }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "manual run — regenerating regardless"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" HEAD -- package.json package-lock.json; then
+            echo "no dependency changes — nothing to regenerate"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "dependency files changed — regenerating"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.changed.outputs.run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.changed.outputs.run == 'true'
+        run: npm ci
+
+      - name: Regenerate the vendor tree
+        if: steps.changed.outputs.run == 'true'
+        run: npm run vendor
+
+      - name: Fold the vendor tree into Renovate's commit
+        id: push
+        if: steps.changed.outputs.run == 'true'
+        run: |
+          set -euo pipefail
+          git add -A src/osmapp/static/vendor/
+          if git diff --cached --quiet; then
+            echo "vendor tree already matches the lockfile"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          export GIT_AUTHOR_NAME="$(git log -1 --format=%an)"
+          export GIT_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
+          export GIT_COMMITTER_NAME="$(git log -1 --format=%cn)"
+          export GIT_COMMITTER_EMAIL="$(git log -1 --format=%ce)"
+          git commit --amend --no-edit
+
+          # The lease is against origin/<branch> as fetched above: if Renovate
+          # pushed again while this job was running, the push is refused
+          # rather than silently discarding its work.
+          git push --force-with-lease origin \
+            "HEAD:refs/heads/${{ steps.pr.outputs.head }}"
+
+          sha="$(git rev-parse HEAD)"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "amended to $sha"
+
+      - name: Report
+        if: always()
+        run: |
+          echo "### Vendor sync — PR #${{ steps.pr.outputs.number }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "${{ steps.push.outputs.sha }}" ]; then
+            echo "Amended to \`${{ steps.push.outputs.sha }}\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No vendor change." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          find src/osmapp/static/vendor -type f 2>/dev/null | wc -l \
+            | xargs -I{} echo "{} vendored files." >> "$GITHUB_STEP_SUMMARY"
+
+  test_python:
+    name: Test (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [vendor]
+    if: ${{ !cancelled() && needs.vendor.result != 'failure' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.vendor.outputs.sha || github.sha }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: 3.14
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[test]"
+
+      - name: Test
+        run: pytest
+
+  test_javascript:
+    name: Test (Node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [vendor]
+    if: ${{ !cancelled() && needs.vendor.result != 'failure' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.vendor.outputs.sha || github.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Test
+        run: node --test "tests/js/*.test.mjs"
+
+  build_and_release:
+    name: Deploy OSM App to Heroku
+    runs-on: ubuntu-latest
+    needs: [test_python, test_javascript]
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.deploy) ||
+      github.event_name == 'repository_dispatch'
+    permissions:
+      contents: write
+    concurrency:
+      group: deploy-${{ github.event.client_payload.ref || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install Heroku CLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Get app url
+        uses: akhileshns/heroku-deploy@v3.15.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ""
+          heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
+          justlogin: true
+
+      - name: Export app config
+        id: export_app_config
+        run: |
+          HEROKU_APP_URL=$(heroku apps:info --app="${{ secrets.HEROKU_APP_NAME }}" --json | jq -r '.app.web_url | rtrimstr("/")')
+
+          cat <<EOF >> "$GITHUB_OUTPUT"
+          HEROKU_APP_URL=$HEROKU_APP_URL
+          EOF
+
+      - name: Deploy to Heroku
+        uses: akhileshns/heroku-deploy@v3.15.15
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+          heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
+          healthcheck: "${{ steps.export_app_config.outputs.HEROKU_APP_URL }}/service/health"
+          rollbackonhealthcheckfailed: true
+          usedocker: true
+          delay: 30
+        env:
+          HD_FLASK_DEBUG: "0"
+          HD_NOMINATIM_URL: ${{ secrets.NOMINATIM_URL }}
+          HD_OVERPASS_URL: ${{ secrets.OVERPASS_URL }}
+          HD_OSM_MAX_AREA_KM2: "50"
+          HD_OVERPASS_TIMEOUT: "30"
+          HD_TILE_URL: ${{ secrets.TILE_URL }}
