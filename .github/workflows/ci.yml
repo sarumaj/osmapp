@@ -3,13 +3,10 @@ name: Build, Test and Deploy OSM App
 on:
   push:
     branches: ["**"]
+    tags: ["v*"]
   pull_request:
   workflow_dispatch:
     inputs:
-      pr_number:
-        description: "Re-run the vendor sync against this PR (leave empty to skip)"
-        required: false
-        type: string
       deploy:
         description: "Deploy to Heroku after the tests pass"
         required: false
@@ -26,129 +23,95 @@ jobs:
     name: Sync vendored assets
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    if: >-
-      (github.event_name == 'pull_request' && contains(github.actor, 'renovate')) ||
-      (github.event_name == 'workflow_dispatch' && inputs.pr_number != '')
     permissions:
       contents: write
-      pull-requests: read
     concurrency:
-      group: vendor-${{ inputs.pr_number || github.event.pull_request.number || github.ref }}
+      group: vendor-${{ github.ref }}
       cancel-in-progress: true
     outputs:
       sha: ${{ steps.push.outputs.sha }}
     steps:
-      - name: Resolve the pull request
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-        run: |
-          set -euo pipefail
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            number="${{ github.event.pull_request.number }}"
-            head="${{ github.event.pull_request.head.ref }}"
-            base="${{ github.event.pull_request.base.ref }}"
-          else
-            number="${{ inputs.pr_number }}"
-            read -r head base < <(
-              gh pr view "$number" --json headRefName,baseRefName \
-                -q '.headRefName + " " + .baseRefName'
-            )
-          fi
-          {
-            echo "number=$number"
-            echo "head=$head"
-            echo "base=$base"
-          } >> "$GITHUB_OUTPUT"
-          echo "PR #$number: $head -> $base"
-
-      - name: Check out the head branch
+      - name: Check out the ref
         uses: actions/checkout@v7
         with:
-          ref: ${{ steps.pr.outputs.head }}
+          ref: ${{ github.head_ref || github.ref_name }}
           fetch-depth: 0
           lfs: true
 
-      - name: Look for dependency changes
-        id: changed
-        run: |
-          set -euo pipefail
-          base="origin/${{ steps.pr.outputs.base }}"
-          git fetch --no-tags origin "${{ steps.pr.outputs.base }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "manual run — regenerating regardless"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$base" HEAD -- package.json package-lock.json; then
-            echo "no dependency changes — nothing to regenerate"
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "dependency files changed — regenerating"
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Set up Node
-        if: steps.changed.outputs.run == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
 
       - name: Install dependencies
-        if: steps.changed.outputs.run == 'true'
         run: npm ci
 
-      - name: Regenerate the vendor tree
-        if: steps.changed.outputs.run == 'true'
-        run: npm run vendor
-
-      - name: Fold the vendor tree into Renovate's commit
-        id: push
-        if: steps.changed.outputs.run == 'true'
+      - name: Stamp the release version
+        if: github.ref_type == 'tag'
         run: |
           set -euo pipefail
-          git add -A src/osmapp/static/vendor/
+          version="${GITHUB_REF_NAME#v}"
+          npm version "$version" --no-git-tag-version --allow-same-version
+          sed -i -E "s/^version = \".*\"\$/version = \"$version\"/" pyproject.toml
+          grep -m1 '^version = ' pyproject.toml
+
+      - name: Regenerate the vendor tree
+        run: npm run vendor
+
+      - name: Fold the result back into the ref
+        id: push
+        if: >-
+          github.ref_type == 'tag' ||
+          (github.event_name == 'pull_request' && contains(github.actor, 'renovate'))
+        run: |
+          set -euo pipefail
+          git add -A src/osmapp/static/vendor \
+            pyproject.toml package.json package-lock.json
           if git diff --cached --quiet; then
-            echo "vendor tree already matches the lockfile"
+            echo "tree already matches the lockfile and the version"
             echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           export GIT_AUTHOR_NAME="$(git log -1 --format=%an)"
           export GIT_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
-          export GIT_COMMITTER_NAME="$(git log -1 --format=%cn)"
-          export GIT_COMMITTER_EMAIL="$(git log -1 --format=%ce)"
-          git commit --amend --no-edit
+          export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+          export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 
-          # The lease is against origin/<branch> as fetched above: if Renovate
-          # pushed again while this job was running, the push is refused
-          # rather than silently discarding its work.
-          git push --force-with-lease origin \
-            "HEAD:refs/heads/${{ steps.pr.outputs.head }}"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            kind="$(git cat-file -t "$GITHUB_REF_NAME")"
+            notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+            git commit -m "chore(release): $GITHUB_REF_NAME"
+            if [ "$kind" = tag ]; then
+              git tag -f -a "$GITHUB_REF_NAME" -m "$notes"
+            else
+              git tag -f "$GITHUB_REF_NAME"
+            fi
+            # Pushes made with GITHUB_TOKEN do not start another run, so
+            # moving the tag here cannot loop back into this workflow.
+            git push --force origin "refs/tags/$GITHUB_REF_NAME"
+          else
+            git commit --amend --no-edit
+            git push --force-with-lease origin "HEAD:refs/heads/$GITHUB_HEAD_REF"
+          fi
 
-          sha="$(git rev-parse HEAD)"
-          echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "amended to $sha"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Report
         if: always()
         run: |
-          echo "### Vendor sync — PR #${{ steps.pr.outputs.number }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "${{ steps.push.outputs.sha }}" ]; then
-            echo "Amended to \`${{ steps.push.outputs.sha }}\`." >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "No vendor change." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          find src/osmapp/static/vendor -type f 2>/dev/null | wc -l \
-            | xargs -I{} echo "{} vendored files." >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "### Vendor — ${{ github.ref_name }}"
+            echo "${{ steps.push.outputs.sha && format('At `{0}`.', steps.push.outputs.sha) || 'Not pushed back.' }}"
+            find src/osmapp/static/vendor -type f | wc -l | xargs echo "Vendored files:"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   test_python:
     name: Test (Python)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: [vendor]
-    if: ${{ !cancelled() && needs.vendor.result != 'failure' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -173,7 +136,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [vendor]
-    if: ${{ !cancelled() && needs.vendor.result != 'failure' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -191,8 +153,9 @@ jobs:
   build_and_release:
     name: Deploy OSM App to Heroku
     runs-on: ubuntu-latest
-    needs: [test_python, test_javascript]
+    needs: [vendor, test_python, test_javascript]
     if: >-
+      github.ref_type == 'tag' ||
       (github.event_name == 'workflow_dispatch' && inputs.deploy) ||
       github.event_name == 'repository_dispatch'
     permissions:
@@ -204,6 +167,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
+          ref: ${{ needs.vendor.outputs.sha || github.sha }}
           fetch-depth: 0
           lfs: true
 
@@ -223,7 +187,6 @@ jobs:
         id: export_app_config
         run: |
           HEROKU_APP_URL=$(heroku apps:info --app="${{ secrets.HEROKU_APP_NAME }}" --json | jq -r '.app.web_url | rtrimstr("/")')
-
           cat <<EOF >> "$GITHUB_OUTPUT"
           HEROKU_APP_URL=$HEROKU_APP_URL
           EOF
@@ -245,3 +208,10 @@ jobs:
           HD_OSM_MAX_AREA_KM2: "50"
           HD_OVERPASS_TIMEOUT: "30"
           HD_TILE_URL: ${{ secrets.TILE_URL }}
+
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

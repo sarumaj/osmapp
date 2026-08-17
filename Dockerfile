@@ -4,7 +4,10 @@ WORKDIR /build
 
 COPY package.json package-lock.json ./
 RUN npm ci
+
 COPY scripts/ ./scripts/
+COPY src/osmapp/templates/ ./src/osmapp/templates/
+
 RUN npm run vendor
 
 FROM python:3.14-slim AS builder
@@ -36,7 +39,9 @@ ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
 USER osmapp
+
 WORKDIR /home/osmapp
+
 EXPOSE ${PORT:-5000}
 
 CMD ["osmapp"]

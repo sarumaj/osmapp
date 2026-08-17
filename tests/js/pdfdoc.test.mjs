@@ -153,3 +153,26 @@ test("an unrecognized sub-operator stops the walk instead of misreading it", () 
 
   assert.deepEqual(out, []);
 });
+
+// pdf.js 6 moved teardown from the document onto its loading task. The old
+// call is inside a `.then` nobody awaits, so getting this wrong does not fail
+// loudly — it rejects the layout chain and the template silently falls back
+// to the default box.
+test("a document is closed through its loading task, not its proxy", async () => {
+  const pdfdoc = load();
+  let closed = 0;
+  pdfdoc._close({ loadingTask: { destroy: () => { closed++; return Promise.resolve(); } } });
+  await Promise.resolve();
+  assert.equal(closed, 1);
+});
+
+test("closing tolerates a v5 proxy, a failing teardown, and nothing at all", async () => {
+  const pdfdoc = load();
+  let closed = 0;
+  pdfdoc._close({ destroy: () => { closed++; } });
+  pdfdoc._close({ loadingTask: { destroy: () => Promise.reject(new Error("worker gone")) } });
+  pdfdoc._close(null);
+  pdfdoc._close({});
+  await Promise.resolve();
+  assert.equal(closed, 1);
+});

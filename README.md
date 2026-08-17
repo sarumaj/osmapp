@@ -97,7 +97,10 @@ CDN URLs carry, which is why a bump does not touch the `<script>` tags or
 Each `src` in `vendorConfig` is one exact path with no fallback, and the run
 ends by reading every `vendor/...` URL out of `templates/` and requiring it to
 exist. A package that moves its build output therefore fails the vendor step
-instead of quietly producing a tree the page cannot load.
+instead of quietly producing a tree the page cannot load. That check is why the
+Dockerfile's vendor stage copies `src/osmapp/templates/` as well as
+`scripts/` — without them the script dies on a missing directory after it has
+already written the tree.
 
 pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached and
 load on first use, not at boot — so a page view that never opens the print
@@ -158,9 +161,18 @@ node --test "tests/js/*.test.mjs"     # no npm install
 
 Tests cover only things that fail **silently and consequentially** — loud
 failures (404, startup error, blank page) aren't worth the maintenance. The JS
-suite uses Node's built-in runner with no dependencies. `deploy.yml` runs both
-suites on every push/PR (Python 3.13/3.14, Node 22/24); the Heroku deploy job
-requires both to pass.
+suite uses Node's built-in runner with no dependencies. `.github/workflows/ci.yml`
+runs both suites on every push/PR; the Heroku deploy job requires both to pass.
+
+### Releasing
+
+Push a `v*` tag. The vendor job writes the tag's version — `v1.4.2` becomes
+`1.4.2` — into `pyproject.toml` and `package.json`, regenerates
+`static/vendor/`, commits, and moves the tag onto that commit; the deploy job
+then builds from it. Both jobs run on every tag with no further input, and the
+version lives in the tag rather than on the branch, so `main` keeps its
+placeholder. Moving the tag is a force-push made with `GITHUB_TOKEN`, which
+GitHub deliberately does not let start another run.
 
 ---
 

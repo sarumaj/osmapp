@@ -178,6 +178,28 @@ App.pdfdoc = (function () {
     }).promise;
   }
 
+  /**
+   * Hand a document back.
+   *
+   * pdf.js 6 dropped PDFDocumentProxy.destroy() — teardown moved to the
+   * loading task, which is what owns the worker. Calling the old method on a
+   * v6 proxy throws, and every one of these sits in a `.then` that nobody
+   * awaits, so the failure surfaced as an unrelated rejection ("doc.destroy
+   * is not a function") swallowing whatever the caller was actually doing.
+   *
+   * Rejections from the teardown itself are of no interest here: the
+   * document is being thrown away either way.
+   */
+  function _close(doc) {
+    var owner = (doc && doc.loadingTask) || doc;
+    if (!owner || !owner.destroy) return;
+    Promise.resolve()
+      .then(function () {
+        return owner.destroy();
+      })
+      .catch(function () {});
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // BYTES
   // ══════════════════════════════════════════════════════════════════════
@@ -508,11 +530,11 @@ App.pdfdoc = (function () {
       .then(function (doc) {
         return _inspectPages(doc, 1).then(
           function (layout) {
-            doc.destroy();
+            _close(doc);
             return layout;
           },
           function (err) {
-            doc.destroy();
+            _close(doc);
             throw err;
           },
         );
@@ -579,7 +601,7 @@ App.pdfdoc = (function () {
       })
       .then(function (doc) {
         if (index >= doc.numPages) {
-          doc.destroy();
+          _close(doc);
           throw new Error("The template has no page at that index.");
         }
         return doc
@@ -601,11 +623,11 @@ App.pdfdoc = (function () {
           })
           .then(
             function (blob) {
-              doc.destroy();
+              _close(doc);
               return blob;
             },
             function (err) {
-              doc.destroy();
+              _close(doc);
               throw err;
             },
           );
@@ -878,6 +900,7 @@ App.pdfdoc = (function () {
     _placeholderFor: _placeholderFor,
     _fieldsFor: _fieldsFor,
     _pathRects: _pathRects,
+    _close: _close,
   };
 })();
 
