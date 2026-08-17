@@ -252,14 +252,7 @@ App.history = (function () {
 
     var layer = App.geometry.toLayer(geometry, App.polygons.OUTER_STYLE);
     if (!layer) return;
-    layer.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-    });
-    s.outerPolygonLayerGroup.clearLayers();
-    s.outerPolygonLayerGroup.addLayer(layer);
-    s.outerPolygonLayer = layer;
-    s.outerPolygonDrawn = true;
-    App.polygons.attachOuterEvents(layer);
+    App.polygons.setOuterLayer(layer);
   }
 
   // ══════════════════════════════════════════════════════════════════════

@@ -1,24 +1,38 @@
 /**
- * Undo, and which stack it lands on.
+ * Undo and redo, and which stack they land on.
  *
- * "Undo" is not one thing here. Halfway through drawing a split line it means
- * "take back that vertex"; with the print dialog open it means "take back that
- * eraser stroke"; the rest of the time it means "take back that edit to the
- * territories". Getting that wrong is not a smaller version of the right
- * answer — undoing a merge because someone hit Ctrl+Z while placing a vertex
- * destroys work that the vertex undo would have left alone.
+ * ── The thing being tested ────────────────────────────────────────────────
  *
- * Two shapes of that bug shipped before the scope stack existed, and both are
- * pinned below: the toolbar button called undo() directly and so ignored the
- * routing that the keyboard handler applied, and cut mode intercepted undo but
- * not redo, so Ctrl+Y mid-draw restored old geometry underneath a split line
- * still being drawn. Everything now goes through the same delegation, so what
- * has to be asserted is that *every* entry point sees the same answer — the
- * depths and the tooltip keys as much as the actions.
+ * "Undo" does not mean one thing in this app. Halfway through drawing a split
+ * line it means "take back that vertex". With the print dialog open it means
+ * "take back that eraser stroke". The rest of the time it means "take back
+ * that edit to the territories".
  *
- * A leaked scope is the other failure worth pinning. It has no symptom at the
- * moment it happens: undo simply keeps answering for a tool that closed, and
- * the territories quietly stop being undoable for the rest of the session.
+ * history.js resolves this with a stack of scopes: a modal tool pushes a scope
+ * when it opens and pops it when it closes, and undo is delegated to whichever
+ * scope is on top. Read the header of src/osmapp/static/js/history.js for the
+ * shape a scope has to have.
+ *
+ * Getting the routing wrong is not a milder version of the right answer. Undo
+ * that reaches past the open tool destroys territory work the user was not
+ * editing and cannot get back, in response to a keystroke that was aimed at a
+ * half-drawn line.
+ *
+ * ── What the tests are organized around ───────────────────────────────────
+ *
+ * Three failure modes, each with its own section below.
+ *
+ * *Entry points disagreeing.* Undo is reachable from the keyboard, from the
+ * toolbar button and from a tool's own Back button. All three have to resolve
+ * to the same scope, and so do the depths and tooltip keys they display — a
+ * button labelled from one stack that acts on another is worse than no label.
+ *
+ * *Asymmetry between undo and redo.* A tool that intercepts one and not the
+ * other lets the unhandled key fall through to the territories mid-edit.
+ *
+ * *A leaked scope.* This one has no symptom at the moment it happens. Undo
+ * simply keeps answering for a tool that has closed, and the territories stop
+ * being undoable for the rest of the session with nothing on screen to say so.
  */
 
 import test from "node:test";
@@ -26,19 +40,23 @@ import assert from "node:assert/strict";
 import { loadApp } from "./helpers/load.mjs";
 
 /**
- * history.js talks to three neighbours: App.state, App.polygons for the
- * snapshots, and App.controls.refresh() to repaint the buttons. All three are
- * stubbed, because this is about the routing rather than about geometry.
+ * Build a history module with its neighbors stubbed, and return handles for
+ * driving it.
  *
- * shortcuts.js is loaded for real rather than stubbed. Undo and redo are
- * registered with it now instead of being a private listener, so stubbing it
- * would leave the one thing worth asserting about the keyboard — that Ctrl+Z
- * reaches the *active scope* — asserted against a stub of the thing doing the
- * reaching.
+ * history.js talks to three of them: App.state, App.polygons for taking and
+ * restoring snapshots, and App.controls.refresh() to repaint the toolbar
+ * buttons. All three are stubbed, because these tests are about which stack a
+ * keystroke reaches rather than about geometry.
+ *
+ * shortcuts.js is the exception and is loaded for real. Undo and redo are
+ * registered as shortcuts rather than handled by a private key listener, so
+ * stubbing it would mean asserting that Ctrl+Z reaches the active scope
+ * against a stub of the very thing doing the reaching.
  */
 function setup() {
-  // shortcuts.js listens for keyup and for the window losing focus as well,
-  // to end a held key it would otherwise never hear the release of.
+  // shortcuts.js also listens on window, for keyup and for the window losing
+  // focus, so that a key held down when the user tabs away is not left stuck.
+  // Only keydown is captured here, since that is what these tests fire.
   const window = { addEventListener() {} };
   const listeners = [];
   const document = {
@@ -138,8 +156,9 @@ test("nothing recorded means nothing to undo", () => {
 });
 
 test("a new edit branches off the timeline", () => {
-  // Redo after an undo after a fresh push would otherwise resurrect geometry
-  // from a future that no longer exists.
+  // A new action branches the timeline: anything that had been undone belongs
+  // to a future that no longer exists, so the redo stack has to be cleared.
+  // Otherwise redo resurrects geometry from an abandoned branch.
   const h = setup();
   h.history.push();
   h.set([{ id: "b" }]);
@@ -161,8 +180,9 @@ test("clear empties both stacks", () => {
 });
 
 test("the snapshot is a copy, not a reference", () => {
-  // push() stores JSON, so mutating the live feature afterwards must not
-  // rewrite what undo will restore.
+  // push() has to store a deep copy rather than a reference. The features it
+  // snapshots stay live and are mutated in place by later edits, so a stored
+  // reference would be rewritten by the very change undo is meant to reverse.
   const h = setup();
   const live = [{ id: "a", properties: { printed: null } }];
   h.set(live);
@@ -211,9 +231,10 @@ test("popping a scope hands undo back to the territories", () => {
 });
 
 test("pushing the same id twice replaces rather than stacks", () => {
-  // A mode that restarts without a clean teardown would otherwise leak a
-  // scope, and undo would answer for a tool that has closed — for the rest of
-  // the session, with nothing on screen to say so.
+  // Pushing a scope id that is already on the stack replaces it rather than
+  // stacking a second copy. A tool that restarts without a clean teardown —
+  // an exception during exit, a mode reopened from a context menu — would
+  // otherwise leave a scope behind that nothing will ever pop.
   const h = setup();
   const first = fakeScope("cut");
   const second = fakeScope("cut");
@@ -247,8 +268,10 @@ test("scopes nest, innermost first", () => {
 });
 
 test("push() always records territory geometry, whatever mode is active", () => {
-  // Modes never call push(), but a merge finishing while a scope happens to be
-  // open must still land on the cluster stack rather than on the mode's.
+  // push() always targets the base scope, whatever is on top. Modes never
+  // call it themselves, but an edit to the territories can complete while a
+  // tool is open, and that belongs on the cluster stack rather than on the
+  // tool's.
   const h = setup();
   h.history.pushScope(fakeScope("cut"));
 
@@ -273,9 +296,9 @@ test("a scope that refuses is not called", () => {
 // ── the entry points agree ───────────────────────────────────────────────────
 
 test("the keyboard routes to the active scope, redo included", () => {
-  // The original bug: cut mode intercepted Ctrl+Z but not Ctrl+Y, so redo fell
-  // through to the cluster stack and restored old geometry underneath a split
-  // line that was still being drawn.
+  // Undo and redo have to be routed by the same rule. A scope that handles
+  // one and lets the other fall through to the territories restores old
+  // geometry underneath a split line that is still being drawn.
   const h = setup();
   h.history.push();
   h.set([{ id: "b" }]);
@@ -306,8 +329,9 @@ test("the keyboard leaves text fields alone", () => {
 });
 
 test("the toolbar and the keyboard get the same answer", () => {
-  // They used to disagree: the button called history.undo() directly and so
-  // skipped the routing the keyboard applied.
+  // The toolbar button and the keyboard must resolve to the same scope. A
+  // button wired straight to history.undo() bypasses the delegation and so
+  // does something different from the shortcut that is meant to mirror it.
   const h = setup();
   const cut = fakeScope("cut");
   h.history.pushScope(cut);
@@ -319,8 +343,9 @@ test("the toolbar and the keyboard get the same answer", () => {
 });
 
 test("every mutation repaints the buttons", () => {
-  // The depths drive the tooltips, so a mutation that does not sync leaves
-  // "Undo 3 changes" over a button that now has two.
+  // The reported depths drive the button tooltips, so any mutation has to
+  // sync them. Otherwise the button reads "Undo 3 changes" over a stack that
+  // now holds two.
   const h = setup();
   const before = h.refreshes();
   h.history.push();
@@ -333,14 +358,14 @@ test("every mutation repaints the buttons", () => {
 // ── every modal tool registers a scope ───────────────────────────────────────
 
 test("a mode without a scope of its own is the bug this stack exists to stop", () => {
-  // Cut and the eraser registered scopes from the start; merge and trim did
-  // not, and the consequence is the one below — Ctrl+Z inside a modal tool
-  // reaching past the thing being edited and undoing the last change to the
-  // territories, which is work the tool was never touching.
+  // Every modal tool has to register a scope, not just the ones whose own
+  // undo is obvious. A tool without one lets Ctrl+Z reach past what is being
+  // edited and undo the last change to the territories — work the tool was
+  // never touching.
   //
-  // Asserted against the base scope rather than against merge or trim
-  // directly, because what makes it a bug is the fall-through, not which
-  // tool happened to be open.
+  // The assertion is that the base scope does *not* answer while a tool is
+  // open, rather than that a particular tool's scope does. What makes this a
+  // bug is the fall-through, not which tool happened to be in front.
   const h = setup();
   h.history.push();
   h.set([{ id: "b" }]);
@@ -356,15 +381,17 @@ test("a mode without a scope of its own is the bug this stack exists to stop", (
     "the territories must not move while a selection is being collected",
   );
 
-  // …and the moment the tool closes, the territories are undoable again.
+  // …and the moment the tool closes its scope is popped, so the territories
+  // are undoable again. A tool that pushes but never pops fails here.
   h.history.popScope("merge");
   h.key("z");
   assert.deepEqual(h.current(), [{ id: "a" }]);
 });
 
 test("the tooltip key follows the scope, so undo never lies about what it will take back", () => {
-  // "Undo last change" while the thing that will actually be taken back is a
-  // selected territory is a tooltip describing the bug above.
+  // The tooltip key comes from the active scope too. A button reading "Undo
+  // last change" while the action would actually take back a selection is
+  // describing the fall-through above rather than what the button does.
   const h = setup();
   assert.equal(h.history.undoKey(), "toolbar.undo");
 

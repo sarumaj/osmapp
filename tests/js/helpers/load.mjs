@@ -1,15 +1,30 @@
 /**
- * load.mjs — loads a browser module for testing.
+ * load.mjs — run a browser module under Node so it can be tested.
  *
- * The client is plain <script> files that assign to `window.App`, so there is
- * nothing to `import`. Each source file is compiled into a function taking the
- * browser globals it expects and called with stubs; the file itself is never
- * modified.
+ * The client has no build step. It is a list of plain <script> files, each of
+ * which wraps itself in an IIFE and assigns the result to `window.App`, so
+ * there is nothing for a test to `import`. This helper compiles a source file
+ * into a function that takes the browser globals it expects, then calls it
+ * with whatever stubs the test supplies. The source file is read as-is and is
+ * never modified or transformed.
  *
- * `vm.compileFunction` rather than `vm.createContext` on purpose: a new vm
- * context is a separate realm, so arrays built inside it do not share a
- * prototype with arrays out here and `assert.deepStrictEqual` rejects every
- * structural comparison.
+ * A typical test loads the module under test together with any real
+ * dependencies it needs, and stubs the rest afterwards:
+ *
+ *     const App = loadApp(["util.js", "state.js", "labels.js"], { window, L });
+ *     App.i18n = { t: (key) => key };
+ *     App.labels.init();
+ *
+ * Order matters. Files are executed in the order given, exactly as the browser
+ * would run the <script> tags, so a module has to be listed after anything it
+ * reads at load time.
+ *
+ * The implementation uses `vm.compileFunction` rather than `vm.createContext`,
+ * and the distinction matters. A vm context is a separate JavaScript realm
+ * with its own set of built-ins, so an array created inside one does not share
+ * a prototype with an array created out here — and `assert.deepStrictEqual`
+ * compares prototypes, so every structural comparison in every test would
+ * fail. Compiling into a function keeps the module in this realm.
  */
 
 import { readFileSync } from "node:fs";
@@ -21,16 +36,28 @@ const JS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "
 
 const GLOBALS = ["window", "document", "navigator", "turf", "L"];
 
+/**
+ * Execute browser modules and return the `App` object they built.
+ *
+ * @param {string[]} files paths relative to src/osmapp/static/js, in load order
+ * @param {Object} [stubs] replacements for the browser globals. Any of
+ *   `window`, `document`, `navigator`, `turf` and `L` may be given; the first
+ *   three default to empty objects and the last two to undefined, which is
+ *   correct for a module that never touches them.
+ * @returns {Object} the `App` namespace, read back off the window object used
+ */
 export function loadApp(files, stubs = {}) {
-  // Overridable so a module that reads bootstrap data off `window` — the
-  // basemap descriptor the server inlines, `localStorage` — can be given one
-  // that has it. The module still assigns `window.App`, so the return value is
-  // read back off whichever object was used.
+  // A test supplies its own window when the module reads bootstrap data off
+  // it — the basemap descriptor the server inlines into the page, or
+  // localStorage. Note that App is read back off this same object rather than
+  // off a global, so a test holding a reference to its own window can inspect
+  // anything else the module wrote there.
   const win = stubs.window ?? {};
   const env = {
     window: win,
-    // Overridable: anything that feature-detects the browser has to be driven
-    // against more than one browser's behavior to be worth testing.
+    // document and navigator are stubbable because several modules
+    // feature-detect the browser, and a feature detection is only worth
+    // testing if it can be driven against more than one browser's behavior.
     document: stubs.document ?? {},
     navigator: stubs.navigator ?? {},
     turf: stubs.turf,

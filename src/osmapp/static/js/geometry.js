@@ -1,6 +1,29 @@
 /**
- * geometry.js — pure geometry helpers plus the app's only Turf call sites for
- * boolean ops.
+ * geometry.js — geometry helpers, and the app's only calls to turf's boolean
+ * operations.
+ *
+ * Everything works on GeoJSON. Nothing here reads App.state, so any function
+ * can be called from anywhere at any time.
+ *
+ * The file has four parts:
+ *
+ *   • **Turf wrappers.** union, intersect and difference are called from here
+ *     and nowhere else, so that turf's v6 argument conventions — Features
+ *     only, never bare geometries — are satisfied in one place. unionHealed()
+ *     is the one to reach for when merging territories.
+ *   • **Polygon normalization.** GeoJSON permits several shapes for the same
+ *     thing, and Leaflet produces different ones depending on how a layer was
+ *     built. These functions reduce any of them to what a caller wants.
+ *   • **Small math helpers.** Plain arithmetic on coordinate arrays.
+ *   • **Planar noding.** Splitting a set of lines at their crossings, which is
+ *     what the partitioner needs before it can build a street graph.
+ *
+ * One recurring hazard is worth knowing about before reading further. turf
+ * throws on geometry it considers invalid, and invalid geometry is normal
+ * here: shapes are dragged around by hand, clipped against each other, and
+ * rounded to five decimals on the way through the file format. Functions here
+ * therefore tend to catch, fall back, and return something usable rather than
+ * propagate the failure.
  */
 var App = window.App || {};
 
@@ -11,7 +34,14 @@ App.geometry = (function () {
   // TURF WRAPPERS — Turf v6 signatures live here and nowhere else
   // ══════════════════════════════════════════════════════════════════════
 
-  /** Wrap a bare geometry in a Feature; pass Features through untouched. */
+  /**
+   * Wrap a bare geometry in a Feature, passing Features through untouched.
+   *
+   * turf v6 rejects a bare geometry where it expects a Feature, and callers in
+   * this app hold both — layer.toGeoJSON() gives a Feature, while a cluster's
+   * stored `.geometry` is bare. Every wrapper below normalizes through here so
+   * that no caller has to know which it is holding.
+   */
   function feat(x) {
     if (!x) return null;
     if (x.type === "Feature" || x.type === "FeatureCollection") return x;
@@ -30,7 +60,16 @@ App.geometry = (function () {
     return turf.difference(feat(a), feat(b));
   }
 
-  /** Union a list of features, skipping any step that fails. */
+  /**
+   * Union a list of features into one, skipping any step that throws.
+   *
+   * Skipping rather than failing means one bad shape costs its own
+   * contribution instead of the whole result. Callers use this to combine
+   * things that are already known to belong together, where a partial answer
+   * is more useful than none.
+   *
+   * @returns {Feature|null} null only when the list contributes nothing
+   */
   function unionAll(features) {
     var acc = null;
     for (var i = 0; i < features.length; i++) {
@@ -51,21 +90,30 @@ App.geometry = (function () {
 
   // ── Merge artefact repair ─────────────────────────────────────────────
 
-  var HEAL_METERS = 0.5; // half the width of the widest gap we will close
-  var MIN_HOLE_M2 = 1; // anything smaller is a union sliver, not a courtyard
+  var HEAL_METERS = 0.5; // half the width of the widest gap that gets closed
+  var MIN_HOLE_M2 = 1; // below this a hole is a union artefact, not a courtyard
 
   /**
-   * Union features so that shared boundaries actually dissolve.
+   * Union features so that the boundaries between them actually disappear.
    *
-   * Adjacent clusters rarely share exact vertices — phase 5 clips each slot to
-   * the outer polygon independently, and splits round to five decimals — so a
-   * plain turf.union leaves hairline slivers or returns a MultiPolygon of
-   * pieces that still touch. Leaflet then draws the internal outlines, which is
-   * the "edges stay visible after merging" symptom.
+   * Use this rather than unionAll() when merging territories that are supposed
+   * to become one shape.
    *
-   * Growing every input by epsilon closes any gap narrower than 2*epsilon,
-   * the union genuinely dissolves, and shrinking back restores the original
-   * footprint to within a few centimeters.
+   * Two adjacent territories almost never share exact vertices: the
+   * partitioner clips each one to the outer boundary independently, and
+   * coordinates are rounded to five decimals when a cut is applied. A plain
+   * union of two shapes whose shared edge differs in the seventh decimal
+   * leaves a hairline sliver between them, or returns a MultiPolygon of pieces
+   * that merely touch. Leaflet then draws the internal outlines, and the merge
+   * looks as though it did not happen.
+   *
+   * The fix is to grow each input by a small epsilon before unioning, which
+   * closes any gap narrower than 2 × epsilon and lets the union genuinely
+   * dissolve, then shrink the result back by the same amount. The round trip
+   * restores the original footprint to within a few centimeters.
+   *
+   * @param {Feature[]} features
+   * @param {number} [epsMeters] how far to grow and shrink; see HEAL_METERS
    */
   function unionHealed(features, epsMeters) {
     var eps = epsMeters == null ? HEAL_METERS : epsMeters;
@@ -92,30 +140,25 @@ App.geometry = (function () {
       shrunk = null;
     }
 
-    // A negative buffer erodes every boundary, not just the artificial ones.
-    // If it split the result or ate real area, the un-shrunk union is the
-    // safer answer — a half-meter of overshoot beats a missing corridor.
+    // The shrink is only accepted if it did no damage, because a negative
+    // buffer erodes every boundary rather than only the artificial ones. Two
+    // things can go wrong: a shape narrow somewhere in the middle can be
+    // pinched into separate pieces, and a small shape can lose a significant
+    // fraction of its area. In either case the un-shrunk union is the safer
+    // answer, since half a meter of overshoot on the outline is a much smaller
+    // error than a territory that has been cut in two.
     //
-    // This whole guard had never executed. Its first line read `G.polygonParts`
-    // — the module-alias convention every *other* file here uses, but there is
-    // no `G` inside this IIFE — so it threw a ReferenceError straight into the
-    // catch below, on every call, since the day it was written. The visible
-    // consequence was that unionHealed grew and unioned and never shrank, and
-    // every merged territory silently kept the half meter.
+    // Both conditions are easy to state incorrectly, so note the exact form:
     //
-    // Two more corrections follow from the same fact, because neither of the
-    // remaining conditions had ever been run either:
-    //
-    //   • The part count now has to *not grow*. `after >= before` accepted
-    //     exactly the case the comment says to reject — a shrink that broke
-    //     the union into pieces — and rejected nothing, since eroding a
-    //     polygon cannot reduce its part count.
-    //   • The area is compared against `plain`, the ungrown union, rather than
-    //     against `merged`. `merged` is inflated by eps on every side by
-    //     construction, so measuring the shrink against it asks the shrink to
-    //     give back less than the grow took — which for any territory small
-    //     enough that half a meter is 2% of its area (a 90 m square is)
-    //     rejects every correct shrink there is.
+    //   • The part count must not *grow*. Eroding a polygon can never merge
+    //     parts together, so a test that also accepts a larger count accepts
+    //     precisely the case being guarded against.
+    //   • The area is compared against `plain`, the union of the *ungrown*
+    //     inputs, and not against `merged`. `merged` is inflated by eps on
+    //     every side by construction, so comparing to it would demand that the
+    //     shrink give back less than the grow added — and for a territory
+    //     small enough that half a meter is 2% of its area, which a 90 m
+    //     square is, that rejects every correct shrink there is.
     var result = merged;
     if (shrunk && shrunk.geometry) {
       try {
@@ -133,7 +176,15 @@ App.geometry = (function () {
     return dropSmallHoles(result) || result;
   }
 
-  /** Strip interior rings below minAreaM2 — union slivers, not real holes. */
+  /**
+   * Remove interior rings smaller than minAreaM2.
+   *
+   * A union of shapes that nearly line up leaves tiny holes along the seam.
+   * These are artefacts of the arithmetic rather than real courtyards, and
+   * they are visible on a printed card as specks. Anything above the threshold
+   * is left alone, since a territory genuinely can enclose a park or a
+   * quarry.
+   */
   function dropSmallHoles(x, minAreaM2) {
     minAreaM2 = minAreaM2 || MIN_HOLE_M2;
     var parts = polygonParts(x);
@@ -167,7 +218,15 @@ App.geometry = (function () {
   // POLYGON NORMALIZATION
   // ══════════════════════════════════════════════════════════════════════
 
-  /** Every Polygon inside a Feature / geometry / MultiPolygon, as Features. */
+  /**
+   * Flatten anything polygonal into a list of single-Polygon Features.
+   *
+   * Accepts a Feature, a FeatureCollection, a bare geometry, a Polygon or a
+   * MultiPolygon, and always returns an array — empty when there is nothing
+   * polygonal in the input. This is the usual first step for code that has to
+   * handle a territory made of several disconnected pieces, which happens
+   * whenever a cut separates one.
+   */
   function polygonParts(x) {
     var f = feat(x);
     if (!f) return [];
@@ -195,17 +254,20 @@ App.geometry = (function () {
   /**
    * A point guaranteed to lie inside `x`, as a turf Point, or null.
    *
-   * Not the centroid. turf.centroid is the vertex mean, so for the L, crescent
-   * and doughnut shapes that street-following boundaries and hand cuts produce
-   * it lands *outside* the polygon — often inside a neighbour. Three modules
-   * needed this and each grew its own copy with its own fallback chain:
-   * clustering assigned pieces with it, labels anchors number chips with it,
-   * and naming reverse-geocodes it. Three answers to "where is the inside of
-   * this territory" is two too many, because the chip, the assignment and the
-   * looked-up place name are all supposed to be about the same spot.
+   * Deliberately not the centroid. turf.centroid returns the mean of the
+   * vertices, which for an L-shape, a crescent or a ring lies *outside* the
+   * polygon — frequently inside a neighboring territory. Those shapes are
+   * common here, because a boundary that follows streets bends around blocks
+   * and a hand-drawn cut can leave any outline at all.
    *
-   * pointOnFeature promises interior; centroid is kept only as a fallback for
-   * geometry pointOnFeature refuses outright.
+   * Three separate features depend on this being one shared answer: the
+   * partitioner assigns loose pieces by it, labels.js anchors the number chip
+   * on it, and naming.js reverse-geocodes it to suggest a locality name. The
+   * chip, the assignment and the place name are all meant to refer to the same
+   * spot, which they only do if they ask the same question.
+   *
+   * turf.pointOnFeature guarantees an interior point; centroid appears only as
+   * a fallback for geometry that pointOnFeature refuses outright.
    */
   function interiorPoint(x) {
     var f = feat(x);
@@ -221,13 +283,20 @@ App.geometry = (function () {
     }
   }
 
-  /** interiorPoint as a bare [lng, lat] pair, or null. */
+  /** interiorPoint() as a bare [lng, lat] pair, or null. */
   function interiorCoord(x) {
     var point = interiorPoint(x);
     return point ? point.geometry.coordinates : null;
   }
 
-  /** The largest Polygon in x, as a Feature<Polygon>, or null. */
+  /**
+   * The largest Polygon in x by area, as a Feature<Polygon>, or null.
+   *
+   * Used where something has to be a single polygon and the rest can be
+   * discarded — a boundary, for instance, which the rest of the app assumes is
+   * one ring. Do not use it to normalize a territory, which may legitimately
+   * consist of several parts; use polygonParts() there.
+   */
   function largestPolygon(x) {
     var parts = polygonParts(x);
     if (parts.length === 0) return null;
@@ -254,6 +323,27 @@ App.geometry = (function () {
    * L.polygon.toGeoJSON() gives a Feature; L.geoJSON().toGeoJSON() gives a
    * FeatureCollection; either may be a MultiPolygon.
    */
+  /**
+   * turf.area(), and 0 for anything it refuses to measure.
+   *
+   * Four modules had written out this same try/catch, because every one of
+   * them compares areas to decide something — which part is the largest, has
+   * the shape grown, is this sliver worth keeping — and none of them has an
+   * answer for a ring turf cannot integrate. Zero is that answer everywhere:
+   * an unmeasurable shape loses every comparison, which is what each caller
+   * wanted from its own catch block.
+   *
+   * @param {Object} feature GeoJSON feature or geometry
+   * @returns {number} square meters
+   */
+  function area(feature) {
+    try {
+      return turf.area(feature);
+    } catch (e) {
+      return 0;
+    }
+  }
+
   function getOuterFeature(layer) {
     if (!layer) throw new Error("No outer polygon");
     var poly = largestPolygon(layer.toGeoJSON());
@@ -264,10 +354,12 @@ App.geometry = (function () {
 
   /**
    * Build a Leaflet layer from any polygonal geometry, keeping every part.
-   * Handing L.polygon() the largest ring of a MultiPolygon silently discards
-   * the rest, which is how undo used to lose cluster fragments.
-   */
-  /**
+   *
+   * Note the use of L.geoJSON rather than L.polygon. L.polygon takes a
+   * coordinate array, so handing it a MultiPolygon means picking one part and
+   * silently discarding the others — which loses pieces of any territory that
+   * a cut has separated.
+   *
    * @param {Object} geometry GeoJSON geometry
    * @param {Object} [style] path style
    * @param {Object} [options] extra Leaflet layer options, notably `pane`.
@@ -294,11 +386,30 @@ App.geometry = (function () {
   // SMALL MATH HELPERS
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * The acute angle between two bearings, ignoring direction.
+   *
+   * Both the modulo and the fold are needed: bearings 10° and 350° describe
+   * nearly the same line, as do 10° and 170°, and this returns a small number
+   * for each. Used to decide whether two street segments continue one another.
+   *
+   * @returns {number} degrees, in [0, 90]
+   */
   function angleDiff(a, b) {
     var d = Math.abs(a - b) % 180;
     return d > 90 ? 180 - d : d;
   }
 
+  /**
+   * Whether two coordinates are the same point, within a tolerance.
+   *
+   * Never compare coordinates with ===. They arrive from a file, from a
+   * rounding step and from turf's own arithmetic, and two values that describe
+   * the same corner routinely differ in the last decimal.
+   *
+   * @param {number} [tolerance] in degrees; the default is far below a
+   *   millimeter and only absorbs floating-point noise
+   */
   function coordsEqual(c1, c2, tolerance) {
     tolerance = tolerance || 1e-9;
     return (
@@ -306,18 +417,35 @@ App.geometry = (function () {
     );
   }
 
+  /**
+   * Round one coordinate to a number of decimal places.
+   *
+   * Five decimals, the default, is about a meter of longitude at these
+   * latitudes. Rounding is applied before coordinates are used as map keys or
+   * written to a file, so that the same corner reached by two different routes
+   * produces the same value.
+   */
   function roundCoord(c, decimals) {
     decimals = decimals || 5;
     var f = Math.pow(10, decimals);
     return [Math.round(c[0] * f) / f, Math.round(c[1] * f) / f];
   }
 
+  /** roundCoord() over an array of coordinates. */
   function roundCoords(coords, decimals) {
     return coords.map(function (c) {
       return roundCoord(c, decimals);
     });
   }
 
+  /**
+   * Drop coordinates that repeat the one immediately before them.
+   *
+   * Only consecutive duplicates are removed, so a ring that legitimately
+   * returns to its start keeps both copies. Rounding a dense line frequently
+   * collapses several vertices onto one point, and a zero-length segment
+   * makes turf's boolean operations fail.
+   */
   function dedupCoords(coords, tolerance) {
     tolerance = tolerance || 1e-7;
     var result = [];
@@ -334,6 +462,17 @@ App.geometry = (function () {
     return result;
   }
 
+  /**
+   * Distance from point p to the segment a-b, in *degrees*, not meters.
+   *
+   * Degrees are the right unit for the callers here, which compare against a
+   * tolerance expressed the same way. Use App.spatial for distances that are
+   * meant to be metric.
+   *
+   * The zero-length case is handled separately because the projection divides
+   * by the segment's squared length; a and b coincide often enough in rounded
+   * data to make that worth guarding.
+   */
   function pointToSegmentDist(p, a, b) {
     var dx = b[0] - a[0],
       dy = b[1] - a[1];
@@ -354,6 +493,17 @@ App.geometry = (function () {
     return Math.sqrt(ex * ex + ey * ey);
   }
 
+  /**
+   * Whether a point lies on the given ring, within a tolerance.
+   *
+   * Used to tell a territory edge that follows the outer boundary from one
+   * that was cut through the middle, which decides whether an edge may be
+   * moved. The default tolerance is roughly five meters — generous, because
+   * the two rings come from different rounding paths and need not agree
+   * exactly.
+   *
+   * @param {number[][]} outerRing a closed ring, first coordinate repeated
+   */
   function isOnOuterBoundary(point, outerRing, toleranceDeg) {
     toleranceDeg = toleranceDeg || 0.00005;
     for (var i = 0; i < outerRing.length - 1; i++) {
@@ -365,12 +515,25 @@ App.geometry = (function () {
     return false;
   }
 
-  /** Do two [minX, minY, maxX, maxY] boxes overlap? */
+  /**
+   * Whether two [minX, minY, maxX, maxY] boxes overlap, edges included.
+   *
+   * A cheap rejection test to run before an expensive one: two shapes whose
+   * bounding boxes are apart cannot possibly intersect.
+   */
   function bboxOverlap(a, b) {
     return !(b[2] < a[0] || b[0] > a[2] || b[3] < a[1] || b[1] > a[3]);
   }
 
-  /** Ray-cast fallback used when a Turf boolean op throws on bad geometry. */
+  /**
+   * Whether any vertex of `feature` falls inside any of `polyFeatures`.
+   *
+   * A hand-written ray-casting test, used as a fallback when turf's boolean
+   * operations throw on geometry they consider invalid. It answers a weaker
+   * question than a real intersection test — a shape can overlap a polygon
+   * while all of its own vertices lie outside — but it never throws, which is
+   * what a fallback has to guarantee.
+   */
   function anyCoordInPolygons(feature, polyFeatures) {
     var coords = feature.geometry && feature.geometry.coordinates;
     if (!coords || coords.length === 0) return false;
@@ -410,14 +573,26 @@ App.geometry = (function () {
   // PLANAR NODING
   // ══════════════════════════════════════════════════════════════════════
 
-  var NODE_CELL_DEG = 0.002; // ~200 m
+  var NODE_CELL_DEG = 0.002; // bin size for the pair search, roughly 200 m
 
   /**
-   * Node a planar set of line-string coordinate arrays: find every T/X
-   * intersection, split lines there, deduplicate edges.
+   * Node a set of lines: split them wherever they cross, and deduplicate.
    *
-   * The pair search is binned. The previous all-pairs double loop ran a few
-   * million intersection tests on a city-sized partition and dominated phase 5.
+   * "Noding" means converting a pile of lines that happen to overlap into a
+   * proper planar graph, where lines only ever meet at shared endpoints.
+   * Street data needs this before it can be routed over, because two streets
+   * that cross at a junction are usually two independent ways in OSM with no
+   * vertex in common at the crossing point — so without noding, a route can
+   * never turn from one onto the other.
+   *
+   * Both T-junctions, where one line ends on another, and X-crossings, where
+   * two lines pass through each other, are found.
+   *
+   * Candidate pairs are found by binning segments into a coarse grid rather
+   * than by testing every pair against every other, which on a city-sized
+   * street network would be a few million intersection tests.
+   *
+   * @param {number[][][]} lines coordinate arrays
    */
   function nodeLineSegments(lines) {
     // ── Clean and deduplicate whole lines ────────────────────────────────
@@ -599,6 +774,7 @@ App.geometry = (function () {
     intersect: intersect,
     difference: difference,
     unionHealed: unionHealed,
+    area: area,
     dropSmallHoles: dropSmallHoles,
 
     // polygon normalization

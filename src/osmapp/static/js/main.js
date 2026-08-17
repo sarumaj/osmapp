@@ -380,11 +380,7 @@
 
     if (!s.outerPolygonDrawn) {
       layer.setStyle(App.polygons.OUTER_STYLE);
-      s.outerPolygonLayerGroup.clearLayers();
-      s.outerPolygonLayerGroup.addLayer(layer);
-      s.outerPolygonLayer = layer;
-      s.outerPolygonDrawn = true;
-      App.polygons.attachOuterEvents(layer);
+      App.polygons.setOuterLayer(layer);
       App.controls.refresh();
 
       // The download is offered, not assumed: the double-click that ends a

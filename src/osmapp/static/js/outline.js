@@ -448,8 +448,8 @@ App.outline = (function () {
     if (!current) {
       status = T("outline.invalid");
     } else if (_original) {
-      var before = _areaOf({ type: "Feature", geometry: _original });
-      var after = _areaOf(current);
+      var before = G.area({ type: "Feature", geometry: _original });
+      var after = G.area(current);
       if (before > 0) {
         var change = Math.round((after / before - 1) * 100);
         status =
@@ -522,9 +522,9 @@ App.outline = (function () {
     }
 
     var before = _original
-      ? _areaOf({ type: "Feature", geometry: _original })
+      ? G.area({ type: "Feature", geometry: _original })
       : 0;
-    var after = _areaOf(poly);
+    var after = G.area(poly);
     var detail = T("outline.applyDetail", {
       before: _round(before / 1e6),
       after: _round(after / 1e6),
@@ -568,7 +568,7 @@ App.outline = (function () {
 
     console.log(
       ">>> Boundary reshaped —",
-      Math.round(_areaOf(poly)),
+      Math.round(G.area(poly)),
       "m²,",
       stats.kept,
       "territories kept,",
@@ -628,7 +628,7 @@ App.outline = (function () {
   function _territoriesOutside(poly) {
     var count = 0;
     App.polygons.clusterFeatures().forEach(function (feature) {
-      var before = _areaOf(feature);
+      var before = G.area(feature);
       if (before <= 0) return;
       var clipped = null;
       try {
@@ -636,7 +636,7 @@ App.outline = (function () {
       } catch (e) {
         clipped = null;
       }
-      var after = clipped && clipped.geometry ? _areaOf(clipped) : 0;
+      var after = clipped && clipped.geometry ? G.area(clipped) : 0;
       if (Math.abs(after - before) > 1) count++;
     });
     return count;
@@ -660,15 +660,7 @@ App.outline = (function () {
       healed = null;
     }
     if (!healed || !healed.geometry) return null;
-    return _areaOf(healed) > 0 ? healed : null;
-  }
-
-  function _areaOf(feature) {
-    try {
-      return turf.area(feature);
-    } catch (e) {
-      return 0;
-    }
+    return G.area(healed) > 0 ? healed : null;
   }
 
   function _round(value) {

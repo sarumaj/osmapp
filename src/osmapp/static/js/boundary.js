@@ -400,19 +400,11 @@ App.boundary = (function () {
       return;
     }
 
-    layer.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-    });
-
     if (s.editMode) App.editing.toggleEditMode();
     if (s.mergeMode) App.editing.toggleMergeMode();
     if (s.leafletMap.editTools) s.leafletMap.editTools.stopDrawing();
 
-    s.outerPolygonLayerGroup.clearLayers();
-    s.outerPolygonLayerGroup.addLayer(layer);
-    s.outerPolygonLayer = layer;
-    s.outerPolygonDrawn = true;
-    App.polygons.attachOuterEvents(layer);
+    App.polygons.setOuterLayer(layer);
 
     // The territories, streets and buildings that existed belonged to the
     // previous boundary. displayResults() drops them on a successful fetch, but

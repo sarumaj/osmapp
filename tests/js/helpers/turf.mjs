@@ -1,21 +1,26 @@
 /**
- * turf.mjs — the real, vendored turf, in this realm.
+ * turf.mjs — load the real, vendored turf for the tests that need it.
  *
- * Most tests here stub turf, and should: they are about bookkeeping, and a
- * stub says exactly which calls the module makes. But three things in
- * geometry.js are *about* turf — unionHealed's grow/union/shrink, the hole
- * filter, and the interior point — and stubbing turf to test them would only
- * assert that the stub was called.
+ * Most tests stub turf instead of using this, and that is usually the right
+ * choice: they are checking bookkeeping rather than geometry, and a stub
+ * records exactly which turf calls the module made and with what.
  *
- * The bundle is loaded the same way load.mjs loads app files, and for the same
- * reason: `vm.createContext` would put turf in a separate realm, so a
- * `turf.polygon()` built in there would not share Array.prototype with this
- * one and `assert.deepEqual` would reject every structural comparison.
+ * Reach for the real thing when the behavior under test *is* the geometry —
+ * whether a union actually dissolves a shared boundary, whether a point really
+ * falls inside a polygon. Stubbing turf there would only assert that the stub
+ * was called, which is a test of the test.
  *
- * The UMD wrapper checks `exports`/`module`/`define` and, finding none,
- * assigns to `globalThis`. Passing all three as declared-but-undefined
- * parameters is what steers it down that branch — and the `globalThis` it
- * lands on is ours.
+ * The bundle is executed through `vm.compileFunction` for the same reason
+ * load.mjs uses it: a separate vm realm has its own built-ins, so a polygon
+ * built by a turf living in one would not share Array.prototype with the
+ * assertions out here.
+ *
+ * The three undefined arguments are not an oversight. turf ships as a UMD
+ * bundle, which picks its export mechanism by checking for `exports`, `module`
+ * and `define` in that order and falling back to assigning onto `globalThis`.
+ * Passing all three as parameters that are declared but undefined is what
+ * steers it down the fallback branch, and the `globalThis` it then assigns to
+ * is this realm's.
  */
 
 import { readFileSync } from "node:fs";
@@ -41,7 +46,11 @@ const BUNDLE = join(
 
 let _turf = null;
 
-/** The vendored turf. Loaded once, shared by every caller. */
+/**
+ * The vendored turf, parsed once and shared by every caller.
+ *
+ * @returns {Object} the same turf namespace the browser gets
+ */
 export function loadTurf() {
   if (_turf) return _turf;
   vm.compileFunction(readFileSync(BUNDLE, "utf8"), ["module", "exports", "define"], {
@@ -52,7 +61,18 @@ export function loadTurf() {
   return _turf;
 }
 
-/** A closed axis-aligned square as a turf polygon, for readable fixtures. */
+/**
+ * Build an axis-aligned square as a turf polygon.
+ *
+ * A fixture helper: most geometry assertions are about areas and containment
+ * rather than about shape, and a square keeps the expected numbers something a
+ * reader can verify in their head. The ring is closed, as GeoJSON requires.
+ *
+ * @param {Object} turf the namespace from loadTurf()
+ * @param {number} lng left edge
+ * @param {number} lat bottom edge
+ * @param {number} size edge length in degrees
+ */
 export function square(turf, lng, lat, size) {
   return turf.polygon([
     [

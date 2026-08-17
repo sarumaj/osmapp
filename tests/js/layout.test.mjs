@@ -1,26 +1,32 @@
 /**
- * The bottom edge of the map, read as a set rather than one bar at a time.
+ * The bottom edge of the map, and the stacking order of what sits there.
  *
- * Four mode bars, a hint banner and the info panel all anchor themselves to
- * the bottom of the same map, and each one was added by looking at the mode
- * it belonged to. The results were only visible side by side:
+ * ── What shares that edge ─────────────────────────────────────────────────
  *
- *   • The merge bar kept the bottom: 30px it had before merge grew a hint
- *     banner, so the banner — mounted after it, and a level higher — landed
- *     straight on top of the buttons that leave the mode. Cut, trim and
- *     outline had all moved to 76px; merge was the one nobody revisited.
- *   • The info panel sat on a hand-written z-index: 1200, above every token
- *     in the file, so a context menu opened near the bottom-right corner
- *     was both hidden by it and unclickable underneath it.
+ * Four modal tool bars, a hint banner and the info panel all anchor themselves
+ * to the bottom of the same map. The bars and the banner are laid out by
+ * dom.js into a flex column (see BOTTOM_BARS there); the panel is positioned
+ * independently and only has to stay out of the way.
  *
- * Both are the same failure: a number chosen against whatever happened to be
- * on screen at the time. So the assertions here are about the arrangement,
- * not about any one component — the levels are ordered, the bars share an
- * offset, and the selector dom.js watches still names all of them.
+ * ── Why the assertions are about the set ──────────────────────────────────
  *
- * Read off the stylesheet rather than off a rendered page on purpose: the
- * question is whether the rules agree with each other, which no screenshot
- * answers and no headless browser is needed for.
+ * The failure this file guards against is a number chosen by looking at
+ * whichever component was on screen at the time. Nothing is wrong with such a
+ * number in isolation, which is why it survives review — it is only wrong
+ * beside the other five, and only in the mode that puts two of them up at
+ * once.
+ *
+ * So nothing here asserts that a particular bar sits at a particular offset.
+ * The assertions are relational: the z-index tokens are in order, the bars all
+ * take their offset from the same shared rule rather than each carrying its
+ * own, no rule opts out of the token scale, and the selector dom.js watches
+ * still names every bar that exists.
+ *
+ * ── Why it reads the stylesheet ───────────────────────────────────────────
+ *
+ * The question is whether the CSS rules agree with each other, which is a
+ * property of the text and not of any particular rendering. No headless
+ * browser is needed, and no screenshot would answer it.
  */
 
 import test from "node:test";
@@ -39,14 +45,21 @@ const DOM = readFileSync(
   "utf8",
 );
 
-/** Strip comments once: every scan below would otherwise read the prose. */
+/**
+ * The stylesheet with its comments removed, done once. Every scan below
+ * searches the text for declarations, and comment prose containing something
+ * like `z-index` would otherwise be read as a rule.
+ */
 const BARE = CSS.replace(/\/\*[\s\S]*?\*\//g, "");
 
 /**
- * Every declaration that applies to `selector`, joined. A rule per component
- * would be easier to read off, but the bars deliberately share one: the four
- * of them take their box from a grouped rule and add only their own offset
- * and accent afterwards.
+ * Collect every declaration that applies to `selector`, from all rules,
+ * joined into one string.
+ *
+ * A single rule per component would be simpler to read off, but the bars share
+ * one on purpose: all four take their box from a grouped rule and then add
+ * only their own accent color. So a component's effective style is spread
+ * across several rules and has to be gathered before it can be asserted on.
  */
 function block(selector) {
   const wanted = new RegExp(selector.replace(/[.#]/g, "\\$&") + "(?![\\w-])");
@@ -60,7 +73,13 @@ function block(selector) {
   return declarations.join("\n");
 }
 
-/** The numeric value of a --z-* custom property. */
+/**
+ * Read the numeric value of one `--z-*` custom property from :root.
+ *
+ * These tokens are the whole stacking scale. Every element that overlaps
+ * another is supposed to take its z-index from one of them, so their relative
+ * order is what the tests below check.
+ */
 function level(name) {
   const found = BARE.match(new RegExp("--" + name + ":\\s*(\\d+)"));
   assert.ok(found, `--${name} is not defined`);
@@ -75,10 +94,11 @@ const MODE_BARS = [
 ];
 
 test("only the stack is anchored to the bottom edge", () => {
-  // The offset used to live on each bar, which is how one of the four kept a
-  // number the other three had moved on from, and how all four kept a number
-  // that was only right while the banner stayed on one line. A bar that
-  // positions itself has opted back out of the stack.
+  // No bar may position itself against the bottom of the map. They are laid
+  // out as a flex column, and a bar carrying its own offset has opted out of
+  // that — which puts it back in the situation where its position is correct
+  // only for the combination of components that happened to be on screen when
+  // the number was chosen.
   for (const selector of MODE_BARS.concat(".draw-hint")) {
     assert.doesNotMatch(
       block(selector),
@@ -95,8 +115,9 @@ test("only the stack is anchored to the bottom edge", () => {
 });
 
 test("the banner is the bottom item of the stack", () => {
-  // Both orders of mounting happen — merge builds its bar first, cut its
-  // banner first — so source order cannot be what decides which is on top.
+  // Both mounting orders occur in practice: merge builds its bar before its
+  // banner, cut does the reverse. So the arrangement cannot depend on the
+  // order nodes are appended in, and has to be settled by the stylesheet.
   assert.match(block(".draw-hint"), /(^|[;\s])order:\s*\d+/m);
   for (const bar of MODE_BARS) {
     assert.doesNotMatch(
@@ -129,10 +150,11 @@ test("readouts, bars, menus and dialogs are ordered", () => {
 });
 
 test("nothing on the map picks its own stacking level", () => {
-  // Small numbers are local: a rule inside an element that already made a
-  // stacking context of its own. Anything up in token territory is a rule
-  // that has opted out of the scale, which is how the info panel ended up
-  // over the context menu.
+  // Small z-index values are fine: they order children inside an element that
+  // already establishes its own stacking context, and cannot affect anything
+  // outside it. A large literal is different — it competes with the token
+  // scale while being invisible to it, which is exactly how a component ends
+  // up above a context menu that is supposed to be on top of everything.
   for (const [, value] of BARE.matchAll(/z-index:\s*(\d+)/g)) {
     assert.ok(
       Number(value) < level("z-map-ui"),
@@ -142,8 +164,9 @@ test("nothing on the map picks its own stacking level", () => {
 });
 
 test("the readouts stay below anything clickable", () => {
-  // The banner no longer carries a level of its own: inside the stack it
-  // cannot overlap the bar, so the only readout left to place is the panel.
+  // The banner carries no level of its own. Inside the flex column it cannot
+  // overlap the bar by construction, so the only bottom-edge component whose
+  // stacking still has to be decided is the info panel.
   assert.match(
     block("#info-panel"),
     /z-index:\s*var\(--z-status\)/,
@@ -172,23 +195,25 @@ test("dom.js watches for every bar that owns the bottom edge", () => {
 // ── Dialogs ──────────────────────────────────────────────────────────────────
 
 test("the action bar carries its own gap rather than borrowing one", () => {
-  // Every dialog ends in the same three-button row, and the space above it
-  // used to come from whatever happened to be the last thing in that
-  // particular dialog: 12 px from a hint, 12 from a calc line, 14 from a
-  // confirm detail — and nothing at all from the territory list, which ends
-  // in a bordered scroll box with no margin, so Close sat flush against the
-  // last row and read as part of the list.
+  // Every dialog ends in the same action row, so the space above it has to
+  // come from a rule rather than from whatever the last element in that
+  // particular dialog happens to contribute. Contributions vary from 12 px to
+  // nothing at all — a bordered scroll box has no trailing margin — and with
+  // none, the buttons sit flush against the content and read as part of it.
   assert.match(block(".app-dialog__actions"), /margin-top:\s*16px/);
 });
 
 test("the full-bleed footers opt out of it", () => {
-  // The print and placement bars are floors rather than trailing buttons:
-  // full width, a rule above, and negative margins that take them to the edge
-  // of the dialog. A 16 px gap above one would be a strip of background
-  // between the content and the rule.
+  // Two bars are exceptions. The print and placement bars are full-width
+  // floors rather than trailing buttons: they carry a rule above and negative
+  // margins that take them out to the dialog edge. Applying the standard gap
+  // to them would leave a strip of background between the content and the
+  // rule.
   const footer = block(".print-dialog__actions");
   assert.match(footer, /margin:\s*0 -20px -16px/);
-  // Same specificity as the shared rule, so it only wins by coming after it.
+  // The exception has the same specificity as the shared rule, so it can only
+  // win by being declared after it. Moving it earlier in the file would
+  // silently restore the gap.
   assert.ok(
     BARE.indexOf(".print-dialog__actions") >
       BARE.indexOf(".app-dialog__actions"),
@@ -197,13 +222,15 @@ test("the full-bleed footers opt out of it", () => {
 });
 
 test("nothing that ends a dialog is left touching the buttons", () => {
-  // The bug was one component with no trailing margin, so the check is that
-  // every element that can be the last one before the action bar carries a
-  // bottom margin of its own. The bar's margin-top ought to be enough on its
-  // own — but it was not, for the one entry here that is a scrolling box
-  // rather than a paragraph, so both are stated and the two collapse.
-  // Listed rather than derived: the point is that adding a seventh dialog
-  // means adding a line here and thinking about it once.
+  // Every element that can be the last thing before an action bar carries a
+  // bottom margin of its own, and the bar carries a top margin; adjacent
+  // vertical margins collapse, so stating both is not double spacing. In
+  // principle the bar's margin alone would do, but it does not for the entry
+  // that is a scrolling box rather than a paragraph, so both are required.
+  //
+  // The list is written out rather than derived from the markup on purpose.
+  // Adding a dialog then means adding a line here, which is one deliberate
+  // moment of thought about where its last element ends.
   for (const selector of [
     ".app-dialog__hint",
     ".app-dialog__calc",

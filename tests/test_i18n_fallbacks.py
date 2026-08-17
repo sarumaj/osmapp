@@ -27,7 +27,7 @@ from typing import Any, cast
 ROOT = Path(__file__).resolve().parents[1] / "src" / "osmapp"
 
 # <p data-i18n="a.b">text</p> — same tag name closing it, no nested markup.
-NODE = re.compile(r"<(\w+)[^>]*\sdata-i18n=\"([\w.]+)\"[^>]*>(.*?)</\1>", re.S)
+NODE = re.compile(r"<(\w+)[^>]*\sdata-i18n=\"([\w.]+)\"[^>]*>(.*?)</\1>", re.DOTALL)
 
 
 def bundle() -> dict[str, Any]:

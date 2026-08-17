@@ -478,11 +478,9 @@ App.data = (function () {
     var outer = G.largestPolygon(payload.outerPolygon);
     if (!outer) throw new Error("no usable outer boundary");
 
-    s.outerPolygonLayerGroup.clearLayers();
-    s.outerPolygonLayer = G.toLayer(outer.geometry, App.polygons.OUTER_STYLE);
-    s.outerPolygonLayerGroup.addLayer(s.outerPolygonLayer);
-    s.outerPolygonDrawn = true;
-    App.polygons.attachOuterEvents(s.outerPolygonLayer);
+    App.polygons.setOuterLayer(
+      G.toLayer(outer.geometry, App.polygons.OUTER_STYLE),
+    );
 
     s._skipOuterClear = true;
     displayResults({

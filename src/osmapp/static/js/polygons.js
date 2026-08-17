@@ -1084,6 +1084,38 @@ App.polygons = (function () {
     _bindClusterBehavior(proxy, layer, feature, onHover);
   }
 
+  /**
+   * Sole write path for the outer boundary, the way setClusters() is for the
+   * territories.
+   *
+   * Five places used to spell out the same five statements — clear the group,
+   * add the layer, set both state fields, attach the events — and each one had
+   * to remember all five. The import path had already drifted: it was the only
+   * one that never stopped a click on the boundary from reaching the map
+   * underneath, so a restored project behaved differently from a drawn one for
+   * no reason anybody chose.
+   *
+   * @param {L.Layer} layer already styled and already in its final geometry
+   * @returns {L.Layer|null} the layer, so callers can chain or bail on null
+   */
+  function setOuterLayer(layer) {
+    if (!layer) return null;
+
+    // Stop the shape from swallowing map clicks. off() first because a layer
+    // that came from the drawing tools may already carry this handler.
+    layer.off("click");
+    layer.on("click", function (e) {
+      L.DomEvent.stopPropagation(e);
+    });
+
+    s.outerPolygonLayerGroup.clearLayers();
+    s.outerPolygonLayerGroup.addLayer(layer);
+    s.outerPolygonLayer = layer;
+    s.outerPolygonDrawn = true;
+    attachOuterEvents(layer);
+    return layer;
+  }
+
   function attachOuterEvents(layer) {
     layer.off("mouseover mouseout contextmenu");
     layer.on("mouseover", function () {
@@ -1142,23 +1174,14 @@ App.polygons = (function () {
   function replaceOuter(poly) {
     if (!poly || !poly.geometry) return null;
 
-    var layer = G.toLayer(poly.geometry, OUTER_STYLE);
+    var layer = setOuterLayer(G.toLayer(poly.geometry, OUTER_STYLE));
     if (!layer) return null;
-    layer.on("click", function (e) {
-      L.DomEvent.stopPropagation(e);
-    });
-
-    s.outerPolygonLayerGroup.clearLayers();
-    s.outerPolygonLayerGroup.addLayer(layer);
-    s.outerPolygonLayer = layer;
-    s.outerPolygonDrawn = true;
-    attachOuterEvents(layer);
 
     var stats = { kept: 0, dropped: 0, unmarked: 0 };
     var kept = [];
 
     clusterFeatures().forEach(function (feature) {
-      var before = _areaOf(feature);
+      var before = G.area(feature);
       var clipped = null;
       try {
         clipped = G.intersect(feature, poly);
@@ -1169,7 +1192,7 @@ App.polygons = (function () {
         stats.dropped++;
         return;
       }
-      var after = _areaOf(clipped);
+      var after = G.area(clipped);
       if (after < (s.MIN_REMAINDER_M2 || 50)) {
         stats.dropped++;
         return;
@@ -1192,14 +1215,6 @@ App.polygons = (function () {
     stats.kept = s.clusters.length;
     if (App.controls) App.controls.refresh();
     return stats;
-  }
-
-  function _areaOf(feature) {
-    try {
-      return turf.area(feature);
-    } catch (e) {
-      return 0;
-    }
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -1342,6 +1357,7 @@ App.polygons = (function () {
     attachClusterEvents: attachClusterEvents,
     attachProxyEvents: attachProxyEvents,
     attachOuterEvents: attachOuterEvents,
+    setOuterLayer: setOuterLayer,
     replaceOuter: replaceOuter,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,

@@ -1,27 +1,41 @@
 /**
- * The two helpers every other module used to carry its own copy of.
+ * util.js: reading OSM tag values, and reading user preferences.
  *
- * Both fail in the same quiet way. `tagText` decides whether an OSM tag
- * carries anything, and it is asked that question twice about the same value:
- * once by the tooltip in polygons.js and once by the locality ranking in
- * naming.js. While those were two implementations, a value one counted as a
- * name and the other counted as blank would print a locality on a card that
- * the tooltip beside it says has no address — and nothing would report it.
+ * ── tagText ───────────────────────────────────────────────────────────────
  *
- * The storage helpers fail even more quietly, because their whole contract is
- * to swallow. Firefox in private mode throws on the *property access*, not on
- * the call, so a naive `try { window.localStorage.getItem(…) }` written with
- * the access outside the try takes the app down on load. Every caller here is
- * storing a view preference, so the right answer to any failure is always
- * "carry on without remembering" — which is exactly the behaviour a test has
- * to pin, since in a working browser it never happens.
+ * Decides whether an OSM tag value carries any information, and normalizes it
+ * if it does. Two separate features ask this about the same value — the map
+ * tooltip in polygons.js and the locality name ranking in naming.js — so the
+ * answer has to be identical for both. If they were to disagree, a card would
+ * print a locality name that the tooltip beside it reports as having no
+ * address, and nothing would flag the contradiction.
+ *
+ * ── The storage helpers ───────────────────────────────────────────────────
+ *
+ * These are harder to test than they look, because their entire contract is to
+ * fail silently, and in a working browser they never fail at all. The
+ * behavior therefore has to be driven by stubbing localStorage to break in
+ * the specific ways real browsers break.
+ *
+ * Two of those are covered below and both are real. Some private browsing
+ * modes throw on the *property access* `window.localStorage`, before any
+ * method is called, so an implementation that opens its try block after the
+ * access takes the whole app down during load. And a browser at its storage
+ * quota throws from setItem while getItem continues to work, so reads must
+ * keep succeeding after a write has failed.
+ *
+ * Everything stored here is a view preference, so the correct response to any
+ * failure is to carry on without remembering.
  */
 
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadApp } from "./helpers/load.mjs";
 
-/** A localStorage that works. */
+/**
+ * A localStorage that behaves. The failing variants are built inline in the
+ * tests that need them, since each breaks in its own way.
+ */
 function fakeStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
   return {
@@ -53,17 +67,20 @@ test("tagText trims and passes ordinary values through", () => {
 });
 
 test("tagText treats absent, blank and NaN-ish values as nothing", () => {
-  // osmnx writes a missing tag as float NaN; the backend drops those, but an
-  // older export or a hand-edited import can still carry the stringified form,
-  // and "nan" printed on a territory card is worse than a blank.
+  // osmnx represents a missing tag as float NaN. The backend drops those
+  // before serializing, but a file written by an older version or edited by
+  // hand can still contain the stringified form, and the literal text "nan"
+  // printed on a territory card is worse than an empty line.
   for (const value of [null, undefined, "", "   ", "nan", "NaN", "none", "None"]) {
     assert.equal(U.tagText(value), null, `expected nothing for ${JSON.stringify(value)}`);
   }
 });
 
 test("tagText joins a merged way's list of values", () => {
-  // osmnx concatenates the tags of every OSM way it collapsed into one edge,
-  // matching what the backend's own _clean does to the same values.
+  // When osmnx collapses several OSM ways into one street edge it
+  // concatenates their tags, so a value arrives as a list. The join has to
+  // match what the backend's own _clean does to the same values, or the same
+  // street reads differently depending on which path it came through.
   assert.equal(U.tagText(["Bahnhofstraße", "Marktplatz"]), "Bahnhofstraße; Marktplatz");
   assert.equal(U.tagText(["Bahnhofstraße"]), "Bahnhofstraße");
   assert.equal(U.tagText([]), null);
@@ -97,8 +114,10 @@ test("readLocal defaults to null when no fallback is given", () => {
 });
 
 test("an empty string is a stored value, not an absent one", () => {
-  // The toolbar and the numbers both store "0"/"1"; a helper that treated any
-  // falsy string as absent would turn "collapsed" back into "expanded".
+  // Several preferences are stored as "0" or "1", and "0" is falsy. A helper
+  // that tested the value for truthiness rather than for absence would treat
+  // a stored "0" as nothing found and hand back the default, turning
+  // "collapsed" into "expanded" on every reload.
   const util = withStorage(fakeStorage({ "osmapp.labels.visible": "0" }));
   assert.equal(util.readLocal("osmapp.labels.visible", "1"), "0");
 });
@@ -120,8 +139,9 @@ test("writeJson round-trips through readJson", () => {
 // ── storage, when it does not ────────────────────────────────────────────────
 
 test("a storage that throws on access degrades instead of exploding", () => {
-  // Firefox private mode. The throw is on `window.localStorage` itself, which
-  // is why the property access has to be inside the try.
+  // A private browsing mode: the throw comes from evaluating
+  // `window.localStorage` itself rather than from any method on it, which is
+  // why the implementation has to put the property access inside its try.
   const util = withStorage(() => {
     throw new Error("The operation is insecure.");
   });
@@ -135,7 +155,8 @@ test("a storage that throws on access degrades instead of exploding", () => {
 });
 
 test("a storage that refuses writes still reads", () => {
-  // Safari past its quota: getItem works, setItem throws.
+  // A browser at its storage quota. Reads keep working and only writes
+  // throw, so a failed write must not disable reading.
   const store = fakeStorage({ "osmapp.toolbar.collapsed": "1" });
   store.setItem = () => {
     throw new Error("QuotaExceededError");

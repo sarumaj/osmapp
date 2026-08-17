@@ -161,7 +161,7 @@ App.coverage = (function () {
    *   corridor would be a dotted line the component labeler reads as separate
    *   places
    * @param {{start: number, end: number}} [taper] radius at coords[0] and at
-   *   the last coord, interpolated by distance travelled in between
+   *   the last coord, interpolated by distance traveled in between
    */
   Raster.prototype.stampPath = function (coords, radiusM, taper) {
     if (!coords || coords.length === 0) return;

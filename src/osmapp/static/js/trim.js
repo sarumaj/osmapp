@@ -1241,8 +1241,8 @@ App.trim = (function () {
     var counts = _count(final, keep);
     return {
       feature: final,
-      areaBefore: _area(outer),
-      areaAfter: _area(final),
+      areaBefore: G.area(outer),
+      areaAfter: G.area(final),
       inside: counts.inside,
       outside: counts.outside,
       ignoredInside: _count(final, ignored).inside,
@@ -1605,14 +1605,6 @@ App.trim = (function () {
     return { inside: inside, outside: entries.length - inside };
   }
 
-  function _area(feature) {
-    try {
-      return turf.area(feature);
-    } catch (e) {
-      return 0;
-    }
-  }
-
   // ══════════════════════════════════════════════════════════════════════
   // PREVIEW
   // ══════════════════════════════════════════════════════════════════════
@@ -1794,7 +1786,7 @@ App.trim = (function () {
     _result = {
       feature: poly,
       areaBefore: _result.areaBefore,
-      areaAfter: _area(poly),
+      areaAfter: G.area(poly),
       inside: counts.inside,
       outside: counts.outside,
       ignoredInside: _count(poly, ignored).inside,
@@ -2134,7 +2126,7 @@ App.trim = (function () {
 
     console.log(
       ">>> Boundary trimmed —",
-      Math.round(_area(poly)),
+      Math.round(G.area(poly)),
       "m², ",
       stats.kept,
       "territories kept,",

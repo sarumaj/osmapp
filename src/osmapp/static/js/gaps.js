@@ -173,11 +173,11 @@ App.gaps = (function () {
     var out = [];
     G.polygonParts(rest).forEach(function (part) {
       _open(part).forEach(function (piece) {
-        if (_area(piece) >= minimum) out.push(piece);
+        if (G.area(piece) >= minimum) out.push(piece);
       });
     });
     return out.sort(function (a, b) {
-      return _area(b) - _area(a);
+      return G.area(b) - G.area(a);
     });
   }
 
@@ -298,7 +298,7 @@ App.gaps = (function () {
     }
 
     var lobes = G.polygonParts(core).filter(function (lobe) {
-      return _area(lobe) > 0;
+      return G.area(lobe) > 0;
     });
     if (!lobes.length) return [];
 
@@ -329,7 +329,7 @@ App.gaps = (function () {
         return G.largestPolygon(clipped) || lobe;
       })
       .filter(function (piece) {
-        return piece && piece.geometry && _area(piece) > 0;
+        return piece && piece.geometry && G.area(piece) > 0;
       });
   }
 
@@ -352,21 +352,13 @@ App.gaps = (function () {
     }
   }
 
-  function _area(feature) {
-    try {
-      return turf.area(feature);
-    } catch (e) {
-      return 0;
-    }
-  }
-
   function count() {
     return _features.length;
   }
 
   function totalArea() {
     return _features.reduce(function (sum, feature) {
-      return sum + _area(feature);
+      return sum + G.area(feature);
     }, 0);
   }
 
@@ -431,7 +423,7 @@ App.gaps = (function () {
   }
 
   function _tooltip(feature) {
-    var km2 = _area(feature) / 1e6;
+    var km2 = G.area(feature) / 1e6;
     return (
       '<div class="feature-tooltip__title">' +
       _escape(T("gaps.title")) +
@@ -544,7 +536,7 @@ App.gaps = (function () {
       },
     ]);
     App.polygons.setClusters(next);
-    console.log(">>> Gap adopted —", Math.round(_area(feature)), "m²");
+    console.log(">>> Gap adopted —", Math.round(G.area(feature)), "m²");
     return true;
   }
 
@@ -684,7 +676,7 @@ App.gaps = (function () {
     if (!App.polygons.replaceOuter(next)) return false;
     console.log(
       ">>> Gap dissolved into the boundary —",
-      Math.round(_area(feature)),
+      Math.round(G.area(feature)),
       "m² trimmed off",
     );
     return true;
@@ -797,7 +789,7 @@ App.gaps = (function () {
       ">>> Gap absorbed by territory",
       best + 1,
       "—",
-      Math.round(_area(feature)),
+      Math.round(G.area(feature)),
       "m²",
     );
     return true;

@@ -88,6 +88,8 @@ function setup() {
   App.ui = { closeContextMenu: noop, isDialogOpen: () => false };
   App.gaps = { schedule: noop, count: () => 0, features: () => [] };
   App.geometry = {
+    // outline.js measures the ring through geometry.js, not turf directly.
+    area: (feature) => (feature ? 100 : 0),
     getOuterFeature: () => ({
       type: "Feature",
       geometry: {

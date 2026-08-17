@@ -1,17 +1,33 @@
 /**
- * spatial.js — one uniform-grid index reused everywhere the app currently
- * does a linear scan over every street node or segment.
+ * spatial.js — a spatial index, a priority queue, and fast distance helpers.
  *
- * Replaces:
- *   snap.js          buildSnapGrid / getNearbySegmentIndices   (bespoke copy)
- *   editing.js       _nearestStreetNode, _snapToStreetWithKind (O(n) per mousemove)
- *   clustering.js    _nearestGraphNode                         (O(n) per lookup, ×10)
+ * Two data structures and a handful of arithmetic functions, none of which
+ * know anything about the app. Everything here works on plain `[lng, lat]`
+ * coordinate pairs: no Leaflet layers, no GeoJSON features, no turf.
  *
- * Also exports fast planar distance helpers. turf.distance() runs a full
- * haversine plus a unit conversion on every call; inside A* and nearest-node
- * loops that dominates the runtime. Over a city-sized bbox the equirectangular
- * approximation is accurate to well under a meter, which is far below the
- * precision anything here needs.
+ * ── The grid ──────────────────────────────────────────────────────────────
+ *
+ * `Grid` answers "what is near this point" without looking at everything.
+ * The alternative is a linear scan, and the questions asked here are asked
+ * constantly — snapping a vertex to the nearest street runs on every pointer
+ * move, and finding the nearest graph node runs on every step of a route
+ * search — so with a city's worth of streets a scan is the dominant cost.
+ *
+ * The index is a uniform grid rather than a tree because the data is street
+ * geometry, which is spread fairly evenly across the area being worked on.
+ * That is the case where uniform cells behave well, and they are far simpler
+ * to build and cheaper to rebuild than a balanced structure.
+ *
+ * ── Distances ─────────────────────────────────────────────────────────────
+ *
+ * dist() and distSq() use an equirectangular approximation: latitude and
+ * longitude are scaled to meters and then treated as a flat plane. That is
+ * accurate to well under a meter over an area the size of a city, which is far
+ * finer than anything here needs. turf.distance() computes a full haversine
+ * and a unit conversion per call, and inside these loops that cost dominates.
+ *
+ * Prefer distSq() over dist() when only comparing distances to each other, as
+ * it avoids a square root per comparison.
  */
 var App = window.App || {};
 
@@ -21,12 +37,24 @@ App.spatial = (function () {
   var M_PER_DEG_LAT = 110540;
   var M_PER_DEG_LNG = 111320;
 
-  /** meters per degree of longitude at a given latitude. */
+  /**
+   * Meters per degree of longitude at a given latitude.
+   *
+   * Meridians converge toward the poles, so a degree of longitude is about
+   * 111 km at the equator and shrinks with the cosine of the latitude. A
+   * degree of latitude does not vary in the same way, hence the single
+   * M_PER_DEG_LAT constant.
+   */
   function lngScale(lat) {
     return M_PER_DEG_LNG * Math.cos((lat * Math.PI) / 180);
   }
 
-  /** Squared planar distance in meters between two [lng, lat] coords. */
+  /**
+   * Squared distance in meters between two [lng, lat] coords.
+   *
+   * The longitude scale is taken at the midpoint latitude of the pair, which
+   * keeps the approximation symmetric — d(a, b) and d(b, a) agree exactly.
+   */
   function distSq(a, b) {
     var kx = lngScale((a[1] + b[1]) / 2);
     var dx = (a[0] - b[0]) * kx;
@@ -34,12 +62,16 @@ App.spatial = (function () {
     return dx * dx + dy * dy;
   }
 
-  /** Planar distance in meters between two [lng, lat] coords. */
+  /** Distance in meters between two [lng, lat] coords. */
   function dist(a, b) {
     return Math.sqrt(distSq(a, b));
   }
 
-  /** Bearing in degrees from a to b, [lng, lat] coords. */
+  /**
+   * Bearing from a to b in degrees, measured clockwise from north.
+   *
+   * @returns {number} in the range (-180, 180]
+   */
   function bearing(a, b) {
     var kx = lngScale((a[1] + b[1]) / 2);
     return (
@@ -49,7 +81,19 @@ App.spatial = (function () {
   }
 
   /**
-   * Uniform grid over lng/lat.
+   * A uniform grid index over lng/lat coordinates.
+   *
+   * Items are added with add() or addSegment() and are identified afterwards
+   * by their insertion index, which the query methods return. The caller keeps
+   * its own array in the same order and looks the payload up there.
+   *
+   * Cells are keyed lazily in a plain object, so an empty region costs
+   * nothing and the grid needs no bounds up front.
+   *
+   * Cell size is the one tuning decision: too small and a query walks many
+   * cells, too large and each cell holds too many items to filter. A cell of
+   * roughly the spacing of the data is a good default.
+   *
    * @param {number} cellMeters approximate cell edge length
    */
   function Grid(cellMeters) {
@@ -69,7 +113,11 @@ App.spatial = (function () {
     else this.buckets.set(k, [idx]);
   };
 
-  /** Index a point payload at [lng, lat]. */
+  /**
+   * Index a payload at one coordinate.
+   *
+   * @returns {number} the item's index, as returned by the query methods
+   */
   Grid.prototype.addPoint = function (coord, payload) {
     var idx = this.items.length;
     this.items.push({ coord: coord, payload: payload });
@@ -81,7 +129,15 @@ App.spatial = (function () {
     return idx;
   };
 
-  /** Index a segment payload spanning a..b, stamping every cell it crosses. */
+  /**
+   * Index a payload spanning the segment a..b.
+   *
+   * The segment is stamped into every cell it passes through rather than only
+   * into the cells holding its endpoints, so a street longer than a cell is
+   * still found from a point in the middle of it.
+   *
+   * @returns {number} the item's index
+   */
   Grid.prototype.addSegment = function (a, b, payload) {
     var idx = this.items.length;
     this.items.push({ a: a, b: b, payload: payload });
@@ -97,8 +153,13 @@ App.spatial = (function () {
   };
 
   /**
-   * Candidate item indices within `ring` cells of a coord.
-   * Deduplicated; order is not meaningful.
+   * Every item indexed within `ring` cells of a coord, in any direction.
+   *
+   * These are candidates rather than answers: an item in a neighboring cell
+   * may still be farther away than the cell size, so the caller is expected to
+   * measure. Results are deduplicated and their order carries no meaning.
+   *
+   * @returns {number[]} item indices
    */
   Grid.prototype.candidates = function (coord, ring) {
     ring = ring || 1;
@@ -123,9 +184,16 @@ App.spatial = (function () {
   };
 
   /**
-   * Nearest indexed point to `coord`, searching outward in cell rings until
-   * something is found or maxMeters is exceeded.
-   * @returns {{payload:*, coord:number[], dist:number}|null}
+   * The nearest indexed point to `coord`.
+   *
+   * Searches outward one cell ring at a time and stops as soon as it can, so
+   * the cost depends on how far away the nearest item is rather than on how
+   * many items exist.
+   *
+   * @param {number[]} coord [lng, lat]
+   * @param {number} maxMeters give up beyond this distance
+   * @returns {{payload:*, coord:number[], dist:number}|null} null when nothing
+   *   is indexed within maxMeters
    */
   Grid.prototype.nearestPoint = function (coord, maxMeters) {
     maxMeters = maxMeters || 500;
@@ -136,8 +204,10 @@ App.spatial = (function () {
     var seen = new Set();
 
     for (var ring = 0; ring <= maxRing; ring++) {
-      // A hit at ring R can still be beaten from a corner of ring R+1, so
-      // widen exactly once more before committing.
+      // A hit found in ring R is not necessarily the nearest one. The
+      // diagonal corner of the next ring out is closer to the query point
+      // than the far edge of the current ring, so an item there can still
+      // win. Widening exactly once more before committing covers that.
       if (foundRing >= 0 && ring > foundRing + 1) break;
       var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
@@ -156,7 +226,15 @@ App.spatial = (function () {
     return best ? { payload: best.payload, coord: best.coord, dist: Math.sqrt(bestD2) } : null;
   };
 
-  /** Closest point on segment a-b to p, all [lng, lat]. */
+  /**
+   * The point on segment a-b closest to p, all as [lng, lat].
+   *
+   * Used both for measuring how far a point lies from a street and for finding
+   * where on that street to place a snapped vertex.
+   *
+   * @returns {{coord:number[], dist:number, t:number}} `t` is the position
+   *   along the segment, 0 at a and 1 at b
+   */
   function closestOnSegment(p, a, b) {
     var kx = lngScale(p[1]);
     var ax = a[0] * kx,
@@ -181,8 +259,12 @@ App.spatial = (function () {
   }
 
   /**
-   * Nearest indexed segment to `coord`.
-   * @returns {{payload:*, coord:number[], dist:number}|null}
+   * The nearest indexed segment to `coord`, and the point on it.
+   *
+   * @param {number[]} coord [lng, lat]
+   * @param {number} maxMeters give up beyond this distance
+   * @returns {{payload:*, coord:number[], dist:number}|null} `coord` is the
+   *   closest point on the segment, not one of its endpoints
    */
   Grid.prototype.nearestSegment = function (coord, maxMeters) {
     maxMeters = maxMeters || 200;
@@ -193,11 +275,12 @@ App.spatial = (function () {
     var best = null;
     var bestD = maxMeters;
 
-    // From ring 0, not ring 1: shell(coord, 1) is the eight cells *around* the
-    // one the coord is in, so starting there skipped any segment lying wholly
-    // inside the center cell. Long street segments stamp their neighbours too
-    // and so were found anyway, which is why this went unnoticed — but a grid
-    // of short segments, like a traced boundary ring, is invisible to it.
+    // The search starts at ring 0, which is the single cell containing the
+    // coord. shell(coord, 1) is the eight cells *around* that one, so starting
+    // at 1 would miss any segment lying entirely within the centre cell.
+    // Street segments are usually long enough to stamp neighboring cells as
+    // well and would be found regardless, but a chain of short segments — a
+    // traced boundary ring, for instance — would not be.
     for (var ring = 0; ring <= maxRing; ring++) {
       var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
@@ -215,13 +298,19 @@ App.spatial = (function () {
   };
 
   /**
-   * Item indices in every cell the bounding box of segment a-b touches,
-   * widened by `pad` cells. Deduplicated; order is not meaningful.
+   * Every item indexed in the cells the segment a-b could touch, widened by
+   * `pad` cells.
    *
-   * nearestSegment answers "what is close to this point"; this answers "what
-   * could this segment possibly cross", which is what an intersection sweep
-   * needs. Without it the only options are a point query per sampled position
-   * along the segment or a linear scan over every item.
+   * Where nearestSegment() asks "what is close to this point", this asks "what
+   * could this segment possibly cross", which is the question an intersection
+   * test needs answered. Doing it without a grid means either sampling points
+   * along the segment and querying each, or scanning everything.
+   *
+   * The bounding box of the segment is used, so a long diagonal returns items
+   * near the corners it does not actually pass through; as with near(), these
+   * are candidates the caller must still test.
+   *
+   * @returns {number[]} item indices, deduplicated and unordered
    */
   Grid.prototype.segmentCandidates = function (a, b, pad) {
     pad = pad || 0;
@@ -246,7 +335,13 @@ App.spatial = (function () {
     return out;
   };
 
-  /** Item indices in exactly the ring-th cell shell around coord. */
+  /**
+   * Item indices in exactly the ring-th square shell of cells around coord.
+   *
+   * Ring 0 is the single cell containing the coord, ring 1 the eight cells
+   * surrounding it, and so on. Only the shell is returned, not its interior,
+   * so an outward search does not revisit cells it has already examined.
+   */
   Grid.prototype.shell = function (coord, ring) {
     var c = this.cell;
     var cx = Math.floor(coord[0] / c);
@@ -273,9 +368,15 @@ App.spatial = (function () {
   };
 
   /**
-   * Binary min-heap keyed on `f`. Used by the A* in clustering.js and the
-   * Dijkstra in editing.js, both of which previously scanned or re-sorted the
-   * whole frontier on every pop.
+   * A binary min-heap of `{ f, ... }` objects, ordered by the `f` property.
+   *
+   * This is the frontier for the route searches in clustering.js and
+   * editing.js, where `f` is the estimated total cost of a path. Both push and
+   * pop are logarithmic in the size of the frontier, whereas keeping the
+   * frontier in a sorted array costs a scan or a re-sort on every step, and
+   * those searches pop thousands of times.
+   *
+   * Entries are not compared beyond `f`, so ties break arbitrarily.
    */
   function MinHeap() {
     this.a = [];

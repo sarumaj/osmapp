@@ -1,25 +1,33 @@
 /**
- * The three parts of geometry.js that are about turf rather than about
- * bookkeeping, so they run against the real, vendored turf.
+ * The parts of geometry.js that are about turf rather than about bookkeeping,
+ * run against the real vendored turf rather than a stub.
  *
- * `unionHealed` is the one that had actually broken. It grows every input by
- * half a meter so that boundaries which only nearly coincide genuinely
- * dissolve, unions, and then shrinks back — except the shrink read `G.
- * polygonParts`, and there is no `G` inside that file. The ReferenceError
- * landed in the surrounding catch, so for as long as that line existed the
- * function grew and unioned and never shrank, and every merged territory kept
- * the half meter. Nothing on screen says so: the shape looks right, it is
- * simply slightly too big, and it stays too big through export, session
- * restore and every later merge.
+ * See helpers/turf.mjs for why these particular tests use the real library
+ * when most tests in this directory do not.
  *
- * So the assertion below is about the *excess area* rather than about the
- * shape, because excess area is the thing that was wrong and the thing a
- * future refactor could quietly restore.
+ * ── unionHealed ───────────────────────────────────────────────────────────
  *
- * `interiorPoint` is the second: three modules had grown their own copy of
- * pointOnFeature-with-a-centroid-fallback, and they have to agree — the number
- * chip, the piece assignment in clustering and the reverse geocode are all
- * supposed to be about the same spot inside the same territory.
+ * Merging two territories has to leave one shape with no line drawn through
+ * the middle of it. Adjacent territories almost never share exact vertices, so
+ * unionHealed grows each input by half a meter, unions, and shrinks the result
+ * back by the same amount.
+ *
+ * The assertions here are about *excess area* rather than about the outline,
+ * and that is deliberate. A failure of the shrink step is invisible on screen:
+ * the merged shape looks exactly right and is simply half a meter too big all
+ * the way round. Nothing reports it, and the error persists through export,
+ * session restore and every later merge. Area is the only symptom that can be
+ * asserted on, so a change that skips or breaks the shrink fails here rather
+ * than reaching a printed card.
+ *
+ * ── interiorPoint ─────────────────────────────────────────────────────────
+ *
+ * Three features ask where the inside of a territory is: labels.js anchors the
+ * number chip there, clustering.js assigns loose pieces by it, and naming.js
+ * reverse-geocodes it to suggest a name. They have to agree, or the chip sits
+ * in one place and the looked-up name describes another. The test covers the
+ * shapes where a naive answer — the centroid — falls outside the polygon
+ * altogether.
  */
 
 import test from "node:test";
@@ -30,15 +38,21 @@ import { loadTurf, square } from "./helpers/turf.mjs";
 const turf = loadTurf();
 const G = loadApp(["geometry.js"], { turf }).geometry;
 
-/** meters, near 50°N, as a longitude/latitude delta. */
+/**
+ * Convert meters to a rough degree delta near 50°N, the latitude the app is
+ * mostly used at. Fixtures are written in meters because the thresholds under
+ * test are, and a degree offset in the source would be unreadable.
+ */
 const M = 1 / 110540;
 
 // ── unionHealed ──────────────────────────────────────────────────────────────
 
 test("unionHealed dissolves a gap too narrow to share vertices", () => {
-  // Adjacent territories rarely share exact vertices — phase 5 clips each slot
-  // independently and rounds to five decimals — so a plain union leaves a
-  // hairline sliver and Leaflet draws the internal outline.
+  // Two squares placed a hairline apart, which is the situation a real merge
+  // faces: the partitioner clips each territory to the boundary
+  // independently and coordinates are rounded to five decimals, so a shared
+  // edge differs in the last digit. A plain turf.union of these leaves a
+  // sliver between them, and Leaflet then draws the internal outline.
   const west = square(turf, 0, 50, 0.001);
   const east = square(turf, 0.001 + 0.2 * M, 50, 0.001);
 
@@ -52,8 +66,9 @@ test("unionHealed dissolves a gap too narrow to share vertices", () => {
 });
 
 test("unionHealed gives the half-meter growth back", () => {
-  // The regression. Without the shrink the result carries the whole buffer,
-  // which on this fixture is roughly 270 m² of territory that does not exist.
+  // The heart of the file. If the shrink step is skipped, the result keeps
+  // the entire half-meter buffer, which on this fixture is roughly 270 m² of
+  // territory that does not exist on the ground.
   const west = square(turf, 0, 50, 0.001);
   const east = square(turf, 0.001 + 0.2 * M, 50, 0.001);
 
@@ -69,7 +84,9 @@ test("unionHealed gives the half-meter growth back", () => {
 });
 
 test("unionHealed keeps a courtyard but drops a union sliver", () => {
-  // A ring with a genuine hole in the middle, merged with a neighbour.
+  // A ring with a real hole in it — a courtyard or a quarry — merged with a
+  // neighbor. The hole has to survive, since only union artefacts are meant
+  // to be filled in.
   const outer = [
     [0, 50],
     [0.002, 50],
@@ -134,8 +151,9 @@ test("dropSmallHoles removes a ring below the floor and keeps one above it", () 
 // ── interiorPoint ────────────────────────────────────────────────────────────
 
 test("interiorPoint lands inside a C shape, where the centroid does not", () => {
-  // The case the helper exists for: a horseshoe whose vertex mean falls in the
-  // gap, which is where a number chip used to be drawn.
+  // The shape the helper exists for. A horseshoe's vertex mean, which is what
+  // a centroid is, lands in the gap between the arms — outside the polygon,
+  // and frequently inside a neighboring territory.
   const c = turf.polygon([
     [
       [0, 50],

@@ -1,10 +1,25 @@
 /**
- * The two pieces of real algorithm in the client: the planar noder in
- * geometry.js and the grid index plus heap in spatial.js.
+ * The two real algorithms in the client: the planar noder in geometry.js, and
+ * the grid index and heap in spatial.js.
  *
- * Both fail quietly. A noder that drops an intersection produces a territory
- * that looks fine until it is cut; a grid that returns the wrong nearest
- * segment makes the cut tool snap somewhere plausible but wrong.
+ * ── What these do in the app ──────────────────────────────────────────────
+ *
+ * Noding turns a pile of overlapping street lines into a graph whose lines
+ * only meet at shared endpoints, which is what the partitioner routes over.
+ * The grid index answers "what is near this point" without scanning
+ * everything, which is what the cut tool snaps with and what the route search
+ * looks nodes up in.
+ *
+ * ── Why they are tested this thoroughly ───────────────────────────────────
+ *
+ * Both fail quietly rather than loudly. A noder that misses an intersection
+ * produces a territory that looks correct until somebody tries to cut it. A
+ * grid that returns the second-nearest segment makes the cut tool snap
+ * somewhere plausible but wrong, which reads as the tool being imprecise
+ * rather than as a bug with an address.
+ *
+ * Neither module touches the DOM, Leaflet or turf, so both load with no stubs
+ * at all and the assertions are ordinary arithmetic.
  */
 
 import test from "node:test";
@@ -71,8 +86,11 @@ test("output is rounded to five decimals", () => {
 });
 
 test("noding 400 lines stays fast", () => {
-  // 40 000 real crossings. Unbinned this is 160 000 pair tests, which is what
-  // makes the grid worth having inside phase 5.
+  // 200 lines against 200 lines is 40 000 genuine crossings. Testing every
+  // pair against every other would be 160 000 intersection tests, which is
+  // why the noder bins segments into a coarse grid first. This case is here
+  // to keep that path exercised and to catch a change that makes it
+  // quadratic again.
   const lines = [];
   for (let i = 0; i < 200; i++) {
     lines.push([[0, i * 0.001], [0.2, i * 0.001]]);
@@ -96,8 +114,11 @@ test("dedupCoords collapses near-duplicates inside the tolerance", () => {
 // ── the grid index ───────────────────────────────────────────────────────────
 
 test("nearestPoint widens one ring past the first hit", () => {
-  // A point just inside the next cell can beat one in the same cell — exactly
-  // what a naive "stop at the first non-empty ring" search gets wrong.
+  // The nearest point is not necessarily in the nearest non-empty ring of
+  // cells: a point just inside the next ring out can be closer than one in
+  // the far corner of the current one. A search that stops as soon as it
+  // finds anything gets this case wrong, so the fixture is built to have
+  // exactly that shape.
   const grid = new SP.Grid(100);
   grid.addPoint([19.9013, 50.0], "far-same-cell");
   grid.addPoint([19.9004, 50.0], "near-next-cell");
