@@ -29,15 +29,222 @@
     "vendor": "node scripts/copy-vendor.js"
   },
   "devDependencies": {
-    "@fortawesome/fontawesome-free": "7.3.0",
+    "@fortawesome/fontawesome-free": "7.3.1",
     "@pdf-lib/fontkit": "1.1.1",
     "@turf/turf": "6.5.0",
     "clean-css": "^5.3.3",
     "leaflet": "1.9.4",
     "leaflet-control-geocoder": "4.0.0",
-    "leaflet-editable": "1.3.0",
+    "leaflet-editable": "1.3.2",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "4.10.38",
     "terser": "^5.49.2"
+  },
+  "vendorConfig": {
+    "destRoot": "src/osmapp/static/vendor",
+    "packages": {
+      "leaflet": {
+        "version": "leaflet",
+        "dest": [
+          "unpkg.com",
+          "leaflet@{version}",
+          "dist"
+        ],
+        "files": [
+          {
+            "src": [
+              "dist/leaflet-src.js"
+            ],
+            "out": "leaflet.js",
+            "mode": "minjs"
+          },
+          {
+            "src": [
+              "dist/leaflet.css"
+            ],
+            "out": "leaflet.css",
+            "mode": "mincss"
+          },
+          {
+            "src": [
+              "dist/images"
+            ],
+            "out": "images",
+            "mode": "dir"
+          }
+        ]
+      },
+      "leaflet-control-geocoder": {
+        "version": "leaflet-control-geocoder",
+        "dest": [
+          "cdn.jsdelivr.net",
+          "npm",
+          "leaflet-control-geocoder@{version}",
+          "dist"
+        ],
+        "files": [
+          {
+            "src": [
+              "dist/Control.Geocoder.js"
+            ],
+            "out": "Control.Geocoder.min.js",
+            "mode": "minjs"
+          },
+          {
+            "src": [
+              "dist/Control.Geocoder.css"
+            ],
+            "out": "Control.Geocoder.css",
+            "mode": "mincss"
+          },
+          {
+            "src": [
+              "dist/Control.Geocoder.js.map"
+            ],
+            "out": "Control.Geocoder.js.map",
+            "mode": "raw"
+          }
+        ]
+      },
+      "leaflet-editable": {
+        "version": "leaflet-editable",
+        "dest": [
+          "cdn.jsdelivr.net",
+          "npm",
+          "leaflet-editable@{version}",
+          "src"
+        ],
+        "files": [
+          {
+            "src": [
+              "src/Leaflet.Editable.js"
+            ],
+            "out": "Leaflet.Editable.min.js",
+            "mode": "minjs"
+          }
+        ]
+      },
+      "@turf/turf": {
+        "version": "@turf/turf",
+        "dest": [
+          "cdn.jsdelivr.net",
+          "npm",
+          "turf",
+          "turf@{version}"
+        ],
+        "files": [
+          {
+            "src": [
+              "turf.min.js"
+            ],
+            "out": "turf.min.js",
+            "mode": "raw"
+          }
+        ]
+      },
+      "@fortawesome/fontawesome-free": {
+        "version": "@fortawesome/fontawesome-free",
+        "dest": [
+          "cdnjs.cloudflare.com",
+          "ajax",
+          "libs",
+          "font-awesome@{version}"
+        ],
+        "files": [
+          {
+            "src": [
+              "css/all.css"
+            ],
+            "out": "css/all.min.css",
+            "mode": "mincss"
+          },
+          {
+            "src": [
+              "webfonts/fa-brands-400.woff2"
+            ],
+            "out": "webfonts/fa-brands-400.woff2",
+            "mode": "raw"
+          },
+          {
+            "src": [
+              "webfonts/fa-solid-900.woff2"
+            ],
+            "out": "webfonts/fa-solid-900.woff2",
+            "mode": "raw"
+          }
+        ]
+      },
+      "pdf-lib": {
+        "version": "pdf-lib",
+        "dest": [
+          "unpkg.com",
+          "pdf-lib@{version}",
+          "dist"
+        ],
+        "files": [
+          {
+            "src": [
+              "dist/pdf-lib.min.js"
+            ],
+            "out": "pdf-lib.min.js",
+            "mode": "raw"
+          }
+        ]
+      },
+      "@pdf-lib/fontkit": {
+        "version": "@pdf-lib/fontkit",
+        "dest": [
+          "unpkg.com",
+          "@pdf-lib",
+          "fontkit@{version}",
+          "dist"
+        ],
+        "files": [
+          {
+            "src": [
+              "dist/fontkit.umd.min.js",
+              "dist/fontkit.umd.js"
+            ],
+            "out": "fontkit.umd.min.js",
+            "mode": "raw"
+          }
+        ]
+      },
+      "pdfjs-dist": {
+        "version": "pdfjs-dist",
+        "dest": [
+          "cdn.jsdelivr.net",
+          "npm",
+          "pdfjs-dist@{version}"
+        ],
+        "files": [
+          {
+            "src": [
+              "build/pdf.min.mjs",
+              "build/pdf.min.js",
+              "legacy/build/pdf.min.mjs"
+            ],
+            "out": "build/pdf.min.mjs",
+            "mode": "raw"
+          },
+          {
+            "src": [
+              "build/pdf.worker.min.mjs",
+              "build/pdf.worker.min.js",
+              "legacy/build/pdf.worker.min.mjs"
+            ],
+            "out": "build/pdf.worker.min.mjs",
+            "mode": "raw"
+          },
+          {
+            "src": [
+              "standard_fonts"
+            ],
+            "out": "standard_fonts",
+            "mode": "dir"
+          }
+        ]
+      }
+    }
   }
 }
