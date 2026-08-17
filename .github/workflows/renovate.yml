@@ -2,7 +2,6 @@ name: Renovate vendor sync
 
 on:
   pull_request:
-    branches: ["renovate/**"]
     types:
       - opened # Renovate creates the PR
       - synchronize # Renovate pushes new commits or rebases
@@ -40,6 +39,7 @@ jobs:
         id: branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           BRANCH=$(gh pr view ${{ steps.pr.outputs.number }} --json headRefName -q .headRefName)
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
@@ -55,6 +55,7 @@ jobs:
         id: changed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           BASE=$(gh pr view ${{ steps.pr.outputs.number }} --json baseRefName -q .baseRefName)
           git fetch origin "$BASE"
@@ -71,7 +72,7 @@ jobs:
         if: steps.changed.outputs.run == 'true'
         uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -101,6 +102,9 @@ jobs:
 
       - name: Debug info (manual runs only)
         if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
         run: |
           echo "=== PR #${{ steps.pr.outputs.number }} ==="
           gh pr view ${{ steps.pr.outputs.number }} --json title,author,state,headRefName,baseRefName
@@ -110,5 +114,3 @@ jobs:
           git status
           echo "=== Vendor dir ==="
           find src/osmapp/static/vendor -type f | head -40
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
