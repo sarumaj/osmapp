@@ -812,6 +812,9 @@
     "listNumbers": "Nummern auf der Karte ein- oder ausblenden",
     "listJump": "Zum nächsten auffälligen Gebiet springen",
     "listSelectAll": "Alle angezeigten Gebiete auswählen",
+    "listMove": "Durch die Liste bewegen",
+    "listExtend": "Auswahl erweitern",
+    "listZoom": "Auf ein Gebiet auf der Karte zoomen",
     "listPick": "Ein Gebiet zur Auswahl hinzufügen",
     "listRange": "Alle Gebiete bis hierher auswählen",
     "listClose": "Liste schließen"

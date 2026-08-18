@@ -812,6 +812,9 @@
     "listNumbers": "Show or hide the numbers on the map",
     "listJump": "Jump to the next territory that needs attention",
     "listSelectAll": "Select every territory the list is showing",
+    "listMove": "Move through the list",
+    "listExtend": "Extend the selection",
+    "listZoom": "Zoom to a territory on the map",
     "listPick": "Add one territory to the selection",
     "listRange": "Select every territory up to this one",
     "listClose": "Close the list"

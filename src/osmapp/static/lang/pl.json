@@ -851,6 +851,9 @@
     "listNumbers": "Pokaż lub ukryj numery na mapie",
     "listJump": "Przejdź do następnego terenu wymagającego uwagi",
     "listSelectAll": "Zaznacz wszystkie pokazane tereny",
+    "listMove": "Poruszaj się po liście",
+    "listExtend": "Rozszerz zaznaczenie",
+    "listZoom": "Powiększ teren na mapie",
     "listPick": "Dodaj teren do zaznaczenia",
     "listRange": "Zaznacz wszystkie tereny aż do tego",
     "listClose": "Zamknij listę"

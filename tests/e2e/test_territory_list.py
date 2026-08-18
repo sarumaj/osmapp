@@ -531,3 +531,116 @@ def test_the_list_shows_what_the_map_is_already_holding(gridded: Page):
     assert gridded.locator(SELECTED).count() == 0
     gridded.locator("[data-role='close']").click()
     assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 0
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THE SHAPE OF THE DIALOG, AND THE GESTURES ON IT
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def dialog_height(page: Page) -> int:
+    return page.evaluate(
+        "() => Math.round(document.querySelector('.territory-list')"
+        ".getBoundingClientRect().height)"
+    )
+
+
+def test_the_dialog_is_the_same_size_whatever_the_filter_says(gridded: Page):
+    """Sized by the window rather than by its contents.
+
+    Narrowing thirty-one rows to a handful used to shrink the dialog to a
+    third of its height — which moved the chips out from under the pointer
+    that had just clicked one, so the second click of a filtering session
+    landed somewhere else.
+    """
+    heights = {dialog_height(gridded)}
+
+    for axis in ("repair", "printed", "tiny"):
+        for state in ("only", "not", "any"):
+            cycle(gridded, axis, state)
+            heights.add(dialog_height(gridded))
+
+    assert len(heights) == 1, f"the dialog resized: {sorted(heights)}"
+
+
+def test_a_plain_click_selects_and_stays(gridded: Page):
+    """Click selects, and the list is still there to click again."""
+    rows_of(gridded).nth(3).click()
+
+    assert gridded.locator(SELECTED).count() == 1
+    expect(gridded.locator(".territory-list")).to_be_visible()
+
+    # And it replaces rather than adds, which is what "only this one" means.
+    rows_of(gridded).nth(5).click()
+    assert gridded.locator(SELECTED).count() == 1
+
+
+def test_a_double_click_goes_to_the_map_and_leaves_the_picking_alone(gridded: Page):
+    """One gesture, not two.
+
+    The first click of the pair has already selected the row by the time the
+    double click arrives, so the selection is put back — glancing at a
+    territory should not silently replace a selection somebody spent a minute
+    building.
+    """
+    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(6).click(modifiers=["ControlOrMeta"])
+    picked = gridded.locator(SELECTED).count()
+    assert picked == 2
+
+    rows_of(gridded).nth(9).dblclick()
+
+    expect(gridded.locator(".territory-list")).to_have_count(0)
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == picked
+
+
+def test_the_arrow_keys_move_and_take_the_row_they_land_on(gridded: Page):
+    rows_of(gridded).nth(2).click()
+    for _ in range(3):
+        gridded.keyboard.press("ArrowDown")
+
+    assert gridded.locator(SELECTED).count() == 1, "moving takes one row, not many"
+    landed = gridded.evaluate(
+        """() => {
+            const a = document.activeElement;
+            const row = a && a.closest && a.closest('.territory-row-wrap');
+            return row ? Number(row.dataset.territory) : null;
+        }"""
+    )
+    assert landed == 5, "three rows down from the third"
+    expect(
+        gridded.locator(f".territory-row-wrap[data-territory='{landed}']")
+    ).to_have_attribute("data-selected", "1")
+
+
+def test_shift_and_the_arrow_keys_drag_the_range_both_ways(gridded: Page):
+    """The range is the selection, so walking back gives rows up again.
+
+    A range that could only ever grow meant overshooting by two rows was
+    fixed by starting the whole selection over.
+    """
+    rows_of(gridded).nth(2).click()
+    for _ in range(4):
+        gridded.keyboard.press("Shift+ArrowDown")
+    assert gridded.locator(SELECTED).count() == 5
+
+    for _ in range(2):
+        gridded.keyboard.press("Shift+ArrowUp")
+    assert gridded.locator(SELECTED).count() == 3
+
+
+def test_a_double_click_puts_back_the_latest_selection_not_a_stale_one(gridded: Page):
+    """The snapshot is only good while nothing else has picked anything.
+
+    Click a row, then Ctrl-click another, then double-click a third: what
+    comes back has to be both of the first two, not the one that was selected
+    before the Ctrl-click happened.
+    """
+    rows_of(gridded).nth(1).click()
+    rows_of(gridded).nth(4).click(modifiers=["ControlOrMeta"])
+    assert gridded.locator(SELECTED).count() == 2
+
+    rows_of(gridded).nth(8).dblclick()
+
+    expect(gridded.locator(".territory-list")).to_have_count(0)
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 2

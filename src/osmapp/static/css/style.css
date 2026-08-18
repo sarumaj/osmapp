@@ -1797,9 +1797,22 @@ body {
 }
 
 /* ── The list ──────────────────────────────────────────────────────────── */
+/* A fixed-height column, the way the print dialog is one: title, controls,
+   then a body that takes whatever is left, then the actions.
+
+   It used to be sized by its contents, so every filter click resized the
+   dialog under the pointer — narrowing ninety-nine rows to one shrank it to a
+   third of its height and moved the chips you were clicking. A repair did the
+   same, and so did the outcome line appearing. The rows box absorbs all of it
+   now, which is also what makes the scroll position worth restoring. */
 .territory-list {
   min-width: 320px;
   max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  height: min(76vh, 600px);
+  max-height: 92vh;
+  overflow: hidden;
 }
 
 .territory-list__notes {
@@ -1928,10 +1941,11 @@ body {
   cursor: pointer;
 }
 
-/* Capped rather than unbounded: 200 territories is a legal partition and a
-   dialog taller than the screen is not. */
+/* The part that gives. Everything else in the dialog is its natural height and
+   this takes the rest, so 200 rows and one row make the same shape. */
 .territory-list__rows {
-  max-height: min(44vh, 340px);
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm, 4px);
@@ -1943,6 +1957,11 @@ body {
      separation here rather than depending on the margin above it resolving
      the way it should. The two collapse, so the result is still 16px. */
   margin-bottom: 12px;
+}
+/* Nothing to show is not a box with nothing in it: the message below says
+   why, and an empty bordered rectangle above it says nothing at all. */
+.territory-list__rows:empty {
+  border-color: transparent;
 }
 
 /* The rule that used to live on the row itself: it is the row as a whole that

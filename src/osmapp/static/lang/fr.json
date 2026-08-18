@@ -812,6 +812,9 @@
     "listNumbers": "Afficher ou masquer les numéros sur la carte",
     "listJump": "Aller au territoire suivant à revoir",
     "listSelectAll": "Sélectionner tous les territoires affichés",
+    "listMove": "Se déplacer dans la liste",
+    "listExtend": "Étendre la sélection",
+    "listZoom": "Zoomer sur un territoire de la carte",
     "listPick": "Ajouter un territoire à la sélection",
     "listRange": "Sélectionner tous les territoires jusqu’à celui-ci",
     "listClose": "Fermer la liste"

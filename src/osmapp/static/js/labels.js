@@ -100,7 +100,17 @@ App.labels = (function () {
   // and the dialog is rebuilt from indices.
   var _picked = [];
   var _anchor = null;
+  var _cursor = null;
   var _reopening = false;
+
+  // A double click arrives as two clicks and then a dblclick, so the first of
+  // the pair has already changed the selection by the time we learn it was
+  // half of a gesture rather than a whole one. The selection as it stood
+  // before the pair is kept here and put back, because zooming to a territory
+  // is a look rather than a decision and should leave the picking alone.
+  var DBLCLICK_MS = 300;
+  var _clickAt = 0;
+  var _beforeClick = null;
   var _pulsed = null;
   var _pulseTimer = null;
 
@@ -608,6 +618,7 @@ App.labels = (function () {
       // the moment either changed.
       _picked = _pickedOnMap();
       _anchor = null;
+      _cursor = null;
     }
 
     var chips = dialog.querySelectorAll("[data-axis]");
@@ -633,6 +644,8 @@ App.labels = (function () {
     D.onRole(dialog, "clear-selection", function () {
       _picked = [];
       _anchor = null;
+      _cursor = null;
+      _beforeClick = null;
       _renderList(dialog);
     });
 
@@ -672,7 +685,26 @@ App.labels = (function () {
             _selectAllShown(dialog);
           },
         },
+        {
+          combos: ["ArrowDown", "ArrowUp"],
+          labelKey: "shortcuts.listMove",
+          run: function (e) {
+            _step(dialog, e && e.key === "ArrowUp" ? -1 : 1, false);
+          },
+        },
+        {
+          combos: ["Shift+ArrowDown", "Shift+ArrowUp"],
+          labelKey: "shortcuts.listExtend",
+          run: function (e) {
+            _step(dialog, e && e.key === "ArrowUp" ? -1 : 1, true);
+          },
+        },
         { combos: ["Mod+Click"], labelKey: "shortcuts.listPick", note: true },
+        {
+          combos: ["Double-click"],
+          labelKey: "shortcuts.listZoom",
+          note: true,
+        },
         {
           combos: ["Shift+Click"],
           labelKey: "shortcuts.listRange",
@@ -804,22 +836,30 @@ App.labels = (function () {
         _fix(row.index, button);
       });
 
-      // The modified clicks pick; the plain one still does what it always did,
-      // which is go and look at it. Overloading the plain click into "select
-      // only this" is the desktop convention, and it would have taken away the
-      // one gesture this list was built for.
+      // A list where clicking selects and double-clicking opens, which is what
+      // every other list anybody uses does. Zooming to the territory was on
+      // the single click while the list had no selection to speak of; now it
+      // has one, and a click that both picks a row and throws the dialog away
+      // can only be one of the two.
       D.onRole(node, "go", function (e) {
         if (e && e.shiftKey) {
-          _extendTo(dialog, row.index, shown);
+          _extendTo(dialog, row.index);
           return;
         }
         if (e && (e.ctrlKey || e.metaKey)) {
           _togglePick(dialog, row.index);
           return;
         }
-        App.ui.closeDialog();
-        focus(row.index);
+        _pickOnly(dialog, row.index);
       });
+
+      var go = D.role(node, "go");
+      if (go)
+        go.addEventListener("dblclick", function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          _zoomTo(row.index);
+        });
 
       // The list is the answer to "which fourteen?", and the next question is
       // always "print that one".
@@ -948,6 +988,8 @@ App.labels = (function () {
     var items = selection();
     _picked = [];
     _anchor = null;
+    _cursor = null;
+    _beforeClick = null;
     if (!App.editing || !App.editing.selectClusters) return false;
     // Handed over even when it is empty: the list is authoritative at the
     // moment it closes, so clearing the selection in here has to clear it out
@@ -969,14 +1011,68 @@ App.labels = (function () {
     return out;
   }
 
+  /** The territory indices the list is showing, in display order. */
+  function _shownOrder() {
+    return (s.clusters || [])
+      .map(function (entry, index) {
+        return _rows[index] || _describe(entry, index);
+      })
+      .filter(_matchesFilter)
+      .map(function (row) {
+        return row.index;
+      });
+  }
+
   function _togglePick(dialog, index) {
+    // Any other way of picking ends the click pair: the snapshot is only
+    // worth putting back if nothing has happened since it was taken.
+    _beforeClick = null;
     var at = _picked.indexOf(index);
     if (at >= 0) _picked.splice(at, 1);
     else _picked.push(index);
     // A range extends from the last row touched by hand, the way it does in
     // every file list — including when that touch took a row *out*.
     _anchor = index;
+    _cursor = index;
     _renderList(dialog);
+  }
+
+  /**
+   * This row and nothing else, which is what a plain click means in a list.
+   *
+   * The selection it replaces is remembered first, so that the double click
+   * this may turn out to be the first half of can put it back. Only the first
+   * click of a pair takes the snapshot — the second one is inside the window
+   * and would otherwise overwrite it with the state the first one just
+   * created, which is the state we are trying to get away from.
+   */
+  function _pickOnly(dialog, index) {
+    var now = Date.now();
+    if (!_beforeClick || now - _clickAt > DBLCLICK_MS)
+      _beforeClick = _picked.slice();
+    _clickAt = now;
+
+    _picked = [index];
+    _anchor = index;
+    _cursor = index;
+    _renderList(dialog);
+  }
+
+  /**
+   * Close the list and go and look at the territory on the map.
+   *
+   * Undoes the selection the first click of the double made, because a double
+   * click is one gesture. Without that, glancing at territory 7 would leave
+   * territory 7 selected on the map and open the mode that holds a selection,
+   * which is a lot of consequence for a look.
+   */
+  function _zoomTo(index) {
+    if (_beforeClick) {
+      _picked = _beforeClick;
+      _beforeClick = null;
+    }
+    App.ui.closeDialog();
+    focus(index);
   }
 
   /**
@@ -987,23 +1083,72 @@ App.labels = (function () {
    * eighty the numbers happen to span. With no anchor yet — Shift-clicking
    * first — the range is just this row, which is what starts one.
    */
-  function _extendTo(dialog, index, shown) {
-    var order = shown.map(function (row) {
-      return row.index;
-    });
+  function _extendTo(dialog, index) {
+    _beforeClick = null;
+    var order = _shownOrder();
     var to = order.indexOf(index);
-    var from = _anchor === null ? to : order.indexOf(_anchor);
     if (to < 0) return;
+    var from = _anchor === null ? to : order.indexOf(_anchor);
     if (from < 0) from = to;
 
-    var lo = Math.min(from, to);
-    var hi = Math.max(from, to);
-    for (var i = lo; i <= hi; i++)
-      if (_picked.indexOf(order[i]) < 0) _picked.push(order[i]);
+    // The range *is* the selection rather than being added to it, which is
+    // what lets Shift+Up walk back over rows it just took. Adding instead
+    // meant the selection could only ever grow, so a range overshot by two
+    // rows had to be started again from scratch.
+    _picked = order.slice(Math.min(from, to), Math.max(from, to) + 1);
     // The anchor stays put, so a second Shift-click grows or shrinks the same
     // range rather than starting a new one from where the last one ended.
     if (_anchor === null) _anchor = index;
+    _cursor = index;
     _renderList(dialog);
+  }
+
+  /**
+   * Move through the list from the keyboard.
+   *
+   * Plain arrows move and take the row they land on, Shift+arrows drag the
+   * range out from the anchor — the same two rules as clicking, which is the
+   * point: the mouse and the keyboard should not disagree about what a
+   * selection is.
+   *
+   * @param {number} delta -1 for up, 1 for down
+   * @param {boolean} extend whether Shift is down
+   */
+  function _step(dialog, delta, extend) {
+    var order = _shownOrder();
+    if (order.length === 0) return;
+
+    var at = order.indexOf(_cursor);
+    if (at < 0) at = order.indexOf(_anchor);
+    var next =
+      at < 0
+        ? delta > 0
+          ? 0
+          : order.length - 1
+        : Math.min(order.length - 1, Math.max(0, at + delta));
+
+    var index = order[next];
+    if (extend) {
+      if (_anchor === null) _anchor = _cursor === null ? index : _cursor;
+      _extendTo(dialog, index);
+    } else {
+      _pickOnly(dialog, index);
+    }
+    _focusRow(dialog, index);
+  }
+
+  /** Put the keyboard on a row and bring it into view. */
+  function _focusRow(dialog, index) {
+    var row = dialog.querySelector('[data-territory="' + index + '"]');
+    if (!row) return;
+    if (row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+    var button = D.role(row, "go");
+    if (!button || !button.focus) return;
+    try {
+      button.focus({ preventScroll: true });
+    } catch (e) {
+      button.focus();
+    }
   }
 
   /**
@@ -1014,14 +1159,8 @@ App.labels = (function () {
    * except the mouse is not a keyboard feature.
    */
   function _selectAllShown(dialog) {
-    var shown = (s.clusters || [])
-      .map(function (entry, index) {
-        return _rows[index] || _describe(entry, index);
-      })
-      .filter(_matchesFilter);
-    var indices = shown.map(function (row) {
-      return row.index;
-    });
+    _beforeClick = null;
+    var indices = _shownOrder();
 
     var already = indices.every(function (index) {
       return _picked.indexOf(index) >= 0;
@@ -1036,6 +1175,7 @@ App.labels = (function () {
       });
     }
     _anchor = indices.length ? indices[indices.length - 1] : null;
+    _cursor = _anchor;
     _renderList(dialog);
   }
 
