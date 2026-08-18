@@ -129,6 +129,9 @@
     // After polygons and outline: it subtracts the territories from the
     // boundary, and both of those are what change underneath it.
     App.gaps.init();
+    // Beside gaps rather than beside labels: both are repairs to the coverage
+    // rather than descriptions of it, and both write through setClusters.
+    App.autoheal.init();
     App.print.init();
     App.boundary.init();
     // Before controls.init: Leaflet stacks a corner's controls in the order

@@ -102,7 +102,7 @@
     "notLoaded": "Granica ustawiona",
     "hintNotLoaded": "Brak danych OSM — użyj przycisku Odśwież na pasku narzędzi, aby je pobrać.",
     "clustersHelp": "Pokaż listę terenów",
-    "clustersWarn": "Niektóre tereny trudno znaleźć na mapie — otwórz listę",
+    "clustersWarn": "Niektóre tereny wymagają uwagi — otwórz listę",
     "gapsLabel": "Bez terenu",
     "gapsHelp": "Obszary wewnątrz granicy nienależące do żadnego terenu — kliknij, aby powiększyć największy"
   },
@@ -117,6 +117,7 @@
     "partitionStatus": "Duże obszary zajmują kilka sekund.",
     "cutting": "Cięcie terenów…",
     "merging": "Łączenie terenów…",
+    "healing": "Naprawianie terenów…",
     "dissolving": "Usuwanie wspólnych granic…",
     "progress": "Teren {index} z {total}",
     "retryIn": {
@@ -398,6 +399,7 @@
     "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
+    "healFailed": "Nie udało się naprawić tych terenów.",
     "partitionFailed": "Podział nie powiódł się: {message}",
     "clearPrintedConfirm": {
       "one": "Usunąć oznaczenie wydruku z {count} terenu? Tej operacji nie można cofnąć.",
@@ -430,10 +432,15 @@
     "areaUnknown": "Nieznana powierzchnia",
     "warnTiny": "Zbyt małe przy tym powiększeniu: {n}.",
     "warnSplit": "Złożone z osobnych części: {n}.",
+    "warnEmpty": "Bez budynków: {n}.",
     "flagPrinted": "Karta już wydrukowana",
     "flagSplit": "Składa się z {n} części",
     "flagTiny": "Zbyt małe przy tym powiększeniu",
-    "print": "Wydrukuj tę kartę"
+    "flagEmpty": "Brak budynków w środku",
+    "print": "Wydrukuj tę kartę",
+    "fix": "Napraw ten teren",
+    "fixAll": "Napraw wszystkie",
+    "fixAllHint": "Podziel tereny złożone z części i przyłącz puste do sąsiada"
   },
   "feature": {
     "building": "Budynek",

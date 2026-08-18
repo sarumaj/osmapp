@@ -6,18 +6,6 @@
  * disagreement: every counted territory gets a chip (a territory with no chip
  * is the original bug wearing a new hat), and a territory drawn in more than
  * one piece gets one chip per piece, all carrying the same number.
- *
- * The rest is about the chip being a handle on its territory rather than a
- * label about it. Three things fail quietly there. The chips share a layer
- * group with the territories themselves, so a rebuild that clears the group
- * instead of its own markers wipes the map. The click,
- * hover and context menu come from polygons.attachProxyEvents rather than
- * from a second copy of the handlers, so what has to be checked is that they
- * are wired to the *shape*, not to the marker. And in cut mode the chip has
- * to stop taking the pointer, or it catches the knife.
- *
- * Everything here runs against stubs; the point is the bookkeeping, not
- * Leaflet.
  */
 
 import test from "node:test";
@@ -326,7 +314,34 @@ test("a territory big enough to see is not flagged", () => {
 
 test("nothing to warn about is nothing to say", () => {
   const App = setup([polygon(0, 0, 1), polygon(2, 0, 1)]);
-  assert.deepEqual(App.labels.warnings(), { tiny: 0, split: 0, total: 0 });
+  assert.deepEqual(App.labels.warnings(), {
+    tiny: 0,
+    split: 0,
+    empty: 0,
+    total: 0,
+  });
+});
+
+// ── The case that looks fine on the map ──────────────────────────────────────
+
+test("a territory with no buildings is counted as a warning", () => {
+  // Unlike tiny and split, this one does not explain a discrepancy between the
+  // count and the picture. Nothing about it looks wrong until somebody is
+  // handed the card, which is why it has to be said out loud.
+  const App = setup([polygon(0, 0, 1), polygon(2, 0, 1)]);
+  App.autoheal = { isEmpty: (entry) => entry === App.state.clusters[1] };
+
+  const warn = App.labels.warnings();
+  assert.equal(warn.empty, 1);
+  assert.equal(warn.total, 1);
+});
+
+test("a territory nobody has counted yet is not called empty", () => {
+  // isEmpty answers null before the buildings are downloaded, and reading that
+  // as "no buildings" would flag every territory on a fresh map.
+  const App = setup([polygon(0, 0, 1)]);
+  App.autoheal = { isEmpty: () => null };
+  assert.equal(App.labels.warnings().empty, 0);
 });
 
 // ── The number the print dialog borrows ──────────────────────────────────────

@@ -1859,7 +1859,10 @@ body {
   cursor: pointer;
 }
 
-.territory-row__print {
+/* Print and the repair wand are the same kind of thing — an action on one
+   row, sitting outside the button that navigates — so they share everything
+   but their color. */
+.territory-row__action {
   flex: 0 0 auto;
   padding: 0 12px;
   border: 0;
@@ -1869,10 +1872,20 @@ body {
   font: inherit;
   cursor: pointer;
 }
-.territory-row__print:hover,
-.territory-row__print:focus-visible {
+.territory-row__action:hover,
+.territory-row__action:focus-visible {
   background: rgba(155, 89, 182, 0.12);
   color: var(--c-cluster);
+}
+/* The wand carries the color of the flag it clears, so the fault and the
+   thing that fixes it read as one pair rather than as two decorations. */
+.territory-row__fix {
+  color: #b9770e;
+}
+.territory-row__fix:hover,
+.territory-row__fix:focus-visible {
+  background: rgba(185, 119, 14, 0.14);
+  color: #935b09;
 }
 .territory-row:hover,
 .territory-row:focus-visible {
@@ -1922,6 +1935,9 @@ body {
 }
 .territory-row__flag.is-tiny {
   color: #c0392b;
+}
+.territory-row__flag.is-empty {
+  color: #2471a3;
 }
 
 /* ═══════════════════════════════════════════════════════════

@@ -102,7 +102,7 @@
     "notLoaded": "Boundary set",
     "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it.",
     "clustersHelp": "Show the list of territories",
-    "clustersWarn": "Some territories are hard to spot on the map — open the list",
+    "clustersWarn": "Some territories need a second look — open the list",
     "gapsLabel": "Uncovered",
     "gapsHelp": "Areas inside the boundary that are in no territory — click to zoom to the largest"
   },
@@ -117,6 +117,7 @@
     "partitionStatus": "Large areas take a few seconds.",
     "cutting": "Cutting territories…",
     "merging": "Merging territories…",
+    "healing": "Repairing territories…",
     "dissolving": "Dissolving shared boundaries…",
     "progress": "Territory {index} of {total}",
     "retryIn": "Overpass is busy — retrying in {count} s (attempt {attempt} of {total})",
@@ -373,6 +374,7 @@
     "cutNoSeparation": "The line crossed a territory but did not separate it. Draw right across, from one boundary to the other.",
     "mergeTooFew": "Select at least two territories to merge.",
     "mergeFailed": "Could not merge those territories.\n\n{message}",
+    "healFailed": "Those territories could not be repaired.",
     "partitionFailed": "The partition failed: {message}",
     "clearPrintedConfirm": {
       "one": "Clear the printed mark on {count} territory? This cannot be undone.",
@@ -401,10 +403,15 @@
     "areaUnknown": "Area unknown",
     "warnTiny": "Too small to see at this zoom: {n}.",
     "warnSplit": "Drawn in separate pieces: {n}.",
+    "warnEmpty": "Without any buildings: {n}.",
     "flagPrinted": "Card already printed",
     "flagSplit": "In {n} separate pieces",
     "flagTiny": "Too small to see at this zoom",
-    "print": "Print this card"
+    "flagEmpty": "No buildings inside",
+    "print": "Print this card",
+    "fix": "Repair this territory",
+    "fixAll": "Fix all",
+    "fixAllHint": "Split territories drawn in pieces, and give empty ones to a neighbor"
   },
   "feature": {
     "building": "Building",

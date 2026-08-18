@@ -388,16 +388,26 @@ App.labels = (function () {
   }
 
   /**
-   * Why the count and the map might disagree, as two numbers.
+   * Why a territory is worth a second look, as three numbers.
    *
-   * `tiny` is territories with no part big enough to notice at this zoom;
-   * `split` is territories drawn as more than one shape. Both are legitimate
-   * states, not errors — but both are worth saying out loud next to a number
-   * somebody is trying to reconcile with their eyes.
+   * `tiny` is territories with no part big enough to notice at this zoom and
+   * `split` is territories drawn as more than one shape: both explain a
+   * disagreement between the count in the info panel and what can be counted
+   * on screen, and both are legitimate states rather than errors.
+   *
+   * `empty` is different in kind. A territory with no buildings in it is not
+   * a counting problem — it looks perfectly ordinary on the map — it is a card
+   * that sends somebody to walk a strip of embankment. It is read live off the
+   * cluster entries rather than off `_rows`, because the counts are filled in
+   * by refreshFilteredData *after* the rows are built.
+   *
+   * All three are what App.autoheal repairs, or declines to; see there for
+   * why `tiny` is the one it leaves alone.
    */
   function warnings() {
     var tiny = 0;
     var split = 0;
+    var empty = 0;
     _rows.forEach(function (row) {
       if (row.parts > 1) split++;
       if (
@@ -407,8 +417,20 @@ App.labels = (function () {
         })
       )
         tiny++;
+      if (_isEmpty(row.index)) empty++;
     });
-    return { tiny: tiny, split: split, total: tiny + split };
+    return {
+      tiny: tiny,
+      split: split,
+      empty: empty,
+      total: tiny + split + empty,
+    };
+  }
+
+  /** Whether territory `index` holds no buildings; false when unknowable. */
+  function _isEmpty(index) {
+    if (!App.autoheal) return false;
+    return App.autoheal.isEmpty((s.clusters || [])[index]) === true;
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -478,6 +500,39 @@ App.labels = (function () {
     node.setAttribute("title", title);
     node.setAttribute("aria-label", title);
     host.appendChild(node);
+  }
+
+  /**
+   * Run the repair, then rebuild the list around what it did.
+   *
+   * Rebuilt rather than patched, for two reasons. A heal renumbers everything
+   * after the first territory it changes, so every row below the one that was
+   * clicked is now about a different territory — patching would leave the
+   * numbers lying. And the flags that have disappeared are the report: there
+   * is no summary to read, because the list itself is the summary.
+   *
+   * The work is deferred by a tick so the spinner is actually painted before
+   * turf starts, which is the same 30 ms editing.js buys for a merge.
+   *
+   * @param {number|null} index one territory, or null for all of them
+   */
+  function _fix(index) {
+    if (!App.autoheal) return;
+    App.ui.showBusy(T("loading.healing"));
+    window.setTimeout(function () {
+      var report = null;
+      try {
+        report = App.autoheal.heal(index === null ? undefined : index);
+      } catch (e) {
+        console.error(">>> Autoheal failed:", e);
+      }
+      App.ui.hideOverlay();
+      if (!report) {
+        alert(T("alert.healFailed"));
+        return;
+      }
+      openList();
+    }, 30);
   }
 
   /**
@@ -551,8 +606,24 @@ App.labels = (function () {
     var notes = [];
     if (warn.tiny > 0) notes.push(T("list.warnTiny", { n: warn.tiny }));
     if (warn.split > 0) notes.push(T("list.warnSplit", { n: warn.split }));
+    if (warn.empty > 0) notes.push(T("list.warnEmpty", { n: warn.empty }));
     D.text(dialog, "notes", notes.join(" "));
     D.toggleRole(dialog, "notes", notes.length > 0);
+
+    // The repair offer, per row and for the list as a whole. `fixable` is not
+    // the same as `flagged`: a territory too small to see is flagged and not
+    // fixable, and an empty one with no populated neighbor to hand itself to
+    // is flagged and not fixable either. A button that runs and changes
+    // nothing teaches people to distrust the one that works.
+    var audit = App.autoheal ? App.autoheal.audit() : { rows: [], fixable: 0 };
+    var fixable = {};
+    audit.rows.forEach(function (issue) {
+      if (issue.fixable) fixable[issue.index] = true;
+    });
+    D.toggleRole(dialog, "fix-all", audit.fixable > 0);
+    D.onRole(dialog, "fix-all", function () {
+      _fix(null);
+    });
 
     var host = D.role(dialog, "rows");
     host.textContent = "";
@@ -593,6 +664,13 @@ App.labels = (function () {
         })
       )
         _flag(flags, "fa-magnifying-glass-plus", "is-tiny", T("list.flagTiny"));
+      if (_isEmpty(row.index))
+        _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
+
+      D.toggle(D.role(node, "fix"), !!fixable[row.index]);
+      D.onRole(node, "fix", function () {
+        _fix(row.index);
+      });
 
       D.onRole(node, "go", function () {
         App.ui.closeDialog();

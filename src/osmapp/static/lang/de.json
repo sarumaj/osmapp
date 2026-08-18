@@ -102,7 +102,7 @@
     "notLoaded": "Grenze gesetzt",
     "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen.",
     "clustersHelp": "Liste der Gebiete anzeigen",
-    "clustersWarn": "Einige Gebiete sind auf der Karte schwer zu finden — Liste öffnen",
+    "clustersWarn": "Einige Gebiete brauchen einen zweiten Blick — Liste öffnen",
     "gapsLabel": "Nicht abgedeckt",
     "gapsHelp": "Flächen innerhalb der Grenze, die in keinem Gebiet liegen — klicken, um zur größten zu springen"
   },
@@ -117,6 +117,7 @@
     "partitionStatus": "Große Flächen dauern einige Sekunden.",
     "cutting": "Gebiete werden geschnitten…",
     "merging": "Gebiete werden zusammengeführt…",
+    "healing": "Gebiete werden repariert…",
     "dissolving": "Gemeinsame Grenzen werden aufgelöst…",
     "progress": "Gebiet {index} von {total}",
     "retryIn": "Overpass ist ausgelastet — neuer Versuch in {count} s (Versuch {attempt} von {total})",
@@ -373,6 +374,7 @@
     "cutNoSeparation": "Die Linie hat ein Gebiet gekreuzt, es aber nicht geteilt. Ziehe sie ganz durch, von einer Grenze zur anderen.",
     "mergeTooFew": "Wähle mindestens zwei Gebiete zum Zusammenführen aus.",
     "mergeFailed": "Diese Gebiete konnten nicht zusammengeführt werden.\n\n{message}",
+    "healFailed": "Diese Gebiete konnten nicht repariert werden.",
     "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}",
     "clearPrintedConfirm": {
       "one": "Die Druckmarkierung von {count} Gebiet entfernen? Das lässt sich nicht rückgängig machen.",
@@ -401,10 +403,15 @@
     "areaUnknown": "Fläche unbekannt",
     "warnTiny": "Bei dieser Zoomstufe zu klein: {n}.",
     "warnSplit": "Aus mehreren Teilen: {n}.",
+    "warnEmpty": "Ohne Gebäude: {n}.",
     "flagPrinted": "Karte bereits gedruckt",
     "flagSplit": "Besteht aus {n} Teilen",
     "flagTiny": "Bei dieser Zoomstufe zu klein",
-    "print": "Diese Karte drucken"
+    "flagEmpty": "Enthält keine Gebäude",
+    "print": "Diese Karte drucken",
+    "fix": "Dieses Gebiet reparieren",
+    "fixAll": "Alle reparieren",
+    "fixAllHint": "Mehrteilige Gebiete aufteilen und leere einem Nachbarn zuschlagen"
   },
   "feature": {
     "building": "Gebäude",

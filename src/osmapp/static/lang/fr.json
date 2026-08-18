@@ -102,7 +102,7 @@
     "notLoaded": "Limite définie",
     "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger.",
     "clustersHelp": "Afficher la liste des territoires",
-    "clustersWarn": "Certains territoires sont difficiles à repérer — ouvrir la liste",
+    "clustersWarn": "Certains territoires méritent un second regard — ouvrir la liste",
     "gapsLabel": "Non couvert",
     "gapsHelp": "Zones à l’intérieur de la limite qui ne sont dans aucun territoire — cliquez pour zoomer sur la plus grande"
   },
@@ -117,6 +117,7 @@
     "partitionStatus": "Les grandes zones prennent quelques secondes.",
     "cutting": "Découpage des territoires…",
     "merging": "Fusion des territoires…",
+    "healing": "Réparation des territoires…",
     "dissolving": "Dissolution des limites communes…",
     "progress": "Territoire {index} sur {total}",
     "retryIn": "Overpass est occupé — nouvelle tentative dans {count} s (tentative {attempt} sur {total})",
@@ -373,6 +374,7 @@
     "cutNoSeparation": "La ligne a traversé un territoire mais ne l'a pas séparé. Tracez en travers, d'une limite à l'autre.",
     "mergeTooFew": "Sélectionnez au moins deux territoires à fusionner.",
     "mergeFailed": "Impossible de fusionner ces territoires.\n\n{message}",
+    "healFailed": "Ces territoires n’ont pas pu être réparés.",
     "partitionFailed": "La partition a échoué : {message}",
     "clearPrintedConfirm": {
       "one": "Effacer la marque d'impression sur {count} territoire ? Cette action est irréversible.",
@@ -401,10 +403,15 @@
     "areaUnknown": "Superficie inconnue",
     "warnTiny": "Trop petits à ce niveau de zoom : {n}.",
     "warnSplit": "En plusieurs morceaux : {n}.",
+    "warnEmpty": "Sans aucun bâtiment : {n}.",
     "flagPrinted": "Carte déjà imprimée",
     "flagSplit": "En {n} morceaux séparés",
     "flagTiny": "Trop petit à ce niveau de zoom",
-    "print": "Imprimer cette fiche"
+    "flagEmpty": "Aucun bâtiment à l’intérieur",
+    "print": "Imprimer cette fiche",
+    "fix": "Réparer ce territoire",
+    "fixAll": "Tout réparer",
+    "fixAllHint": "Séparer les territoires en morceaux et confier les vides à un voisin"
   },
   "feature": {
     "building": "Bâtiment",

@@ -233,10 +233,14 @@ App.ui = (function () {
   }
 
   /**
-   * A quiet mark next to the count when it is going to disagree with what the
-   * map shows — territories too small to see at this zoom, or drawn in more
-   * than one piece. Without it the number looks wrong; with it the number
-   * looks explained, and the explanation is one click away.
+   * A quiet mark next to the count when a territory is worth a second look —
+   * one too small to see at this zoom, one drawn in more than one piece, one
+   * with no buildings in it at all. The first two explain a count that
+   * disagrees with what the map shows: without the mark the number looks
+   * wrong, with it the number looks explained. The third explains nothing and
+   * is the one that matters most, because an empty territory looks entirely
+   * ordinary right up until somebody is handed the card. All three are one
+   * click away in the list, which is also where they can be repaired.
    */
   function _syncClusterWarning() {
     var warn = App.labels ? App.labels.warnings() : null;
