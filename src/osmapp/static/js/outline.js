@@ -560,6 +560,15 @@ App.outline = (function () {
       toggle();
     }
 
+    // Replacing the boundary clips every territory against it and then
+    // re-tests every building — the heaviest thing in the app after the
+    // partition itself, and the only one of them that never said so.
+    App.ui.busy("loading.boundary", function () {
+      _swap(poly, grew);
+    });
+  }
+
+  function _swap(poly, grew) {
     var stats = App.polygons.replaceOuter(poly);
     if (!stats) {
       alert(T("outline.failed"));

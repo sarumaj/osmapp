@@ -99,7 +99,10 @@ function setup({ clusters = [], outer = box(0, 0, 0.02, 0.02) } = {}) {
   App.dom = {};
   App.controls = { refresh: noop };
   App.history = { push: noop };
-  App.ui = { showContextMenu: noop };
+  // busy() runs its work inline here. In the browser it decides whether the
+  // job is heavy enough to put a spinner in front of and defer a tick for;
+  // what these tests are about is what the work does, not when.
+  App.ui = { showContextMenu: noop, busy: (key, work) => work() };
   // The one thing the real module cannot do here is build a Leaflet layer.
   App.geometry.getOuterFeature = () => outer;
   App.polygons = {

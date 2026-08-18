@@ -325,25 +325,117 @@
         class="app-dialog territory-list"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="territory-list-title"
         tabindex="-1"
       >
-        <h2 class="app-dialog__title" data-i18n="list.title">Territories</h2>
+        <h2
+          class="app-dialog__title"
+          id="territory-list-title"
+          data-i18n="list.title"
+        >
+          Territories
+        </h2>
         <p class="app-dialog__hint" data-role="total"></p>
         <p class="territory-list__notes" data-role="notes" hidden></p>
         <label class="territory-list__toggle">
           <input type="checkbox" data-role="show-numbers" />
           <span data-i18n="list.showNumbers">Show the numbers on the map</span>
         </label>
-        <div class="territory-list__rows" data-role="rows"></div>
+        <!-- Finding one row among ninety-nine. Each chip is one question
+             with three answers — don't care, only these, only the others —
+             so they combine: "printed, and still has something wrong with
+             it" is two clicks and needs no entry of its own. A drop-down
+             could only ever offer one axis at a time, and next to the jump
+             button it read as an unrelated control rather than as the other
+             half of the same tool. The labels carry the state in words
+             because a chip that says "No issues" needs no legend. -->
+        <div
+          class="territory-list__find"
+          role="group"
+          data-i18n-attrs="aria-label=list.filterGroup"
+        >
+          <button
+            type="button"
+            class="territory-list__chip"
+            data-role="chip"
+            data-axis="repair"
+            aria-pressed="false"
+          >
+            <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i>
+            <span data-role="chip-label"></span>
+          </button>
+          <button
+            type="button"
+            class="territory-list__chip"
+            data-role="chip"
+            data-axis="printed"
+            aria-pressed="false"
+          >
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span data-role="chip-label"></span>
+          </button>
+          <button
+            type="button"
+            class="territory-list__chip territory-list__jump"
+            data-role="jump"
+            data-i18n-attrs="title=list.jumpHint;aria-label=list.jumpHint"
+            hidden
+          >
+            <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+            <span data-role="jump-count"></span>
+          </button>
+        </div>
+        <!-- Always present and never hidden: a live region that is added to
+             the page at the moment it gains text is not reliably announced,
+             so it is empty rather than absent when there is nothing to say. -->
+        <p class="territory-list__status" data-role="outcome" role="status"></p>
+        <div class="territory-list__rows" data-role="rows" role="list"></div>
         <p
-          class="app-dialog__hint"
+          class="app-dialog__hint territory-list__nothing"
           data-role="empty"
           data-i18n="list.empty"
           hidden
         >
           No territories yet.
         </p>
+        <p
+          class="app-dialog__hint territory-list__nothing"
+          data-role="no-match"
+          data-i18n="list.noMatch"
+          hidden
+        >
+          Nothing matches that filter.
+        </p>
         <div class="app-dialog__actions">
+          <!-- What is selected, and the way out of it. The selection outlives
+               the dialog — closing hands it to the map, where merge and
+               delete act on it — so saying how big it is before you close is
+               the difference between a deliberate hand-over and a surprise. -->
+          <span
+            class="territory-list__selection"
+            data-role="selection"
+            aria-live="polite"
+            hidden
+          ></span>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="clear-selection"
+            data-i18n="list.clearSelection"
+            hidden
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="fix-all"
+            data-i18n="list.fixAll"
+            data-i18n-attrs="title=list.fixAllHint"
+            hidden
+          >
+            Fix all
+          </button>
           <button
             type="button"
             class="btn btn--primary"
@@ -356,22 +448,41 @@
       </div>
     </template>
 
-    <!-- Each territory row has two actions: the main button navigates to
-         the territory on the map, and the print button beside it generates
-         a printable card for that territory. -->
+    <!-- Each territory row has up to three actions: the main button
+         navigates to the territory on the map, the print button beside it
+         generates a printable card for that territory, and the wand — shown
+         only on a row whose fault App.autoheal can actually repair — splits
+         a territory drawn in pieces or hands an empty one to a neighbor. -->
     <template id="tpl-territory-row">
-      <div class="territory-row-wrap">
+      <div class="territory-row-wrap" role="listitem">
         <button type="button" class="territory-row" data-role="go">
           <span class="territory-row__num" data-role="num"></span>
           <span class="territory-row__body">
             <span class="territory-row__main" data-role="main"></span>
             <span class="territory-row__meta" data-role="meta"></span>
           </span>
+          <!-- Inside the button, so that hovering a flag hovers the row and
+               clicking one clicks through to it. They were briefly outside it
+               to make room for a flag that was itself a button; that flag is
+               gone, and with it the reason. -->
           <span class="territory-row__flags" data-role="flags"></span>
+          <!-- The selected state is a color and a border, which is nothing at
+               all to a screen reader. This says it in words and is hidden
+               from everybody who can already see it. -->
+          <span class="sr-only" data-role="selected-note"></span>
         </button>
         <button
           type="button"
-          class="territory-row__print"
+          class="territory-row__action territory-row__fix"
+          data-role="fix"
+          data-i18n-attrs="title=list.fix;aria-label=list.fix"
+          hidden
+        >
+          <i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="territory-row__action"
           data-role="print"
           data-i18n-attrs="title=list.print;aria-label=list.print"
         >
@@ -558,6 +669,17 @@
             data-i18n="merge.clear"
           >
             Clear
+          </button>
+          <!-- Merge is not the only thing a selection is for, and it was the
+               only thing this bar offered: deleting fourteen territories
+               meant fourteen trips through a context menu. -->
+          <button
+            type="button"
+            class="btn btn--danger"
+            data-role="delete"
+            data-i18n="merge.deleteSelected"
+          >
+            Delete
           </button>
           <button
             type="button"
@@ -1471,6 +1593,7 @@
     <script src="{{ url_for('static', filename='js/trim.js') }}"></script>
     <script src="{{ url_for('static', filename='js/outline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/gaps.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/autoheal.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print.js') }}"></script>
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>

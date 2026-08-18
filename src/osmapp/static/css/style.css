@@ -125,6 +125,10 @@ body {
 #loading-overlay {
   display: flex;
   position: fixed;
+  /* Leaflet puts `grab` on its container and everything mounted over the map
+     inherits it, so waiting for a partition looked like the map was ready to
+     be dragged. It is not: it is busy, and the pointer should say which. */
+  cursor: progress;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   z-index: var(--z-overlay);
@@ -309,6 +313,10 @@ body {
 }
 
 .app-dialog {
+  /* Same inheritance, same wrongness: a dialog is not a draggable map, and a
+     hand cursor over a paragraph of text invites a gesture that does nothing.
+     Anything in here that *is* draggable or clickable says so for itself. */
+  cursor: default;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1797,15 +1805,160 @@ body {
 }
 
 /* ── The list ──────────────────────────────────────────────────────────── */
+/* A fixed-height column, the way the print dialog is one: title, controls,
+   then a body that takes whatever is left, then the actions.
+
+   It used to be sized by its contents, so every filter click resized the
+   dialog under the pointer — narrowing ninety-nine rows to one shrank it to a
+   third of its height and moved the chips you were clicking. A repair did the
+   same, and so did the outcome line appearing. The rows box absorbs all of it
+   now, which is also what makes the scroll position worth restoring. */
+/* A column that can be clamped, the way the print dialog is one: title,
+   controls, then a body that takes what is left, then the actions.
+
+   Not a *fixed* height, which is where this first landed. Filtering must not
+   resize the dialog — the chips sit above the rows and the dialog is centred,
+   so any change in height moves the control you just clicked out from under
+   the pointer. But answering that with one constant height meant a
+   five-territory project, which is what every first-time visitor sees, opened
+   a 600 px dialog four fifths of which was empty box. Nothing else here has a
+   hard height: the shortcut sheet caps its scroller, print and place clamp the
+   whole dialog to the viewport and let a flex body absorb the rest.
+
+   So the height is pinned to the list it opened with — see labels.js — and
+   capped below. Filtering cannot shrink it, and a short list is still a short
+   dialog. */
 .territory-list {
-  min-width: 320px;
-  max-width: 380px;
+  /* The width is stated outright rather than left to the content, because the
+     rows carry numbers of wildly different widths ("Buildings: 141 · Streets:
+     42" against "Buildings: 0 · Streets: 0"), so filtering to a different set
+     of rows moved the dialog's edge by eight pixels and took the chips with
+     it. Unlike the height there is nothing to preserve here — one number suits
+     every list — so this one belongs in the stylesheet.
+     min-width: 0 overrides the 340px floor every app-dialog carries, so a
+     narrow phone gets a narrower dialog instead of one hanging off the side,
+     and border-box makes the number below the width you can actually measure
+     rather than that plus the padding and the border. */
+  box-sizing: border-box;
+  width: min(380px, 94vw);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  max-height: 92vh;
+  overflow: hidden;
 }
 
 .territory-list__notes {
   margin: 4px 0 0;
   font-size: var(--ui-fs-sm);
   color: #c0392b;
+}
+
+/* The find bar. One row of chips that all look and behave alike, because
+   they are all the same kind of thing: three questions about what to show and
+   one button that walks what is left. Wrapping rather than scrolling, since a
+   filter you cannot see is a filter you forget is on. */
+.territory-list__find {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+
+/* Three states, and the label says which — so the color is reinforcement
+   rather than the only channel. Neutral is an outline, "only these" fills
+   with the color the matching flag already uses on the row, and "only the
+   others" keeps the outline and strikes the icon through. */
+.territory-list__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text-dim);
+  font: var(--ui-fs-sm) / 1.6 var(--ui-font);
+  cursor: pointer;
+}
+.territory-list__chip:hover,
+.territory-list__chip:focus-visible {
+  background: var(--c-surface-hover);
+}
+.territory-list__chip[aria-pressed="true"] {
+  border-color: currentColor;
+  font-weight: 600;
+}
+.territory-list__chip[data-state="only"][data-axis="repair"] {
+  color: #b9770e;
+  background: rgba(185, 119, 14, 0.12);
+}
+.territory-list__chip[data-state="only"][data-axis="printed"] {
+  color: #1e8449;
+  background: rgba(30, 132, 73, 0.12);
+}
+/* "Everything except these". The icon is struck through rather than the
+   label, so the word stays readable at this size. */
+.territory-list__chip[data-state="not"] i {
+  position: relative;
+  opacity: 0.75;
+}
+.territory-list__chip[data-state="not"] i::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 50%;
+  border-top: 2px solid currentColor;
+  transform: rotate(-20deg);
+}
+
+.territory-list__jump {
+  margin-left: auto;
+  color: var(--c-cluster);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Pushed to the left of the actions so the buttons keep their right edge. */
+.territory-list__selection {
+  margin-right: auto;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+
+/* A selected row keeps its own colors and gains an edge, because the rows
+   already use the territory purple for hover and a second purple would be
+   two meanings on one channel. */
+.territory-row-wrap[data-selected="1"] {
+  background: rgba(108, 52, 131, 0.1);
+  box-shadow: inset 3px 0 0 var(--c-cluster);
+}
+
+/* Announced, never shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The live region. Empty for most of the dialog's life and laid out as if it
+   were not there, because a region that is added to the page when it gains
+   text is not reliably announced — so it is always present and usually
+   silent. */
+.territory-list__status {
+  margin: 0;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+.territory-list__status:empty {
+  display: none;
 }
 
 .territory-list__toggle {
@@ -1817,11 +1970,20 @@ body {
   cursor: pointer;
 }
 
-/* Capped rather than unbounded: 200 territories is a legal partition and a
-   dialog taller than the screen is not. */
+/* The part that gives. Capped like the shortcut sheet's scroller — 200
+   territories is a legal partition and a dialog taller than the screen is not
+   — and able to shrink below that cap when the dialog itself is clamped to a
+   short window, which is what flex plus min-height: 0 buys. Its floor is set
+   in JavaScript from the list it opened with, so that filtering cannot pull
+   the dialog in around the pointer. */
 .territory-list__rows {
+  flex: 1 1 auto;
+  min-height: 0;
   max-height: min(44vh, 340px);
   overflow-y: auto;
+  /* Reaching the end of the list should not start scrolling the map behind
+     it. The trim panel and the shortcut sheet already say so. */
+  overscroll-behavior: contain;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm, 4px);
   /* Every other dialog ends in a paragraph, and a paragraph brings a bottom
@@ -1832,6 +1994,20 @@ body {
      separation here rather than depending on the margin above it resolving
      the way it should. The two collapse, so the result is still 16px. */
   margin-bottom: 12px;
+}
+/* Nothing to show is not a box with nothing in it: the message says why, and
+   an empty bordered rectangle above it says nothing at all. The box also stops
+   being the flexible one, or it would hold the whole height of a frozen dialog
+   and push the explanation down to sit on the action bar. */
+.territory-list__rows:empty {
+  flex: 0 0 auto;
+  border-color: transparent;
+}
+/* Which makes this the flexible one, so the message stays where the rows
+   would have started and the slack falls below it. */
+.territory-list__nothing {
+  flex: 1 1 auto;
+  margin-top: 0;
 }
 
 /* The rule that used to live on the row itself: it is the row as a whole that
@@ -1859,7 +2035,10 @@ body {
   cursor: pointer;
 }
 
-.territory-row__print {
+/* Print and the repair wand are the same kind of thing — an action on one
+   row, sitting outside the button that navigates — so they share everything
+   but their color. */
+.territory-row__action {
   flex: 0 0 auto;
   padding: 0 12px;
   border: 0;
@@ -1869,12 +2048,28 @@ body {
   font: inherit;
   cursor: pointer;
 }
-.territory-row__print:hover,
-.territory-row__print:focus-visible {
+.territory-row__action:hover,
+.territory-row__action:focus-visible {
   background: rgba(155, 89, 182, 0.12);
   color: var(--c-cluster);
 }
-.territory-row:hover,
+/* The wand carries the color of the flag it clears, so the fault and the
+   thing that fixes it read as one pair rather than as two decorations. */
+.territory-row__fix {
+  color: #b9770e;
+}
+.territory-row__fix:hover,
+.territory-row__fix:focus-visible {
+  background: rgba(185, 119, 14, 0.14);
+  color: #935b09;
+}
+/* On the wrap rather than on the button inside it. The button stops where the
+   print and repair buttons begin, so hovering a row lit up everything as far
+   as the first of them and then stopped — against a selected row, which is
+   colored across its whole width, it read as a rendering fault. */
+.territory-row-wrap:hover {
+  background: rgba(155, 89, 182, 0.12);
+}
 .territory-row:focus-visible {
   background: rgba(155, 89, 182, 0.12);
 }
@@ -1920,8 +2115,8 @@ body {
 .territory-row__flag.is-split {
   color: #b9770e;
 }
-.territory-row__flag.is-tiny {
-  color: #c0392b;
+.territory-row__flag.is-empty {
+  color: #2471a3;
 }
 
 /* ═══════════════════════════════════════════════════════════

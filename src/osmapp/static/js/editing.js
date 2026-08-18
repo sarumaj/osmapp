@@ -1099,6 +1099,13 @@ App.editing = (function () {
         disabled: s.selectedClusters.length === 0,
         onClick: _clearSelection,
       },
+      {
+        labelKey: "merge.deleteSelected",
+        icon: "fa-trash",
+        danger: true,
+        disabled: s.selectedClusters.length === 0,
+        onClick: deleteSelectedClusters,
+      },
       { separator: true },
       {
         labelKey: "merge.cancel",
@@ -1451,6 +1458,74 @@ App.editing = (function () {
     if (_selectionIndex(layer) < 0) handleClusterSelectClick(layer, feature);
   }
 
+  /**
+   * Hold a selection that was built somewhere else — the territory list.
+   *
+   * The list is a far better place to pick fourteen territories out of ninety-
+   * nine than the map is, and merge mode is where a live selection already
+   * lives: it paints the shapes, counts them, gives Ctrl+Z something to walk
+   * back and puts the actions within reach. So the list does the picking and
+   * hands the result here rather than growing a second selection of its own,
+   * which would be two ideas of "selected" and one of them wrong.
+   *
+   * Replaces whatever was selected rather than adding to it: the list showed a
+   * set and the map should show that set, not the union of two answers taken
+   * minutes apart.
+   *
+   * @param {{layer: Object, feature: Object}[]} items
+   * @returns {boolean} whether anything is now selected
+   */
+  function selectClusters(items) {
+    var picked = (items || []).filter(function (item) {
+      return item && item.layer && item.feature;
+    });
+    if (picked.length === 0) {
+      // An empty hand-over is still a hand-over: the list is authoritative at
+      // the moment it closes, so clearing the selection in there clears it
+      // here. What it must not do is open a mode to hold nothing.
+      if (s.mergeMode) _clearSelection();
+      return false;
+    }
+
+    if (!s.mergeMode) toggleMergeMode();
+    if (!s.mergeMode) return false;
+
+    _clearSelection();
+    picked.forEach(function (item) {
+      if (_selectionIndex(item.layer) >= 0) return;
+      s.selectedClusters.push({ layer: item.layer, feature: item.feature });
+      App.polygons.selectCluster(item.layer, true);
+    });
+    // Arriving from the list is a fresh start, not a step in the walk the
+    // undo stack is keeping — there is nothing behind it to go back to.
+    _deselected = [];
+    _updateMergeCount();
+    return s.selectedClusters.length > 0;
+  }
+
+  /**
+   * Delete everything currently selected, as one undoable step.
+   *
+   * No confirmation, for the reason gaps.js gives for adopting without one: it
+   * is one click to make and one Ctrl+Z to take back, and a prompt in front of
+   * a gesture that cheap teaches people to click through prompts. The single
+   * delete in the territory's own context menu has never asked either, and two
+   * answers to the same question would be worse than both.
+   */
+  function deleteSelectedClusters() {
+    if (s.selectedClusters.length === 0) return 0;
+    var layers = s.selectedClusters.map(function (item) {
+      return item.layer;
+    });
+    App.ui.busy("loading.deleting", function () {
+      var gone = App.polygons.deleteClusters(layers);
+      // setClusters has already put the selection down and rebuilt every
+      // layer, so there is nothing left for the mode to hold on to.
+      if (gone > 0 && s.mergeMode) toggleMergeMode();
+    });
+    return layers.length;
+  }
+
   function _selectionIndex(layer) {
     for (var i = 0; i < s.selectedClusters.length; i++) {
       if (s.selectedClusters[i].layer === layer) return i;
@@ -1591,6 +1666,9 @@ App.editing = (function () {
     D.onRole(_mergeToolbar, "merge", function () {
       if (canMerge()) mergeSelectedClusters();
     });
+    D.onRole(_mergeToolbar, "delete", function () {
+      if (s.selectedClusters.length > 0) deleteSelectedClusters();
+    });
     D.onRole(_mergeToolbar, "clear", _clearSelection);
     D.onRole(_mergeToolbar, "cancel", toggleMergeMode);
     _updateMergeCount();
@@ -1651,6 +1729,8 @@ App.editing = (function () {
     handleClusterSelectClick: handleClusterSelectClick,
     handleModeContextMenu: handleModeContextMenu,
     mergeSelectedClusters: mergeSelectedClusters,
+    selectClusters: selectClusters,
+    deleteSelectedClusters: deleteSelectedClusters,
     rebuildSnapIndex: rebuildSnapIndex,
   };
 })();

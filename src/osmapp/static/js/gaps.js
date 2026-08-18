@@ -139,6 +139,27 @@ App.gaps = (function () {
     _timer = setTimeout(recompute, delay == null ? 200 : delay);
   }
 
+  /**
+   * Do a scheduled recompute now rather than in two hundred milliseconds.
+   *
+   * For whoever is about to take the busy overlay down. Subtracting a hundred
+   * street-routed territories from the boundary they tile is around a second
+   * of arithmetic that cannot be broken up — turf unions the whole collection
+   * in one call, and unioning it in halves or subtracting the territories one
+   * at a time are both measurably worse — so the only question is whether the
+   * page looks busy while it happens. On the timer it does not: the spinner
+   * comes down, the page looks ready, and then it stops answering. Called
+   * from ui.hideOverlay so that every operation with a spinner absorbs the
+   * work into it, and the ones without keep the timer.
+   *
+   * @returns {boolean} whether there was anything to do
+   */
+  function flush() {
+    if (_timer === null) return false;
+    recompute();
+    return true;
+  }
+
   function recompute() {
     clearTimeout(_timer);
     _timer = null;
@@ -147,6 +168,13 @@ App.gaps = (function () {
     _features = _visible && !_suppressed() ? _find() : [];
     _render();
     if (App.controls) App.controls.refresh();
+    // The info panel's uncovered row is written from this count, and it is
+    // written only when the panel is otherwise redrawn. Every path that
+    // changes the coverage redraws the panel *before* this runs — setClusters
+    // refreshes the panel synchronously and schedules this two hundred
+    // milliseconds later — so without saying so here, adopting a gap left the
+    // panel still counting the gap that had just become a territory.
+    if (App.ui && App.ui.refreshInfo) App.ui.refreshInfo();
   }
 
   function _find() {
@@ -172,6 +200,14 @@ App.gaps = (function () {
     var minimum = s.GAP_MIN_M2 || 200;
     var out = [];
     G.polygonParts(rest).forEach(function (part) {
+      // Opening only ever takes area away — it erodes and grows back, and
+      // never past where it started — so a part already under the floor
+      // cannot come out of it above the floor. Asking anyway is what made
+      // this the slowest thing in the app: subtracting a hundred territories
+      // from the boundary they tile leaves a hairline sliver along every
+      // shared edge, and a healthy partition spent seconds running three
+      // buffers and an intersection over twelve hundred of them to keep one.
+      if (G.area(part) < minimum) return;
       _open(part).forEach(function (piece) {
         if (G.area(piece) >= minimum) out.push(piece);
       });
@@ -542,16 +578,22 @@ App.gaps = (function () {
    */
   function adopt(feature) {
     if (!feature || !feature.geometry) return false;
-    App.history.push();
-    var next = App.polygons.clusterFeatures().concat([
-      {
-        type: "Feature",
-        geometry: feature.geometry,
-        properties: {},
-      },
-    ]);
-    App.polygons.setClusters(next);
-    console.log(">>> Gap adopted —", Math.round(G.area(feature)), "m²");
+    // Adding a territory re-tests every building against every territory,
+    // which is about a second of work on a town-sized project — so it goes
+    // behind a spinner there, and stays immediate everywhere else. See
+    // ui.busy.
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      var next = App.polygons.clusterFeatures().concat([
+        {
+          type: "Feature",
+          geometry: feature.geometry,
+          properties: {},
+        },
+      ]);
+      App.polygons.setClusters(next);
+      console.log(">>> Gap adopted —", Math.round(G.area(feature)), "m²");
+    });
     return true;
   }
 
@@ -565,7 +607,6 @@ App.gaps = (function () {
    */
   function adoptAll() {
     if (!_features.length) return 0;
-    App.history.push();
     var additions = _features.map(function (feature) {
       return {
         type: "Feature",
@@ -574,10 +615,13 @@ App.gaps = (function () {
       };
     });
     var made = additions.length;
-    App.polygons.setClusters(
-      App.polygons.clusterFeatures().concat(additions),
-    );
-    console.log(">>> Adopted", made, "gaps");
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      App.polygons.setClusters(
+        App.polygons.clusterFeatures().concat(additions),
+      );
+      console.log(">>> Adopted", made, "gaps");
+    });
     return made;
   }
 
@@ -608,14 +652,16 @@ App.gaps = (function () {
   function dissolve(feature) {
     if (!feature || !feature.geometry || !s.outerPolygonLayer) return false;
 
-    App.history.push();
-    if (!_dissolveOne(feature)) {
+    // Deferred behind the spinner on a big project, so the answer is
+    // "started" rather than "worked" — the failure below says so for itself.
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      if (_dissolveOne(feature)) return;
       // Nothing moved, so the entry would be a step that undoes nothing —
       // worse than no entry, because Ctrl+Z would then look broken.
       App.history.undo();
       alert(T("gaps.dissolveFailed"));
-      return false;
-    }
+    });
     return true;
   }
 
@@ -816,26 +862,29 @@ App.gaps = (function () {
     var pending = _features.slice();
     var done = 0;
 
-    App.history.push();
-    // Each one re-reads the current territories and boundary, because the one
-    // before it may well have moved both.
-    pending.forEach(function (feature) {
-      if (_dissolveOne(feature)) done++;
-    });
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      // Each one re-reads the current territories and boundary, because the
+      // one before it may well have moved both.
+      pending.forEach(function (feature) {
+        if (_dissolveOne(feature)) done++;
+      });
 
-    if (!done) {
-      App.history.undo();
-      alert(T("gaps.dissolveFailed"));
-      return 0;
-    }
-    recompute();
-    console.log(">>> Dissolved", done, "gaps");
-    return done;
+      if (!done) {
+        App.history.undo();
+        alert(T("gaps.dissolveFailed"));
+        return;
+      }
+      recompute();
+      console.log(">>> Dissolved", done, "gaps");
+    });
+    return pending.length;
   }
 
   return {
     init: init,
     schedule: schedule,
+    flush: flush,
     recompute: recompute,
     count: count,
     totalArea: totalArea,

@@ -198,6 +198,8 @@ App.trim = (function () {
   var _drag = null; // { start, mode } while a rectangle is being dragged
   var _timer = null;
   var _busy = false;
+  // A recompute is scheduled or running. See _schedule.
+  var _pending = false;
 
   function init() {
     s = App.state;
@@ -1612,6 +1614,15 @@ App.trim = (function () {
   /** Recompute after the dust settles; a slider drag fires far too often. */
   function _schedule(delay) {
     clearTimeout(_timer);
+    // Said here rather than in _recompute, which is where it belongs and where
+    // it can never be seen: the proposal is half a second of raster and buffer
+    // work on one synchronous tick, and the browser paints nothing between
+    // being told and being blocked. Announced at the moment the slider moves,
+    // the debounce it is already waiting out becomes the frame it is painted
+    // in — so the toolbar says "working" for the half second it is, instead of
+    // showing the last answer as though it were the current one.
+    _pending = true;
+    _updateStatus();
     _timer = setTimeout(
       _recompute,
       delay === undefined ? s.TRIM_DEBOUNCE_MS || 220 : delay,
@@ -1619,7 +1630,10 @@ App.trim = (function () {
   }
 
   function _recompute() {
-    if (!s.trimMode || _busy || s.trimEdit) return;
+    if (!s.trimMode || _busy || s.trimEdit) {
+      _pending = false;
+      return;
+    }
     _busy = true;
     var started = Date.now();
     try {
@@ -1629,6 +1643,7 @@ App.trim = (function () {
       _result = { error: "failed" };
     }
     _busy = false;
+    _pending = false;
     console.log(">>> Trim proposal in", Date.now() - started, "ms");
     _drawPreview();
     _updateStatus();
@@ -1938,6 +1953,11 @@ App.trim = (function () {
 
   function _scheduleOutliers() {
     clearTimeout(_outlierTimer);
+    // Grouping the buildings and deciding which are outliers is another second
+    // on a town, and it runs before the proposal does. Its own debounce is the
+    // frame the word gets painted in.
+    _pending = true;
+    _updateStatus();
     _outlierTimer = setTimeout(function () {
       _outlierTimer = null;
       if (s.trimMode && !s.trimEdit) markOutliers();
@@ -2022,7 +2042,13 @@ App.trim = (function () {
     var ready = false;
     var status;
 
-    if (!_result) {
+    if (_pending) {
+      // Only the sentence changes. Whether Apply is live is still decided by
+      // the proposal in hand, because the one on screen is still the one that
+      // would be applied until the new one lands.
+      status = T("trim.computing");
+      ready = !!(_result && !_result.error);
+    } else if (!_result) {
       status = T("trim.computing");
     } else if (_result.error) {
       // Spelled out rather than concatenated: a key built at runtime is a key
@@ -2118,6 +2144,15 @@ App.trim = (function () {
     // boundary that is about to be replaced.
     if (s.trimMode) toggle();
 
+    // Replacing the boundary clips every territory against it and then
+    // re-tests every building — the heaviest thing in the app after the
+    // partition itself, and the only one of them that never said so.
+    App.ui.busy("loading.boundary", function () {
+      _swap(poly);
+    });
+  }
+
+  function _swap(poly) {
     var stats = App.polygons.replaceOuter(poly);
     if (!stats) {
       alert(T("trim.failed"));

@@ -559,33 +559,48 @@ App.data = (function () {
 
 
   function _applyImported(payload) {
-    var restored;
-    try {
-      restored = applyPayload(payload);
-    } catch (err) {
-      console.error(">>> Import failed:", err);
-      alert(T("alert.importInvalid", { message: err.message }));
-      return;
-    }
-    if (App.history) App.history.clear();
+    var ok = false;
+    // Behind the spinner for the same reason the session restore is, and with
+    // the same `always` — see session.js. Opening a project is a second of
+    // blocked main thread on a town, plus the gap recount behind it, and
+    // nothing has measured this project yet to say so.
+    App.ui
+      .busy(
+        "loading.importing",
+        function () {
+          var restored;
+          try {
+            restored = applyPayload(payload);
+          } catch (err) {
+            console.error(">>> Import failed:", err);
+            alert(T("alert.importInvalid", { message: err.message }));
+            return;
+          }
+          if (App.history) App.history.clear();
+          ok = true;
 
-    console.log(
-      ">>> Import complete — streets:",
-      s.cachedStreets.features.length,
-      "buildings:",
-      s.cachedBuildings.features.length,
-      "clusters:",
-      restored,
-    );
-
-    // A card carries the boundary and the territories but not the OSM cache,
-    // which is deliberate — see buildAttachmentPayload. Offered rather than
-    // assumed, for the same reason drawing a boundary offers it: the download
-    // is the slow part, and somebody who only wanted to look at last round's
-    // territories should not have to wait for it.
-    if (payload && payload.partial) {
-      confirmAndFetch(payload.outerPolygon);
-    }
+          console.log(
+            ">>> Import complete — streets:",
+            s.cachedStreets.features.length,
+            "buildings:",
+            s.cachedBuildings.features.length,
+            "clusters:",
+            restored,
+          );
+        },
+        { always: true },
+      )
+      .then(function () {
+        // A card carries the boundary and the territories but not the OSM
+        // cache, which is deliberate — see buildAttachmentPayload. Offered
+        // rather than assumed, for the same reason drawing a boundary offers
+        // it: the download is the slow part, and somebody who only wanted to
+        // look at last round's territories should not have to wait for it.
+        //
+        // After the overlay comes down, not under it: this asks a question,
+        // and a dialog behind a spinner is a dialog nobody can answer.
+        if (ok && payload && payload.partial) confirmAndFetch(payload.outerPolygon);
+      });
   }
 
   // ══════════════════════════════════════════════════════════════════════

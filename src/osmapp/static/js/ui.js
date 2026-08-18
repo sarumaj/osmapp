@@ -176,7 +176,76 @@ App.ui = (function () {
     D.text(_overlay, "status", status || "");
   }
 
+  /**
+   * Anything past this and a person notices the page stopped answering.
+   *
+   * The usual figure for "instant" is a tenth of a second; a little over that
+   * is the point where the spinner earns the frame it costs to show.
+   */
+  var SLOW_MS = 120;
+
+  /**
+   * Run work that is about to block the page, with the spinner up for it.
+   *
+   * A synchronous job cannot be preceded by a repaint — the browser draws
+   * nothing until the call stack unwinds — so the only way to show anything
+   * before a second of geometry is to put the spinner up, hand the frame back,
+   * and do the work in the next task. That is what this is: showBusy, a tick,
+   * the work, hideOverlay.
+   *
+   * Which is a bad trade when the work is quick, because the spinner then
+   * flashes for one frame and says nothing. So the project decides: what a
+   * full pass over its own data costs is a fair estimate of what the next
+   * blocking job will cost, and below the threshold this runs the work where
+   * it stands and nothing flashes. A five-territory village never sees a
+   * spinner; the ninety-nine-territory town sees one every time.
+   *
+   * `always` is for the jobs that cannot be decided that way: loading a whole
+   * project is the heaviest thing here — it is what the estimate is measured
+   * *from* — and it happens before there is any estimate to read, on a page
+   * that has just finished drawing itself and looks ready. Nobody reads a
+   * spinner during a page load as a flash; they read a page that stopped
+   * answering as a broken one.
+   *
+   * @param {string} textKey what to say while it runs
+   * @param {function} work the blocking job
+   * @param {{always?: boolean}} [opts] always: defer without asking the project
+   * @returns {Promise} settled once the work has run
+   */
+  function busy(textKey, work, opts) {
+    if (typeof work !== "function") return Promise.resolve();
+    var cost =
+      App.polygons && App.polygons.refreshCostMs
+        ? App.polygons.refreshCostMs()
+        : 0;
+    if (!(opts && opts.always) && cost < SLOW_MS) {
+      work();
+      return Promise.resolve();
+    }
+
+    showBusy(App.i18n.t(textKey));
+    // Long enough for the overlay to be painted rather than merely added,
+    // which is the same 30 ms every other deferred job in the app buys.
+    return new Promise(function (resolve) {
+      window.setTimeout(function () {
+        try {
+          work();
+        } finally {
+          hideOverlay();
+          resolve();
+        }
+      }, 30);
+    });
+  }
+
   function hideOverlay() {
+    // Before the spinner comes down, not after. Whatever put it up has just
+    // changed the map, and the uncovered remainder is recomputed on a short
+    // timer — long enough for the overlay to go first, so a second of
+    // arithmetic landed on a page that looked finished and stopped answering.
+    // Doing it here costs the same second and spends it under the spinner
+    // that is already explaining the wait.
+    if (App.gaps && App.gaps.flush) App.gaps.flush();
     D.toggle(_overlay, false);
     _onCancel = null;
     _phaseNodes = [];
@@ -233,10 +302,14 @@ App.ui = (function () {
   }
 
   /**
-   * A quiet mark next to the count when it is going to disagree with what the
-   * map shows — territories too small to see at this zoom, or drawn in more
-   * than one piece. Without it the number looks wrong; with it the number
-   * looks explained, and the explanation is one click away.
+   * A quiet mark next to the count when a territory is worth a second look —
+   * one too small to see at this zoom, one drawn in more than one piece, one
+   * with no buildings in it at all. The first two explain a count that
+   * disagrees with what the map shows: without the mark the number looks
+   * wrong, with it the number looks explained. The third explains nothing and
+   * is the one that matters most, because an empty territory looks entirely
+   * ordinary right up until somebody is handed the card. All three are one
+   * click away in the list, which is also where they can be repaired.
    */
   function _syncClusterWarning() {
     var warn = App.labels ? App.labels.warnings() : null;
@@ -892,6 +965,7 @@ App.ui = (function () {
 
     // overlay
     showBusy: showBusy,
+    busy: busy,
     showPhases: showPhases,
     setPhase: setPhase,
     setPhaseProgress: setPhaseProgress,
