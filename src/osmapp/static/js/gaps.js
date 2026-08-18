@@ -139,6 +139,27 @@ App.gaps = (function () {
     _timer = setTimeout(recompute, delay == null ? 200 : delay);
   }
 
+  /**
+   * Do a scheduled recompute now rather than in two hundred milliseconds.
+   *
+   * For whoever is about to take the busy overlay down. Subtracting a hundred
+   * street-routed territories from the boundary they tile is around a second
+   * of arithmetic that cannot be broken up — turf unions the whole collection
+   * in one call, and unioning it in halves or subtracting the territories one
+   * at a time are both measurably worse — so the only question is whether the
+   * page looks busy while it happens. On the timer it does not: the spinner
+   * comes down, the page looks ready, and then it stops answering. Called
+   * from ui.hideOverlay so that every operation with a spinner absorbs the
+   * work into it, and the ones without keep the timer.
+   *
+   * @returns {boolean} whether there was anything to do
+   */
+  function flush() {
+    if (_timer === null) return false;
+    recompute();
+    return true;
+  }
+
   function recompute() {
     clearTimeout(_timer);
     _timer = null;
@@ -179,6 +200,14 @@ App.gaps = (function () {
     var minimum = s.GAP_MIN_M2 || 200;
     var out = [];
     G.polygonParts(rest).forEach(function (part) {
+      // Opening only ever takes area away — it erodes and grows back, and
+      // never past where it started — so a part already under the floor
+      // cannot come out of it above the floor. Asking anyway is what made
+      // this the slowest thing in the app: subtracting a hundred territories
+      // from the boundary they tile leaves a hairline sliver along every
+      // shared edge, and a healthy partition spent seconds running three
+      // buffers and an intersection over twelve hundred of them to keep one.
+      if (G.area(part) < minimum) return;
       _open(part).forEach(function (piece) {
         if (G.area(piece) >= minimum) out.push(piece);
       });
@@ -843,6 +872,7 @@ App.gaps = (function () {
   return {
     init: init,
     schedule: schedule,
+    flush: flush,
     recompute: recompute,
     count: count,
     totalArea: totalArea,

@@ -776,3 +776,47 @@ def test_adopting_a_gap_updates_the_uncovered_count(app_page: Page):
     app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
 
     expect(row).to_be_hidden()
+
+
+def test_fix_all_leaves_no_work_behind_the_spinner(gridded: Page):
+    """The freeze that came after the wait.
+
+    Changing the territories schedules a recount of the uncovered remainder,
+    which subtracts every territory from the boundary they tile — around a
+    second of arithmetic on a real partition, and not divisible: unioning in
+    halves and subtracting one at a time both measure worse. On a two hundred
+    millisecond timer that second landed *after* the spinner came down, so the
+    page looked finished and then stopped answering. It is now spent under the
+    spinner that is already explaining the wait.
+    """
+    gridded.locator(OUTCOME).evaluate("(node) => { node.textContent = ''; }")
+    gridded.locator("[data-role='fix-all']").click()
+    expect(gridded.locator(OUTCOME)).not_to_be_empty()
+
+    # The overlay is down by now — the outcome line is written after it.
+    assert gridded.evaluate(
+        "() => document.querySelector('#loading-overlay').hasAttribute('hidden')"
+    ), "the spinner was still up"
+    assert gridded.evaluate("() => window.App.gaps.flush()") is False, (
+        "a recount was still pending when the page was handed back"
+    )
+
+
+def test_a_pending_recount_is_run_rather_than_dropped(app_page: Page):
+    """flush() is not a cancel: what it skips is the waiting, not the work."""
+    assert app_page.evaluate("() => window.App.demo.enter()") is True
+    app_page.wait_for_function("() => window.App.state.clusters.length > 0")
+    app_page.wait_for_function("() => window.App.gaps.flush() === false")
+
+    # Delete a territory and flush before the timer would have fired.
+    ran = app_page.evaluate(
+        """() => {
+            window.App.polygons.deleteCluster(window.App.state.clusters[1].layer);
+            return window.App.gaps.flush();
+        }"""
+    )
+    assert ran is True, "nothing was pending, so this proves nothing"
+    assert app_page.evaluate("() => window.App.gaps.count()") > 0, (
+        "the hole left by the delete was not found"
+    )
+    assert app_page.evaluate("() => window.App.gaps.flush()") is False

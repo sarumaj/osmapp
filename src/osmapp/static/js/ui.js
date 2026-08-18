@@ -177,6 +177,13 @@ App.ui = (function () {
   }
 
   function hideOverlay() {
+    // Before the spinner comes down, not after. Whatever put it up has just
+    // changed the map, and the uncovered remainder is recomputed on a short
+    // timer — long enough for the overlay to go first, so a second of
+    // arithmetic landed on a page that looked finished and stopped answering.
+    // Doing it here costs the same second and spends it under the spinner
+    // that is already explaining the wait.
+    if (App.gaps && App.gaps.flush) App.gaps.flush();
     D.toggle(_overlay, false);
     _onCancel = null;
     _phaseNodes = [];
