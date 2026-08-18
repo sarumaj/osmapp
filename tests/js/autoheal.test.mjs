@@ -4,6 +4,8 @@
  *   • A territory drawn in separate pieces becomes one territory per piece.
  *   • A territory with no buildings is absorbed by the neighbor it shares the
  *     most boundary with.
+ *   • Ground in no territory at all becomes a territory first, and is then
+ *     judged by the two rules above like anything else.
  */
 
 import test from "node:test";
@@ -63,8 +65,10 @@ function feature(shape, properties = {}) {
  *   written onto the entry; null or omitted means it never got that far.
  * @param {Object[]} [footprints] what the download holds, or null for "nothing
  *   has been downloaded".
+ * @param {Object[]} [uncovered] the shapes gaps.js is holding, in its own
+ *   order — largest first. Omitted means the map is fully covered.
  */
-function setup(territories, footprints = []) {
+function setup(territories, footprints = [], uncovered = []) {
   const App = loadApp(["geometry.js", "autoheal.js"], {
     window: {},
     document: {},
@@ -87,6 +91,7 @@ function setup(territories, footprints = []) {
       : null,
   };
   App.history = { push: () => pushes++ };
+  App.gaps = { features: () => uncovered.map((shape) => feature(shape)) };
   App.polygons = {
     setClusters: (next) => {
       emitted = next;
@@ -97,6 +102,7 @@ function setup(territories, footprints = []) {
   return {
     App,
     heal: App.autoheal.heal,
+    healGaps: App.autoheal.healGaps,
     audit: App.autoheal.audit,
     isEmpty: App.autoheal.isEmpty,
     issueOf: App.autoheal.issueOf,
@@ -324,6 +330,135 @@ test("a piece stranded on a neighbor is split off and handed over", () => {
     emitted.every((f) => partCount(f) === 1),
     "and nothing is left in pieces",
   );
+});
+
+// ── Ground in no territory ──────────────────────────────────────────────────
+
+test("an uncovered patch with houses on it becomes a territory of its own", () => {
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1), buildings: 4 }],
+    [building(0.5, 0.5), building(2.5, 0.5)],
+    [box(2, 0, 3, 1)],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.adopted, 1);
+  assert.equal(report.merged, 0, "it earns its own card");
+  assert.equal(report.after, 2);
+  assert.ok(
+    h
+      .emitted()
+      .some((f) =>
+        turf.booleanPointInPolygon(turf.point([2.5 * U, 0.5 * U]), f),
+      ),
+    "and the ground under the houses is now covered",
+  );
+});
+
+test("an uncovered strip with nothing on it goes to the neighbor it abuts", () => {
+  // The point of adopting first. The strip left by dragging a boundary
+  // outward is not worth a card; making it a territory is what lets the merge
+  // pass see that and hand it to the territory beside it — which is the
+  // repair a person would make by hand.
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1), buildings: 9 }],
+    [building(0.5, 0.5)],
+    [box(0, 1, 1, 1.2)],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.adopted, 1);
+  assert.equal(report.merged, 1);
+  assert.equal(report.after, 1, "no empty card was left behind");
+  assert.equal(partCount(h.emitted()[0]), 1, "and the seam was dissolved");
+  assert.ok(
+    turf.booleanPointInPolygon(turf.point([0.5 * U, 1.1 * U]), h.emitted()[0]),
+    "the strip's ground came with it",
+  );
+});
+
+test("an uncovered piece lying in two places becomes two territories", () => {
+  // Adopted before the split pass rather than after, so the fault the module
+  // exists to remove is not one it creates on the way past.
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1), buildings: 4 }],
+    [building(0.5, 0.5), building(3.5, 0.5), building(6.5, 0.5)],
+    [pieces(box(3, 0, 4, 1), box(6, 0, 7, 1))],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.adopted, 1);
+  assert.equal(report.split, 1);
+  assert.equal(report.after, 3);
+  assert.ok(h.emitted().every((f) => partCount(f) === 1));
+});
+
+test("healing one territory leaves the uncovered ground where it is", () => {
+  // The wand on a row is about that row. A run that quietly adopted every gap
+  // on the map would be a different button than the one that was clicked.
+  const h = setup(
+    [{ shape: pieces(box(0, 0, 1, 1), box(3, 0, 4, 1)) }],
+    null,
+    [box(6, 0, 7, 1)],
+  );
+
+  const report = h.heal(0);
+
+  assert.equal(report.adopted, 0);
+  assert.equal(report.split, 1);
+  assert.equal(h.emitted().length, 2);
+});
+
+test("healGaps takes in the one piece it was pointed at", () => {
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1), buildings: 4 }],
+    [building(0.5, 0.5), building(3.5, 0.5), building(6.5, 0.5)],
+    [box(3, 0, 4, 1), box(6, 0, 7, 1)],
+  );
+
+  const report = h.healGaps(1);
+
+  assert.equal(report.adopted, 1);
+  assert.equal(report.after, 2);
+  assert.ok(
+    h
+      .emitted()
+      .some((f) =>
+        turf.booleanPointInPolygon(turf.point([6.5 * U, 0.5 * U]), f),
+      ),
+    "the second one, which is the one that was asked for",
+  );
+});
+
+test("an index no longer in the list is dropped rather than thrown", () => {
+  // The recount lands two hundred milliseconds after whatever changed the
+  // coverage, so a row can outlive the piece of ground it names. The answer
+  // is a repair that did nothing, not a crash and not a territory built from
+  // whatever happens to be at that index now.
+  const h = setup([{ shape: box(0, 0, 1, 1), buildings: 4 }], [], []);
+
+  const report = h.healGaps(3);
+
+  assert.equal(report.adopted, 0);
+  assert.equal(report.changed, false);
+  assert.equal(h.emitted(), null);
+  assert.equal(h.pushes(), 0);
+});
+
+test("the audit says how much ground belongs to nobody", () => {
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1), buildings: 4 }],
+    [building(0.5, 0.5)],
+    [box(3, 0, 4, 1), box(6, 0, 7, 1)],
+  );
+
+  const audit = h.audit();
+
+  assert.equal(audit.uncovered, 2);
+  assert.equal(audit.fixable, 0, "which is a fault of no territory in it");
 });
 
 // ── Scope ───────────────────────────────────────────────────────────────────

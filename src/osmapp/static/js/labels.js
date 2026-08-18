@@ -105,6 +105,9 @@ App.labels = (function () {
   // Whether the rows box has been given its floor for this opening. See
   // _pinRows.
   var _pinned = false;
+  // The uncovered ground the rows on screen were drawn from, so a recount
+  // that found the same thing again does not rebuild them. See refreshList.
+  var _gapsShown = null;
   // The last audit, kept until the territories themselves change. Working it
   // out costs a rehearsed repair per empty territory; the answer cannot move
   // because somebody clicked a row or a filter.
@@ -439,7 +442,7 @@ App.labels = (function () {
   }
 
   /**
-   * Why a territory is worth a second look, as three numbers.
+   * Why the territories are worth a second look, as three numbers.
    *
    * `tiny` is territories with no part big enough to notice at this zoom and
    * `split` is territories drawn as more than one shape: both explain a
@@ -452,7 +455,15 @@ App.labels = (function () {
    * cluster entries rather than off `_rows`, because the counts are filled in
    * by refreshFilteredData *after* the rows are built.
    *
-   * All three are what App.autoheal repairs, or declines to; see there for
+   * `uncovered` is not about a territory at all: it is ground inside the
+   * boundary that is in no territory (see gaps.js). It is counted here because
+   * the info panel used to carry a row of its own for it, and a second number
+   * in the panel meant a second place to look and a second thing to explain —
+   * for a fault whose repair, its flag and its place on the map all live in
+   * the list. One mark on the one count, and the list says which of the three
+   * it is.
+   *
+   * All of them are what App.autoheal repairs, or declines to; see there for
    * why `tiny` is the one it leaves alone.
    */
   function warnings() {
@@ -462,7 +473,26 @@ App.labels = (function () {
       if (row.parts > 1) split++;
       if (_isEmpty(row.index)) empty++;
     });
-    return { split: split, empty: empty, total: split + empty };
+    var uncovered = _gaps().length;
+    return {
+      split: split,
+      empty: empty,
+      uncovered: uncovered,
+      total: split + empty + uncovered,
+    };
+  }
+
+  /**
+   * The pieces of ground in no territory, largest first.
+   *
+   * Read from gaps.js at the moment it is asked rather than cached, because
+   * the recount lands two hundred milliseconds after whatever changed the
+   * coverage, and a list holding a copy would go on offering a piece that had
+   * just become a territory.
+   */
+  function _gaps() {
+    if (!App.gaps || !App.gaps.features) return [];
+    return App.gaps.features() || [];
   }
 
   /** Whether territory `index` holds no buildings; false when unknowable. */
@@ -564,6 +594,7 @@ App.labels = (function () {
     // the selection away — losing it because somebody changed language.
     var reopening = _dialog !== null;
     _reopening = reopening;
+    _gapsShown = null;
     // A new dialog node, so the floor measured onto the old one went with it.
     _pinned = false;
     var dialog = App.ui.openDialog("tpl-territory-list", function () {
@@ -714,6 +745,60 @@ App.labels = (function () {
   }
 
   /**
+   * Redraw the list, if one is open.
+   *
+   * For gaps.js, whose recount lands two hundred milliseconds after whatever
+   * changed the coverage — long after the dialog was drawn. Without this, a
+   * gap adopted from the map, a boundary dragged outward, or an undo would
+   * leave the list showing a piece of ground that no longer exists, or hiding
+   * one that had just appeared. Pushed from there rather than polled from
+   * here, because that is the one place the answer changes.
+   */
+  function refreshList() {
+    if (!_dialog) return;
+    // Only when the answer actually moved. A recount runs after anything that
+    // touches the coverage and returns fresh objects describing the same
+    // ground, and rebuilding on every one of them tore the rows out from under
+    // whoever was clicking them — the row nodes are what the selection, the
+    // keyboard walk and the scroll position all hang off, so a rebuild for no
+    // reason is a selection lost for no reason.
+    if (_gapMark() === _gapsShown) return;
+
+    // Whoever closed a gap from the keyboard was standing on a row that is
+    // about to stop existing, and a focus left on a detached node sends the
+    // next Tab back to the top of the page rather than into the list.
+    var here = document.activeElement;
+    var inside = !!(here && _dialog.contains(here));
+
+    _renderList(_dialog);
+
+    if (inside && !_dialog.contains(document.activeElement))
+      _focusFirst([
+        D.role(_dialog, "fix-all"),
+        D.role(_dialog, "close"),
+      ]);
+  }
+
+  /**
+   * What the uncovered ground currently is, as a string worth comparing.
+   *
+   * Areas rather than identities: gaps.js rebuilds its features from scratch
+   * on every recount, so the objects are always new and only the shapes say
+   * whether anything happened.
+   */
+  function _gapMark() {
+    return _gaps()
+      .map(function (feature) {
+        try {
+          return Math.round(G.area(feature));
+        } catch (e) {
+          return "?";
+        }
+      })
+      .join(",");
+  }
+
+  /**
    * Fill an already-open list dialog from the current territories.
    *
    * Separate from openList() because a repair changes the list and must not
@@ -732,6 +817,12 @@ App.labels = (function () {
       return _rows[index] || _describe(entry, index);
     });
     var shown = all.filter(_matchesFilter);
+    // Uncovered ground answers the same two questions every row does — it is
+    // always something to repair, and it is never printed — so it goes
+    // through the same filter rather than past it.
+    var gaps = _gaps();
+    var shownGaps = _matchesGapFilter() ? gaps : [];
+    _gapsShown = _gapMark();
 
     var toggle = D.role(dialog, "show-numbers");
     if (toggle) toggle.checked = isVisible();
@@ -751,6 +842,8 @@ App.labels = (function () {
     var notes = [];
     if (warn.split > 0) notes.push(T("list.warnSplit", { n: warn.split }));
     if (warn.empty > 0) notes.push(T("list.warnEmpty", { n: warn.empty }));
+    if (warn.uncovered > 0)
+      notes.push(T("list.warnUncovered", { n: warn.uncovered }));
     D.text(dialog, "notes", notes.join(" "));
     D.toggleRole(dialog, "notes", notes.length > 0);
 
@@ -766,15 +859,22 @@ App.labels = (function () {
     audit.rows.forEach(function (issue) {
       if (issue.fixable) fixable[issue.index] = true;
     });
-    D.toggleRole(dialog, "fix-all", audit.fixable > 0);
+    // Uncovered ground is always fixable — adopting a piece of it produces a
+    // territory that was not there a moment ago — so it needs no rehearsal
+    // and counts towards the offer on its own.
+    D.toggleRole(dialog, "fix-all", audit.fixable > 0 || gaps.length > 0);
 
     var host = D.role(dialog, "rows");
     host.textContent = "";
     // "There are none" and "none of them match" are different answers, and
     // offering the first when the second is true sends somebody looking for
     // territories that are sitting right there behind a filter.
-    D.toggleRole(dialog, "empty", all.length === 0);
-    D.toggleRole(dialog, "no-match", all.length > 0 && shown.length === 0);
+    D.toggleRole(dialog, "empty", all.length === 0 && gaps.length === 0);
+    D.toggleRole(
+      dialog,
+      "no-match",
+      all.length + gaps.length > 0 && shown.length + shownGaps.length === 0,
+    );
 
     shown.forEach(function (row) {
       var entry = entries[row.index];
@@ -855,12 +955,137 @@ App.labels = (function () {
       });
     });
 
+    // After the territories rather than among them. The rows are in territory
+    // order because that is the order the chips on the map are numbered in,
+    // and a piece of ground with no number cannot take a place in that
+    // sequence without pushing every row below it away from the chip it
+    // belongs to. At the end they are a section of their own, and the jump
+    // button is what finds them in a list of ninety-nine.
+    shownGaps.forEach(function (feature, position) {
+      _gapRow(host, feature, position);
+    });
+
     _pinHeight(dialog, host);
     _paintSelection(dialog);
 
-    var flagged = shown.filter(_isFlagged).length;
+    var flagged = shown.filter(_isFlagged).length + shownGaps.length;
     D.toggleRole(dialog, "jump", flagged > 0);
     D.text(dialog, "jump-count", flagged > 0 ? App.i18n.n(flagged) : "");
+  }
+
+  /**
+   * One piece of uncovered ground, as a row.
+   *
+   * The same template as a territory, and deliberately not a second one: it is
+   * the same kind of object in the same list — an area you can go and look at,
+   * with something wrong with it and a button that puts it right — and a
+   * separate template would be a second thing to restyle every time this one
+   * changes.
+   *
+   * What it is *not* is a territory, so three things differ. It carries no
+   * number, because there is nothing on the map numbering it. It cannot be
+   * selected — the selection is handed to the map on the way out, where merge
+   * and delete act on territories — so it gets no `data-territory` and stays
+   * out of _shownOrder. And it cannot be printed: there is no card for ground
+   * nobody has claimed yet.
+   *
+   * @param {Element} host the rows box
+   * @param {Object} feature the gap, as gaps.js holds it
+   * @param {number} position its index in gaps.features(), which is what
+   *   autoheal.healGaps and gaps.dissolve are addressed by
+   */
+  function _gapRow(host, feature, position) {
+    var node = D.mount("tpl-territory-row", host);
+    node.classList.add("territory-row-wrap--uncovered");
+    // Not data-territory: the keyboard walk, the range select and the
+    // hand-over to the map are all about territories, and a row that answered
+    // to a territory index would put a piece of unclaimed ground into a
+    // selection that merge is about to act on.
+    node.dataset.gap = String(position);
+    node.dataset.flagged = "1";
+
+    // The number chip is where the eye goes first, so it is the one that says
+    // this row is not a territory — an exclamation where a number would be,
+    // in the same orange the shape itself is drawn in on the map.
+    var num = D.role(node, "num");
+    if (num) {
+      num.textContent = "";
+      var mark = document.createElement("i");
+      mark.className = "fa-solid fa-triangle-exclamation";
+      mark.setAttribute("aria-hidden", "true");
+      num.appendChild(mark);
+    }
+
+    var area = 0;
+    try {
+      area = G.area(feature);
+    } catch (e) {
+      /* unmeasurable geometry still deserves its row */
+    }
+    D.text(node, "main", _areaText(area));
+    D.text(node, "meta", T("list.uncoveredMeta"));
+    // Said in words as well as in color, and read out by the same mechanism
+    // the other flags use.
+    _flag(
+      D.role(node, "flags"),
+      "fa-map-location-dot",
+      "is-uncovered",
+      T("list.flagUncovered"),
+    );
+
+    // Adopt it and repair what that made, which is one button rather than
+    // two because "make this a territory" and "and then fix the territory it
+    // made" are never wanted apart. See autoheal.healGaps.
+    var wand = D.role(node, "fix");
+    if (wand) {
+      wand.setAttribute("title", T("list.fixUncovered"));
+      wand.setAttribute("aria-label", T("list.fixUncovered"));
+    }
+    D.toggle(wand, true);
+    D.onRole(node, "fix", function () {
+      _fix({ gap: position }, wand);
+    });
+
+    // The other outcome, and the more common one: most uncovered ground is
+    // not worth a card, and closing it hands it to a neighbor or trims the
+    // boundary back — whichever the shape calls for. gaps.js decides which.
+    D.toggle(D.role(node, "print"), false);
+    D.toggle(D.role(node, "dissolve"), true);
+    D.onRole(node, "dissolve", function () {
+      if (App.gaps) App.gaps.dissolve(feature);
+    });
+
+    // A single click goes and looks at it, where a territory needs a double.
+    // There is no selection to lose here — that is what the second click of a
+    // territory's pair is undoing — so making people click twice would be
+    // ceremony for its own sake.
+    D.onRole(node, "go", function () {
+      App.ui.closeDialog();
+      focusGap(feature);
+    });
+  }
+
+  /**
+   * Zoom to a piece of uncovered ground.
+   *
+   * The move the info panel's uncovered count used to make, which is why it
+   * keeps that button's framing: 17 rather than the 19 a territory gets,
+   * because a gap is understood by what is around it — the territories it
+   * sits between — and a tighter zoom shows the hole and nothing else.
+   */
+  function focusGap(feature) {
+    if (!feature || !feature.geometry || !s.leafletMap) return false;
+    var layer = G.toLayer(feature.geometry, {});
+    if (!layer) return false;
+    var bounds;
+    try {
+      bounds = layer.getBounds();
+    } catch (e) {
+      return false;
+    }
+    if (!bounds || !bounds.isValid()) return false;
+    s.leafletMap.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+    return true;
   }
 
   /**
@@ -964,6 +1189,16 @@ App.labels = (function () {
       _axisKeeps(_axes.repair, _isFlagged(row)) &&
       _axisKeeps(_axes.printed, !!row.printed)
     );
+  }
+
+  /**
+   * The same two questions asked of uncovered ground, whose answers are fixed:
+   * it always needs attention, and it is never printed. So "only the ones with
+   * issues" keeps it and "not printed" keeps it, while "no issues" and
+   * "printed only" hide the lot.
+   */
+  function _matchesGapFilter() {
+    return _axisKeeps(_axes.repair, true) && _axisKeeps(_axes.printed, false);
   }
 
   /**
@@ -1249,7 +1484,9 @@ App.labels = (function () {
    * there closes the dialog.
    */
   function _jump(dialog) {
-    var rows = dialog.querySelectorAll("[data-territory][data-flagged='1']");
+    // Every flagged row, not only the territories: a piece of ground nobody
+    // covers is the thing in this list most worth being taken to.
+    var rows = dialog.querySelectorAll("[data-flagged='1']");
     if (!rows.length) return false;
 
     _jumpAt = (_jumpAt + 1) % rows.length;
@@ -1264,6 +1501,8 @@ App.labels = (function () {
   function _outcome(report) {
     if (!report || !report.changed) return T("list.fixedNone");
     var said = [];
+    if (report.adopted > 0)
+      said.push(T("list.fixedAdopted", { n: report.adopted }));
     if (report.split > 0)
       said.push(
         T("list.fixedSplit", { n: report.split, pieces: report.pieces }),
@@ -1345,22 +1584,32 @@ App.labels = (function () {
    * The work is deferred by a tick so the spinner is actually painted before
    * turf starts, which is the same 30 ms editing.js buys for a merge.
    *
-   * @param {number|null} index one territory, or null for all of them
+   * @param {{gap: number}|number|null} target one territory by index, one
+   *   piece of uncovered ground as `{gap: n}`, or null for everything —
+   *   which includes the uncovered ground, because "fix all" is the button
+   *   that makes the map right and a strip nobody walks is not right.
    * @param {Element} [source] the button that was clicked, so the focus can
    *   come back to its equivalent
    */
-  function _fix(index, source) {
+  function _fix(target, source) {
     if (!App.autoheal || !_dialog) return;
     var dialog = _dialog;
     var rows = D.role(dialog, "rows");
     var scroll = rows ? rows.scrollTop : 0;
     var role = source && source.dataset ? source.dataset.role : null;
+    var gap = target && typeof target === "object" ? target.gap : null;
+    // A repaired gap is gone from the list, so there is no row to come back
+    // to: the focus lands where "fix all" leaves it instead.
+    var index = gap === null ? target : null;
 
     App.ui.showBusy(T("loading.healing"));
     window.setTimeout(function () {
       var report = null;
       try {
-        report = App.autoheal.heal(index === null ? undefined : index);
+        report =
+          gap === null
+            ? App.autoheal.heal(index === null ? undefined : index)
+            : App.autoheal.healGaps(gap);
       } catch (e) {
         console.error(">>> Autoheal failed:", e);
       }
@@ -1392,8 +1641,10 @@ App.labels = (function () {
     numberOf: numberOf,
     warnings: warnings,
     focus: focus,
+    focusGap: focusGap,
     setSelected: setSelected,
     openList: openList,
+    refreshList: refreshList,
     isVisible: isVisible,
     setVisible: setVisible,
   };

@@ -102,9 +102,7 @@
     "notLoaded": "Boundary set",
     "hintNotLoaded": "No OSM data yet — use Reload in the toolbar to download it.",
     "clustersHelp": "Show the list of territories",
-    "clustersWarn": "Some territories need a second look — open the list",
-    "gapsLabel": "Uncovered",
-    "gapsHelp": "Areas inside the boundary that are in no territory — click to zoom to the largest"
+    "clustersWarn": "Something needs a second look — open the list"
   },
   "loading": {
     "cancel": "Cancel",
@@ -411,14 +409,20 @@
     "areaUnknown": "Area unknown",
     "warnSplit": "Drawn in separate pieces: {n}.",
     "warnEmpty": "Without any buildings: {n}.",
+    "warnUncovered": "In no territory at all: {n}.",
     "flagPrinted": "Card already printed",
     "flagSplit": "In {n} separate pieces",
     "flagEmpty": "No buildings inside",
+    "flagUncovered": "Ground that belongs to no territory",
+    "uncoveredMeta": "In no territory — nobody is walking it",
     "print": "Print this card",
     "fix": "Repair this territory",
+    "fixUncovered": "Make it a territory, then repair it",
+    "dissolve": "Close this area",
     "fixAll": "Fix all",
-    "fixAllHint": "Split territories drawn in pieces, and give empty ones to a neighbor",
+    "fixAllHint": "Split territories drawn in pieces, give empty ones to a neighbor, and take in the ground nothing covers",
     "fixedSplit": "Split {n} into {pieces} pieces.",
+    "fixedAdopted": "Uncovered areas taken in: {n}.",
     "fixedMerged": "Merged {n} into a neighboring territory.",
     "fixedStuck": "Still without a neighbor that can take them: {n}.",
     "fixedNone": "Nothing here could be repaired.",
@@ -646,7 +650,7 @@
       },
       "info": {
         "title": "Where you stand",
-        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step. The territory count and the uncovered count are buttons: the first opens the list, the second jumps to the largest patch nobody covers."
+        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step. The territory count is a button: it opens the list, where everything worth a second look — a territory in pieces, one with no buildings, ground in no territory at all — is named, found and repaired."
       },
       "files": {
         "title": "Take your work with you",
@@ -698,7 +702,7 @@
       },
       "gaps": {
         "title": "Ground nobody covers",
-        "body": "Deleting a territory, cutting one thin or growing the boundary all leave patches that belong to no card, and nothing about them looks wrong on screen — you find out when a street is on no card at all. Switch \"Uncovered areas\" on and they are drawn in dashed orange; clicking one turns it into a territory."
+        "body": "Deleting a territory, cutting one thin or growing the boundary all leave patches that belong to no card, and nothing about them looks wrong on screen — you find out when a street is on no card at all. Switch \"Uncovered areas\" on and they are drawn in dashed orange; clicking one turns it into a territory. They are rows in the territory list too, where one button adopts a patch and repairs what that made, and another closes it."
       },
       "shortcuts": {
         "title": "What can I press?",

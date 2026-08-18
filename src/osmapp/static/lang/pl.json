@@ -102,9 +102,7 @@
     "notLoaded": "Granica ustawiona",
     "hintNotLoaded": "Brak danych OSM — użyj przycisku Odśwież na pasku narzędzi, aby je pobrać.",
     "clustersHelp": "Pokaż listę terenów",
-    "clustersWarn": "Niektóre tereny wymagają uwagi — otwórz listę",
-    "gapsLabel": "Bez terenu",
-    "gapsHelp": "Obszary wewnątrz granicy nienależące do żadnego terenu — kliknij, aby powiększyć największy"
+    "clustersWarn": "Coś wymaga uwagi — otwórz listę"
   },
   "loading": {
     "cancel": "Anuluj",
@@ -440,14 +438,20 @@
     "areaUnknown": "Nieznana powierzchnia",
     "warnSplit": "Złożone z osobnych części: {n}.",
     "warnEmpty": "Bez budynków: {n}.",
+    "warnUncovered": "Poza wszystkimi terenami: {n}.",
     "flagPrinted": "Karta już wydrukowana",
     "flagSplit": "Składa się z {n} części",
     "flagEmpty": "Brak budynków w środku",
+    "flagUncovered": "Obszar nienależący do żadnego terenu",
+    "uncoveredMeta": "Poza terenami — nikt tędy nie chodzi",
     "print": "Wydrukuj tę kartę",
     "fix": "Napraw ten teren",
+    "fixUncovered": "Zamień w teren, a potem napraw",
+    "dissolve": "Zamknij ten obszar",
     "fixAll": "Napraw wszystkie",
-    "fixAllHint": "Podziel tereny złożone z części i przyłącz puste do sąsiada",
+    "fixAllHint": "Podziel tereny złożone z części, przyłącz puste do sąsiada i przejmij obszary, których nic nie obejmuje",
     "fixedSplit": "Podzielono {n} na {pieces} części.",
+    "fixedAdopted": "Przejęte obszary nieobjęte: {n}.",
     "fixedMerged": "Połączono {n} z sąsiednim terenem.",
     "fixedStuck": "Nadal bez sąsiada, który mógłby je przejąć: {n}.",
     "fixedNone": "Tutaj nie było czego naprawić.",
@@ -685,7 +689,7 @@
       },
       "info": {
         "title": "Gdzie jesteś",
-        "body": "Ile ulic, budynków i terenów jest teraz wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Liczba terenów i liczba obszarów nieobjętych to przyciski: pierwszy otwiera listę, drugi przenosi do największego miejsca, którego nie obejmuje żadna karta."
+        "body": "Ile ulic, budynków i terenów jest teraz wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Liczba terenów to przycisk: otwiera listę, w której nazwane, odnalezione i naprawione zostaje wszystko, co wymaga uwagi — teren w kawałkach, teren bez budynków, obszar poza wszystkimi terenami."
       },
       "files": {
         "title": "Zabierz pracę ze sobą",
@@ -737,7 +741,7 @@
       },
       "gaps": {
         "title": "Teren, którego nikt nie obejmuje",
-        "body": "Usunięcie terytorium, zbyt cienkie cięcie albo powiększenie granicy zostawiają obszary nienależące do żadnej karty — i nic na ekranie nie wygląda na błąd; okazuje się to dopiero, gdy jakaś ulica nie trafiła na żadną kartę. Włącz „Obszary nieobjęte“, a zostaną narysowane pomarańczową przerywaną linią; kliknięcie zamienia je w terytorium."
+        "body": "Usunięcie terenu, zbyt cienkie cięcie albo powiększenie granicy zostawiają miejsca, których nie obejmuje żadna karta, a na ekranie nic nie wygląda źle — okazuje się to dopiero, gdy ulica nie trafia na żadną kartę. Włącz „Obszary nieobjęte”, a zostaną narysowane pomarańczową kreską; kliknięcie zamienia jeden w teren. Są też wierszami na liście terenów: tam jeden przycisk przejmuje obszar i naprawia to, co powstało, a drugi go zamyka."
       },
       "shortcuts": {
         "title": "Co mogę nacisnąć?",

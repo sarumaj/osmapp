@@ -20,6 +20,12 @@
  * and you find out when a street is on no card. So the gaps are drawn, they
  * say what they are on hover, and clicking one turns it into a territory.
  *
+ * They are also rows in the territory list, which is where the rest of the
+ * map's faults are named and repaired — see labels.js for the row and
+ * autoheal.js for what its wand does. That is the answer to a gap you cannot
+ * find by looking: the list counts them, the jump button walks to them, and
+ * "fix all" adopts them and then repairs what adopting them made.
+ *
  * ── Why the seams are not gaps ────────────────────────────────────────────
  *
  * A tessellation's internal edges coincide only to floating-point precision,
@@ -168,13 +174,15 @@ App.gaps = (function () {
     _features = _visible && !_suppressed() ? _find() : [];
     _render();
     if (App.controls) App.controls.refresh();
-    // The info panel's uncovered row is written from this count, and it is
-    // written only when the panel is otherwise redrawn. Every path that
-    // changes the coverage redraws the panel *before* this runs — setClusters
-    // refreshes the panel synchronously and schedules this two hundred
+    // The panel's warning mark and the territory list are both written from
+    // this count, and both are written only when they are otherwise redrawn.
+    // Every path that changes the coverage redraws them *before* this runs —
+    // setClusters refreshes them synchronously and schedules this two hundred
     // milliseconds later — so without saying so here, adopting a gap left the
-    // panel still counting the gap that had just become a territory.
+    // panel marked and the list offering the gap that had just become a
+    // territory.
     if (App.ui && App.ui.refreshInfo) App.ui.refreshInfo();
+    if (App.labels && App.labels.refreshList) App.labels.refreshList();
   }
 
   function _find() {
