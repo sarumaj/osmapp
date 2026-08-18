@@ -147,6 +147,13 @@ App.gaps = (function () {
     _features = _visible && !_suppressed() ? _find() : [];
     _render();
     if (App.controls) App.controls.refresh();
+    // The info panel's uncovered row is written from this count, and it is
+    // written only when the panel is otherwise redrawn. Every path that
+    // changes the coverage redraws the panel *before* this runs — setClusters
+    // refreshes the panel synchronously and schedules this two hundred
+    // milliseconds later — so without saying so here, adopting a gap left the
+    // panel still counting the gap that had just become a territory.
+    if (App.ui && App.ui.refreshInfo) App.ui.refreshInfo();
   }
 
   function _find() {

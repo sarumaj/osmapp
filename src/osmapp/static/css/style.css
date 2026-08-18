@@ -125,6 +125,10 @@ body {
 #loading-overlay {
   display: flex;
   position: fixed;
+  /* Leaflet puts `grab` on its container and everything mounted over the map
+     inherits it, so waiting for a partition looked like the map was ready to
+     be dragged. It is not: it is busy, and the pointer should say which. */
+  cursor: progress;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   z-index: var(--z-overlay);
@@ -309,6 +313,10 @@ body {
 }
 
 .app-dialog {
+  /* Same inheritance, same wrongness: a dialog is not a draggable map, and a
+     hand cursor over a paragraph of text invites a gesture that does nothing.
+     Anything in here that *is* draggable or clickable says so for itself. */
+  cursor: default;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1890,10 +1898,6 @@ body {
   color: #1e8449;
   background: rgba(30, 132, 73, 0.12);
 }
-.territory-list__chip[data-state="only"][data-axis="tiny"] {
-  color: #c0392b;
-  background: rgba(192, 57, 43, 0.12);
-}
 /* "Everything except these". The icon is struck through rather than the
    label, so the word stays readable at this size. */
 .territory-list__chip[data-state="not"] i {
@@ -2059,7 +2063,13 @@ body {
   background: rgba(185, 119, 14, 0.14);
   color: #935b09;
 }
-.territory-row:hover,
+/* On the wrap rather than on the button inside it. The button stops where the
+   print and repair buttons begin, so hovering a row lit up everything as far
+   as the first of them and then stopped — against a selected row, which is
+   colored across its whole width, it read as a rendering fault. */
+.territory-row-wrap:hover {
+  background: rgba(155, 89, 182, 0.12);
+}
 .territory-row:focus-visible {
   background: rgba(155, 89, 182, 0.12);
 }
@@ -2097,32 +2107,13 @@ body {
 .territory-row__flags {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
   gap: 6px;
-  padding-right: 8px;
-}
-/* The flag that is also a button. It keeps the look of the others — this is
-   still the row saying "too small to see" — and gains the affordance, because
-   the thing you want on a territory you cannot find is to be taken to it. */
-.territory-row__flag--action {
-  border: 0;
-  padding: 2px;
-  background: none;
-  font: inherit;
-  cursor: pointer;
-}
-.territory-row__flag--action:hover,
-.territory-row__flag--action:focus-visible {
-  filter: brightness(0.75);
 }
 .territory-row__flag.is-printed {
   color: #1e8449;
 }
 .territory-row__flag.is-split {
   color: #b9770e;
-}
-.territory-row__flag.is-tiny {
-  color: #c0392b;
 }
 .territory-row__flag.is-empty {
   color: #2471a3;

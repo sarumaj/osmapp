@@ -301,25 +301,28 @@ test("the largest piece keeps the plain chip and the scraps are marked", () => {
 
 // ── The invisible case ───────────────────────────────────────────────────────
 
-test("a territory too small to see at this zoom is flagged", () => {
+test("a chip smaller than the territory it labels says so on the map", () => {
   // One pixel per degree: a 1° square is a single pixel on screen.
   const App = setup([polygon(0, 0, 1)], { span: 1 });
-  assert.equal(App.labels.warnings().tiny, 1);
   assert.ok(html(App)[0].includes("territory-label--tiny"));
 });
 
-test("a territory big enough to see is not flagged", () => {
-  assert.equal(setup([polygon(0, 0, 1)], { span: 200 }).labels.warnings().tiny, 0);
+test("a chip that fits its territory is drawn plainly", () => {
+  const App = setup([polygon(0, 0, 1)], { span: 200 });
+  assert.ok(!html(App)[0].includes("territory-label--tiny"));
+});
+
+test("being too small to see is not something the list warns about", () => {
+  // It describes the viewport rather than the territory — zoom in and it is
+  // gone — and autoheal could never repair it, so it sat among two flags that
+  // are real faults and made them look like housekeeping.
+  const App = setup([polygon(0, 0, 1)], { span: 1 });
+  assert.deepEqual(App.labels.warnings(), { split: 0, empty: 0, total: 0 });
 });
 
 test("nothing to warn about is nothing to say", () => {
   const App = setup([polygon(0, 0, 1), polygon(2, 0, 1)]);
-  assert.deepEqual(App.labels.warnings(), {
-    tiny: 0,
-    split: 0,
-    empty: 0,
-    total: 0,
-  });
+  assert.deepEqual(App.labels.warnings(), { split: 0, empty: 0, total: 0 });
 });
 
 // ── The case that looks fine on the map ──────────────────────────────────────

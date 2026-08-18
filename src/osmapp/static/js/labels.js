@@ -93,7 +93,7 @@ App.labels = (function () {
   // these, -1 only the others. They are separate questions rather than one
   // list of choices, so "printed, and still has something wrong with it" is
   // two clicks and needs no entry of its own.
-  var _axes = { repair: 0, printed: 0, tiny: 0 };
+  var _axes = { repair: 0, printed: 0 };
   var _jumpAt = -1;
   // Territory indices, and the row a range extends from. The selection is by
   // index rather than by feature because it is only alive while the dialog is,
@@ -105,6 +105,10 @@ App.labels = (function () {
   // Whether the rows box has been given its floor for this opening. See
   // _pinRows.
   var _pinned = false;
+  // The last audit, kept until the territories themselves change. Working it
+  // out costs a rehearsed repair per empty territory; the answer cannot move
+  // because somebody clicked a row or a filter.
+  var _audit = null;
 
   // A double click arrives as two clicks and then a dblclick, so the first of
   // the pair has already changed the selection by the time we learn it was
@@ -323,6 +327,9 @@ App.labels = (function () {
     if (!s || !s.innerPolygonsLayerGroup) return;
 
     _clear();
+    // Every cluster change lands here, and every cluster change is exactly
+    // what can move the answer.
+    _audit = null;
 
     var inert = !!s.editMode;
 
@@ -387,21 +394,25 @@ App.labels = (function () {
     });
   }
 
-  /** Re-decide the "too small to see" flag after a zoom. */
+  /**
+   * Re-decide after a zoom which chips have outgrown their territory.
+   *
+   * A drawing decision about a marker, and nothing more since the list stopped
+   * carrying a "too small to see" flag: that described the viewport rather
+   * than anything wrong with a territory, it emptied the moment you zoomed in,
+   * and autoheal could never repair it — so it sat among the two flags that
+   * are real faults and made them look like housekeeping.
+   */
   function _syncTiny() {
-    var changed = false;
     _rows.forEach(function (row) {
       row.anchors.forEach(function (anchor) {
         var tiny = _isTiny(anchor.bbox);
         if (tiny === anchor.tiny) return;
         anchor.tiny = tiny;
-        changed = true;
         var chip = _chip(anchor.marker);
         if (chip) chip.classList.toggle("territory-label--tiny", tiny);
       });
     });
-    // The info panel carries a warning derived from the same flag.
-    if (changed && App.ui && App.ui.refreshInfo) App.ui.refreshInfo();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -445,39 +456,13 @@ App.labels = (function () {
    * why `tiny` is the one it leaves alone.
    */
   function warnings() {
-    var tiny = 0;
     var split = 0;
     var empty = 0;
     _rows.forEach(function (row) {
       if (row.parts > 1) split++;
-      if (_rowIsTiny(row)) tiny++;
       if (_isEmpty(row.index)) empty++;
     });
-    return {
-      tiny: tiny,
-      split: split,
-      empty: empty,
-      total: tiny + split + empty,
-    };
-  }
-
-  /**
-   * Is every part of this territory too small to notice at this zoom?
-   *
-   * A statement about the viewport rather than about the territory, which is
-   * why it is kept apart from the other two flags everywhere it matters: it
-   * changes when the map moves, autoheal declines to repair on it, and the
-   * locator walks past it. It is still worth saying, because a territory you
-   * cannot see is one you cannot click either — which is what the filter's own
-   * entry for it is for.
-   */
-  function _rowIsTiny(row) {
-    return (
-      row.anchors.length > 0 &&
-      row.anchors.every(function (anchor) {
-        return anchor.tiny;
-      })
-    );
+    return { split: split, empty: empty, total: split + empty };
   }
 
   /** Whether territory `index` holds no buildings; false when unknowable. */
@@ -547,33 +532,16 @@ App.labels = (function () {
       : T("tooltip.areaM", { value: App.i18n.n(Math.round(area)) });
   }
 
-  /**
-   * One flag on a row, as a picture or as a button.
-   *
-   * @param {function} [onClick] when given, the flag is something you can do
-   *   rather than something you are being told, and becomes a real button.
-   */
-  function _flag(host, icon, cls, title, onClick) {
-    var node = document.createElement(onClick ? "button" : "i");
+  function _flag(host, icon, cls, title) {
+    var node = document.createElement("i");
     node.className = "fa-solid " + icon + " territory-row__flag " + cls;
     node.setAttribute("title", title);
     node.setAttribute("aria-label", title);
-    if (onClick) {
-      node.type = "button";
-      node.classList.add("territory-row__flag--action");
-      node.addEventListener("click", function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      });
-    } else {
-      // An <i> carries no role, and an aria-label on an element with no role
-      // is not required to be announced — which made the flags decoration for
-      // anyone not looking at them, on a row whose whole purpose is to say
-      // that something is wrong with this territory. A button needs none of
-      // this: it is already something in the accessibility tree.
-      node.setAttribute("role", "img");
-    }
+    // An <i> carries no role, and an aria-label on an element with no role is
+    // not required to be announced — which made the flags decoration for
+    // anyone not looking at them, on a row whose whole purpose is to say that
+    // something is wrong with this territory.
+    node.setAttribute("role", "img");
     host.appendChild(node);
   }
 
@@ -631,7 +599,7 @@ App.labels = (function () {
     // territories missing, or a dozen of them selected, with the reason two
     // controls up the dialog. A re-render in the same sitting keeps both.
     if (!reopening) {
-      _axes = { repair: 0, printed: 0, tiny: 0 };
+      _axes = { repair: 0, printed: 0 };
       _jumpAt = -1;
       // Seeded from whatever the map is already holding, so the round trip
       // closes: open the list on a live selection and it shows that selection,
@@ -668,7 +636,7 @@ App.labels = (function () {
       _anchor = null;
       _cursor = null;
       _beforeClick = null;
-      _renderList(dialog);
+      _paintSelection(dialog);
     });
 
     // The last screen in the app that took over without registering anything,
@@ -781,7 +749,6 @@ App.labels = (function () {
 
     var warn = warnings();
     var notes = [];
-    if (warn.tiny > 0) notes.push(T("list.warnTiny", { n: warn.tiny }));
     if (warn.split > 0) notes.push(T("list.warnSplit", { n: warn.split }));
     if (warn.empty > 0) notes.push(T("list.warnEmpty", { n: warn.empty }));
     D.text(dialog, "notes", notes.join(" "));
@@ -792,7 +759,9 @@ App.labels = (function () {
     // fixable, and an empty one no neighbor can take is flagged and not
     // fixable either. autoheal answers it by rehearsing the repair rather than
     // by guessing at it, so a wand that is shown always does something.
-    var audit = App.autoheal ? App.autoheal.audit() : { rows: [], fixable: 0 };
+    if (!_audit)
+      _audit = App.autoheal ? App.autoheal.audit() : { rows: [], fixable: 0 };
+    var audit = _audit;
     var fixable = {};
     audit.rows.forEach(function (issue) {
       if (issue.fixable) fixable[issue.index] = true;
@@ -835,20 +804,6 @@ App.labels = (function () {
           "is-split",
           T("list.flagSplit", { n: row.parts }),
         );
-      // The one flag that is also an offer. A territory too small to see is
-      // precisely the one you cannot click on the map, the icon on it has been
-      // a magnifying glass all along, and the row's own click now means
-      // "select" — so this is where "go and look at it" belongs.
-      if (_rowIsTiny(row))
-        _flag(
-          flags,
-          "fa-magnifying-glass-plus",
-          "is-tiny",
-          T("list.flagTinyZoom"),
-          function () {
-            _zoomTo(row.index);
-          },
-        );
       if (_isEmpty(row.index))
         _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
 
@@ -860,10 +815,6 @@ App.labels = (function () {
       // querySelectorAll over what is on screen and cannot drift from the
       // flags the row is actually showing.
       if (_isFlagged(row)) node.dataset.flagged = "1";
-
-      var picked = _picked.indexOf(row.index) >= 0;
-      if (picked) node.dataset.selected = "1";
-      D.text(node, "selected-note", picked ? T("list.rowSelected") : "");
 
       D.toggle(D.role(node, "fix"), !!fixable[row.index]);
       D.onRole(node, "fix", function (e, button) {
@@ -905,10 +856,31 @@ App.labels = (function () {
     });
 
     _pinHeight(dialog, host);
+    _paintSelection(dialog);
 
     var flagged = shown.filter(_isFlagged).length;
     D.toggleRole(dialog, "jump", flagged > 0);
     D.text(dialog, "jump-count", flagged > 0 ? App.i18n.n(flagged) : "");
+  }
+
+  /**
+   * Show which rows are picked, and nothing else.
+   *
+   * Selecting used to go through _renderList, which rebuilds every row and
+   * re-audits every territory — a second of work on a real partition to move
+   * a highlight from one row to another. Nothing about a selection can change
+   * which rows exist, what they say, or what is wrong with them, so none of
+   * that needs doing: this walks the rows already on screen and sets a flag on
+   * each.
+   */
+  function _paintSelection(dialog) {
+    var rows = dialog.querySelectorAll("[data-territory]");
+    Array.prototype.forEach.call(rows, function (node) {
+      var picked = _picked.indexOf(Number(node.dataset.territory)) >= 0;
+      if (picked) node.dataset.selected = "1";
+      else delete node.dataset.selected;
+      D.text(node, "selected-note", picked ? T("list.rowSelected") : "");
+    });
 
     // Reusing merge's own sentence: the count means the same thing in both
     // places, and it is the same selection — the list is only where it was
@@ -979,7 +951,7 @@ App.labels = (function () {
 
   /** Is any axis actually narrowing the list? */
   function _filtering() {
-    return _axes.repair !== 0 || _axes.printed !== 0 || _axes.tiny !== 0;
+    return _axes.repair !== 0 || _axes.printed !== 0;
   }
 
   /** One axis against one row: 0 keeps everything, 1 keeps it, -1 keeps the rest. */
@@ -990,8 +962,7 @@ App.labels = (function () {
   function _matchesFilter(row) {
     return (
       _axisKeeps(_axes.repair, _isFlagged(row)) &&
-      _axisKeeps(_axes.printed, !!row.printed) &&
-      _axisKeeps(_axes.tiny, _rowIsTiny(row))
+      _axisKeeps(_axes.printed, !!row.printed)
     );
   }
 
@@ -1107,7 +1078,7 @@ App.labels = (function () {
     // every file list — including when that touch took a row *out*.
     _anchor = index;
     _cursor = index;
-    _renderList(dialog);
+    _paintSelection(dialog);
   }
 
   /**
@@ -1128,7 +1099,7 @@ App.labels = (function () {
     _picked = [index];
     _anchor = index;
     _cursor = index;
-    _renderList(dialog);
+    _paintSelection(dialog);
   }
 
   /**
@@ -1185,7 +1156,7 @@ App.labels = (function () {
     // range rather than starting a new one from where the last one ended.
     if (_anchor === null) _anchor = index;
     _cursor = index;
-    _renderList(dialog);
+    _paintSelection(dialog);
   }
 
   /**
@@ -1261,7 +1232,7 @@ App.labels = (function () {
     }
     _anchor = indices.length ? indices[indices.length - 1] : null;
     _cursor = _anchor;
-    _renderList(dialog);
+    _paintSelection(dialog);
   }
 
   /**

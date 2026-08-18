@@ -150,9 +150,7 @@ def test_the_dialog_is_navigable_without_looking_at_it(gridded: Page):
 
     The flags are the whole point of the row — a green check, an orange puzzle
     piece, a blue house — and every one of them is a color plus an <i> with no
-    role, which is decoration as far as an accessibility tree is concerned. The
-    one that is a button needs no role of its own; it needs the label, which is
-    what a button with nothing but an icon in it is otherwise missing.
+    role, which is decoration as far as an accessibility tree is concerned.
     """
     dialog = gridded.locator(".territory-list")
     named_by = dialog.get_attribute("aria-labelledby")
@@ -166,10 +164,8 @@ def test_the_dialog_is_navigable_without_looking_at_it(gridded: Page):
 
     flags = gridded.locator(".territory-row__flag")
     assert flags.count() > 0, "the grid was supposed to produce flagged rows"
-    spoken = gridded.locator(
-        ".territory-row__flag[role='img'], button.territory-row__flag"
-    )
-    assert flags.count() == spoken.count(), "a flag that is neither picture nor button"
+    spoken = gridded.locator(".territory-row__flag[role='img']")
+    assert flags.count() == spoken.count(), "a flag that is not a picture"
     for i in range(flags.count()):
         assert flags.nth(i).get_attribute("aria-label"), (
             "a flag with nothing to announce"
@@ -228,42 +224,6 @@ def test_the_filter_narrows_the_list_to_what_needs_attention(gridded: Page):
     assert flagged_rows(gridded).count() == with_issues, "and they are the flagged ones"
     # The count above the list has to say it is no longer the whole list.
     assert str(everything) in gridded.locator("[data-role='total']").inner_text()
-
-
-def test_the_walk_ignores_what_is_only_small_at_this_zoom(gridded: Page):
-    """The distinction the locator turns on.
-
-    On a real ninety-nine territory partition, thirty-five rows carried the
-    "too small to see" flag and exactly one carried a fault. Walking all of
-    them meant thirty-five stops before reaching the thing that was wrong —
-    and zooming in empties that set entirely, which is the proof it is a
-    statement about the viewport rather than about any territory. It keeps its
-    flag on the row and its own entry in the filter.
-    """
-    # Zoomed out until the territories are smaller than the chips drawn on
-    # them, because that is the state the flag describes and it is reached by
-    # moving the map rather than by changing any territory.
-    gridded.evaluate("() => window.App.state.leafletMap.setZoom(11)")
-    gridded.wait_for_function(
-        "() => window.App.labels.warnings().tiny > 0", timeout=10000
-    )
-    gridded.evaluate("() => window.App.labels.openList()")
-    expect(gridded.locator(".territory-list")).to_be_visible()
-
-    tiny = gridded.locator(".territory-row__flag.is-tiny")
-    assert tiny.count() > 0, "zooming out was supposed to make them too small"
-
-    walked = flagged_rows(gridded)
-    for i in range(walked.count()):
-        assert (
-            walked.nth(i)
-            .locator(".territory-row__flag.is-split, .territory-row__flag.is-empty")
-            .count()
-            > 0
-        ), "the walk includes a row whose only flag is about the zoom"
-
-    cycle(gridded, "tiny", "only")
-    assert gridded.locator(".territory-row-wrap").count() == tiny.count()
 
 
 def test_a_filter_that_matches_nothing_says_so(gridded: Page):
@@ -609,7 +569,7 @@ def test_the_dialog_is_the_same_size_whatever_the_filter_says(gridded: Page):
     """
     sizes = {dialog_box(gridded)}
 
-    for axis in ("repair", "printed", "tiny"):
+    for axis in ("repair", "printed"):
         for state in ("only", "not", "any"):
             cycle(gridded, axis, state)
             sizes.add(dialog_box(gridded))
@@ -700,34 +660,119 @@ def test_a_double_click_puts_back_the_latest_selection_not_a_stale_one(gridded: 
     assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 2
 
 
-def test_the_too_small_flag_goes_and_looks(gridded: Page):
-    """The one flag that is an offer rather than a statement.
+# ══════════════════════════════════════════════════════════════════════════════
+# THE ROW, AND WHAT IT COSTS TO TOUCH ONE
+# ══════════════════════════════════════════════════════════════════════════════
 
-    A territory too small to see is precisely the one that cannot be clicked
-    on the map, the icon on it has been a magnifying glass all along, and the
-    row's own click now means "select" — so this is where "go and look at it"
-    ended up. It must not disturb the selection on the way: the flag was never
-    part of the picking.
+
+def test_picking_a_row_does_not_rebuild_the_list(gridded: Page):
+    """Why selecting used to take the better part of a second.
+
+    A selection cannot change which rows exist, what they say, or what is
+    wrong with them — but it went through the same path as a filter, which
+    rebuilds every row and re-runs an audit that rehearses a repair per empty
+    territory. Row identity is the observable form of that: if the nodes
+    survive the click, the work did not happen.
     """
-    gridded.evaluate("() => window.App.state.leafletMap.setZoom(11)")
-    gridded.wait_for_function(
-        "() => window.App.labels.warnings().tiny > 0", timeout=10000
+    stamp = """() => {
+        document.querySelectorAll("[data-territory]").forEach((n, i) => {
+            n.dataset.stamp = String(i);
+        });
+        return document.querySelectorAll("[data-territory]").length;
+    }"""
+    count = gridded.evaluate(stamp)
+    assert count > 5
+
+    rows_of(gridded).nth(3).click()
+    rows_of(gridded).nth(6).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(9).click(modifiers=["Shift"])
+    gridded.keyboard.press("ControlOrMeta+a")
+
+    survived = gridded.evaluate(
+        """() => [...document.querySelectorAll("[data-territory]")]
+             .filter((n) => n.dataset.stamp !== undefined).length"""
     )
+    assert survived == count, "the rows were rebuilt to move a highlight"
+    assert gridded.locator(SELECTED).count() == count, "and it still selected them"
+
+
+def test_hovering_a_row_lights_all_of_it(gridded: Page):
+    """As far as the first flag is not a row.
+
+    The hover was on the button inside the wrap, which stops where the print
+    and repair buttons begin — so against a selected row, colored across its
+    whole width, a hovered one read as a rendering fault.
+    """
+    wrap = gridded.locator(".territory-row-wrap").nth(2)
+    plain = wrap.evaluate("(n) => getComputedStyle(n).backgroundColor")
+    wrap.hover()
+    lit = wrap.evaluate("(n) => getComputedStyle(n).backgroundColor")
+
+    assert lit != plain, "hovering the row changed nothing on the row itself"
+
+
+def test_the_dialog_does_not_wear_the_map_cursor(gridded: Page):
+    """Leaflet puts `grab` on its container and everything over the map
+    inherits it, so a dialog invited a drag gesture that does nothing — most
+    visibly over the flags, which are not buttons and never claimed a cursor
+    of their own."""
+    assert (
+        gridded.evaluate(
+            "() => getComputedStyle(document.querySelector('.territory-list')).cursor"
+        )
+        == "default"
+    )
+    assert (
+        gridded.evaluate(
+            """() => {
+                const f = document.querySelector('.territory-row__flag');
+                return f ? getComputedStyle(f).cursor : null;
+            }"""
+        )
+        == "pointer"
+    ), "a flag inside the row button should offer the row's own cursor"
+
+
+def test_zooming_out_adds_no_flags(gridded: Page):
+    """ "Too small to see at this zoom" is gone, and staying gone is the point.
+
+    It described the viewport rather than the territory, emptied the moment
+    you zoomed in, and autoheal could never repair it — so it sat among two
+    flags that are real faults and made them look like housekeeping.
+    """
+    before = gridded.locator(".territory-row__flag").count()
+
+    gridded.evaluate("() => window.App.state.leafletMap.setZoom(9)")
+    gridded.wait_for_timeout(400)
     gridded.evaluate("() => window.App.labels.openList()")
     expect(gridded.locator(".territory-list")).to_be_visible()
 
-    rows_of(gridded).nth(0).click(modifiers=["ControlOrMeta"])
-    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
-    picked = gridded.locator(SELECTED).count()
-    assert picked == 2
+    assert gridded.locator(".territory-row__flag").count() == before
+    assert gridded.locator(".territory-list__chip[data-axis]").count() == 2
 
-    flag = gridded.locator("button.territory-row__flag.is-tiny").first
-    expect(flag).to_be_visible()
-    zoom_before = gridded.evaluate("() => window.App.state.leafletMap.getZoom()")
-    flag.click()
 
-    expect(gridded.locator(".territory-list")).to_have_count(0)
-    gridded.wait_for_function(
-        "(z) => window.App.state.leafletMap.getZoom() > z", arg=zoom_before
+def test_adopting_a_gap_updates_the_uncovered_count(app_page: Page):
+    """The panel is written from a number that arrives two hundred ms late.
+
+    Every path that changes the coverage redraws the info panel synchronously
+    and schedules the uncovered recount afterwards, so the panel read the
+    count from before the change — and nothing told it when the real one
+    landed. Adopting a gap left the panel counting the gap that had just
+    become a territory.
+    """
+    assert app_page.evaluate("() => window.App.demo.enter()") is True
+    app_page.wait_for_function("() => window.App.state.clusters.length > 0")
+
+    row = app_page.locator("#info-panel [data-role='gaps-row']")
+    expect(row).to_be_hidden()
+
+    app_page.evaluate(
+        "() => window.App.polygons.deleteCluster(window.App.state.clusters[1].layer)"
     )
-    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == picked
+    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    expect(row).to_be_visible()
+
+    app_page.evaluate("() => window.App.gaps.adopt(window.App.gaps.features()[0])")
+    app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+
+    expect(row).to_be_hidden()

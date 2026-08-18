@@ -376,16 +376,6 @@
           </button>
           <button
             type="button"
-            class="territory-list__chip"
-            data-role="chip"
-            data-axis="tiny"
-            aria-pressed="false"
-          >
-            <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
-            <span data-role="chip-label"></span>
-          </button>
-          <button
-            type="button"
             class="territory-list__chip territory-list__jump"
             data-role="jump"
             data-i18n-attrs="title=list.jumpHint;aria-label=list.jumpHint"
@@ -471,16 +461,16 @@
             <span class="territory-row__main" data-role="main"></span>
             <span class="territory-row__meta" data-role="meta"></span>
           </span>
+          <!-- Inside the button, so that hovering a flag hovers the row and
+               clicking one clicks through to it. They were briefly outside it
+               to make room for a flag that was itself a button; that flag is
+               gone, and with it the reason. -->
+          <span class="territory-row__flags" data-role="flags"></span>
           <!-- The selected state is a color and a border, which is nothing at
                all to a screen reader. This says it in words and is hidden
                from everybody who can already see it. -->
           <span class="sr-only" data-role="selected-note"></span>
         </button>
-        <!-- Outside the row button rather than inside it, because one of these
-             is itself a button: the "too small to see" flag is a magnifying
-             glass, and clicking it goes and looks. A button inside a button is
-             not markup any browser agrees about. -->
-        <span class="territory-row__flags" data-role="flags"></span>
         <button
           type="button"
           class="territory-row__action territory-row__fix"
