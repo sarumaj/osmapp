@@ -17,6 +17,7 @@ import base64
 import logging
 import re
 import threading
+import warnings
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -79,7 +80,10 @@ def missing_browsers(config: pytest.Config) -> set[str]:
     if not ours:
         return set()
 
-    with sync_playwright() as playwright:
+    with (
+        warnings.catch_warnings(),
+        sync_playwright() as playwright,
+    ):
         return {name for name in ours if not is_installed(playwright, name)}
 
 
