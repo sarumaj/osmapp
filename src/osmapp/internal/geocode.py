@@ -76,7 +76,7 @@ def _cache_get(key: str) -> bytes | None:
     return hit
 
 
-def _cache_put(key: str, value: bytes) -> None:
+def _cache_put(key: str, value: bytes):
     with _cache_lock:
         _cache[key] = value
         while len(_cache) > GEOCODE_CACHE_MAX:

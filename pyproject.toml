@@ -58,9 +58,17 @@ where = ["src"]
 [project.optional-dependencies]
 test = [
     # Line-separator
+    "playwright==1.62.0",
+    # Line-separator
     "pytest==9.1.1",
+    # Line-separator
+    "pytest-playwright==0.9.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+strict_markers = true
+markers = [
+    "e2e: marks tests that require a browser and a running server",
+]

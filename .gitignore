@@ -322,6 +322,9 @@ vite.config.ts.timestamp-*
 cache/
 .tile_cache/
 
+# Playwright test results
+test-results/
+
 # Force build and dist directories
 !src/**/vendor/**/dist/
 !src/**/vendor/**/build/

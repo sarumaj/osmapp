@@ -21,7 +21,7 @@ def execute_in_thread(  # noqa: UP047
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> threading.Thread:
-    def loop() -> None:
+    def loop():
         logger.info("Starting thread %s", threading.current_thread().name)
         first = run_immediately
         while not ev.is_set():
