@@ -222,6 +222,8 @@ jobs:
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
 
       - name: Install Chromium
         run: playwright install --with-deps chromium
@@ -291,8 +293,9 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=raw,value=edge,enable=${{ github.ref_name == 'main' }}
-            type=sha,format=long
+            type=sha,format=long,enable=${{ github.ref_name == 'main' }}
           labels: |
             org.opencontainers.image.title=osmapp
             org.opencontainers.image.description=Territory mapping and printable field cards from OpenStreetMap data
