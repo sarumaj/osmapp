@@ -102,6 +102,9 @@ App.labels = (function () {
   var _anchor = null;
   var _cursor = null;
   var _reopening = false;
+  // Whether the rows box has been given its floor for this opening. See
+  // _pinRows.
+  var _pinned = false;
 
   // A double click arrives as two clicks and then a dblclick, so the first of
   // the pair has already changed the selection by the time we learn it was
@@ -593,6 +596,8 @@ App.labels = (function () {
     // the selection away — losing it because somebody changed language.
     var reopening = _dialog !== null;
     _reopening = reopening;
+    // A new dialog node, so the floor measured onto the old one went with it.
+    _pinned = false;
     var dialog = App.ui.openDialog("tpl-territory-list", function () {
       App.shortcuts.pop("list");
       _dialog = null;
@@ -899,6 +904,8 @@ App.labels = (function () {
       });
     });
 
+    _pinHeight(dialog, host);
+
     var flagged = shown.filter(_isFlagged).length;
     D.toggleRole(dialog, "jump", flagged > 0);
     D.text(dialog, "jump-count", flagged > 0 ? App.i18n.n(flagged) : "");
@@ -909,6 +916,43 @@ App.labels = (function () {
     D.text(dialog, "selection", T("merge.selected", { count: _picked.length }));
     D.toggleRole(dialog, "selection", _picked.length > 0);
     D.toggleRole(dialog, "clear-selection", _picked.length > 0);
+  }
+
+  /**
+   * Freeze the dialog at the size it opened, without making every list tall.
+   *
+   * The chips sit above the rows and the dialog is centred, so anything that
+   * changes its height pulls it in around the control that was just clicked
+   * and the next click lands somewhere else. A constant height in the
+   * stylesheet answers that and costs too much: five territories, which is
+   * what the sample every first-time visitor sees contains, would open a
+   * 600 px dialog four fifths of which is empty box.
+   *
+   * So the size is the one the list opened with — measured once, then held.
+   * The stylesheet decides what that natural size is, cap included; from then
+   * on the dialog is that tall and the rows box takes up the slack.
+   *
+   * It is the *dialog* that is pinned rather than the rows box, and the
+   * difference is not academic. Filtering changes more than the number of
+   * rows: a chip's label grows from "Printed" to "Printed only" and the find
+   * bar wraps onto a second line, which moved everything by a further 29 px
+   * with the rows box alone held still. Freezing the outside and letting the
+   * one flexible child absorb whatever the rest of the column does is the same
+   * arrangement the print dialog uses, and it covers the cases nobody thought
+   * to enumerate.
+   *
+   * Measured rather than counted because a row's height is a stylesheet's
+   * business, and reading it back is the only way not to have the number twice.
+   */
+  function _pinHeight(dialog, host) {
+    if (!dialog || _pinned) return;
+    var height = dialog.offsetHeight;
+    if (height <= 0) return;
+    dialog.style.height = height + "px";
+    // The cap existed to decide the natural size. That is decided now, and the
+    // box has to be free to take back whatever the controls above it give up.
+    if (host) host.style.maxHeight = "none";
+    _pinned = true;
   }
 
   // ══════════════════════════════════════════════════════════════════════

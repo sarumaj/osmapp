@@ -1805,11 +1805,28 @@ body {
    third of its height and moved the chips you were clicking. A repair did the
    same, and so did the outcome line appearing. The rows box absorbs all of it
    now, which is also what makes the scroll position worth restoring. */
+/* A column that can be clamped, the way the print dialog is one: title,
+   controls, then a body that takes what is left, then the actions.
+
+   Not a *fixed* height, which is where this first landed. Filtering must not
+   resize the dialog — the chips sit above the rows and the dialog is centred,
+   so any change in height moves the control you just clicked out from under
+   the pointer. But answering that with one constant height meant a
+   five-territory project, which is what every first-time visitor sees, opened
+   a 600 px dialog four fifths of which was empty box. Nothing else here has a
+   hard height: the shortcut sheet caps its scroller, print and place clamp the
+   whole dialog to the viewport and let a flex body absorb the rest.
+
+   So the height is pinned to the list it opened with — see labels.js — and
+   capped below. Filtering cannot shrink it, and a short list is still a short
+   dialog. */
 .territory-list {
-  /* Stated rather than derived, for the same reason as the height: the rows
-     carry numbers of wildly different widths ("Buildings: 141 · Streets: 42"
-     against "Buildings: 0 · Streets: 0"), so filtering to a different set of
-     rows moved the dialog's edge by eight pixels and took the chips with it.
+  /* The width is stated outright rather than left to the content, because the
+     rows carry numbers of wildly different widths ("Buildings: 141 · Streets:
+     42" against "Buildings: 0 · Streets: 0"), so filtering to a different set
+     of rows moved the dialog's edge by eight pixels and took the chips with
+     it. Unlike the height there is nothing to preserve here — one number suits
+     every list — so this one belongs in the stylesheet.
      min-width: 0 overrides the 340px floor every app-dialog carries, so a
      narrow phone gets a narrower dialog instead of one hanging off the side,
      and border-box makes the number below the width you can actually measure
@@ -1819,7 +1836,6 @@ body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: min(76vh, 600px);
   max-height: 92vh;
   overflow: hidden;
 }
@@ -1950,12 +1966,20 @@ body {
   cursor: pointer;
 }
 
-/* The part that gives. Everything else in the dialog is its natural height and
-   this takes the rest, so 200 rows and one row make the same shape. */
+/* The part that gives. Capped like the shortcut sheet's scroller — 200
+   territories is a legal partition and a dialog taller than the screen is not
+   — and able to shrink below that cap when the dialog itself is clamped to a
+   short window, which is what flex plus min-height: 0 buys. Its floor is set
+   in JavaScript from the list it opened with, so that filtering cannot pull
+   the dialog in around the pointer. */
 .territory-list__rows {
   flex: 1 1 auto;
   min-height: 0;
+  max-height: min(44vh, 340px);
   overflow-y: auto;
+  /* Reaching the end of the list should not start scrolling the map behind
+     it. The trim panel and the shortcut sheet already say so. */
+  overscroll-behavior: contain;
   border: 1px solid var(--c-border);
   border-radius: var(--radius-sm, 4px);
   /* Every other dialog ends in a paragraph, and a paragraph brings a bottom
@@ -1967,10 +1991,19 @@ body {
      the way it should. The two collapse, so the result is still 16px. */
   margin-bottom: 12px;
 }
-/* Nothing to show is not a box with nothing in it: the message below says
-   why, and an empty bordered rectangle above it says nothing at all. */
+/* Nothing to show is not a box with nothing in it: the message says why, and
+   an empty bordered rectangle above it says nothing at all. The box also stops
+   being the flexible one, or it would hold the whole height of a frozen dialog
+   and push the explanation down to sit on the action bar. */
 .territory-list__rows:empty {
+  flex: 0 0 auto;
   border-color: transparent;
+}
+/* Which makes this the flexible one, so the message stays where the rows
+   would have started and the slack falls below it. */
+.territory-list__nothing {
+  flex: 1 1 auto;
+  margin-top: 0;
 }
 
 /* The rule that used to live on the row itself: it is the row as a whole that

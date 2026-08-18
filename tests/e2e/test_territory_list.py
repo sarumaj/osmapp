@@ -552,6 +552,51 @@ def dialog_box(page: Page) -> tuple[int, int]:
     )
 
 
+def test_a_small_project_gets_a_small_dialog(app_page: Page):
+    """Frozen at the size it opened, not at one size for everybody.
+
+    The first answer to "stop resizing" was a constant height in the
+    stylesheet, and it made the five-territory sample every first-time visitor
+    sees open a dialog four fifths of which was empty box. Nothing else in the
+    app has a hard height — the shortcut sheet caps its scroller, print and
+    place clamp to the viewport and let a flex body absorb the rest.
+    """
+    assert app_page.evaluate("() => window.App.demo.enter()") is True
+    app_page.wait_for_function("() => window.App.state.clusters.length > 0")
+    app_page.evaluate("() => window.App.labels.openList()")
+    expect(app_page.locator(".territory-list")).to_be_visible()
+    small = dialog_box(app_page)[1]
+    app_page.evaluate("() => window.App.ui.closeDialog()")
+
+    assert app_page.evaluate(GRID) > 10
+    app_page.evaluate("() => window.App.labels.openList()")
+    expect(app_page.locator(".territory-list")).to_be_visible()
+    many = dialog_box(app_page)[1]
+
+    assert small < many, f"a five-row list opened as tall as a thirty-row one ({small})"
+
+
+def test_nothing_matching_says_so_where_the_rows_would_be(gridded: Page):
+    """Not at the bottom of a frozen dialog, resting on the action bar.
+
+    The rows box is the flexible child, so when it is empty it has to stop
+    being flexible or it holds the whole height and pushes the explanation
+    down past everything.
+    """
+    cycle(gridded, "printed", "only")
+    expect(gridded.locator("[data-role='no-match']")).to_be_visible()
+
+    message = gridded.locator("[data-role='no-match']").bounding_box()
+    chips = gridded.locator(".territory-list__find").bounding_box()
+    actions = gridded.locator("[data-role='close']").bounding_box()
+    assert message and chips and actions
+    gap_above = message["y"] - (chips["y"] + chips["height"])
+    gap_below = actions["y"] - (message["y"] + message["height"])
+    assert gap_above < gap_below, (
+        "the message sank to the bottom instead of staying with the rows"
+    )
+
+
 def test_the_dialog_is_the_same_size_whatever_the_filter_says(gridded: Page):
     """Sized by the window rather than by its contents, in both directions.
 
