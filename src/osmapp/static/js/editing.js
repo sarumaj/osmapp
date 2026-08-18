@@ -1517,11 +1517,13 @@ App.editing = (function () {
     var layers = s.selectedClusters.map(function (item) {
       return item.layer;
     });
-    var gone = App.polygons.deleteClusters(layers);
-    // setClusters has already put the selection down and rebuilt every layer,
-    // so there is nothing left for the mode to hold on to.
-    if (gone > 0 && s.mergeMode) toggleMergeMode();
-    return gone;
+    App.ui.busy("loading.deleting", function () {
+      var gone = App.polygons.deleteClusters(layers);
+      // setClusters has already put the selection down and rebuilt every
+      // layer, so there is nothing left for the mode to hold on to.
+      if (gone > 0 && s.mergeMode) toggleMergeMode();
+    });
+    return layers.length;
   }
 
   function _selectionIndex(layer) {

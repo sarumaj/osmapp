@@ -144,6 +144,9 @@ App.polygons = (function () {
     weight: 2,
   };
 
+  // See lastRefreshMs().
+  var _lastRefreshMs = 0;
+
   var PANE = {
     clusters: "clustersPane",
     streets: "streetsPane",
@@ -547,7 +550,24 @@ App.polygons = (function () {
     return true;
   }
 
+  /**
+   * Delete one territory.
+   *
+   * Behind a spinner on a big project, because removing a territory re-tests
+   * every building against all the others — a second of work on a town, and
+   * this is reached from a context menu with nothing else on screen to say so.
+   * The answer is still decided here and now: whether this layer *is* a
+   * territory is known immediately, and only the work is deferred.
+   */
   function deleteCluster(layer) {
+    if (!findCluster(layer)) return false;
+    App.ui.busy("loading.deleting", function () {
+      _deleteCluster(layer);
+    });
+    return true;
+  }
+
+  function _deleteCluster(layer) {
     var hit = findCluster(layer);
     if (!hit) return false;
     if (App.history) App.history.push();
@@ -1284,7 +1304,36 @@ App.polygons = (function () {
   // FILTERED VIEW
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * How long the last refreshFilteredData() took, in milliseconds.
+   *
+   * The one number that says how heavy this project is. Every building's
+   * centroid is tested against the territories whose bounding box could hold
+   * it, so it scales with buildings times territories — and it runs inside
+   * every change to the map, which makes it a fair estimate of what the *next*
+   * change will cost. ui.busy() uses it to decide whether an operation is
+   * worth putting a spinner in front of.
+   */
+  function lastRefreshMs() {
+    return _lastRefreshMs;
+  }
+
   function refreshFilteredData() {
+    var started = _now();
+    try {
+      _refreshFilteredData();
+    } finally {
+      _lastRefreshMs = _now() - started;
+    }
+  }
+
+  function _now() {
+    return window.performance && window.performance.now
+      ? window.performance.now()
+      : Date.now();
+  }
+
+  function _refreshFilteredData() {
     if (!s.cachedStreets || !s.cachedBuildings) return;
 
     if (s.clusters.length === 0) {
@@ -1429,6 +1478,7 @@ App.polygons = (function () {
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,
+    lastRefreshMs: lastRefreshMs,
     renderStreets: renderStreets,
     renderBuildings: renderBuildings,
     restyleBuildings: restyleBuildings,

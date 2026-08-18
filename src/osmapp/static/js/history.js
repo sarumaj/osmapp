@@ -142,18 +142,38 @@ App.history = (function () {
     sync();
   }
 
+  /**
+   * Under a spinner when the base scope answers, and not otherwise.
+   *
+   * Only the base scope rebuilds the territories, and rebuilding them on a
+   * town-sized project is about a second of point-in-polygon work. The scoped
+   * undo — a vertex while cutting, a territory while selecting — are a few
+   * microseconds and must not be dressed up as work.
+   */
+  function _asBaseWork(scope, textKey, run) {
+    if (scope !== BASE || !App.ui || !App.ui.busy) {
+      run();
+      return;
+    }
+    App.ui.busy(textKey, run);
+  }
+
   function undo() {
     var scope = _active();
     if (!scope.canUndo()) return;
-    scope.undo();
-    sync();
+    _asBaseWork(scope, "loading.undoing", function () {
+      scope.undo();
+      sync();
+    });
   }
 
   function redo() {
     var scope = _active();
     if (!scope.canRedo()) return;
-    scope.redo();
-    sync();
+    _asBaseWork(scope, "loading.redoing", function () {
+      scope.redo();
+      sync();
+    });
   }
 
   function clear() {

@@ -118,6 +118,11 @@
     "cutting": "Cięcie terenów…",
     "merging": "Łączenie terenów…",
     "healing": "Naprawianie terenów…",
+    "undoing": "Cofanie…",
+    "redoing": "Ponawianie…",
+    "deleting": "Usuwanie…",
+    "updating": "Aktualizowanie terenów…",
+    "boundary": "Stosowanie nowej granicy…",
     "dissolving": "Usuwanie wspólnych granic…",
     "progress": "Teren {index} z {total}",
     "retryIn": {

@@ -176,6 +176,55 @@ App.ui = (function () {
     D.text(_overlay, "status", status || "");
   }
 
+  /**
+   * Anything past this and a person notices the page stopped answering.
+   *
+   * The usual figure for "instant" is a tenth of a second; a little over that
+   * is the point where the spinner earns the frame it costs to show.
+   */
+  var SLOW_MS = 120;
+
+  /**
+   * Run work that is about to block the page, with the spinner up for it.
+   *
+   * A synchronous job cannot be preceded by a repaint — the browser draws
+   * nothing until the call stack unwinds — so the only way to show anything
+   * before a second of geometry is to put the spinner up, hand the frame back,
+   * and do the work in the next task. That is what this is: showBusy, a tick,
+   * the work, hideOverlay.
+   *
+   * Which is a bad trade when the work is quick, because the spinner then
+   * flashes for one frame and says nothing. So the project decides: how long
+   * the last change to the map took is a fair estimate of the next one, and
+   * below the threshold this runs the work where it stands and nothing
+   * flashes. A five-territory village never sees a spinner; the
+   * ninety-nine-territory town sees one every time.
+   *
+   * @param {string} textKey what to say while it runs
+   * @param {function} work the blocking job
+   */
+  function busy(textKey, work) {
+    if (typeof work !== "function") return;
+    var cost = App.polygons && App.polygons.lastRefreshMs
+      ? App.polygons.lastRefreshMs()
+      : 0;
+    if (cost < SLOW_MS) {
+      work();
+      return;
+    }
+
+    showBusy(App.i18n.t(textKey));
+    // Long enough for the overlay to be painted rather than merely added,
+    // which is the same 30 ms every other deferred job in the app buys.
+    window.setTimeout(function () {
+      try {
+        work();
+      } finally {
+        hideOverlay();
+      }
+    }, 30);
+  }
+
   function hideOverlay() {
     // Before the spinner comes down, not after. Whatever put it up has just
     // changed the map, and the uncovered remainder is recomputed on a short
@@ -903,6 +952,7 @@ App.ui = (function () {
 
     // overlay
     showBusy: showBusy,
+    busy: busy,
     showPhases: showPhases,
     setPhase: setPhase,
     setPhaseProgress: setPhaseProgress,

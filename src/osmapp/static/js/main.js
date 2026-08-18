@@ -394,7 +394,11 @@
         App.polygons.ensureDefaultCluster();
       });
     } else {
-      App.polygons.addInnerPolygon(layer, geojson);
+      // Carving a territory out of its neighbor re-tests every building
+      // against every territory, which is a second of work on a town.
+      App.ui.busy("loading.updating", function () {
+        App.polygons.addInnerPolygon(layer, geojson);
+      });
     }
   }
 

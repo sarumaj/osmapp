@@ -578,16 +578,22 @@ App.gaps = (function () {
    */
   function adopt(feature) {
     if (!feature || !feature.geometry) return false;
-    App.history.push();
-    var next = App.polygons.clusterFeatures().concat([
-      {
-        type: "Feature",
-        geometry: feature.geometry,
-        properties: {},
-      },
-    ]);
-    App.polygons.setClusters(next);
-    console.log(">>> Gap adopted —", Math.round(G.area(feature)), "m²");
+    // Adding a territory re-tests every building against every territory,
+    // which is about a second of work on a town-sized project — so it goes
+    // behind a spinner there, and stays immediate everywhere else. See
+    // ui.busy.
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      var next = App.polygons.clusterFeatures().concat([
+        {
+          type: "Feature",
+          geometry: feature.geometry,
+          properties: {},
+        },
+      ]);
+      App.polygons.setClusters(next);
+      console.log(">>> Gap adopted —", Math.round(G.area(feature)), "m²");
+    });
     return true;
   }
 
@@ -601,7 +607,6 @@ App.gaps = (function () {
    */
   function adoptAll() {
     if (!_features.length) return 0;
-    App.history.push();
     var additions = _features.map(function (feature) {
       return {
         type: "Feature",
@@ -610,10 +615,13 @@ App.gaps = (function () {
       };
     });
     var made = additions.length;
-    App.polygons.setClusters(
-      App.polygons.clusterFeatures().concat(additions),
-    );
-    console.log(">>> Adopted", made, "gaps");
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      App.polygons.setClusters(
+        App.polygons.clusterFeatures().concat(additions),
+      );
+      console.log(">>> Adopted", made, "gaps");
+    });
     return made;
   }
 
@@ -644,14 +652,16 @@ App.gaps = (function () {
   function dissolve(feature) {
     if (!feature || !feature.geometry || !s.outerPolygonLayer) return false;
 
-    App.history.push();
-    if (!_dissolveOne(feature)) {
+    // Deferred behind the spinner on a big project, so the answer is
+    // "started" rather than "worked" — the failure below says so for itself.
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      if (_dissolveOne(feature)) return;
       // Nothing moved, so the entry would be a step that undoes nothing —
       // worse than no entry, because Ctrl+Z would then look broken.
       App.history.undo();
       alert(T("gaps.dissolveFailed"));
-      return false;
-    }
+    });
     return true;
   }
 
@@ -852,21 +862,23 @@ App.gaps = (function () {
     var pending = _features.slice();
     var done = 0;
 
-    App.history.push();
-    // Each one re-reads the current territories and boundary, because the one
-    // before it may well have moved both.
-    pending.forEach(function (feature) {
-      if (_dissolveOne(feature)) done++;
-    });
+    App.ui.busy("loading.updating", function () {
+      App.history.push();
+      // Each one re-reads the current territories and boundary, because the
+      // one before it may well have moved both.
+      pending.forEach(function (feature) {
+        if (_dissolveOne(feature)) done++;
+      });
 
-    if (!done) {
-      App.history.undo();
-      alert(T("gaps.dissolveFailed"));
-      return 0;
-    }
-    recompute();
-    console.log(">>> Dissolved", done, "gaps");
-    return done;
+      if (!done) {
+        App.history.undo();
+        alert(T("gaps.dissolveFailed"));
+        return;
+      }
+      recompute();
+      console.log(">>> Dissolved", done, "gaps");
+    });
+    return pending.length;
   }
 
   return {
