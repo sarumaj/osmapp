@@ -194,20 +194,21 @@ App.ui = (function () {
    * the work, hideOverlay.
    *
    * Which is a bad trade when the work is quick, because the spinner then
-   * flashes for one frame and says nothing. So the project decides: how long
-   * the last change to the map took is a fair estimate of the next one, and
-   * below the threshold this runs the work where it stands and nothing
-   * flashes. A five-territory village never sees a spinner; the
-   * ninety-nine-territory town sees one every time.
+   * flashes for one frame and says nothing. So the project decides: what a
+   * full pass over its own data costs is a fair estimate of what the next
+   * blocking job will cost, and below the threshold this runs the work where
+   * it stands and nothing flashes. A five-territory village never sees a
+   * spinner; the ninety-nine-territory town sees one every time.
    *
    * @param {string} textKey what to say while it runs
    * @param {function} work the blocking job
    */
   function busy(textKey, work) {
     if (typeof work !== "function") return;
-    var cost = App.polygons && App.polygons.lastRefreshMs
-      ? App.polygons.lastRefreshMs()
-      : 0;
+    var cost =
+      App.polygons && App.polygons.refreshCostMs
+        ? App.polygons.refreshCostMs()
+        : 0;
     if (cost < SLOW_MS) {
       work();
       return;

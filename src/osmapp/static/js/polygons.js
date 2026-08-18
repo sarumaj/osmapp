@@ -1,17 +1,5 @@
 /**
  * polygons.js — cluster lifecycle, hover styling, and the filtered view.
- *
- * Added in this pass:
- *   • ensureDefaultCluster() — drawing an outer polygon now yields one cluster
- *     covering the whole area, so a territory is usable without partitioning.
- *     That cluster carries properties.auto so the app can tell it apart from a
- *     deliberate one.
- *   • Hover highlighting for clusters and the outer polygon. The style is
- *     resolved from layer state (selected beats hover beats resting) so
- *     merge-mode selection survives a mouseout.
- *   • addInnerPolygon() carves out of the auto cluster rather than rejecting
- *     the draw — otherwise every hand-drawn polygon would "overlap" the
- *     whole-area cluster and be refused.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -144,8 +132,16 @@ App.polygons = (function () {
     weight: 2,
   };
 
-  // See lastRefreshMs().
-  var _lastRefreshMs = 0;
+  // See refreshCostMs().
+  var _refreshCostMs = 0;
+  var _fullRefresh = true;
+
+  // Which streets each territory touches. See _streetsFor().
+  var _streetIndex = new WeakMap();
+
+  // The shapes currently on the map, by feature. See _syncLayers().
+  var _streetLayers = new Map();
+  var _buildingLayers = new Map();
 
   var PANE = {
     clusters: "clustersPane",
@@ -1305,25 +1301,35 @@ App.polygons = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * How long the last refreshFilteredData() took, in milliseconds.
+   * What a refresh costs when nothing can be reused, in milliseconds.
    *
-   * The one number that says how heavy this project is. Every building's
-   * centroid is tested against the territories whose bounding box could hold
-   * it, so it scales with buildings times territories — and it runs inside
-   * every change to the map, which makes it a fair estimate of what the *next*
-   * change will cost. ui.busy() uses it to decide whether an operation is
+   * The one number that says how heavy this project is. A full refresh tests
+   * every street and every building's centroid against the territories whose
+   * bounding box could hold them, so it scales with the data times the
+   * territories, and ui.busy() reads it to decide whether an operation is
    * worth putting a spinner in front of.
+   *
+   * Deliberately not "how long the last refresh took" any more. Most refreshes
+   * now answer out of the caches in _streetsFor() and _syncLayers(), and a
+   * forty-millisecond warm refresh says nothing about the second that the
+   * *next* gap recount or boundary swap is going to spend. So the figure comes
+   * from the last refresh that really did the whole job — a load, a reset, a
+   * repair that rebuilt every territory — raised by anything more expensive
+   * that happens in between.
    */
-  function lastRefreshMs() {
-    return _lastRefreshMs;
+  function refreshCostMs() {
+    return _refreshCostMs;
   }
 
   function refreshFilteredData() {
     var started = _now();
+    _fullRefresh = true;
     try {
       _refreshFilteredData();
     } finally {
-      _lastRefreshMs = _now() - started;
+      var spent = _now() - started;
+      var real = s.cachedStreets && s.cachedBuildings;
+      if (real && (_fullRefresh || spent > _refreshCostMs)) _refreshCostMs = spent;
     }
   }
 
@@ -1354,35 +1360,29 @@ App.polygons = (function () {
       return { streets: 0, buildings: 0 };
     });
 
-    // ── Streets: bbox reject, then a real intersection test ──────────────
+    // ── Streets: asked per territory, because that answer keeps ──────────
+    //
+    // Still a bbox reject and then a real intersection test, but turned
+    // around: each territory is asked which streets it touches, rather than
+    // each street being asked which territories it lies in. The same tests in
+    // the same number — what changes is that the per-territory answer survives
+    // into the next refresh, and the per-street one never could, because the
+    // thing that changed was never the street.
+    //
+    // There is deliberately no early exit. Territory boundaries follow
+    // streets, so a boundary street genuinely belongs to both neighbors and
+    // someone walking it expects to see it in either. The rendered list still
+    // gets it once; only the per-territory counts overlap.
+    var streetHit = [];
+    for (var i = 0; i < feats.length; i++) {
+      var touched = _streetsFor(feats[i], boxes[i]);
+      counts[i].streets = touched.length;
+      for (var k = 0; k < touched.length; k++) streetHit[touched[k]] = true;
+    }
+    var allStreets = s.cachedStreets.features;
     var filteredStreets = [];
-    s.cachedStreets.features.forEach(function (f) {
-      if (!f.geometry) return;
-      var fb;
-      try {
-        fb = turf.bbox(f);
-      } catch (e) {
-        return;
-      }
-      var hit = false;
-      for (var i = 0; i < feats.length; i++) {
-        if (!G.bboxOverlap(fb, boxes[i])) continue;
-        var inside = false;
-        try {
-          inside = turf.booleanIntersects(G.feat(f.geometry), feats[i]);
-        } catch (e) {
-          inside = G.anyCoordInPolygons(f, [feats[i]]);
-        }
-        if (!inside) continue;
-        counts[i].streets++;
-        hit = true;
-        // Deliberately no early exit. Territory boundaries follow streets, so
-        // a boundary street genuinely belongs to both neighbors and someone
-        // walking it expects to see it in either. The rendered list still gets
-        // it once; only the per-territory counts overlap.
-      }
-      if (hit) filteredStreets.push(f);
-    });
+    for (var j = 0; j < allStreets.length; j++)
+      if (streetHit[j]) filteredStreets.push(allStreets[j]);
 
     // ── Buildings: one centroid per building, cached on the feature ──────
     var filteredBuildings = [];
@@ -1431,22 +1431,143 @@ App.polygons = (function () {
     );
   }
 
+  /**
+   * The streets a territory touches, as indices into cachedStreets.features.
+   *
+   * turf.booleanIntersects is the whole cost of a refresh — on a real village
+   * it is 579 of the 587 milliseconds this loop spends — and the bounding-box
+   * reject in front of it has already thrown out everything cheap to throw
+   * out: what survives is 2.6 candidate territories per street, and those
+   * calls genuinely need the exact test. There is no index left to add, so the
+   * answer is remembered instead of made faster. An edit rebuilds one or two
+   * territories and carries the rest through untouched, which leaves all but a
+   * handful of these lists still good.
+   *
+   * A territory's geometry object is the key. setClusters() wraps its input in
+   * a fresh Feature but passes the geometry straight through, and nothing in
+   * the app rewrites a territory's coordinates in place — cut, merge, trim and
+   * autoheal all build new geometry — so a territory that changed always
+   * arrives as a new object and misses. A WeakMap lets the entry die with the
+   * territory it describes. The street collection is remembered alongside,
+   * because loading a different area replaces it wholesale and that
+   * invalidates every answer at once.
+   */
+  function _streetsFor(feature, box) {
+    var source = s.cachedStreets;
+    var cached = _streetIndex.get(feature.geometry);
+    if (cached && cached.source === source) {
+      _fullRefresh = false;
+      return cached.idx;
+    }
+
+    var list = source.features;
+    var idx = [];
+    for (var j = 0; j < list.length; j++) {
+      var f = list[j];
+      if (!f.geometry) continue;
+      var fb = _streetBox(f);
+      if (!fb || !G.bboxOverlap(fb, box)) continue;
+      var inside;
+      try {
+        inside = turf.booleanIntersects(G.feat(f.geometry), feature);
+      } catch (e) {
+        inside = G.anyCoordInPolygons(f, [feature]);
+      }
+      if (inside) idx.push(j);
+    }
+    _streetIndex.set(feature.geometry, { source: source, idx: idx });
+    return idx;
+  }
+
+  /** A street's bounding box, computed once and kept on the feature. */
+  function _streetBox(f) {
+    if (f._bbox) return f._bbox;
+    try {
+      f._bbox = turf.bbox(f);
+    } catch (e) {
+      f._bbox = null;
+    }
+    return f._bbox;
+  }
+
+  /**
+   * Bring a feature group to `features` by moving only the difference.
+   *
+   * The alternative — clear the group, rebuild it from one L.geoJSON — is a
+   * third of a second on twelve thousand buildings, and it was paid on every
+   * edit, including the many edits that leave all twelve thousand exactly
+   * where they were. Moving a boundary hands a building from one territory to
+   * another; it very rarely takes one off the map at all. So the shapes stay
+   * and only the arrivals and the departures are built and destroyed.
+   *
+   * Identity is the test. The cached collections are never rewritten in place,
+   * so the same building is the same object from one refresh to the next, and
+   * a Map keyed on the feature needs no ids invented for data that has none.
+   *
+   * The group is asked whether it was emptied behind our back, because a reset
+   * clears it directly and the registry would otherwise go on claiming layers
+   * that are no longer on the map.
+   *
+   * @returns {Map} the new registry, for the caller to keep
+   */
+  function _syncLayers(group, registry, features, style, pane) {
+    var next = new Map();
+    if (!group) return next;
+    if (registry.size > 0 && group.getLayers().length === 0) registry.clear();
+
+    var wanted = features || [];
+    var added = [];
+    for (var i = 0; i < wanted.length; i++) {
+      var f = wanted[i];
+      if (next.has(f)) continue;
+      var layer = registry.get(f);
+      if (layer) {
+        registry.delete(f);
+        next.set(f, layer);
+      } else {
+        added.push(f);
+      }
+    }
+
+    // Whatever the loop above did not claim is no longer in view.
+    registry.forEach(function (layer) {
+      group.removeLayer(layer);
+    });
+
+    if (added.length > 0) {
+      var built = L.geoJSON(
+        { type: "FeatureCollection", features: added },
+        { style: style, pane: pane },
+      );
+      // Out of the temporary group and into the real one. Leaving them in it
+      // would keep a discarded parent listening to all of their events.
+      built.getLayers().forEach(function (layer) {
+        built.removeLayer(layer);
+        group.addLayer(layer);
+        next.set(layer.feature, layer);
+      });
+    }
+    return next;
+  }
+
   function renderStreets(features) {
-    s.streetsLayerGroup.clearLayers();
-    if (!features || features.length === 0) return;
-    L.geoJSON(
-      { type: "FeatureCollection", features: features },
-      { style: STREET_STYLE, pane: PANE.streets },
-    ).addTo(s.streetsLayerGroup);
+    _streetLayers = _syncLayers(
+      s.streetsLayerGroup,
+      _streetLayers,
+      features,
+      STREET_STYLE,
+      PANE.streets,
+    );
   }
 
   function renderBuildings(features) {
-    s.buildingsLayerGroup.clearLayers();
-    if (!features || features.length === 0) return;
-    L.geoJSON(
-      { type: "FeatureCollection", features: features },
-      { style: BUILDING_STYLE, pane: PANE.buildings },
-    ).addTo(s.buildingsLayerGroup);
+    _buildingLayers = _syncLayers(
+      s.buildingsLayerGroup,
+      _buildingLayers,
+      features,
+      BUILDING_STYLE,
+      PANE.buildings,
+    );
   }
 
   return {
@@ -1478,7 +1599,7 @@ App.polygons = (function () {
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,
-    lastRefreshMs: lastRefreshMs,
+    refreshCostMs: refreshCostMs,
     renderStreets: renderStreets,
     renderBuildings: renderBuildings,
     restyleBuildings: restyleBuildings,

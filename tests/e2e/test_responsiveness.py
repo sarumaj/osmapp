@@ -25,10 +25,10 @@ from playwright.sync_api import Page, expect
 
 OVERLAY = "#loading-overlay"
 
-# What ui.busy consults. Pretending the last change to the map was expensive is
+# What ui.busy consults. Pretending a full pass over the data is expensive is
 # how a five-territory sample stands in for a town here.
 EXPENSIVE = """(ms) => {
-    window.App.polygons.lastRefreshMs = () => ms;
+    window.App.polygons.refreshCostMs = () => ms;
 }"""
 
 
@@ -45,7 +45,7 @@ def test_a_cheap_project_never_flashes_a_spinner(sample: Page):
     Deferring it to show a spinner would put a flash of overlay in front of
     something that was already instant, which is worse than saying nothing.
     """
-    assert sample.evaluate("() => window.App.polygons.lastRefreshMs()") < 120
+    assert sample.evaluate("() => window.App.polygons.refreshCostMs()") < 120
 
     before = sample.evaluate("() => window.App.state.clusters.length")
     sample.evaluate("""() => {
