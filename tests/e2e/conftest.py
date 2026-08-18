@@ -25,6 +25,7 @@ from playwright.sync_api import (
     BrowserContext,
     ConsoleMessage,
     Page,
+    Playwright,
     Response,
     expect,
     sync_playwright,
@@ -60,50 +61,71 @@ BROWSERS = ("chromium", "firefox", "webkit")
 
 
 def missing_browsers(config: pytest.Config) -> set[str]:
-    """Which of the requested browsers are not on this machine."""
+    """Which of the requested browsers are not on this machine.
+
+    One `sync_playwright()` block for all of them rather than one apiece.
+    Opening it starts the Node driver and closing it tears that driver's event
+    loop down underneath a task still waiting on it, which prints a `Task was
+    destroyed but it is pending` and a stray `TargetClosedError` to stderr.
+    Both are harmless and neither is ours to fix, but they land ahead of
+    pytest's own header and read like a crash — once is enough of that.
+    """
     if config.getoption("browser_channel", default=None):
         return set()
 
     wanted = config.getoption("browser", default=None) or ["chromium"]
-    return {name for name in wanted if not is_installed(name)}
+    # Anything outside BROWSERS is not ours to judge; let Playwright report it.
+    ours = [name for name in wanted if name in BROWSERS]
+    if not ours:
+        return set()
+
+    with sync_playwright() as playwright:
+        return {name for name in ours if not is_installed(playwright, name)}
 
 
-def is_installed(name: str) -> bool:
+def is_installed(playwright: Playwright, name: str) -> bool:
     """Does this browser have an executable on disk?
 
     Asking Playwright rather than guessing at a path: the download directory
     moves with PLAYWRIGHT_BROWSERS_PATH and the build number changes with
     every release, and `executable_path` accounts for both.
     """
-    if name not in BROWSERS:
-        return True  # not ours to judge; let Playwright report it
-
-    with sync_playwright() as playwright:
-        try:
-            return Path(getattr(playwright, name).executable_path).exists()
-        except PlaywrightError:
-            return False
+    try:
+        return Path(getattr(playwright, name).executable_path).exists()
+    except PlaywrightError:
+        return False
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]):
-    """Skip what cannot run — as skips, not as errors, and only what cannot.
+    """Mark everything here as e2e, then skip what cannot run.
 
-    pytest-playwright parametrizes every test by browser, so `--browser
-    chromium --browser webkit` with only one of them installed still runs
-    everything it can: the missing half is skipped by name and the other half
-    is tested.
+    The marker is unconditional, and applied before anything else can return.
+    It says where a test lives, not whether it can run today: `-m e2e` has to
+    select this directory and `-m "not e2e"` has to exclude it, identically on
+    a machine with browsers and on one without. Deriving it from whether the
+    browsers happen to be installed inverts that — the marker then exists only
+    where the tests cannot run, so the CI job that installs Chromium selects
+    nothing, and pytest exits 5 (no tests ran) on the one machine the suite
+    was written for.
+
+    Skipping is the conditional half. pytest-playwright parametrizes every
+    test by browser, so `--browser chromium --browser webkit` with only one of
+    them installed still runs everything it can: the missing half is skipped
+    by name and the other half is tested.
     """
     here = Path(__file__).parent
     mine = [item for item in items if here in item.path.parents]
     if not mine:
         return
 
+    for item in mine:
+        item.add_marker(pytest.mark.e2e)
+
     missing = missing_browsers(config)
     if not missing:
         return
 
     for item in mine:
-        item.add_marker(pytest.mark.e2e)
         callspec = getattr(item, "callspec", None)
         name = callspec.params.get("browser_name") if callspec else None
         if name is None or name in missing:
