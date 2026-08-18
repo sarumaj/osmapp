@@ -155,18 +155,34 @@ Attribution is burned into every rendered image.
 
 ```bash
 pip install -e ".[test]"
+playwright install chromium           # browser suite, optional
 pytest
 node --test "tests/js/*.test.mjs"     # no npm install
 ```
 
 Tests cover only things that fail **silently and consequentially** — loud
 failures (404, startup error, blank page) aren't worth the maintenance. The JS
-suite uses Node's built-in runner with no dependencies. `.github/workflows/ci.yml`
-runs both suites on every push/PR; the Heroku deploy job requires both to pass.
-Both emit JUnit XML in CI — `--junitxml` for pytest, Node's built-in `junit`
-reporter alongside `spec` so the log stays readable — and a check run turns
-that into a summary and inline annotations on the failing test. Publishing is
-best-effort: a fork PR has a read-only token and gets the log instead.
+suite uses Node's built-in runner with no dependencies.
+
+`tests/e2e/` is the exception to the rule above, and deliberately: a blank page
+*is* loud, but neither other suite can see one. The server suite never renders
+the page and the JS suite runs each module under Node with stubbed globals, so
+a dropped `<script>`, an uncopied vendor file or a module that throws on the
+real DOM passes both. It starts the app on an ephemeral port, drives Chromium
+against it, and answers tiles and the reverse lookup itself — Overpass,
+Nominatim and the tile provider are never contacted. **It skips itself, with a
+reason, when `pytest-playwright` or the browser is missing**, so a plain
+`pytest` still runs everything else. `--browser firefox` and `--browser webkit`
+work the same way if a bug looks engine-shaped.
+
+`.github/workflows/ci.yml` runs all three suites on every push/PR; the Heroku
+deploy job requires all three to pass. Each emits JUnit XML in CI —
+`--junitxml` for pytest, Node's built-in `junit` reporter alongside `spec` so
+the log stays readable — and a check run turns that into a summary and inline
+annotations on the failing test. Publishing is best-effort: a fork PR has a
+read-only token and gets the log instead. A failed browser run also uploads its
+Playwright traces, which replay the DOM, console and network of the run that
+failed.
 
 ### Releasing
 
@@ -247,6 +263,7 @@ static/vendor/              Leaflet, Turf, pdf-lib, pdf.js — no CDN at runtime
 scripts/copy-vendor.js      Populates static/vendor/ from node_modules
 scripts/comment_gate.py     Proves an edit touched only comments
 tests/                      pytest (server), node --test (client)
+tests/e2e/                  pytest + Playwright (the page in a browser)
 ```
 
 ### Modules
@@ -301,7 +318,7 @@ Six phases, each yielding to the event loop so the UI stays responsive:
 
 1. **Sample points** — building centroids, falling back to street midpoints,
   then boundary samples for sparse areas.
-2. **K-Means** → _k_ centroids.
+2. **K-Means** → *k* centroids.
 3. **Voronoi** → cells, clipped to the outer boundary.
 4. **Street graph** — undirected weighted graph with a grid index.
 5. **Edge routing** — each unique cell edge routed along streets with A\*,
@@ -432,7 +449,7 @@ dispatcher and the source the `?` sheet renders from.
 - **Offline printing uses cached tiles only.** Unseen ground comes out blank
   (visible in the preview before export).
 - **Server errors are English** regardless of interface language. If that matters,
-  return error _codes_ and map them to `alert.*` keys client-side.
+  return error *codes* and map them to `alert.*` keys client-side.
 
 ---
 
@@ -456,7 +473,7 @@ Karte aus.
 Ihr zeichnet eine Form auf einer Karte ein – ein Stadtviertel, ein Dorf, ein paar
 Häuserblocks. Die App lädt die tatsächlichen Straßen und Gebäude aus OpenStreetMap
 und teilt die Form in so viele Teile auf, wie ihr wünscht. Jede Grenze verläuft
-_entlang_ einer Straße, sodass „alles auf dieser Seite der Bahnstraße" eine
+*entlang* einer Straße, sodass „alles auf dieser Seite der Bahnstraße" eine
 Anweisung ist, nach der man handeln kann. Dann druckst du: Jedes Gebiet wird zu
 einer PDF-Karte, die nur dieses Gebiet zeigt, mit der Grenze darüber. Du kannst
 sie auf ein vorgedrucktes Formular ziehen, sodass die Karte in das dafür
@@ -506,7 +523,7 @@ PDF.
 
 Rysujesz na mapie kształt — dzielnicę, wieś, kilka przecznic. Aplikacja pobiera
 z OpenStreetMap rzeczywiste ulice i budynki, a następnie dzieli ten kształt na
-tyle części, ile zlecisz. Każda granica przebiega _wzdłuż_ drogi, więc „wszystko
+tyle części, ile zlecisz. Każda granica przebiega *wzdłuż* drogi, więc „wszystko
 po tej stronie Kolejowej" to wskazówka, którą można wykorzystać w praktyce.
 Następnie drukujesz: każdy obszar staje się kartą PDF pokazującą tylko ten
 obszar, z narysowaną granicą. Możesz umieścić ją na wcześniej wydrukowanym
@@ -556,7 +573,7 @@ chacun sous forme de carte PDF.
 Vous tracez une forme sur la carte — un quartier, un village, quelques pâtés de
 maisons. L'application télécharge les rues et bâtiments réels depuis OpenStreetMap,
 puis découpe la forme en autant de morceaux que vous le souhaitez. Chaque limite
-longe _une_ route, de sorte que « tout ce qui se trouve de ce côté de l'avenue
+longe *une* route, de sorte que « tout ce qui se trouve de ce côté de l'avenue
 Railway » est une instruction que vous pouvez suivre. Il ne vous reste plus qu'à
 imprimer : chaque territoire devient une fiche PDF présentant uniquement ce
 territoire, avec la limite tracée par-dessus. Vous pouvez les glisser sur un

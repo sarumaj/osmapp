@@ -61,7 +61,7 @@ def create_app() -> Flask:
         )
 
     @app.cli.command("prune-tiles")
-    def prune_tiles_command() -> None:
+    def prune_tiles_command():
         """flask prune-tiles"""
         removed, freed = prune_tiles()
         print(f"Removed {removed} tiles, freed {freed / 1024 / 1024:.1f} MB")

@@ -68,7 +68,7 @@ def approx_area_km2(geom: BaseGeometry) -> float:
     return geom.area * km_per_deg_lat * km_per_deg_lng
 
 
-def _check_area(geom: Polygon) -> None:
+def _check_area(geom: Polygon):
     """Reject polygons large enough to hang Overpass."""
     area_km2 = approx_area_km2(geom)
 

@@ -7,35 +7,6 @@
  *   Phase 3  build the street graph
  *   Phase 4  route each unique cell edge along the street network, once
  *   Phase 5  polygonize, assign, fill gaps, enforce connectivity, render
- *
- * Connectivity
- *   Territories used to come out in two disconnected blobs joined only across
- *   a neighbor. Three separate causes, all fixed here:
- *
- *   1. Pieces were assigned by nearest centroid. Street-routed boundaries
- *      deviate a long way from the Voronoi edges that produced them, so a
- *      piece could be nearest a centroid whose body sits elsewhere. Assignment
- *      is now by containment in the owning Voronoi cell, with distance only as
- *      a fallback.
- *   2. turf.centroid is the vertex mean and can land outside its own polygon —
- *      routinely, for the L and crescent shapes street-following produces.
- *      turf.pointOnFeature is guaranteed inside and is used instead.
- *   3. _fillGaps welded fragments to the nearest occupied slot with no
- *      adjacency test. It now prefers slots the fragment actually touches.
- *
- *   _enforceConnectivity() then makes it a guarantee rather than a likelihood:
- *   any slot that is still multi-part keeps its largest part and hands the
- *   orphans to a touching neighbor.
- *
- * Performance
- *   The street graph stores precomputed edge weights and a grid index.
- *   _nearestGraphNode() used to scan every node, and _findStreetPathForEdge
- *   called it up to ten times per edge because a miss restarted the scan at
- *   the next radius — on a 20k-node graph that dominated the whole run.
- *
- *   A* uses a binary heap and planar distances. The old version did an O(V)
- *   scan of the open set per pop and called turf.distance (haversine plus a
- *   unit conversion) on every relaxation.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -496,6 +467,30 @@ App.clustering = (function () {
         return k1 < k2 ? k1 + "|" + k2 : k2 + "|" + k1;
       }
 
+      // isOnOuterBoundary walks the whole ring, and phase 4 asks it three
+      // times for every unique cell edge. On a Nominatim city boundary — two
+      // thousand vertices after simplification — against four thousand edges,
+      // that is 24 million segment distances and about 200 ms of the run.
+      // Stamping the ring into the grid index turns each question into a
+      // lookup over the handful of segments in the neighboring cells.
+      var BOUNDARY_TOLERANCE_DEG = 0.00005;
+      var ringIndex = new SP.Grid(25);
+      for (var ri = 0; ri < outerRing.length - 1; ri++) {
+        ringIndex.addSegment(outerRing[ri], outerRing[ri + 1], ri);
+      }
+
+      function isOnRing(point) {
+        var near = ringIndex.candidates(point, 1);
+        for (var i = 0; i < near.length; i++) {
+          var seg = ringIndex.items[near[i]];
+          if (
+            G.pointToSegmentDist(point, seg.a, seg.b) < BOUNDARY_TOLERANCE_DEG
+          )
+            return true;
+        }
+        return false;
+      }
+
       var uniqueEdges = Object.create(null);
 
       cells.forEach(function (cell) {
@@ -521,10 +516,7 @@ App.clustering = (function () {
             uniqueEdges[key] = {
               p1: p1,
               p2: p2,
-              onOuter:
-                G.isOnOuterBoundary(p1, outerRing) &&
-                G.isOnOuterBoundary(p2, outerRing) &&
-                G.isOnOuterBoundary(mid, outerRing),
+              onOuter: isOnRing(p1) && isOnRing(p2) && isOnRing(mid),
             };
           }
         });
@@ -834,10 +826,18 @@ App.clustering = (function () {
       probe = feature;
     }
 
+    var probeBox;
+    try {
+      probeBox = turf.bbox(probe);
+    } catch (e) {
+      probeBox = null;
+    }
+
     var hits = [];
     Object.keys(slots).forEach(function (idx) {
       if (idx === exclude) return;
       try {
+        if (probeBox && !G.bboxOverlap(probeBox, turf.bbox(slots[idx]))) return;
         var shared = G.intersect(probe, slots[idx]);
         var area = shared ? turf.area(shared) : 0;
         if (area > 0) hits.push({ idx: idx, area: area });

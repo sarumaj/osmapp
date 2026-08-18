@@ -12,7 +12,7 @@ from .internal.threads import execute_in_thread
 from .internal.tiles import prune_tiles
 
 
-def main() -> None:
+def main():
     app = create_app()
     cancel = threading.Event()
 

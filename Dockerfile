@@ -1,4 +1,8 @@
-FROM node:24-slim AS vendor
+# --platform=$BUILDPLATFORM: this stage only copies files out of node_modules,
+# so its output is architecture-independent. Without the pin, a
+# linux/arm64 build would run the whole `npm ci` under QEMU for a result
+# identical to the native one.
+FROM --platform=$BUILDPLATFORM node:24-slim AS vendor
 
 WORKDIR /build
 
