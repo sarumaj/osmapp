@@ -1808,6 +1808,19 @@ body {
   color: #c0392b;
 }
 
+/* The live region. Empty for most of the dialog's life and laid out as if it
+   were not there, because a region that is added to the page when it gains
+   text is not reliably announced — so it is always present and usually
+   silent. */
+.territory-list__status {
+  margin: 0;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+.territory-list__status:empty {
+  display: none;
+}
+
 .territory-list__toggle {
   display: flex;
   align-items: center;

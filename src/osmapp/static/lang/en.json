@@ -411,7 +411,11 @@
     "print": "Print this card",
     "fix": "Repair this territory",
     "fixAll": "Fix all",
-    "fixAllHint": "Split territories drawn in pieces, and give empty ones to a neighbor"
+    "fixAllHint": "Split territories drawn in pieces, and give empty ones to a neighbor",
+    "fixedSplit": "Split {n} into {pieces} pieces.",
+    "fixedMerged": "Merged {n} into a neighboring territory.",
+    "fixedStuck": "Still without a neighbor that can take them: {n}.",
+    "fixedNone": "Nothing here could be repaired."
   },
   "feature": {
     "building": "Building",

@@ -411,7 +411,11 @@
     "print": "Diese Karte drucken",
     "fix": "Dieses Gebiet reparieren",
     "fixAll": "Alle reparieren",
-    "fixAllHint": "Mehrteilige Gebiete aufteilen und leere einem Nachbarn zuschlagen"
+    "fixAllHint": "Mehrteilige Gebiete aufteilen und leere einem Nachbarn zuschlagen",
+    "fixedSplit": "{n} in {pieces} Teile zerlegt.",
+    "fixedMerged": "{n} mit einem Nachbargebiet zusammengeführt.",
+    "fixedStuck": "Weiterhin ohne Nachbarn, der sie aufnehmen kann: {n}.",
+    "fixedNone": "Hier ließ sich nichts reparieren."
   },
   "feature": {
     "building": "Gebäude",

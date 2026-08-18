@@ -325,16 +325,27 @@
         class="app-dialog territory-list"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="territory-list-title"
         tabindex="-1"
       >
-        <h2 class="app-dialog__title" data-i18n="list.title">Territories</h2>
+        <h2
+          class="app-dialog__title"
+          id="territory-list-title"
+          data-i18n="list.title"
+        >
+          Territories
+        </h2>
         <p class="app-dialog__hint" data-role="total"></p>
         <p class="territory-list__notes" data-role="notes" hidden></p>
         <label class="territory-list__toggle">
           <input type="checkbox" data-role="show-numbers" />
           <span data-i18n="list.showNumbers">Show the numbers on the map</span>
         </label>
-        <div class="territory-list__rows" data-role="rows"></div>
+        <!-- Always present and never hidden: a live region that is added to
+             the page at the moment it gains text is not reliably announced,
+             so it is empty rather than absent when there is nothing to say. -->
+        <p class="territory-list__status" data-role="outcome" role="status"></p>
+        <div class="territory-list__rows" data-role="rows" role="list"></div>
         <p
           class="app-dialog__hint"
           data-role="empty"
@@ -372,7 +383,7 @@
          only on a row whose fault App.autoheal can actually repair — splits
          a territory drawn in pieces or hands an empty one to a neighbor. -->
     <template id="tpl-territory-row">
-      <div class="territory-row-wrap">
+      <div class="territory-row-wrap" role="listitem">
         <button type="button" class="territory-row" data-role="go">
           <span class="territory-row__num" data-role="num"></span>
           <span class="territory-row__body">

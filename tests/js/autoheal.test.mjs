@@ -446,6 +446,121 @@ test("an empty territory with nowhere to go is flagged but not offered", () => {
   assert.equal(issue.fixable, false);
 });
 
+// ── The offer and the repair are one thing ──────────────────────────────────
+
+test("a wand is offered exactly when the repair would change something", () => {
+  // The invariant the whole `fixable` flag exists to hold. It used to be a
+  // prediction — "does a populated neighbor touch me?" — which is a different
+  // question from "can that neighbor take me?", and the row ended up offering
+  // a button that ran and did nothing.
+  const h = setup(
+    [
+      { shape: box(0, 0, 1, 1), buildings: 6 },
+      { shape: pieces(box(3, 0, 4, 1), box(6, 0, 7, 1)), buildings: 2 },
+      { shape: box(1, 0, 2, 1), buildings: 0 },
+      { shape: box(20, 20, 21, 21), buildings: 0 },
+    ],
+    [building(0.5, 0.5)],
+  );
+
+  for (const issue of h.audit().rows) {
+    const report = h.heal(issue.index);
+    assert.equal(
+      issue.fixable,
+      report.changed,
+      `territory ${issue.index}: offered ${issue.fixable}, did ${report.changed}`,
+    );
+  }
+});
+
+test("an empty territory whose neighbor cannot take it is not offered", () => {
+  // Whether two outlines can be unioned into one usable polygon is a question
+  // about arithmetic, not about geography, and the answer is not knowable
+  // without trying. Here every union is refused, so the touching populated
+  // neighbor is no help and the row must not claim otherwise.
+  const h = setup(
+    [
+      { shape: box(0, 0, 1, 1), buildings: 9 },
+      { shape: box(1, 0, 2, 1), buildings: 0 },
+    ],
+    [building(0.5, 0.5)],
+  );
+  h.App.geometry.union = () => null;
+  h.App.geometry.unionHealed = () => null;
+
+  assert.equal(h.issueOf(1).empty, true, "still flagged, because it still is");
+  assert.equal(h.issueOf(1).fixable, false);
+  assert.equal(h.heal(1).changed, false, "and the two agree");
+});
+
+test("a neighbor that cannot take it hands the job to the next one", () => {
+  // west shares the most boundary and so is asked first. When that union comes
+  // back unusable the strip is not stranded: east is still a neighbor, and a
+  // second-best home beats no home at all.
+  const west = box(0, 0, 1, 1);
+  // Deliberately not the same size as west, so the stub below can tell the two
+  // apart by area — which is the one handle that survives _absorb quantizing
+  // its inputs into fresh objects on the way to its last attempt.
+  const east = box(1, 0, 2.4, 1);
+  const strip = box(0, 1, 1.5, 1.2);
+
+  const h = setup(
+    [
+      { shape: west, buildings: 12 },
+      { shape: east, buildings: 9 },
+      { shape: strip, buildings: 0 },
+    ],
+    [building(0.5, 0.5), building(1.5, 0.5)],
+  );
+
+  const realUnion = h.App.geometry.union;
+  const realHealed = h.App.geometry.unionHealed;
+  const isWest = (f) => Math.abs(turf.area(f) - turf.area(west)) < 1;
+  h.App.geometry.union = (a, b) => (isWest(a) ? null : realUnion(a, b));
+  h.App.geometry.unionHealed = (fs, eps) =>
+    isWest(fs[0]) ? null : realHealed(fs, eps);
+
+  const report = h.heal();
+
+  assert.equal(report.merged, 1);
+  assert.equal(report.after, 2);
+  const holdsStrip = h
+    .emitted()
+    .filter((f) =>
+      turf.booleanPointInPolygon(turf.point([0.5 * U, 1.1 * U]), f),
+    );
+  assert.equal(holdsStrip.length, 1);
+  assert.ok(
+    turf.booleanPointInPolygon(turf.point([1.5 * U, 0.5 * U]), holdsStrip[0]),
+    "the runner-up took it",
+  );
+});
+
+test("the repair believes the count the row is showing", () => {
+  // refreshFilteredData gives a building on a shared boundary to the first
+  // territory that claims it; counting each territory on its own gives it to
+  // both. The flag is drawn from the first number, so the repair has to work
+  // from the same one — otherwise the row says "empty", the run says
+  // "populated", and the wand does nothing.
+  const h = setup(
+    [
+      { shape: box(0, 0, 1, 1), buildings: 4 },
+      // Says zero, yet a building footprint falls inside it.
+      { shape: box(1, 0, 2, 1), buildings: 0 },
+    ],
+    [building(0.5, 0.5), building(1.5, 0.5)],
+  );
+
+  const report = h.heal();
+
+  assert.equal(
+    report.merged,
+    1,
+    "the row said empty, so it was treated as empty",
+  );
+  assert.equal(report.after, 1);
+});
+
 test("issueOf on a territory that is not there says so", () => {
   const h = setup([{ shape: box(0, 0, 1, 1), buildings: 1 }], []);
   assert.equal(h.issueOf(7), null);

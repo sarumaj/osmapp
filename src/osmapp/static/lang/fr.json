@@ -411,7 +411,11 @@
     "print": "Imprimer cette fiche",
     "fix": "Réparer ce territoire",
     "fixAll": "Tout réparer",
-    "fixAllHint": "Séparer les territoires en morceaux et confier les vides à un voisin"
+    "fixAllHint": "Séparer les territoires en morceaux et confier les vides à un voisin",
+    "fixedSplit": "{n} séparé en {pieces} morceaux.",
+    "fixedMerged": "{n} fusionné avec un territoire voisin.",
+    "fixedStuck": "Toujours sans voisin pouvant les reprendre : {n}.",
+    "fixedNone": "Rien n’a pu être réparé ici."
   },
   "feature": {
     "building": "Bâtiment",

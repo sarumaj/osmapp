@@ -53,6 +53,16 @@
  * Ctrl+Z. Nothing on the map moves until the plan is complete, which is what
  * makes a partial failure — one shape turf refuses to union — cost that one
  * merge rather than the map.
+ *
+ * That separation is also what keeps the offer honest. The list shows a repair
+ * button on a row, and the only way to be sure the button does something is to
+ * do it: _plan() computes the whole repair and hands it back, heal() writes it
+ * to the map, and _canFix() runs the same plan and throws it away. A cheaper
+ * test that resembles the repair is how this module first shipped, and the two
+ * disagreed exactly where it mattered — on a territory whose neighbor touched
+ * it but could not take it, which is a question about arithmetic rather than
+ * about geography. A button that runs and changes nothing is worse than no
+ * button, because it teaches people to distrust the one that works.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -71,6 +81,11 @@ App.autoheal = (function () {
   // that found the pair leaves a hairline seam, and the seam is a MultiPolygon,
   // which is the very fault being repaired.
   var TOUCH_SLACK_M = 0.5;
+
+  // Building centroids, and the collection they were taken from. See
+  // _buildingPoints.
+  var _points = null;
+  var _pointsFor = null;
 
   function init() {
     s = App.state;
@@ -130,13 +145,41 @@ App.autoheal = (function () {
       parts: parts,
       split: split,
       empty: empty,
-      // An empty territory is only fixable if something can take it. Offering
-      // a button that runs and changes nothing is worse than offering none.
-      fixable: split || (empty && _hasHost(index)),
+      // Splitting a multi-part shape always changes it, so that one needs no
+      // rehearsal. Everything else is answered by running the repair and
+      // throwing the result away — see _canFix.
+      fixable: split || (empty && _canFix(index)),
     };
   }
 
-  /** Every issue, plus the totals the list dialog puts in its notes line. */
+  /**
+   * Would repairing this territory actually change anything?
+   *
+   * Answered by running the repair against a copy and discarding it, not by a
+   * cheaper test that resembles it. This module used to predict with
+   * `does a populated neighbor touch me?`, which is a different question from
+   * `can that neighbor take me?`: a union turf refuses, or one that comes back
+   * as two pieces, is declined by _absorb, and the row was left offering a
+   * button that ran and did nothing. Two pieces of code answering one question
+   * will disagree eventually, so now there is only one.
+   *
+   * The rehearsal is not free, so it is reached only for a territory already
+   * known to be empty — a handful of rows in a list of hundreds — and each one
+   * costs a bbox-filtered neighbor scan and at most a few unions.
+   */
+  function _canFix(index) {
+    var plan = _plan(index);
+    return !!(plan && plan.report.changed);
+  }
+
+  /**
+   * Every issue, plus the totals the list dialog puts in its notes line.
+   *
+   * Costs a rehearsed repair per empty territory (see _canFix), which is why
+   * the building centroids behind it are cached. Splitting needs no rehearsal
+   * and territories with buildings are never rehearsed at all, so the price is
+   * paid per anomaly rather than per territory.
+   */
   function audit() {
     var rows = [];
     var split = 0;
@@ -155,32 +198,6 @@ App.autoheal = (function () {
     return { rows: rows, split: split, empty: empty, fixable: fixable };
   }
 
-  /**
-   * Is there a populated neighbor that could absorb territory `index`?
-   *
-   * Known populated — `isEmpty` false, not merely "not known to be empty" —
-   * because that is the test the merge itself applies, and a row offering a
-   * repair the run then declines is worse than a row offering none.
-   *
-   * This is deliberately the answer for healing *that row alone*. A chain of
-   * empties along a railway line has only one link with a populated neighbor,
-   * so only that link shows a wand; the whole chain still unwinds under Fix
-   * all, because each merge makes the next link's neighbor a legal host.
-   */
-  function _hasHost(index) {
-    var entries = (s && s.clusters) || [];
-    var victim = entries[index];
-    if (!victim) return false;
-
-    var others = [];
-    entries.forEach(function (entry, i) {
-      if (i === index) return;
-      if (isEmpty(entry) !== false) return;
-      others.push({ feature: entry.feature });
-    });
-    return _neighbors(others, { feature: victim.feature }).length > 0;
-  }
-
   // ══════════════════════════════════════════════════════════════════════
   // COUNTING BUILDINGS AS THE PLAN CHANGES
   // ══════════════════════════════════════════════════════════════════════
@@ -194,6 +211,15 @@ App.autoheal = (function () {
     }
   }
 
+  /** The same shape on a one-centimeter grid. See _absorb. */
+  function _quantize(feature) {
+    try {
+      return turf.truncate(feature, { precision: 7, mutate: false });
+    } catch (e) {
+      return feature;
+    }
+  }
+
   /**
    * One point per building, centroids cached on the feature.
    *
@@ -204,8 +230,15 @@ App.autoheal = (function () {
    * @returns {Object[]|null} turf Points, or null when nothing is downloaded
    */
   function _buildingPoints() {
-    var features = (s.cachedBuildings && s.cachedBuildings.features) || null;
+    var collection = s.cachedBuildings || null;
+    var features = (collection && collection.features) || null;
     if (!features) return null;
+
+    // Keyed on the collection object, which is replaced wholesale by a
+    // download, an import or a reset and never edited in place. Opening the
+    // list rehearses a repair for every empty territory, and without this
+    // each rehearsal walked all the buildings again to build the same array.
+    if (_pointsFor === collection) return _points;
 
     var points = [];
     features.forEach(function (f) {
@@ -220,6 +253,9 @@ App.autoheal = (function () {
       }
       points.push(centroid);
     });
+
+    _pointsFor = collection;
+    _points = points;
     return points;
   }
 
@@ -437,12 +473,23 @@ App.autoheal = (function () {
     try {
       candidates.push(G.unionHealed([host, victim], TOUCH_SLACK_M));
     } catch (e) {
-      /* the fallback below is what this catch is for */
+      /* the fallbacks below are what this catch is for */
     }
     try {
       candidates.push(G.union(host, victim));
     } catch (e) {
-      /* both may fail; the caller treats that as "not merged" */
+      /* every strategy may fail; the caller treats that as "not merged" */
+    }
+    try {
+      // Last: the same union on a one-centimeter grid. Clipping gives up on
+      // vertices that are *nearly* the same point, which is what a shared
+      // boundary carried through a buffer and back is made of; quantizing
+      // makes them exactly the same point and the arithmetic becomes easy.
+      // A centimeter is far below anything this app measures — the touch
+      // slack is fifty times it — so nothing that matters moves.
+      candidates.push(G.union(_quantize(host), _quantize(victim)));
+    } catch (e) {
+      /* out of ideas; the victim keeps its ground and its flag */
     }
 
     for (var i = 0; i < candidates.length; i++) {
@@ -499,18 +546,26 @@ App.autoheal = (function () {
         );
         if (hosts.length === 0) continue;
 
-        var host = hosts[0];
-        var union = _absorb(host.feature, victim.feature);
-        // Nothing trustworthy came back. The victim keeps its flag and its
-        // ground; see _absorb for why that is the only safe answer.
-        if (!union) continue;
+        // Down the ranking until one of them can actually take it. The best
+        // neighbor by shared boundary is the one that *should* have it, but
+        // whether a union of those two particular outlines comes back usable
+        // is a question about arithmetic, not about geography — and the
+        // second-best neighbor is still a neighbor. Trying only the first
+        // turned a solvable case into a button that did nothing.
+        for (var h = 0; h < hosts.length; h++) {
+          var host = hosts[h];
+          var union = _absorb(host.feature, victim.feature);
+          // Nothing trustworthy came back from this pairing; see _absorb.
+          if (!union) continue;
 
-        host.feature = _derive(host.feature, union.geometry);
-        host.changed = true;
-        host.buildings = null;
-        victim.removed = true;
-        report.merged++;
-        progress = true;
+          host.feature = _derive(host.feature, union.geometry);
+          host.changed = true;
+          host.buildings = null;
+          victim.removed = true;
+          report.merged++;
+          progress = true;
+          break;
+        }
       }
     }
 
@@ -528,15 +583,18 @@ App.autoheal = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Repair territories.
+   * Work out the repair without performing it.
    *
-   * @param {number|number[]} [indices] which territories to repair; every one
-   *   when omitted. Out-of-range entries are ignored.
-   * @returns {{split:number, pieces:number, merged:number, unresolved:number,
-   *            before:number, after:number, changed:boolean}|null} null when
-   *   there are no territories at all
+   * Pure: it reads s.clusters and returns new features, and nothing on the
+   * map moves. That is what lets the same function answer "would this change
+   * anything?" for the wand on a row and "what shall we write back?" for the
+   * click on it — one implementation, so the button and the repair cannot
+   * drift apart.
+   *
+   * @param {number|number[]} [indices] territories to repair; all when omitted
+   * @returns {{report: Object, kept: Object[]}|null} null with no territories
    */
-  function heal(indices) {
+  function _plan(indices) {
     var entries = (s && s.clusters) || [];
     if (entries.length === 0) return null;
 
@@ -558,7 +616,17 @@ App.autoheal = (function () {
         healing: !!scope[index],
         changed: false,
         removed: false,
-        buildings: null,
+        // Seeded from the count the row is showing rather than recounted, so
+        // that the flag and the repair are working from one number. They can
+        // differ: refreshFilteredData gives a building on a shared boundary to
+        // the first territory that claims it, and counting each territory
+        // independently gives it to both. A territory flagged empty must be
+        // treated as empty by the run that was offered for it, whichever of
+        // the two is the better description of the ground.
+        buildings:
+          entry.counts && typeof entry.counts.buildings === "number"
+            ? entry.counts.buildings
+            : null,
       };
     });
 
@@ -578,6 +646,23 @@ App.autoheal = (function () {
         return slot.changed;
       });
 
+    return { report: report, kept: kept };
+  }
+
+  /**
+   * Repair territories.
+   *
+   * @param {number|number[]} [indices] which territories to repair; every one
+   *   when omitted. Out-of-range entries are ignored.
+   * @returns {{split:number, pieces:number, merged:number, unresolved:number,
+   *            before:number, after:number, changed:boolean}|null} null when
+   *   there are no territories at all
+   */
+  function heal(indices) {
+    var plan = _plan(indices);
+    if (!plan) return null;
+
+    var report = plan.report;
     if (!report.changed) {
       console.log(">>> Autoheal: nothing to repair");
       return report;
@@ -588,7 +673,7 @@ App.autoheal = (function () {
     // the untouched ones are passed through as they stand rather than copied
     // here — the copy it makes is the one that ends up on the map either way.
     App.polygons.setClusters(
-      kept.map(function (slot) {
+      plan.kept.map(function (slot) {
         return slot.feature;
       }),
     );

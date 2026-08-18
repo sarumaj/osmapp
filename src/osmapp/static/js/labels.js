@@ -1,56 +1,66 @@
 /**
- * labels.js — making the number in the info panel countable.
+ * labels.js — adding countable numbers to the info panel.
  *
- * The info panel reports `s.clusters.length`, which is exactly right and
- * regularly disagrees with what you can count on screen. Three reasons, all
- * of them real:
+ * The info panel reports `s.clusters.length`, which is correct but often
+ * does not match what you can count on screen. There are three reasons for
+ * this, all of them legitimate:
  *
- *   • A territory can be too small to see. The partitioner drops orphans
- *     below 5% of an average territory but keeps everything above it; the
- *     knife keeps pieces down to CUT_MIN_PIECE_M2; carving the auto cluster
- *     leaves whatever is left over. At a village zoom a 400 m² leftover is a
- *     few pixels of purple against a purple neighbor — counted, printable,
- *     invisible.
- *   • Adjacent territories share an outline. Fifteen of them tiling a village
- *     read as one purple mass with some lines in it, and eyes undercount
- *     lines.
- *   • A territory can be in more than one piece. _enforceConnectivity makes
- *     that rare rather than impossible, and merge can produce it outright by
- *     unioning two shapes that do not touch. Then the map shows *more* shapes
- *     than the panel counts, which is the same confusion the other way round.
+ *   • A territory can be too small to see. The partitioner drops orphan
+ *     fragments below 5% of an average territory but keeps everything above
+ *     that threshold. The knife keeps pieces down to CUT_MIN_PIECE_M2, and
+ *     carving the auto cluster leaves behind whatever is left over. At a
+ *     village zoom level, a 400 m² leftover is just a few pixels of purple
+ *     against a purple neighbor — it is counted and printable, but it is
+ *     effectively invisible.
  *
- * So: one numbered chip per polygon *part*, all parts of a territory carrying
- * the same number. Distinct numbers = the panel's count, chips on screen =
- * the shapes on screen, and a repeated number is the explanation for the
- * difference rather than a puzzle. The numbering matches the hover tooltip
- * ("Territory 7"), because two numbering schemes would be worse than none.
+ *   • Adjacent territories share an outline. When fifteen of them tile a
+ *     village, they can read as one purple mass with some lines drawn
+ *     through it, and the human eye tends to undercount those lines.
  *
- * Two things follow from treating a chip as a handle on its territory rather
- * than as decoration:
+ *   • A territory can be in more than one piece. The `_enforceConnectivity`
+ *     function makes this rare but does not make it impossible, and merge
+ *     can produce it outright by unioning two shapes that do not touch. In
+ *     that case the map shows *more* shapes than the panel counts, which is
+ *     the same confusion in the opposite direction.
  *
- *   • It is clickable, hoverable, right-clickable and selectable, and it gets
- *     all of that from polygons.attachProxyEvents rather than from a copy of
- *     the handlers. On a territory a few pixels wide the chip is the only
- *     thing you can realistically hit, which is exactly the case the chips
- *     were added for. It goes inert in cut mode, where the pointer is a
- *     drawing instrument and anything clickable on the map is one more thing
+ * The solution is to show one numbered chip per polygon *part*, where all
+ * parts of a territory carry the same number. Distinct numbers match the
+ * panel's count, chips on screen match the shapes on screen, and a repeated
+ * number explains the difference rather than leaving it as a puzzle. The
+ * numbering also matches the hover tooltip ("Territory 7"), because having
+ * two separate numbering schemes would be more confusing than having none.
+ *
+ * Two things follow from treating a chip as a handle on its territory
+ * rather than as mere decoration:
+ *
+ *   • The chip is clickable, hoverable, right-clickable, and selectable. It
+ *     gets all of this behavior from `polygons.attachProxyEvents` instead of
+ *     from a duplicate copy of the handlers. On a territory that is only a
+ *     few pixels wide, the chip is the only thing you can realistically
+ *     click — which is exactly the situation the chips were added for. The
+ *     chip goes inert in cut mode, where the pointer acts as a drawing
+ *     instrument and anything clickable on the map is just one more thing
  *     for the knife to catch on.
- *   • It lives in innerPolygonsLayerGroup with the territories themselves
- *     rather than in a layer group of its own: the switcher's Territories
- *     toggle covers it, nothing can outlive a rebuild, and the switcher
- *     lists one entry per kind of thing on the map instead of one per
- *     implementation detail. Showing and hiding the numbers is the toolbar's
- *     job, next to the tools that make them worth having.
  *
- * The chip also carries the printed check, which used to be a marker of its
- * own in polygons.js. Both were anchored at the same interior point, so the
- * two collided by construction and the badge had to be nudged out of the
- * number's way. Merging them removes a marker that had to be created,
- * anchored, tracked on the cluster entry and torn down in three places, and
- * it keeps the non-color channel the badge existed for: on a territory too
- * small to see, the chip is red rather than green, and the check is then the
- * only thing on screen saying the card is done.
+ *   • The chip lives in `innerPolygonsLayerGroup` alongside the territories
+ *     themselves, rather than in a separate layer group of its own. This
+ *     way the switcher's Territories toggle covers it, nothing can outlive
+ *     a rebuild, and the switcher lists one entry per kind of thing on the
+ *     map instead of one per implementation detail. Showing and hiding the
+ *     numbers is the toolbar's job, placed next to the tools that make the
+ *     numbers worth having.
+ *
+ * The chip also carries the printed check, which used to be a separate
+ * marker in `polygons.js`. Both were anchored at the same interior point,
+ * so by construction the two would collide and the badge had to be nudged
+ * out of the number's way. Merging them removes a marker that had to be
+ * created, anchored, tracked on the cluster entry, and torn down in three
+ * different places. It also preserves the non-color channel that the badge
+ * existed for: on a territory too small to see, the chip turns red rather
+ * than green, and the check becomes the only thing on screen indicating
+ * that the card is done.
  */
+
 var App = window.App || {};
 App._loaded = App._loaded || [];
 
@@ -499,40 +509,12 @@ App.labels = (function () {
     node.className = "fa-solid " + icon + " territory-row__flag " + cls;
     node.setAttribute("title", title);
     node.setAttribute("aria-label", title);
+    // An <i> carries no role, and an aria-label on an element with no role is
+    // not required to be announced — which made the flags decoration for
+    // anyone not looking at them, on a row whose whole purpose is to say that
+    // something is wrong with this territory.
+    node.setAttribute("role", "img");
     host.appendChild(node);
-  }
-
-  /**
-   * Run the repair, then rebuild the list around what it did.
-   *
-   * Rebuilt rather than patched, for two reasons. A heal renumbers everything
-   * after the first territory it changes, so every row below the one that was
-   * clicked is now about a different territory — patching would leave the
-   * numbers lying. And the flags that have disappeared are the report: there
-   * is no summary to read, because the list itself is the summary.
-   *
-   * The work is deferred by a tick so the spinner is actually painted before
-   * turf starts, which is the same 30 ms editing.js buys for a merge.
-   *
-   * @param {number|null} index one territory, or null for all of them
-   */
-  function _fix(index) {
-    if (!App.autoheal) return;
-    App.ui.showBusy(T("loading.healing"));
-    window.setTimeout(function () {
-      var report = null;
-      try {
-        report = App.autoheal.heal(index === null ? undefined : index);
-      } catch (e) {
-        console.error(">>> Autoheal failed:", e);
-      }
-      App.ui.hideOverlay();
-      if (!report) {
-        alert(T("alert.healFailed"));
-        return;
-      }
-      openList();
-    }, 30);
   }
 
   /**
@@ -557,14 +539,20 @@ App.labels = (function () {
       App.ui.closeDialog();
     });
 
+    // Wired once, outside _renderList: a repair rebuilds the rows and nothing
+    // else, so a handler attached per render would fire twice after the first
+    // repair and three times after the second.
     var toggle = D.role(dialog, "show-numbers");
     if (toggle) {
-      toggle.checked = isVisible();
       toggle.addEventListener("change", function () {
         setVisible(toggle.checked);
         if (App.controls) App.controls.refresh();
       });
     }
+
+    D.onRole(dialog, "fix-all", function () {
+      _fix(null, D.role(dialog, "fix-all"));
+    });
 
     // The last screen in the app that took over without registering anything,
     // so "?" over it listed the keys of the map underneath and said nothing
@@ -595,12 +583,33 @@ App.labels = (function () {
       ],
     });
 
+    _renderList(dialog);
+  }
+
+  /**
+   * Fill an already-open list dialog from the current territories.
+   *
+   * Separate from openList() because a repair changes the list and must not
+   * change the screen around it. Re-opening the dialog put the scroll back to
+   * the top and the focus back on the first thing in it, which for a list of
+   * forty territories means finding your place again after every click — and
+   * the rows you are working through are exactly the ones near the bottom,
+   * because those are the ones nobody has got to yet.
+   *
+   * @param {Element} dialog
+   * @param {{status?: string}} [opts] a sentence for the live region
+   */
+  function _renderList(dialog, opts) {
     var entries = s.clusters || [];
     var shown = entries.map(function (entry, index) {
       return _rows[index] || _describe(entry, index);
     });
 
+    var toggle = D.role(dialog, "show-numbers");
+    if (toggle) toggle.checked = isVisible();
+
     D.text(dialog, "total", T("list.total", { count: shown.length }));
+    D.text(dialog, "outcome", (opts && opts.status) || "");
 
     var warn = warnings();
     var notes = [];
@@ -612,18 +621,15 @@ App.labels = (function () {
 
     // The repair offer, per row and for the list as a whole. `fixable` is not
     // the same as `flagged`: a territory too small to see is flagged and not
-    // fixable, and an empty one with no populated neighbor to hand itself to
-    // is flagged and not fixable either. A button that runs and changes
-    // nothing teaches people to distrust the one that works.
+    // fixable, and an empty one no neighbor can take is flagged and not
+    // fixable either. autoheal answers it by rehearsing the repair rather than
+    // by guessing at it, so a wand that is shown always does something.
     var audit = App.autoheal ? App.autoheal.audit() : { rows: [], fixable: 0 };
     var fixable = {};
     audit.rows.forEach(function (issue) {
       if (issue.fixable) fixable[issue.index] = true;
     });
     D.toggleRole(dialog, "fix-all", audit.fixable > 0);
-    D.onRole(dialog, "fix-all", function () {
-      _fix(null);
-    });
 
     var host = D.role(dialog, "rows");
     host.textContent = "";
@@ -667,9 +673,14 @@ App.labels = (function () {
       if (_isEmpty(row.index))
         _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
 
+      // The row is addressed by its number rather than by its position in the
+      // DOM, so a repair can put the focus back on the same territory even
+      // after everything below it has been renumbered.
+      node.dataset.territory = String(row.index);
+
       D.toggle(D.role(node, "fix"), !!fixable[row.index]);
-      D.onRole(node, "fix", function () {
-        _fix(row.index);
+      D.onRole(node, "fix", function (e, button) {
+        _fix(row.index, button);
       });
 
       D.onRole(node, "go", function () {
@@ -685,6 +696,131 @@ App.labels = (function () {
         App.print.printCluster(entry.feature);
       });
     });
+  }
+
+  /** What the repair did, as a sentence for the live region. */
+  function _outcome(report) {
+    if (!report || !report.changed) return T("list.fixedNone");
+    var said = [];
+    if (report.split > 0)
+      said.push(
+        T("list.fixedSplit", { n: report.split, pieces: report.pieces }),
+      );
+    if (report.merged > 0)
+      said.push(T("list.fixedMerged", { n: report.merged }));
+    if (report.unresolved > 0)
+      said.push(T("list.fixedStuck", { n: report.unresolved }));
+    return said.join(" ");
+  }
+
+  /**
+   * Put the focus somewhere sensible once the rows have been rebuilt.
+   *
+   * In order: the same control on the same territory, that territory's own
+   * row, the row that took its place in the list, and finally whatever is
+   * still standing in the dialog. Territory 12 becoming territories 12 and 13
+   * is the ordinary case and the first branch covers it; territory 12 being
+   * merged away entirely is the other one, and landing on whoever is numbered
+   * 12 now keeps the keyboard where the eye already is.
+   */
+  function _restoreFocus(dialog, index, role) {
+    // "Fix all" is about the list rather than about a row, so it comes back to
+    // itself — or, once there is nothing left to fix and it has gone, to the
+    // button that closes the dialog.
+    if (index === null) {
+      _focusFirst([D.role(dialog, "fix-all"), D.role(dialog, "close")]);
+      return;
+    }
+
+    var rows = dialog.querySelectorAll("[data-territory]");
+    var target = null;
+    for (var i = 0; i < rows.length; i++) {
+      if (rows[i].dataset.territory === String(index)) {
+        target = rows[i];
+        break;
+      }
+    }
+    if (!target && rows.length) target = rows[Math.min(index, rows.length - 1)];
+
+    // Walked in order rather than picked by the first non-null: the wand that
+    // was clicked is usually gone or hidden by now — that is what a successful
+    // repair looks like — and stopping at it left the focus on <body>, which
+    // takes the next Tab back to the top of the page instead of into the list.
+    _focusFirst([
+      target && role ? D.role(target, role) : null,
+      target ? D.role(target, "go") : null,
+      D.role(dialog, "fix-all"),
+      D.role(dialog, "close"),
+    ]);
+  }
+
+  /** Focus the first of `candidates` that is present and not hidden. */
+  function _focusFirst(candidates) {
+    for (var c = 0; c < candidates.length; c++) {
+      var button = candidates[c];
+      if (!button || button.hasAttribute("hidden") || !button.focus) continue;
+      // preventScroll, because the whole point of the caller is that the list
+      // has not moved: focusing a control below the fold scrolls it into view
+      // and undoes the offset that was just put back. The caller restores the
+      // offset again afterwards for browsers that ignore the option.
+      try {
+        button.focus({ preventScroll: true });
+      } catch (e) {
+        button.focus();
+      }
+      return;
+    }
+  }
+
+  /**
+   * Run the repair, then rebuild the rows around what it did.
+   *
+   * The dialog stays where it is. A heal renumbers everything after the first
+   * territory it changes, so the rows have to be rebuilt — but the scroll
+   * offset and the focus belong to the person reading, not to the data, and
+   * both are put back.
+   *
+   * The work is deferred by a tick so the spinner is actually painted before
+   * turf starts, which is the same 30 ms editing.js buys for a merge.
+   *
+   * @param {number|null} index one territory, or null for all of them
+   * @param {Element} [source] the button that was clicked, so the focus can
+   *   come back to its equivalent
+   */
+  function _fix(index, source) {
+    if (!App.autoheal || !_dialog) return;
+    var dialog = _dialog;
+    var rows = D.role(dialog, "rows");
+    var scroll = rows ? rows.scrollTop : 0;
+    var role = source && source.dataset ? source.dataset.role : null;
+
+    App.ui.showBusy(T("loading.healing"));
+    window.setTimeout(function () {
+      var report = null;
+      try {
+        report = App.autoheal.heal(index === null ? undefined : index);
+      } catch (e) {
+        console.error(">>> Autoheal failed:", e);
+      }
+      App.ui.hideOverlay();
+
+      // The dialog can have been closed while the repair ran — Escape still
+      // works under the spinner — and rebuilding a dialog that is no longer
+      // on the page would throw.
+      if (_dialog !== dialog) return;
+
+      if (!report) {
+        alert(T("alert.healFailed"));
+        return;
+      }
+
+      _renderList(dialog, { status: _outcome(report) });
+      // Focus first, scroll second. Moving the focus can scroll the list on
+      // its own, so the offset has to be the last thing written.
+      _restoreFocus(dialog, index, role);
+      var after = D.role(dialog, "rows");
+      if (after) after.scrollTop = scroll;
+    }, 30);
   }
 
   return {

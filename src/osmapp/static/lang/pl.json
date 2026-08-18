@@ -440,7 +440,11 @@
     "print": "Wydrukuj tę kartę",
     "fix": "Napraw ten teren",
     "fixAll": "Napraw wszystkie",
-    "fixAllHint": "Podziel tereny złożone z części i przyłącz puste do sąsiada"
+    "fixAllHint": "Podziel tereny złożone z części i przyłącz puste do sąsiada",
+    "fixedSplit": "Podzielono {n} na {pieces} części.",
+    "fixedMerged": "Połączono {n} z sąsiednim terenem.",
+    "fixedStuck": "Nadal bez sąsiada, który mógłby je przejąć: {n}.",
+    "fixedNone": "Tutaj nie było czego naprawić."
   },
   "feature": {
     "building": "Budynek",
