@@ -408,6 +408,7 @@
     "flagPrinted": "Carte déjà imprimée",
     "flagSplit": "En {n} morceaux séparés",
     "flagTiny": "Trop petit à ce niveau de zoom",
+    "flagTinyZoom": "Trop petit à ce niveau de zoom — cliquez pour y zoomer",
     "flagEmpty": "Aucun bâtiment à l’intérieur",
     "print": "Imprimer cette fiche",
     "fix": "Réparer ce territoire",

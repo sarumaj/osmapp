@@ -544,16 +544,33 @@ App.labels = (function () {
       : T("tooltip.areaM", { value: App.i18n.n(Math.round(area)) });
   }
 
-  function _flag(host, icon, cls, title) {
-    var node = document.createElement("i");
+  /**
+   * One flag on a row, as a picture or as a button.
+   *
+   * @param {function} [onClick] when given, the flag is something you can do
+   *   rather than something you are being told, and becomes a real button.
+   */
+  function _flag(host, icon, cls, title, onClick) {
+    var node = document.createElement(onClick ? "button" : "i");
     node.className = "fa-solid " + icon + " territory-row__flag " + cls;
     node.setAttribute("title", title);
     node.setAttribute("aria-label", title);
-    // An <i> carries no role, and an aria-label on an element with no role is
-    // not required to be announced — which made the flags decoration for
-    // anyone not looking at them, on a row whose whole purpose is to say that
-    // something is wrong with this territory.
-    node.setAttribute("role", "img");
+    if (onClick) {
+      node.type = "button";
+      node.classList.add("territory-row__flag--action");
+      node.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      });
+    } else {
+      // An <i> carries no role, and an aria-label on an element with no role
+      // is not required to be announced — which made the flags decoration for
+      // anyone not looking at them, on a row whose whole purpose is to say
+      // that something is wrong with this territory. A button needs none of
+      // this: it is already something in the accessibility tree.
+      node.setAttribute("role", "img");
+    }
     host.appendChild(node);
   }
 
@@ -813,8 +830,20 @@ App.labels = (function () {
           "is-split",
           T("list.flagSplit", { n: row.parts }),
         );
+      // The one flag that is also an offer. A territory too small to see is
+      // precisely the one you cannot click on the map, the icon on it has been
+      // a magnifying glass all along, and the row's own click now means
+      // "select" — so this is where "go and look at it" belongs.
       if (_rowIsTiny(row))
-        _flag(flags, "fa-magnifying-glass-plus", "is-tiny", T("list.flagTiny"));
+        _flag(
+          flags,
+          "fa-magnifying-glass-plus",
+          "is-tiny",
+          T("list.flagTinyZoom"),
+          function () {
+            _zoomTo(row.index);
+          },
+        );
       if (_isEmpty(row.index))
         _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
 
@@ -858,7 +887,7 @@ App.labels = (function () {
         go.addEventListener("dblclick", function (e) {
           e.preventDefault();
           e.stopPropagation();
-          _zoomTo(row.index);
+          _openRow(row.index);
         });
 
       // The list is the answer to "which fourteen?", and the next question is
@@ -1067,12 +1096,24 @@ App.labels = (function () {
    * which is a lot of consequence for a look.
    */
   function _zoomTo(index) {
-    if (_beforeClick) {
-      _picked = _beforeClick;
-      _beforeClick = null;
-    }
+    // Anything pending from an earlier click is stale now, and must not be
+    // put back over a selection this gesture had nothing to do with.
+    _beforeClick = null;
     App.ui.closeDialog();
     focus(index);
+  }
+
+  /**
+   * The tail of a double click: go and look, and undo the pick the first half
+   * of it made.
+   *
+   * Separate from _zoomTo because only a double click has a half to undo. The
+   * flag on a row zooms without ever having selected anything, and restoring
+   * a snapshot there would put back a selection from some earlier click.
+   */
+  function _openRow(index) {
+    if (_beforeClick) _picked = _beforeClick;
+    _zoomTo(index);
   }
 
   /**

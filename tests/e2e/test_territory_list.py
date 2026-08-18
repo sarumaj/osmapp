@@ -150,7 +150,9 @@ def test_the_dialog_is_navigable_without_looking_at_it(gridded: Page):
 
     The flags are the whole point of the row — a green check, an orange puzzle
     piece, a blue house — and every one of them is a color plus an <i> with no
-    role, which is decoration as far as an accessibility tree is concerned.
+    role, which is decoration as far as an accessibility tree is concerned. The
+    one that is a button needs no role of its own; it needs the label, which is
+    what a button with nothing but an icon in it is otherwise missing.
     """
     dialog = gridded.locator(".territory-list")
     named_by = dialog.get_attribute("aria-labelledby")
@@ -164,7 +166,10 @@ def test_the_dialog_is_navigable_without_looking_at_it(gridded: Page):
 
     flags = gridded.locator(".territory-row__flag")
     assert flags.count() > 0, "the grid was supposed to produce flagged rows"
-    assert flags.count() == gridded.locator(".territory-row__flag[role='img']").count()
+    spoken = gridded.locator(
+        ".territory-row__flag[role='img'], button.territory-row__flag"
+    )
+    assert flags.count() == spoken.count(), "a flag that is neither picture nor button"
     for i in range(flags.count()):
         assert flags.nth(i).get_attribute("aria-label"), (
             "a flag with nothing to announce"
@@ -538,29 +543,33 @@ def test_the_list_shows_what_the_map_is_already_holding(gridded: Page):
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-def dialog_height(page: Page) -> int:
-    return page.evaluate(
-        "() => Math.round(document.querySelector('.territory-list')"
-        ".getBoundingClientRect().height)"
+def dialog_box(page: Page) -> tuple[int, int]:
+    return tuple(
+        page.evaluate(
+            "() => { const b = document.querySelector('.territory-list')"
+            ".getBoundingClientRect(); return [Math.round(b.width), Math.round(b.height)]; }"
+        )
     )
 
 
 def test_the_dialog_is_the_same_size_whatever_the_filter_says(gridded: Page):
-    """Sized by the window rather than by its contents.
+    """Sized by the window rather than by its contents, in both directions.
 
     Narrowing thirty-one rows to a handful used to shrink the dialog to a
     third of its height — which moved the chips out from under the pointer
     that had just clicked one, so the second click of a filtering session
-    landed somewhere else.
+    landed somewhere else. The width did the same thing more quietly: rows
+    reading "Buildings: 141 · Streets: 42" are wider than rows reading
+    "Buildings: 0 · Streets: 0", so the edge moved by eight pixels.
     """
-    heights = {dialog_height(gridded)}
+    sizes = {dialog_box(gridded)}
 
     for axis in ("repair", "printed", "tiny"):
         for state in ("only", "not", "any"):
             cycle(gridded, axis, state)
-            heights.add(dialog_height(gridded))
+            sizes.add(dialog_box(gridded))
 
-    assert len(heights) == 1, f"the dialog resized: {sorted(heights)}"
+    assert len(sizes) == 1, f"the dialog resized: {sorted(sizes)}"
 
 
 def test_a_plain_click_selects_and_stays(gridded: Page):
@@ -644,3 +653,36 @@ def test_a_double_click_puts_back_the_latest_selection_not_a_stale_one(gridded: 
 
     expect(gridded.locator(".territory-list")).to_have_count(0)
     assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 2
+
+
+def test_the_too_small_flag_goes_and_looks(gridded: Page):
+    """The one flag that is an offer rather than a statement.
+
+    A territory too small to see is precisely the one that cannot be clicked
+    on the map, the icon on it has been a magnifying glass all along, and the
+    row's own click now means "select" — so this is where "go and look at it"
+    ended up. It must not disturb the selection on the way: the flag was never
+    part of the picking.
+    """
+    gridded.evaluate("() => window.App.state.leafletMap.setZoom(11)")
+    gridded.wait_for_function(
+        "() => window.App.labels.warnings().tiny > 0", timeout=10000
+    )
+    gridded.evaluate("() => window.App.labels.openList()")
+    expect(gridded.locator(".territory-list")).to_be_visible()
+
+    rows_of(gridded).nth(0).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
+    picked = gridded.locator(SELECTED).count()
+    assert picked == 2
+
+    flag = gridded.locator("button.territory-row__flag.is-tiny").first
+    expect(flag).to_be_visible()
+    zoom_before = gridded.evaluate("() => window.App.state.leafletMap.getZoom()")
+    flag.click()
+
+    expect(gridded.locator(".territory-list")).to_have_count(0)
+    gridded.wait_for_function(
+        "(z) => window.App.state.leafletMap.getZoom() > z", arg=zoom_before
+    )
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == picked

@@ -437,6 +437,7 @@
     "flagPrinted": "Karta już wydrukowana",
     "flagSplit": "Składa się z {n} części",
     "flagTiny": "Zbyt małe przy tym powiększeniu",
+    "flagTinyZoom": "Zbyt małe przy tym powiększeniu — kliknij, aby powiększyć",
     "flagEmpty": "Brak budynków w środku",
     "print": "Wydrukuj tę kartę",
     "fix": "Napraw ten teren",

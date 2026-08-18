@@ -471,12 +471,16 @@
             <span class="territory-row__main" data-role="main"></span>
             <span class="territory-row__meta" data-role="meta"></span>
           </span>
-          <span class="territory-row__flags" data-role="flags"></span>
           <!-- The selected state is a color and a border, which is nothing at
                all to a screen reader. This says it in words and is hidden
                from everybody who can already see it. -->
           <span class="sr-only" data-role="selected-note"></span>
         </button>
+        <!-- Outside the row button rather than inside it, because one of these
+             is itself a button: the "too small to see" flag is a magnifying
+             glass, and clicking it goes and looks. A button inside a button is
+             not markup any browser agrees about. -->
+        <span class="territory-row__flags" data-role="flags"></span>
         <button
           type="button"
           class="territory-row__action territory-row__fix"

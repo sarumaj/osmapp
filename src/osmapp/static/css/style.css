@@ -1806,8 +1806,17 @@ body {
    same, and so did the outcome line appearing. The rows box absorbs all of it
    now, which is also what makes the scroll position worth restoring. */
 .territory-list {
-  min-width: 320px;
-  max-width: 380px;
+  /* Stated rather than derived, for the same reason as the height: the rows
+     carry numbers of wildly different widths ("Buildings: 141 · Streets: 42"
+     against "Buildings: 0 · Streets: 0"), so filtering to a different set of
+     rows moved the dialog's edge by eight pixels and took the chips with it.
+     min-width: 0 overrides the 340px floor every app-dialog carries, so a
+     narrow phone gets a narrower dialog instead of one hanging off the side,
+     and border-box makes the number below the width you can actually measure
+     rather than that plus the padding and the border. */
+  box-sizing: border-box;
+  width: min(380px, 94vw);
+  min-width: 0;
   display: flex;
   flex-direction: column;
   height: min(76vh, 600px);
@@ -2055,7 +2064,23 @@ body {
 .territory-row__flags {
   flex: 0 0 auto;
   display: flex;
+  align-items: center;
   gap: 6px;
+  padding-right: 8px;
+}
+/* The flag that is also a button. It keeps the look of the others — this is
+   still the row saying "too small to see" — and gains the affordance, because
+   the thing you want on a territory you cannot find is to be taken to it. */
+.territory-row__flag--action {
+  border: 0;
+  padding: 2px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.territory-row__flag--action:hover,
+.territory-row__flag--action:focus-visible {
+  filter: brightness(0.75);
 }
 .territory-row__flag.is-printed {
   color: #1e8449;

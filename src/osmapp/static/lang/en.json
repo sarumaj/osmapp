@@ -408,6 +408,7 @@
     "flagPrinted": "Card already printed",
     "flagSplit": "In {n} separate pieces",
     "flagTiny": "Too small to see at this zoom",
+    "flagTinyZoom": "Too small to see at this zoom — click to zoom to it",
     "flagEmpty": "No buildings inside",
     "print": "Print this card",
     "fix": "Repair this territory",

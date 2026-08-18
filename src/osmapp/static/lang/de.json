@@ -408,6 +408,7 @@
     "flagPrinted": "Karte bereits gedruckt",
     "flagSplit": "Besteht aus {n} Teilen",
     "flagTiny": "Bei dieser Zoomstufe zu klein",
+    "flagTinyZoom": "Bei dieser Zoomstufe zu klein — zum Heranzoomen klicken",
     "flagEmpty": "Enthält keine Gebäude",
     "print": "Diese Karte drucken",
     "fix": "Dieses Gebiet reparieren",
