@@ -341,6 +341,42 @@
           <input type="checkbox" data-role="show-numbers" />
           <span data-i18n="list.showNumbers">Show the numbers on the map</span>
         </label>
+        <!-- Finding one row among ninety-nine. The filter narrows the list and
+             the jump button walks whatever is left that carries a flag, so the
+             two compose: filter to the printed ones and jump only visits the
+             printed ones that need attention. -->
+        <div class="territory-list__find">
+          <label class="territory-list__filter">
+            <span data-i18n="list.filter">Show</span>
+            <select data-role="filter">
+              <option value="all" data-i18n="list.filterAll">
+                All territories
+              </option>
+              <option value="repair" data-i18n="list.filterRepair">
+                Only ones needing repair
+              </option>
+              <option value="tiny" data-i18n="list.filterTiny">
+                Too small to see at this zoom
+              </option>
+              <option value="unprinted" data-i18n="list.filterUnprinted">
+                Not yet printed
+              </option>
+              <option value="printed" data-i18n="list.filterPrinted">
+                Already printed
+              </option>
+            </select>
+          </label>
+          <button
+            type="button"
+            class="btn btn--ghost territory-list__jump"
+            data-role="jump"
+            data-i18n-attrs="title=list.jumpHint;aria-label=list.jumpHint"
+            hidden
+          >
+            <i class="fa-solid fa-location-crosshairs" aria-hidden="true"></i>
+            <span data-role="jump-count"></span>
+          </button>
+        </div>
         <!-- Always present and never hidden: a live region that is added to
              the page at the moment it gains text is not reliably announced,
              so it is empty rather than absent when there is nothing to say. -->
@@ -353,6 +389,14 @@
           hidden
         >
           No territories yet.
+        </p>
+        <p
+          class="app-dialog__hint"
+          data-role="no-match"
+          data-i18n="list.noMatch"
+          hidden
+        >
+          Nothing matches that filter.
         </p>
         <div class="app-dialog__actions">
           <button

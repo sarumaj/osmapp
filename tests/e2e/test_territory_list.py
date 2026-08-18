@@ -175,3 +175,138 @@ def test_the_dialog_is_navigable_without_looking_at_it(gridded: Page):
     expect(status).to_be_empty()
 
     repair(gridded, gridded.locator(WANDS).first)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# FINDING ONE ROW AMONG NINETY-NINE
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def flagged_rows(page: Page) -> Locator:
+    return page.locator(".territory-row-wrap[data-flagged='1']")
+
+
+def test_the_filter_narrows_the_list_to_what_needs_attention(gridded: Page):
+    """The reason the filter exists.
+
+    A real partition is ninety-nine territories with one fault in it, and the
+    only way to reach that one row is to scroll looking for an orange icon.
+    """
+    rows = gridded.locator(".territory-row-wrap")
+    everything = rows.count()
+    with_issues = flagged_rows(gridded).count()
+    assert 0 < with_issues < everything, (
+        "the grid was supposed to flag some but not all"
+    )
+
+    gridded.locator("[data-role='filter']").select_option("repair")
+
+    assert rows.count() == with_issues
+    assert flagged_rows(gridded).count() == with_issues, "and they are the flagged ones"
+    # The count above the list has to say it is no longer the whole list.
+    assert str(everything) in gridded.locator("[data-role='total']").inner_text()
+
+
+def test_the_walk_ignores_what_is_only_small_at_this_zoom(gridded: Page):
+    """The distinction the locator turns on.
+
+    On a real ninety-nine territory partition, thirty-five rows carried the
+    "too small to see" flag and exactly one carried a fault. Walking all of
+    them meant thirty-five stops before reaching the thing that was wrong —
+    and zooming in empties that set entirely, which is the proof it is a
+    statement about the viewport rather than about any territory. It keeps its
+    flag on the row and its own entry in the filter.
+    """
+    # Zoomed out until the territories are smaller than the chips drawn on
+    # them, because that is the state the flag describes and it is reached by
+    # moving the map rather than by changing any territory.
+    gridded.evaluate("() => window.App.state.leafletMap.setZoom(11)")
+    gridded.wait_for_function(
+        "() => window.App.labels.warnings().tiny > 0", timeout=10000
+    )
+    gridded.evaluate("() => window.App.labels.openList()")
+    expect(gridded.locator(".territory-list")).to_be_visible()
+
+    tiny = gridded.locator(".territory-row__flag.is-tiny")
+    assert tiny.count() > 0, "zooming out was supposed to make them too small"
+
+    walked = flagged_rows(gridded)
+    for i in range(walked.count()):
+        assert (
+            walked.nth(i)
+            .locator(".territory-row__flag.is-split, .territory-row__flag.is-empty")
+            .count()
+            > 0
+        ), "the walk includes a row whose only flag is about the zoom"
+
+    gridded.locator("[data-role='filter']").select_option("tiny")
+    assert gridded.locator(".territory-row-wrap").count() == tiny.count()
+
+
+def test_a_filter_that_matches_nothing_says_so(gridded: Page):
+    """ "There are none" and "none of them match" are different answers.
+
+    Nothing in the sample has been printed, so filtering to the printed ones
+    empties the list — and answering that with "No territories yet" sends
+    somebody looking for territories that are sitting right there.
+    """
+    gridded.locator("[data-role='filter']").select_option("printed")
+
+    assert gridded.locator(".territory-row-wrap").count() == 0
+    expect(gridded.locator("[data-role='no-match']")).to_be_visible()
+    expect(gridded.locator("[data-role='empty']")).to_be_hidden()
+
+
+def test_the_jump_button_walks_the_flagged_rows(gridded: Page):
+    """A locator for the list, so the keyboard lands where the eye would."""
+    jump = gridded.locator("[data-role='jump']")
+    expect(jump).to_be_visible()
+    total = flagged_rows(gridded).count()
+    assert jump.inner_text().strip() == str(total), "the button counts what it walks"
+
+    visited: list[str] = []
+    for _ in range(total + 1):
+        jump.click()
+        landed = gridded.evaluate(
+            """() => {
+                const a = document.activeElement;
+                const row = a && a.closest && a.closest('.territory-row-wrap');
+                return row ? row.dataset.territory : null;
+            }"""
+        )
+        assert landed is not None, "the jump did not put the focus on a row"
+        assert (
+            gridded.locator(
+                f".territory-row-wrap[data-territory='{landed}']"
+            ).get_attribute("data-flagged")
+            == "1"
+        ), "it landed on a row with nothing wrong with it"
+        visited.append(landed)
+
+    assert len(set(visited[:total])) == total, "it visited the same row twice"
+    assert visited[total] == visited[0], "and it wrapped instead of stopping"
+
+
+def test_jumping_works_from_the_keyboard(gridded: Page):
+    """J, registered in the list's own shortcut group next to N and Escape."""
+    gridded.keyboard.press("j")
+
+    landed = gridded.evaluate(
+        """() => {
+            const a = document.activeElement;
+            const row = a && a.closest && a.closest('.territory-row-wrap');
+            return row ? row.dataset.flagged : null;
+        }"""
+    )
+    assert landed == "1"
+
+
+def test_the_walk_follows_the_filter(gridded: Page):
+    """The two compose rather than fight.
+
+    Narrow to the printed ones and there is nothing flagged left to walk, so
+    the button goes away instead of quietly jumping to a row the filter is
+    hiding.
+    """
+    gridded.locator("[data-role='filter']").select_option("printed")
+    expect(gridded.locator("[data-role='jump']")).to_be_hidden()

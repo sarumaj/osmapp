@@ -301,6 +301,18 @@ App.autoheal = (function () {
   // NEIGHBORS
   // ══════════════════════════════════════════════════════════════════════
 
+  /** How much ground two features already have in common, in square meters. */
+  function _sharedArea(a, b) {
+    try {
+      var shared = G.intersect(a, b);
+      return shared ? G.area(shared) : 0;
+    } catch (e) {
+      // Unmeasurable, so assume none: the merge is then held to the stricter
+      // of the two thresholds, which refuses rather than loses ground.
+      return 0;
+    }
+  }
+
   /**
    * Slots touching `victim`, most shared boundary first.
    *
@@ -456,18 +468,31 @@ App.autoheal = (function () {
    * ground belonging to nobody, discovered as a hole in the coverage weeks
    * later. So:
    *
-   *   • the result must be at least the host plus nine tenths of the victim,
-   *     which is what "the victim is actually in there" looks like in a
-   *     number — neighbors do not overlap, so a union can only lose area;
+   *   • the host must come out bigger by the ground it is actually gaining,
+   *     which is the victim minus whatever the two already share. Measuring
+   *     against the victim's whole area instead assumes neighbors never
+   *     overlap, and they do: a merge that keeps unionHealed's grown result
+   *     leaves a half-meter of overlap along the seam, and a territory drawn
+   *     by hand over another one overlaps outright. A 30 m² sliver sitting
+   *     87% inside its neighbor gains that neighbor 4 m², and demanding 27
+   *     rejected a union that had lost nothing at all.
    *   • and it must be a single polygon, or the repair has produced the exact
    *     fault it exists to remove, and the next run would split it back into
    *     the two shapes we started with.
    *
-   * Failing both candidates is not a failure of the heal. It is one merge not
+   * Failing every candidate is not a failure of the heal. It is one merge not
    * made, on a territory that keeps its flag and says so.
    */
   function _absorb(host, victim) {
-    var floor = G.area(host) + G.area(victim) * 0.9;
+    // What this merge should add: the victim, less the part of it the host is
+    // already covering. Zero is a legitimate answer — a sliver wholly inside
+    // its neighbor is absorbed by ceasing to be a territory of its own, and
+    // no ground moves at all.
+    var gain = Math.max(0, G.area(victim) - _sharedArea(host, victim));
+    // A square meter of slack, because the healed union rounds the outline by
+    // a few centimeters in each direction and the app treats nothing below
+    // CUT_MIN_PIECE_M2 as a piece of anything.
+    var floor = G.area(host) + gain * 0.9 - 1;
 
     var candidates = [];
     try {

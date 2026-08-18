@@ -84,6 +84,11 @@ App.labels = (function () {
   var _rows = [];
   var _visible = true;
   var _dialog = null;
+  // Which rows the list is showing, and how far the jump button has walked
+  // through the flagged ones. Both belong to an open dialog rather than to the
+  // territories, so openList() resets them and _renderList() does not.
+  var _filter = "all";
+  var _jumpAt = -1;
   var _pulsed = null;
   var _pulseTimer = null;
 
@@ -420,13 +425,7 @@ App.labels = (function () {
     var empty = 0;
     _rows.forEach(function (row) {
       if (row.parts > 1) split++;
-      if (
-        row.anchors.length > 0 &&
-        row.anchors.every(function (anchor) {
-          return anchor.tiny;
-        })
-      )
-        tiny++;
+      if (_rowIsTiny(row)) tiny++;
       if (_isEmpty(row.index)) empty++;
     });
     return {
@@ -435,6 +434,25 @@ App.labels = (function () {
       empty: empty,
       total: tiny + split + empty,
     };
+  }
+
+  /**
+   * Is every part of this territory too small to notice at this zoom?
+   *
+   * A statement about the viewport rather than about the territory, which is
+   * why it is kept apart from the other two flags everywhere it matters: it
+   * changes when the map moves, autoheal declines to repair on it, and the
+   * locator walks past it. It is still worth saying, because a territory you
+   * cannot see is one you cannot click either — which is what the filter's own
+   * entry for it is for.
+   */
+  function _rowIsTiny(row) {
+    return (
+      row.anchors.length > 0 &&
+      row.anchors.every(function (anchor) {
+        return anchor.tiny;
+      })
+    );
   }
 
   /** Whether territory `index` holds no buildings; false when unknowable. */
@@ -554,6 +572,28 @@ App.labels = (function () {
       _fix(null, D.role(dialog, "fix-all"));
     });
 
+    // A fresh opening shows everything. Carrying a filter over from last time
+    // would mean opening the list and finding most of the territories missing,
+    // with the reason two controls up the dialog.
+    _filter = "all";
+    _jumpAt = -1;
+
+    var filter = D.role(dialog, "filter");
+    if (filter) {
+      filter.value = _filter;
+      filter.addEventListener("change", function () {
+        _filter = filter.value;
+        // The walk is through what is on screen, so a narrower list restarts
+        // it rather than resuming somewhere the rows no longer are.
+        _jumpAt = -1;
+        _renderList(dialog);
+      });
+    }
+
+    D.onRole(dialog, "jump", function () {
+      _jump(dialog);
+    });
+
     // The last screen in the app that took over without registering anything,
     // so "?" over it listed the keys of the map underneath and said nothing
     // about the list itself. N is the same letter the toolbar uses for the
@@ -571,6 +611,13 @@ App.labels = (function () {
             toggle.checked = !toggle.checked;
             setVisible(toggle.checked);
             if (App.controls) App.controls.refresh();
+          },
+        },
+        {
+          combos: ["J"],
+          labelKey: "shortcuts.listJump",
+          run: function () {
+            _jump(dialog);
           },
         },
         {
@@ -601,14 +648,24 @@ App.labels = (function () {
    */
   function _renderList(dialog, opts) {
     var entries = s.clusters || [];
-    var shown = entries.map(function (entry, index) {
+    var all = entries.map(function (entry, index) {
       return _rows[index] || _describe(entry, index);
     });
+    var shown = all.filter(_matchesFilter);
 
     var toggle = D.role(dialog, "show-numbers");
     if (toggle) toggle.checked = isVisible();
 
-    D.text(dialog, "total", T("list.total", { count: shown.length }));
+    var filter = D.role(dialog, "filter");
+    if (filter) filter.value = _filter;
+
+    D.text(
+      dialog,
+      "total",
+      _filter === "all"
+        ? T("list.total", { count: all.length })
+        : T("list.showing", { shown: shown.length, total: all.length }),
+    );
     D.text(dialog, "outcome", (opts && opts.status) || "");
 
     var warn = warnings();
@@ -633,7 +690,11 @@ App.labels = (function () {
 
     var host = D.role(dialog, "rows");
     host.textContent = "";
-    D.toggleRole(dialog, "empty", shown.length === 0);
+    // "There are none" and "none of them match" are different answers, and
+    // offering the first when the second is true sends somebody looking for
+    // territories that are sitting right there behind a filter.
+    D.toggleRole(dialog, "empty", all.length === 0);
+    D.toggleRole(dialog, "no-match", all.length > 0 && shown.length === 0);
 
     shown.forEach(function (row) {
       var entry = entries[row.index];
@@ -663,12 +724,7 @@ App.labels = (function () {
           "is-split",
           T("list.flagSplit", { n: row.parts }),
         );
-      if (
-        row.anchors.length > 0 &&
-        row.anchors.every(function (anchor) {
-          return anchor.tiny;
-        })
-      )
+      if (_rowIsTiny(row))
         _flag(flags, "fa-magnifying-glass-plus", "is-tiny", T("list.flagTiny"));
       if (_isEmpty(row.index))
         _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
@@ -677,6 +733,10 @@ App.labels = (function () {
       // DOM, so a repair can put the focus back on the same territory even
       // after everything below it has been renumbered.
       node.dataset.territory = String(row.index);
+      // And marked here rather than recomputed by the jump, so the walk is a
+      // querySelectorAll over what is on screen and cannot drift from the
+      // flags the row is actually showing.
+      if (_isFlagged(row)) node.dataset.flagged = "1";
 
       D.toggle(D.role(node, "fix"), !!fixable[row.index]);
       D.onRole(node, "fix", function (e, button) {
@@ -696,6 +756,65 @@ App.labels = (function () {
         App.print.printCluster(entry.feature);
       });
     });
+
+    var flagged = shown.filter(_isFlagged).length;
+    D.toggleRole(dialog, "jump", flagged > 0);
+    D.text(dialog, "jump-count", flagged > 0 ? App.i18n.n(flagged) : "");
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // FINDING ONE ROW AMONG NINETY-NINE
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Does this row carry a fault worth walking to?
+   *
+   * Split and empty, and deliberately not tiny. On a real partition — ninety-
+   * nine territories with one genuine fault in it — thirty-five rows were
+   * "too small to see at this zoom", so a walk that included them stepped
+   * through thirty-five viewport artefacts before reaching the thing that was
+   * actually wrong. Zooming in empties that set entirely, which is the proof
+   * it does not belong in a locator. It keeps its flag on the row and its own
+   * entry in the filter, where choosing it is a decision rather than noise.
+   *
+   * Wider than `fixable`, though: a territory in two pieces that autoheal
+   * cannot repair is still one to be taken to.
+   */
+  function _isFlagged(row) {
+    return row.parts > 1 || _isEmpty(row.index);
+  }
+
+  function _matchesFilter(row) {
+    if (_filter === "repair") return _isFlagged(row);
+    if (_filter === "tiny") return _rowIsTiny(row);
+    if (_filter === "printed") return !!row.printed;
+    if (_filter === "unprinted") return !row.printed;
+    return true;
+  }
+
+  /**
+   * Walk to the next flagged row and put the keyboard on it.
+   *
+   * Through what is on screen rather than through every territory, so the
+   * filter and the jump compose instead of fighting: narrow to the printed
+   * ones and the walk visits the printed ones that need attention. Wrapping
+   * at the end rather than stopping, because the list is a loop somebody is
+   * working around, not a document with a last page.
+   *
+   * The row is scrolled to and focused rather than selected on the map. This
+   * is a locator for the list — the map is one click further on, and going
+   * there closes the dialog.
+   */
+  function _jump(dialog) {
+    var rows = dialog.querySelectorAll("[data-territory][data-flagged='1']");
+    if (!rows.length) return false;
+
+    _jumpAt = (_jumpAt + 1) % rows.length;
+    var row = rows[_jumpAt];
+    var button = D.role(row, "go") || row;
+    if (row.scrollIntoView) row.scrollIntoView({ block: "nearest" });
+    if (button.focus) button.focus({ preventScroll: true });
+    return true;
   }
 
   /** What the repair did, as a sentence for the live region. */

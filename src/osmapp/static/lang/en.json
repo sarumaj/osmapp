@@ -415,7 +415,16 @@
     "fixedSplit": "Split {n} into {pieces} pieces.",
     "fixedMerged": "Merged {n} into a neighboring territory.",
     "fixedStuck": "Still without a neighbor that can take them: {n}.",
-    "fixedNone": "Nothing here could be repaired."
+    "fixedNone": "Nothing here could be repaired.",
+    "filter": "Show",
+    "filterAll": "All territories",
+    "filterRepair": "Only ones needing repair",
+    "filterTiny": "Too small to see at this zoom",
+    "filterUnprinted": "Not yet printed",
+    "filterPrinted": "Already printed",
+    "noMatch": "Nothing matches that filter.",
+    "showing": "Showing {shown} of {total}.",
+    "jumpHint": "Jump to the next territory that needs attention"
   },
   "feature": {
     "building": "Building",
@@ -794,6 +803,7 @@
     "covered": "not while this screen is open",
     "groupList": "Territory list",
     "listNumbers": "Show or hide the numbers on the map",
+    "listJump": "Jump to the next territory that needs attention",
     "listClose": "Close the list"
   },
   "outline": {

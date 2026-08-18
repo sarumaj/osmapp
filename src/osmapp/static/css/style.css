@@ -1808,6 +1808,37 @@ body {
   color: #c0392b;
 }
 
+/* The find bar: a filter and a walk through what it leaves. Laid out as one
+   row because the two are a pair — narrow the list, then step through it —
+   and the jump button shrinks to its count so the filter keeps the width. */
+.territory-list__find {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-size: var(--ui-fs-sm);
+}
+.territory-list__filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.territory-list__filter select {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+}
+.territory-list__jump {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--c-border);
+  font-variant-numeric: tabular-nums;
+}
+
 /* The live region. Empty for most of the dialog's life and laid out as if it
    were not there, because a region that is added to the page when it gains
    text is not reliably announced — so it is always present and usually

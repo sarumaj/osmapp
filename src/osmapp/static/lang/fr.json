@@ -415,7 +415,16 @@
     "fixedSplit": "{n} séparé en {pieces} morceaux.",
     "fixedMerged": "{n} fusionné avec un territoire voisin.",
     "fixedStuck": "Toujours sans voisin pouvant les reprendre : {n}.",
-    "fixedNone": "Rien n’a pu être réparé ici."
+    "fixedNone": "Rien n’a pu être réparé ici.",
+    "filter": "Afficher",
+    "filterAll": "Tous les territoires",
+    "filterRepair": "Seulement ceux à réparer",
+    "filterTiny": "Trop petits à ce niveau de zoom",
+    "filterUnprinted": "Pas encore imprimés",
+    "filterPrinted": "Déjà imprimés",
+    "noMatch": "Aucun territoire ne correspond à ce filtre.",
+    "showing": "{shown} sur {total} affichés.",
+    "jumpHint": "Aller au territoire suivant à revoir"
   },
   "feature": {
     "building": "Bâtiment",
@@ -794,6 +803,7 @@
     "covered": "pas tant que cet écran est ouvert",
     "groupList": "Liste des territoires",
     "listNumbers": "Afficher ou masquer les numéros sur la carte",
+    "listJump": "Aller au territoire suivant à revoir",
     "listClose": "Fermer la liste"
   },
   "outline": {

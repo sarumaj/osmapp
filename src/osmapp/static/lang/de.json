@@ -415,7 +415,16 @@
     "fixedSplit": "{n} in {pieces} Teile zerlegt.",
     "fixedMerged": "{n} mit einem Nachbargebiet zusammengeführt.",
     "fixedStuck": "Weiterhin ohne Nachbarn, der sie aufnehmen kann: {n}.",
-    "fixedNone": "Hier ließ sich nichts reparieren."
+    "fixedNone": "Hier ließ sich nichts reparieren.",
+    "filter": "Anzeigen",
+    "filterAll": "Alle Gebiete",
+    "filterRepair": "Nur reparaturbedürftige",
+    "filterTiny": "Bei dieser Zoomstufe zu klein",
+    "filterUnprinted": "Noch nicht gedruckt",
+    "filterPrinted": "Bereits gedruckt",
+    "noMatch": "Kein Gebiet passt zu diesem Filter.",
+    "showing": "{shown} von {total} angezeigt.",
+    "jumpHint": "Zum nächsten auffälligen Gebiet springen"
   },
   "feature": {
     "building": "Gebäude",
@@ -794,6 +803,7 @@
     "covered": "nicht, solange diese Ansicht offen ist",
     "groupList": "Gebietsliste",
     "listNumbers": "Nummern auf der Karte ein- oder ausblenden",
+    "listJump": "Zum nächsten auffälligen Gebiet springen",
     "listClose": "Liste schließen"
   },
   "outline": {

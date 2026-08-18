@@ -536,6 +536,70 @@ test("a neighbor that cannot take it hands the job to the next one", () => {
   );
 });
 
+test("a sliver lying inside its neighbor is absorbed, not refused", () => {
+  // Straight from a real partition: territory 36, thirty square metres, no
+  // buildings, and 87% of it already inside territory 37. The union was
+  // perfect and lost nothing — it simply did not make the host thirty metres
+  // bigger, because twenty-six of those metres were already the host's. An
+  // acceptance test written as "host plus nine tenths of the victim" assumes
+  // neighbors never overlap, and territories overlap all the time: a merge
+  // that keeps unionHealed's grown result leaves half a metre along the seam,
+  // and a hand-drawn territory can sit on another one outright.
+  const host = box(0, 0, 1, 1);
+  const sliver = box(0.9, 0.4, 1.02, 0.5); // mostly inside `host`
+
+  const overlap = turf.area(
+    turf.intersect(turf.featureCollection([host, sliver])),
+  );
+  assert.ok(
+    overlap > turf.area(sliver) * 0.8,
+    "the fixture has to be mostly-inside for this to be the case under test",
+  );
+
+  const h = setup(
+    [
+      { shape: host, buildings: 40 },
+      { shape: sliver, buildings: 0 },
+    ],
+    [building(0.5, 0.5)],
+  );
+
+  assert.equal(h.issueOf(1).fixable, true, "the row must offer the repair");
+
+  const report = h.heal();
+  assert.equal(report.merged, 1);
+  assert.equal(report.after, 1);
+  assert.ok(
+    turf.booleanPointInPolygon(
+      turf.point([1.01 * U, 0.45 * U]),
+      h.emitted()[0],
+    ),
+    "and the part of it that was outside is now inside the host",
+  );
+});
+
+test("a union that really did drop the victim is still refused", () => {
+  // The guard the case above relaxes. With no overlap at all the expected gain
+  // is the whole victim, so a candidate that comes back as the host alone —
+  // which is what geometry.unionAll returns when clipping throws — is caught.
+  const host = box(0, 0, 1, 1);
+  const strip = box(0, 1, 1, 1.3);
+
+  const h = setup(
+    [
+      { shape: host, buildings: 40 },
+      { shape: strip, buildings: 0 },
+    ],
+    [building(0.5, 0.5)],
+  );
+  const onlyTheHost = () => h.App.state.clusters[0].feature;
+  h.App.geometry.unionHealed = onlyTheHost;
+  h.App.geometry.union = onlyTheHost;
+
+  assert.equal(h.issueOf(1).fixable, false);
+  assert.equal(h.heal().changed, false, "the strip keeps its ground");
+});
+
 test("the repair believes the count the row is showing", () => {
   // refreshFilteredData gives a building on a shared boundary to the first
   // territory that claims it; counting each territory on its own gives it to

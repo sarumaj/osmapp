@@ -444,7 +444,16 @@
     "fixedSplit": "Podzielono {n} na {pieces} części.",
     "fixedMerged": "Połączono {n} z sąsiednim terenem.",
     "fixedStuck": "Nadal bez sąsiada, który mógłby je przejąć: {n}.",
-    "fixedNone": "Tutaj nie było czego naprawić."
+    "fixedNone": "Tutaj nie było czego naprawić.",
+    "filter": "Pokaż",
+    "filterAll": "Wszystkie tereny",
+    "filterRepair": "Tylko wymagające naprawy",
+    "filterTiny": "Zbyt małe przy tym powiększeniu",
+    "filterUnprinted": "Jeszcze niewydrukowane",
+    "filterPrinted": "Już wydrukowane",
+    "noMatch": "Żaden teren nie pasuje do tego filtru.",
+    "showing": "Pokazano {shown} z {total}.",
+    "jumpHint": "Przejdź do następnego terenu wymagającego uwagi"
   },
   "feature": {
     "building": "Budynek",
@@ -833,6 +842,7 @@
     "covered": "nie, gdy ten widok jest otwarty",
     "groupList": "Lista terenów",
     "listNumbers": "Pokaż lub ukryj numery na mapie",
+    "listJump": "Przejdź do następnego terenu wymagającego uwagi",
     "listClose": "Zamknij listę"
   },
   "outline": {
