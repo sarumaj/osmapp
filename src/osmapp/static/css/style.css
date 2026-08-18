@@ -1808,35 +1808,102 @@ body {
   color: #c0392b;
 }
 
-/* The find bar: a filter and a walk through what it leaves. Laid out as one
-   row because the two are a pair — narrow the list, then step through it —
-   and the jump button shrinks to its count so the filter keeps the width. */
+/* The find bar. One row of chips that all look and behave alike, because
+   they are all the same kind of thing: three questions about what to show and
+   one button that walks what is left. Wrapping rather than scrolling, since a
+   filter you cannot see is a filter you forget is on. */
 .territory-list__find {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0 0 8px;
-  font-size: var(--ui-fs-sm);
 }
-.territory-list__filter {
-  display: flex;
+
+/* Three states, and the label says which — so the color is reinforcement
+   rather than the only channel. Neutral is an outline, "only these" fills
+   with the color the matching flag already uses on the row, and "only the
+   others" keeps the outline and strikes the icon through. */
+.territory-list__chip {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.territory-list__filter select {
-  flex: 1 1 auto;
-  min-width: 0;
-  font: inherit;
-}
-.territory-list__jump {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  padding: 3px 10px;
   border: 1px solid var(--c-border);
+  border-radius: 999px;
+  background: var(--c-surface);
+  color: var(--c-text-dim);
+  font: var(--ui-fs-sm) / 1.6 var(--ui-font);
+  cursor: pointer;
+}
+.territory-list__chip:hover,
+.territory-list__chip:focus-visible {
+  background: var(--c-surface-hover);
+}
+.territory-list__chip[aria-pressed="true"] {
+  border-color: currentColor;
+  font-weight: 600;
+}
+.territory-list__chip[data-state="only"][data-axis="repair"] {
+  color: #b9770e;
+  background: rgba(185, 119, 14, 0.12);
+}
+.territory-list__chip[data-state="only"][data-axis="printed"] {
+  color: #1e8449;
+  background: rgba(30, 132, 73, 0.12);
+}
+.territory-list__chip[data-state="only"][data-axis="tiny"] {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.12);
+}
+/* "Everything except these". The icon is struck through rather than the
+   label, so the word stays readable at this size. */
+.territory-list__chip[data-state="not"] i {
+  position: relative;
+  opacity: 0.75;
+}
+.territory-list__chip[data-state="not"] i::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: 50%;
+  border-top: 2px solid currentColor;
+  transform: rotate(-20deg);
+}
+
+.territory-list__jump {
+  margin-left: auto;
+  color: var(--c-cluster);
   font-variant-numeric: tabular-nums;
+}
+
+/* Pushed to the left of the actions so the buttons keep their right edge. */
+.territory-list__selection {
+  margin-right: auto;
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+}
+
+/* A selected row keeps its own colors and gains an edge, because the rows
+   already use the territory purple for hover and a second purple would be
+   two meanings on one channel. */
+.territory-row-wrap[data-selected="1"] {
+  background: rgba(108, 52, 131, 0.1);
+  box-shadow: inset 3px 0 0 var(--c-cluster);
+}
+
+/* Announced, never shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* The live region. Empty for most of the dialog's life and laid out as if it

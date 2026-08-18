@@ -84,11 +84,23 @@ App.labels = (function () {
   var _rows = [];
   var _visible = true;
   var _dialog = null;
-  // Which rows the list is showing, and how far the jump button has walked
-  // through the flagged ones. Both belong to an open dialog rather than to the
-  // territories, so openList() resets them and _renderList() does not.
-  var _filter = "all";
+  // Which rows the list is showing, how far the jump button has walked through
+  // the flagged ones, and which territories are picked out. All three belong
+  // to an open dialog rather than to the territories, so openList() resets
+  // them and _renderList() does not.
+  //
+  // Each filter axis is a question with three answers: 0 don't care, 1 only
+  // these, -1 only the others. They are separate questions rather than one
+  // list of choices, so "printed, and still has something wrong with it" is
+  // two clicks and needs no entry of its own.
+  var _axes = { repair: 0, printed: 0, tiny: 0 };
   var _jumpAt = -1;
+  // Territory indices, and the row a range extends from. The selection is by
+  // index rather than by feature because it is only alive while the dialog is,
+  // and the dialog is rebuilt from indices.
+  var _picked = [];
+  var _anchor = null;
+  var _reopening = false;
   var _pulsed = null;
   var _pulseTimer = null;
 
@@ -547,10 +559,20 @@ App.labels = (function () {
    * even with the chips switched off.
    */
   function openList() {
+    // Re-opening rather than opening: the language switcher rebuilds this
+    // dialog in place, and openDialog() tears the old one down on the way.
+    // Without the distinction that teardown would hand the selection to the
+    // map halfway through a re-render, and the reset below would then throw
+    // the selection away — losing it because somebody changed language.
+    var reopening = _dialog !== null;
+    _reopening = reopening;
     var dialog = App.ui.openDialog("tpl-territory-list", function () {
       App.shortcuts.pop("list");
       _dialog = null;
+      if (_reopening) return;
+      _handOver();
     });
+    _reopening = false;
     _dialog = dialog;
 
     D.onRole(dialog, "close", function () {
@@ -572,26 +594,46 @@ App.labels = (function () {
       _fix(null, D.role(dialog, "fix-all"));
     });
 
-    // A fresh opening shows everything. Carrying a filter over from last time
-    // would mean opening the list and finding most of the territories missing,
-    // with the reason two controls up the dialog.
-    _filter = "all";
-    _jumpAt = -1;
+    // A fresh opening shows everything and has nothing picked. Carrying either
+    // over from last time would mean opening the list and finding most of the
+    // territories missing, or a dozen of them selected, with the reason two
+    // controls up the dialog. A re-render in the same sitting keeps both.
+    if (!reopening) {
+      _axes = { repair: 0, printed: 0, tiny: 0 };
+      _jumpAt = -1;
+      // Seeded from whatever the map is already holding, so the round trip
+      // closes: open the list on a live selection and it shows that selection,
+      // adjust it here, close, and the map has what the list last said. Two
+      // ideas of "selected" — one on the map, one in the dialog — would drift
+      // the moment either changed.
+      _picked = _pickedOnMap();
+      _anchor = null;
+    }
 
-    var filter = D.role(dialog, "filter");
-    if (filter) {
-      filter.value = _filter;
-      filter.addEventListener("change", function () {
-        _filter = filter.value;
+    var chips = dialog.querySelectorAll("[data-axis]");
+    Array.prototype.forEach.call(chips, function (chip) {
+      chip.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var axis = chip.dataset.axis;
+        // Round the three states and back to the start, so one control can be
+        // turned off the same way it was turned on.
+        _axes[axis] = _axes[axis] === 0 ? 1 : _axes[axis] === 1 ? -1 : 0;
         // The walk is through what is on screen, so a narrower list restarts
         // it rather than resuming somewhere the rows no longer are.
         _jumpAt = -1;
         _renderList(dialog);
       });
-    }
+    });
 
     D.onRole(dialog, "jump", function () {
       _jump(dialog);
+    });
+
+    D.onRole(dialog, "clear-selection", function () {
+      _picked = [];
+      _anchor = null;
+      _renderList(dialog);
     });
 
     // The last screen in the app that took over without registering anything,
@@ -619,6 +661,22 @@ App.labels = (function () {
           run: function () {
             _jump(dialog);
           },
+        },
+        {
+          // Select-all over what is *shown*, which is what makes it worth
+          // having next to the filters: narrow to the unprinted ones, take
+          // all of them, close, and the map is holding exactly those.
+          combos: ["Mod+A"],
+          labelKey: "shortcuts.listSelectAll",
+          run: function () {
+            _selectAllShown(dialog);
+          },
+        },
+        { combos: ["Mod+Click"], labelKey: "shortcuts.listPick", note: true },
+        {
+          combos: ["Shift+Click"],
+          labelKey: "shortcuts.listRange",
+          note: true,
         },
         {
           combos: ["Escape"],
@@ -656,15 +714,14 @@ App.labels = (function () {
     var toggle = D.role(dialog, "show-numbers");
     if (toggle) toggle.checked = isVisible();
 
-    var filter = D.role(dialog, "filter");
-    if (filter) filter.value = _filter;
+    _paintChips(dialog);
 
     D.text(
       dialog,
       "total",
-      _filter === "all"
-        ? T("list.total", { count: all.length })
-        : T("list.showing", { shown: shown.length, total: all.length }),
+      _filtering()
+        ? T("list.showing", { shown: shown.length, total: all.length })
+        : T("list.total", { count: all.length }),
     );
     D.text(dialog, "outcome", (opts && opts.status) || "");
 
@@ -738,12 +795,28 @@ App.labels = (function () {
       // flags the row is actually showing.
       if (_isFlagged(row)) node.dataset.flagged = "1";
 
+      var picked = _picked.indexOf(row.index) >= 0;
+      if (picked) node.dataset.selected = "1";
+      D.text(node, "selected-note", picked ? T("list.rowSelected") : "");
+
       D.toggle(D.role(node, "fix"), !!fixable[row.index]);
       D.onRole(node, "fix", function (e, button) {
         _fix(row.index, button);
       });
 
-      D.onRole(node, "go", function () {
+      // The modified clicks pick; the plain one still does what it always did,
+      // which is go and look at it. Overloading the plain click into "select
+      // only this" is the desktop convention, and it would have taken away the
+      // one gesture this list was built for.
+      D.onRole(node, "go", function (e) {
+        if (e && e.shiftKey) {
+          _extendTo(dialog, row.index, shown);
+          return;
+        }
+        if (e && (e.ctrlKey || e.metaKey)) {
+          _togglePick(dialog, row.index);
+          return;
+        }
         App.ui.closeDialog();
         focus(row.index);
       });
@@ -760,6 +833,13 @@ App.labels = (function () {
     var flagged = shown.filter(_isFlagged).length;
     D.toggleRole(dialog, "jump", flagged > 0);
     D.text(dialog, "jump-count", flagged > 0 ? App.i18n.n(flagged) : "");
+
+    // Reusing merge's own sentence: the count means the same thing in both
+    // places, and it is the same selection — the list is only where it was
+    // picked.
+    D.text(dialog, "selection", T("merge.selected", { count: _picked.length }));
+    D.toggleRole(dialog, "selection", _picked.length > 0);
+    D.toggleRole(dialog, "clear-selection", _picked.length > 0);
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -784,12 +864,179 @@ App.labels = (function () {
     return row.parts > 1 || _isEmpty(row.index);
   }
 
+  /** Is any axis actually narrowing the list? */
+  function _filtering() {
+    return _axes.repair !== 0 || _axes.printed !== 0 || _axes.tiny !== 0;
+  }
+
+  /** One axis against one row: 0 keeps everything, 1 keeps it, -1 keeps the rest. */
+  function _axisKeeps(state, has) {
+    return state === 0 || (state > 0 ? has : !has);
+  }
+
   function _matchesFilter(row) {
-    if (_filter === "repair") return _isFlagged(row);
-    if (_filter === "tiny") return _rowIsTiny(row);
-    if (_filter === "printed") return !!row.printed;
-    if (_filter === "unprinted") return !row.printed;
-    return true;
+    return (
+      _axisKeeps(_axes.repair, _isFlagged(row)) &&
+      _axisKeeps(_axes.printed, !!row.printed) &&
+      _axisKeeps(_axes.tiny, _rowIsTiny(row))
+    );
+  }
+
+  /**
+   * Put each chip in the state its axis is in.
+   *
+   * The label says which state that is — "Issues", "With issues", "No issues"
+   * — because three states is one more than a pressed-or-not control can mean
+   * on its own, and a legend nobody reads is not an answer. `aria-pressed`
+   * carries the coarser "is this narrowing anything", which is the question
+   * somebody scanning the bar for why half the list is missing is asking.
+   */
+  function _paintChips(dialog) {
+    var chips = dialog.querySelectorAll("[data-axis]");
+    Array.prototype.forEach.call(chips, function (chip) {
+      var axis = chip.dataset.axis;
+      var state = _axes[axis] || 0;
+      var name = state === 0 ? "Any" : state > 0 ? "Only" : "Not";
+      var text = T(
+        "list.chip" + axis.charAt(0).toUpperCase() + axis.slice(1) + name,
+      );
+      D.text(chip, "chip-label", text);
+      chip.setAttribute("title", text);
+      chip.setAttribute("aria-pressed", state === 0 ? "false" : "true");
+      chip.dataset.state = state === 0 ? "any" : state > 0 ? "only" : "not";
+    });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // PICKING SEVERAL
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * The selection, as the map will receive it.
+   *
+   * Indices are resolved against s.clusters at the moment they are handed
+   * over rather than held as layer references, because a repair between the
+   * pick and the close rebuilds every layer on the map and renumbers what is
+   * left. An index that no longer exists is dropped instead of throwing.
+   */
+  function selection() {
+    var entries = s.clusters || [];
+    return _picked
+      .map(function (index) {
+        return entries[index];
+      })
+      .filter(Boolean)
+      .map(function (entry) {
+        return { layer: entry.layer, feature: entry.feature };
+      });
+  }
+
+  /**
+   * Give the selection to the map on the way out.
+   *
+   * This is what the picking is for. The list is a far better place to choose
+   * fourteen territories out of ninety-nine than a map is, and the operations
+   * worth doing to fourteen territories — merging them, deleting them — live
+   * out there. So closing the dialog is the hand-over, and App.editing holds
+   * it from then on: one idea of "selected", painted once, counted once,
+   * undone once.
+   *
+   * Cleared here rather than left behind, because the selection now belongs
+   * somewhere else and two copies of it would drift the moment either changed.
+   */
+  function _handOver() {
+    var items = selection();
+    _picked = [];
+    _anchor = null;
+    if (!App.editing || !App.editing.selectClusters) return false;
+    // Handed over even when it is empty: the list is authoritative at the
+    // moment it closes, so clearing the selection in here has to clear it out
+    // there too. selectClusters declines to open a mode for nothing.
+    return App.editing.selectClusters(items);
+  }
+
+  /** The map's current selection, as territory indices. */
+  function _pickedOnMap() {
+    var entries = s.clusters || [];
+    var out = [];
+    (s.selectedClusters || []).forEach(function (item) {
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].layer !== item.layer) continue;
+        if (out.indexOf(i) < 0) out.push(i);
+        return;
+      }
+    });
+    return out;
+  }
+
+  function _togglePick(dialog, index) {
+    var at = _picked.indexOf(index);
+    if (at >= 0) _picked.splice(at, 1);
+    else _picked.push(index);
+    // A range extends from the last row touched by hand, the way it does in
+    // every file list — including when that touch took a row *out*.
+    _anchor = index;
+    _renderList(dialog);
+  }
+
+  /**
+   * Everything between the anchor and here, in what the list is showing.
+   *
+   * Through the shown rows rather than through the index range, so a range
+   * taken while filtered picks the twelve rows you can see rather than the
+   * eighty the numbers happen to span. With no anchor yet — Shift-clicking
+   * first — the range is just this row, which is what starts one.
+   */
+  function _extendTo(dialog, index, shown) {
+    var order = shown.map(function (row) {
+      return row.index;
+    });
+    var to = order.indexOf(index);
+    var from = _anchor === null ? to : order.indexOf(_anchor);
+    if (to < 0) return;
+    if (from < 0) from = to;
+
+    var lo = Math.min(from, to);
+    var hi = Math.max(from, to);
+    for (var i = lo; i <= hi; i++)
+      if (_picked.indexOf(order[i]) < 0) _picked.push(order[i]);
+    // The anchor stays put, so a second Shift-click grows or shrinks the same
+    // range rather than starting a new one from where the last one ended.
+    if (_anchor === null) _anchor = index;
+    _renderList(dialog);
+  }
+
+  /**
+   * Take every row on screen, or put them all down again.
+   *
+   * The second press clearing is what makes this reachable from the keyboard
+   * alone: Escape belongs to the dialog, and a selection with no way back
+   * except the mouse is not a keyboard feature.
+   */
+  function _selectAllShown(dialog) {
+    var shown = (s.clusters || [])
+      .map(function (entry, index) {
+        return _rows[index] || _describe(entry, index);
+      })
+      .filter(_matchesFilter);
+    var indices = shown.map(function (row) {
+      return row.index;
+    });
+
+    var already = indices.every(function (index) {
+      return _picked.indexOf(index) >= 0;
+    });
+    if (already && indices.length > 0) {
+      _picked = _picked.filter(function (index) {
+        return indices.indexOf(index) < 0;
+      });
+    } else {
+      indices.forEach(function (index) {
+        if (_picked.indexOf(index) < 0) _picked.push(index);
+      });
+    }
+    _anchor = indices.length ? indices[indices.length - 1] : null;
+    _renderList(dialog);
   }
 
   /**

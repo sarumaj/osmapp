@@ -341,34 +341,52 @@
           <input type="checkbox" data-role="show-numbers" />
           <span data-i18n="list.showNumbers">Show the numbers on the map</span>
         </label>
-        <!-- Finding one row among ninety-nine. The filter narrows the list and
-             the jump button walks whatever is left that carries a flag, so the
-             two compose: filter to the printed ones and jump only visits the
-             printed ones that need attention. -->
-        <div class="territory-list__find">
-          <label class="territory-list__filter">
-            <span data-i18n="list.filter">Show</span>
-            <select data-role="filter">
-              <option value="all" data-i18n="list.filterAll">
-                All territories
-              </option>
-              <option value="repair" data-i18n="list.filterRepair">
-                Only ones needing repair
-              </option>
-              <option value="tiny" data-i18n="list.filterTiny">
-                Too small to see at this zoom
-              </option>
-              <option value="unprinted" data-i18n="list.filterUnprinted">
-                Not yet printed
-              </option>
-              <option value="printed" data-i18n="list.filterPrinted">
-                Already printed
-              </option>
-            </select>
-          </label>
+        <!-- Finding one row among ninety-nine. Each chip is one question
+             with three answers — don't care, only these, only the others —
+             so they combine: "printed, and still has something wrong with
+             it" is two clicks and needs no entry of its own. A drop-down
+             could only ever offer one axis at a time, and next to the jump
+             button it read as an unrelated control rather than as the other
+             half of the same tool. The labels carry the state in words
+             because a chip that says "No issues" needs no legend. -->
+        <div
+          class="territory-list__find"
+          role="group"
+          data-i18n-attrs="aria-label=list.filterGroup"
+        >
           <button
             type="button"
-            class="btn btn--ghost territory-list__jump"
+            class="territory-list__chip"
+            data-role="chip"
+            data-axis="repair"
+            aria-pressed="false"
+          >
+            <i class="fa-solid fa-puzzle-piece" aria-hidden="true"></i>
+            <span data-role="chip-label"></span>
+          </button>
+          <button
+            type="button"
+            class="territory-list__chip"
+            data-role="chip"
+            data-axis="printed"
+            aria-pressed="false"
+          >
+            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+            <span data-role="chip-label"></span>
+          </button>
+          <button
+            type="button"
+            class="territory-list__chip"
+            data-role="chip"
+            data-axis="tiny"
+            aria-pressed="false"
+          >
+            <i class="fa-solid fa-magnifying-glass-plus" aria-hidden="true"></i>
+            <span data-role="chip-label"></span>
+          </button>
+          <button
+            type="button"
+            class="territory-list__chip territory-list__jump"
             data-role="jump"
             data-i18n-attrs="title=list.jumpHint;aria-label=list.jumpHint"
             hidden
@@ -399,6 +417,25 @@
           Nothing matches that filter.
         </p>
         <div class="app-dialog__actions">
+          <!-- What is selected, and the way out of it. The selection outlives
+               the dialog — closing hands it to the map, where merge and
+               delete act on it — so saying how big it is before you close is
+               the difference between a deliberate hand-over and a surprise. -->
+          <span
+            class="territory-list__selection"
+            data-role="selection"
+            aria-live="polite"
+            hidden
+          ></span>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="clear-selection"
+            data-i18n="list.clearSelection"
+            hidden
+          >
+            Clear
+          </button>
           <button
             type="button"
             class="btn btn--ghost"
@@ -435,6 +472,10 @@
             <span class="territory-row__meta" data-role="meta"></span>
           </span>
           <span class="territory-row__flags" data-role="flags"></span>
+          <!-- The selected state is a color and a border, which is nothing at
+               all to a screen reader. This says it in words and is hidden
+               from everybody who can already see it. -->
+          <span class="sr-only" data-role="selected-note"></span>
         </button>
         <button
           type="button"
@@ -634,6 +675,17 @@
             data-i18n="merge.clear"
           >
             Clear
+          </button>
+          <!-- Merge is not the only thing a selection is for, and it was the
+               only thing this bar offered: deleting fourteen territories
+               meant fourteen trips through a context menu. -->
+          <button
+            type="button"
+            class="btn btn--danger"
+            data-role="delete"
+            data-i18n="merge.deleteSelected"
+          >
+            Delete
           </button>
           <button
             type="button"

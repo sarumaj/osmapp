@@ -566,6 +566,39 @@ App.polygons = (function () {
     return true;
   }
 
+  /**
+   * Delete several territories as one step.
+   *
+   * Not a loop over deleteCluster(): that pushes a history entry per call, so
+   * taking back a selection of twelve would be twelve presses of Ctrl+Z, and
+   * the eleventh would leave the map in a state nobody ever chose. Routed
+   * through setClusters() instead, which is the path every other bulk change
+   * already takes and which puts the selection down on the way past.
+   *
+   * @param {Object[]} layers Leaflet layers; anything not a territory is
+   *   ignored rather than treated as an error, because the caller is holding a
+   *   selection that the map may have moved on from.
+   * @returns {number} how many were actually deleted
+   */
+  function deleteClusters(layers) {
+    var doomed = [];
+    (layers || []).forEach(function (layer) {
+      var hit = findCluster(layer);
+      if (hit && doomed.indexOf(hit.entry.feature) < 0)
+        doomed.push(hit.entry.feature);
+    });
+    if (doomed.length === 0) return 0;
+
+    if (App.history) App.history.push();
+    setClusters(
+      clusterFeatures().filter(function (feature) {
+        return doomed.indexOf(feature) < 0;
+      }),
+    );
+    console.log(">>> Deleted", doomed.length, "territories");
+    return doomed.length;
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // EVENTS
   // ══════════════════════════════════════════════════════════════════════
@@ -1383,6 +1416,7 @@ App.polygons = (function () {
     ensureDefaultCluster: ensureDefaultCluster,
     addInnerPolygon: addInnerPolygon,
     deleteCluster: deleteCluster,
+    deleteClusters: deleteClusters,
 
     attachClusterEvents: attachClusterEvents,
     attachProxyEvents: attachProxyEvents,

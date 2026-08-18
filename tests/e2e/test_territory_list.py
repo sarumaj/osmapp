@@ -186,6 +186,24 @@ def flagged_rows(page: Page) -> Locator:
     return page.locator(".territory-row-wrap[data-flagged='1']")
 
 
+def chip(page: Page, axis: str) -> Locator:
+    return page.locator(f".territory-list__chip[data-axis='{axis}']")
+
+
+def cycle(page: Page, axis: str, to: str) -> None:
+    """Click a filter chip until it reaches `to` — any, only or not.
+
+    Clicking rather than setting state, because the cycle is the interaction
+    under test: three states on one control only works if each press lands
+    where the last one implies.
+    """
+    for _ in range(4):
+        if chip(page, axis).get_attribute("data-state") == to:
+            return
+        chip(page, axis).click()
+    raise AssertionError(f"the {axis} chip never reached {to}")
+
+
 def test_the_filter_narrows_the_list_to_what_needs_attention(gridded: Page):
     """The reason the filter exists.
 
@@ -199,7 +217,7 @@ def test_the_filter_narrows_the_list_to_what_needs_attention(gridded: Page):
         "the grid was supposed to flag some but not all"
     )
 
-    gridded.locator("[data-role='filter']").select_option("repair")
+    cycle(gridded, "repair", "only")
 
     assert rows.count() == with_issues
     assert flagged_rows(gridded).count() == with_issues, "and they are the flagged ones"
@@ -239,7 +257,7 @@ def test_the_walk_ignores_what_is_only_small_at_this_zoom(gridded: Page):
             > 0
         ), "the walk includes a row whose only flag is about the zoom"
 
-    gridded.locator("[data-role='filter']").select_option("tiny")
+    cycle(gridded, "tiny", "only")
     assert gridded.locator(".territory-row-wrap").count() == tiny.count()
 
 
@@ -250,7 +268,7 @@ def test_a_filter_that_matches_nothing_says_so(gridded: Page):
     empties the list — and answering that with "No territories yet" sends
     somebody looking for territories that are sitting right there.
     """
-    gridded.locator("[data-role='filter']").select_option("printed")
+    cycle(gridded, "printed", "only")
 
     assert gridded.locator(".territory-row-wrap").count() == 0
     expect(gridded.locator("[data-role='no-match']")).to_be_visible()
@@ -308,5 +326,208 @@ def test_the_walk_follows_the_filter(gridded: Page):
     the button goes away instead of quietly jumping to a row the filter is
     hiding.
     """
-    gridded.locator("[data-role='filter']").select_option("printed")
+    cycle(gridded, "printed", "only")
     expect(gridded.locator("[data-role='jump']")).to_be_hidden()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# THREE ANSWERS PER QUESTION
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def test_a_chip_cycles_through_its_three_states(gridded: Page):
+    """Don't care, only these, only the others, and back.
+
+    The third state is the one a drop-down could not offer without a second
+    entry per axis, and it is the one that answers "which of these have I not
+    dealt with yet".
+    """
+    rows = gridded.locator(".territory-row-wrap")
+    everything = rows.count()
+    with_issues = flagged_rows(gridded).count()
+    assert 0 < with_issues < everything
+
+    expect(chip(gridded, "repair")).to_have_attribute("data-state", "any")
+    expect(chip(gridded, "repair")).to_have_attribute("aria-pressed", "false")
+
+    chip(gridded, "repair").click()
+    expect(chip(gridded, "repair")).to_have_attribute("data-state", "only")
+    expect(chip(gridded, "repair")).to_have_attribute("aria-pressed", "true")
+    assert rows.count() == with_issues
+
+    chip(gridded, "repair").click()
+    expect(chip(gridded, "repair")).to_have_attribute("data-state", "not")
+    expect(chip(gridded, "repair")).to_have_attribute("aria-pressed", "true")
+    assert rows.count() == everything - with_issues
+
+    chip(gridded, "repair").click()
+    expect(chip(gridded, "repair")).to_have_attribute("data-state", "any")
+    assert rows.count() == everything
+
+
+def test_the_chips_combine(gridded: Page):
+    """Separate questions, so the answers stack.
+
+    "Not printed, and nothing wrong with it" is the set somebody works
+    through, and no single-choice control can express it.
+    """
+    cycle(gridded, "repair", "not")
+    healthy = gridded.locator(".territory-row-wrap").count()
+
+    cycle(gridded, "printed", "not")
+    both = gridded.locator(".territory-row-wrap").count()
+
+    # Nothing in the sample is printed, so adding "not printed" cannot remove
+    # anything — but it must still be the intersection rather than a reset.
+    assert both == healthy
+    expect(chip(gridded, "repair")).to_have_attribute("data-state", "not")
+    expect(chip(gridded, "printed")).to_have_attribute("data-state", "not")
+
+
+def test_a_chip_says_which_state_it_is_in(gridded: Page):
+    """The label carries the state, so the color is not the only channel."""
+    labels: list[str] = []
+    for _ in range(3):
+        labels.append(chip(gridded, "repair").inner_text().strip())
+        chip(gridded, "repair").click()
+
+    assert len(set(labels)) == 3, f"the label never changed: {labels}"
+    assert all(labels), "a chip with no words on it"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PICKING SEVERAL
+# ══════════════════════════════════════════════════════════════════════════════
+
+SELECTED = ".territory-row-wrap[data-selected='1']"
+
+
+def rows_of(page: Page) -> Locator:
+    return page.locator(".territory-row-wrap .territory-row[data-role='go']")
+
+
+def test_ctrl_click_picks_without_leaving_the_list(gridded: Page):
+    """The modified click selects; the plain one still goes and looks."""
+    rows_of(gridded).nth(2).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(5).click(modifiers=["ControlOrMeta"])
+
+    assert gridded.locator(SELECTED).count() == 2
+    expect(gridded.locator(".territory-list")).to_be_visible()
+    expect(gridded.locator("[data-role='selection']")).to_be_visible()
+
+    # And clicking one again takes it back out.
+    rows_of(gridded).nth(2).click(modifiers=["ControlOrMeta"])
+    assert gridded.locator(SELECTED).count() == 1
+
+
+def test_shift_click_takes_the_range_between(gridded: Page):
+    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(5).click(modifiers=["Shift"])
+
+    assert gridded.locator(SELECTED).count() == 5, "one through five inclusive"
+
+
+def test_select_all_takes_what_is_shown_and_gives_it_back(gridded: Page):
+    """Ctrl/⌘+A over the filtered list, and again to put it down.
+
+    Scoped to what is on screen because that is what makes it worth having
+    next to the filters: narrow to the ones needing repair, take all of them,
+    close, and the map is holding exactly those.
+    """
+    cycle(gridded, "repair", "only")
+    shown = gridded.locator(".territory-row-wrap").count()
+    assert shown > 1
+
+    gridded.keyboard.press("ControlOrMeta+a")
+    assert gridded.locator(SELECTED).count() == shown
+
+    gridded.keyboard.press("ControlOrMeta+a")
+    assert gridded.locator(SELECTED).count() == 0
+
+
+def test_the_selection_survives_the_dialog_and_lands_on_the_map(gridded: Page):
+    """What the picking is for.
+
+    The list is a better place to choose fourteen territories out of ninety-
+    nine than the map is, and the operations worth doing to fourteen of them
+    live out there. So closing hands the selection over, and App.editing holds
+    it from then on — one idea of "selected", painted once and counted once.
+    """
+    rows_of(gridded).nth(0).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(3).click(modifiers=["ControlOrMeta"])
+
+    gridded.locator("[data-role='close']").click()
+    expect(gridded.locator(".territory-list")).to_have_count(0)
+
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 2
+    assert gridded.evaluate("() => window.App.state.mergeMode") is True
+    expect(gridded.locator(".merge-toolbar")).to_be_visible()
+
+
+def test_closing_with_nothing_picked_changes_nothing(gridded: Page):
+    """No selection is not an empty selection, and must not open a mode."""
+    gridded.locator("[data-role='close']").click()
+    expect(gridded.locator(".territory-list")).to_have_count(0)
+
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 0
+    assert gridded.evaluate("() => window.App.state.mergeMode") is False
+
+
+def test_the_handed_over_selection_can_be_deleted_in_one_step(gridded: Page):
+    """The other half of "merge/delete", and one Ctrl+Z to take back.
+
+    A loop over the single delete would push a history entry per territory, so
+    undoing a selection of twelve would be twelve presses and the eleventh
+    would leave the map in a state nobody chose.
+    """
+    before = gridded.evaluate("() => window.App.state.clusters.length")
+    rows_of(gridded).nth(0).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
+    gridded.locator("[data-role='close']").click()
+
+    gridded.locator(".merge-toolbar [data-role='delete']").click()
+    gridded.wait_for_function(
+        "(n) => window.App.state.clusters.length === n - 2", arg=before
+    )
+
+    gridded.evaluate("() => window.App.history.undo()")
+    gridded.wait_for_function(
+        "(n) => window.App.state.clusters.length === n", arg=before
+    )
+
+
+def test_the_shortcut_sheet_lists_the_selection_keys(gridded: Page):
+    """ "?" over the list, which is the only place these keys are written down.
+
+    Note entries carry combos that are never dispatched — Ctrl-click is not a
+    keystroke — so nothing else would notice a malformed one until somebody
+    pressed "?" and got a sheet with a hole in it.
+    """
+    gridded.keyboard.press("?")
+
+    body = gridded.locator("body")
+    for phrase in (
+        "Select every territory the list is showing",
+        "Add one territory to the selection",
+        "Select every territory up to this one",
+    ):
+        expect(body).to_contain_text(phrase)
+
+
+def test_the_list_shows_what_the_map_is_already_holding(gridded: Page):
+    """The round trip. Two ideas of "selected" would drift the moment either
+    changed, so there is one, and the list is where it is edited."""
+    rows_of(gridded).nth(0).click(modifiers=["ControlOrMeta"])
+    rows_of(gridded).nth(1).click(modifiers=["ControlOrMeta"])
+    gridded.locator("[data-role='close']").click()
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 2
+
+    gridded.evaluate("() => window.App.labels.openList()")
+    expect(gridded.locator(".territory-list")).to_be_visible()
+    assert gridded.locator(SELECTED).count() == 2, "the list did not read it back"
+
+    # And putting it down in here puts it down out there.
+    gridded.locator("[data-role='clear-selection']").click()
+    assert gridded.locator(SELECTED).count() == 0
+    gridded.locator("[data-role='close']").click()
+    assert gridded.evaluate("() => window.App.state.selectedClusters.length") == 0
