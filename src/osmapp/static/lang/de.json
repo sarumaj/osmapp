@@ -127,7 +127,9 @@
     "progress": "Gebiet {index} von {total}",
     "retryIn": "Overpass ist ausgelastet — neuer Versuch in {count} s (Versuch {attempt} von {total})",
     "retrying": "Neuer Versuch… (Versuch {attempt} von {total})",
-    "readingCard": "Karte wird gelesen…"
+    "readingCard": "Karte wird gelesen…",
+    "restoring": "Arbeit wird wiederhergestellt…",
+    "importing": "Projekt wird geöffnet…"
   },
   "phase": {
     "samples": "Stichprobenpunkte werden gesammelt",

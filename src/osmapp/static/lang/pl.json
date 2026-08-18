@@ -132,7 +132,9 @@
       "other": "Overpass jest zajęty — ponowna próba za {count} sekundy (próba {attempt} z {total})"
     },
     "retrying": "Ponawianie… (próba {attempt} z {total})",
-    "readingCard": "Odczytywanie karty…"
+    "readingCard": "Odczytywanie karty…",
+    "restoring": "Przywracanie pracy…",
+    "importing": "Otwieranie projektu…"
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",

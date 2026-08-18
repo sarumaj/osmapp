@@ -127,7 +127,9 @@
     "progress": "Territory {index} of {total}",
     "retryIn": "Overpass is busy — retrying in {count} s (attempt {attempt} of {total})",
     "retrying": "Trying again… (attempt {attempt} of {total})",
-    "readingCard": "Reading the card…"
+    "readingCard": "Reading the card…",
+    "restoring": "Restoring your work…",
+    "importing": "Opening the project…"
   },
   "phase": {
     "samples": "Collecting sample points",

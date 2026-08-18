@@ -158,24 +158,44 @@ App.session = (function () {
       var meta = parts[0];
       if (!meta || meta.version !== VERSION || !meta.outerPolygon) return false;
 
+      var ok = false;
       _restoring = true;
-      try {
-        App.data.applyPayload({
-          outerPolygon: meta.outerPolygon,
-          bounds: meta.bounds,
-          streets: (parts[1] || {}).streets,
-          buildings: (parts[1] || {}).buildings,
-          clusters: parts[2] || [],
+      // Behind the spinner, and not because anything measured this project:
+      // applying a payload is the heaviest thing the app does, the estimate
+      // ui.busy() normally consults is measured from it, and at this point
+      // nothing has been measured at all. On a real project it is a second of
+      // blocked main thread and then the gap recount behind it — and both used
+      // to land on a page that had just finished drawing itself, so the map
+      // appeared, looked ready, and stopped answering. hideOverlay() takes the
+      // recount with it, which is what keeps the second one under here too.
+      return App.ui
+        .busy(
+          "loading.restoring",
+          function () {
+            try {
+              App.data.applyPayload({
+                outerPolygon: meta.outerPolygon,
+                bounds: meta.bounds,
+                streets: (parts[1] || {}).streets,
+                buildings: (parts[1] || {}).buildings,
+                clusters: parts[2] || [],
+              });
+              console.log(">>> Session restored from", new Date(meta.savedAt));
+              ok = true;
+            } catch (e) {
+              console.warn(">>> Could not restore session:", e.message);
+              clear();
+            }
+          },
+          { always: true },
+        )
+        .then(function () {
+          // After the work rather than in a finally around it: the saves this
+          // suppresses are queued by what applyPayload does, and it no longer
+          // all happens on this tick.
+          _restoring = false;
+          return ok;
         });
-        console.log(">>> Session restored from", new Date(meta.savedAt));
-        return true;
-      } catch (e) {
-        console.warn(">>> Could not restore session:", e.message);
-        clear();
-        return false;
-      } finally {
-        _restoring = false;
-      }
     });
   }
 

@@ -21,7 +21,7 @@ a test should be paying for.
 """
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import BrowserContext, Page, expect
 
 OVERLAY = "#loading-overlay"
 
@@ -30,6 +30,64 @@ OVERLAY = "#loading-overlay"
 EXPENSIVE = """(ms) => {
     window.App.polygons.refreshCostMs = () => ms;
 }"""
+
+
+# A project small enough to build in one statement and real enough to be saved:
+# a boundary with two territories under it. The demo cannot stand in here — it
+# suspends persistence for its whole visit, which is the point of the demo.
+A_SAVED_PROJECT = """() => {
+    const ring = (x, y, w, h) => [
+        [[x, y], [x + w, y], [x + w, y + h], [x, y + h], [x, y]],
+    ];
+    const poly = (x, y, w, h) => ({
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Polygon", coordinates: ring(x, y, w, h) },
+    });
+    window.App.data.applyPayload({
+        outerPolygon: poly(10, 50, 0.02, 0.01),
+        clusters: [poly(10, 50, 0.01, 0.01), poly(10.01, 50, 0.01, 0.01)],
+    });
+}"""
+
+POLL_FOR_THE_SAVE = """() => {
+    window.__saved = false;
+    const poll = () =>
+        window.App.store.get("session:meta").then((meta) => {
+            if (meta) window.__saved = true;
+            else setTimeout(poll, 50);
+        });
+    poll();
+}"""
+
+# The spinner is recorded rather than looked for. A restore of two territories
+# is over in a frame or two, which is a window a polling assertion can walk
+# straight past — and "did not catch it" and "it was never shown" would then be
+# the same result, which is the bug this is here for.
+WATCH_BODY = """
+    window.__overlay = { events: [], pendingAtHide: null };
+    const watch = () => {
+        const el = document.getElementById("loading-overlay");
+        if (!el) return setTimeout(watch, 5);
+        let shown = !el.hasAttribute("hidden");
+        new MutationObserver(() => {
+            const now = !el.hasAttribute("hidden");
+            if (now === shown) return;
+            shown = now;
+            window.__overlay.events.push(now ? "shown" : "hidden");
+            // Whatever puts the spinner up takes the gap recount down with it,
+            // so by the time it comes down there is nothing left scheduled.
+            if (!now) window.__overlay.pendingAtHide = window.App.gaps.flush();
+        }).observe(el, { attributes: true, attributeFilter: ["hidden"] });
+    };
+    watch();
+"""
+
+# An init script is source rather than a callable, and it runs before the app's
+# own scripts — the only place the restore can be watched from, since it starts
+# as soon as IndexedDB answers.
+WATCH_FROM_THE_START = f"(() => {{{WATCH_BODY}}})();"
+WATCH_FROM_NOW = f"() => {{{WATCH_BODY}}}"
 
 
 @pytest.fixture
@@ -137,3 +195,73 @@ def test_the_trim_toolbar_says_it_is_measuring(sample: Page):
 
     assert said != settled, "the toolbar went on showing the previous answer"
     assert said.strip(), "and it said nothing at all instead"
+
+
+def test_restoring_a_saved_project_says_it_is_working(
+    app_page: Page, context: BrowserContext
+):
+    """The one blocking job that cannot be decided from a measurement.
+
+    Applying a payload is the heaviest thing the app does, and it is what
+    ui.busy's estimate is measured *from* — so on the load that restores a
+    project there is no estimate yet, and asking for one gets a zero. The page
+    is at its most convincing here, too: the map is drawn, the toolbar is up,
+    and then it stops answering for a second and a half of geometry and
+    another second of gap recount.
+    """
+    app_page.evaluate(A_SAVED_PROJECT)
+    app_page.wait_for_function("() => window.App.state.clusters.length === 2")
+    # The save is debounced, and waiting for it to land is what makes the
+    # reload below a restore rather than a first visit. Polled through a flag
+    # rather than awaited in the predicate: a predicate that returns a promise
+    # returns something truthy on the first poll, which is how this test first
+    # went green while reloading an empty store.
+    app_page.evaluate(POLL_FOR_THE_SAVE)
+    app_page.wait_for_function("() => window.__saved === true", timeout=15000)
+
+    context.add_init_script(WATCH_FROM_THE_START)
+    app_page.goto("/?tour=0")
+    expect(app_page.locator(".tb-panel")).to_be_visible()
+    app_page.wait_for_function(
+        "() => window.App.state.clusters.length === 2", timeout=30000
+    )
+
+    probe = app_page.evaluate("() => window.__overlay")
+    assert probe["events"][:2] == ["shown", "hidden"], (
+        "the restore ran with nothing on screen to say so"
+    )
+    assert probe["pendingAtHide"] is False, (
+        "the spinner came down with the gap recount still to come"
+    )
+
+
+def test_opening_a_project_says_it_is_working(app_page: Page):
+    """The other way a whole payload arrives, and the same second of work.
+
+    Import differs from the restore only in where the JSON came from: it lands
+    on a page that is already up, which is if anything more convincing as a
+    page that is not busy.
+    """
+    app_page.evaluate(A_SAVED_PROJECT)
+    app_page.wait_for_function("() => window.App.state.clusters.length === 2")
+
+    app_page.evaluate(WATCH_FROM_NOW)
+    app_page.evaluate("""() => {
+        const json = JSON.stringify(window.App.data.buildPayload());
+        const file = new File([json], "project.json", { type: "application/json" });
+        window.App.data.importData(file);
+    }""")
+    app_page.wait_for_function(
+        "() => window.__overlay.events.length >= 2", timeout=15000
+    )
+
+    probe = app_page.evaluate("() => window.__overlay")
+    assert probe["events"][:2] == ["shown", "hidden"], (
+        "the import ran with nothing on screen to say so"
+    )
+    assert probe["pendingAtHide"] is False, (
+        "the spinner came down with the gap recount still to come"
+    )
+    assert app_page.evaluate("() => window.App.state.clusters.length") == 2, (
+        "the spinner came down but the project never arrived"
+    )

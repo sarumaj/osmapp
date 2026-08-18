@@ -200,30 +200,42 @@ App.ui = (function () {
    * it stands and nothing flashes. A five-territory village never sees a
    * spinner; the ninety-nine-territory town sees one every time.
    *
+   * `always` is for the jobs that cannot be decided that way: loading a whole
+   * project is the heaviest thing here — it is what the estimate is measured
+   * *from* — and it happens before there is any estimate to read, on a page
+   * that has just finished drawing itself and looks ready. Nobody reads a
+   * spinner during a page load as a flash; they read a page that stopped
+   * answering as a broken one.
+   *
    * @param {string} textKey what to say while it runs
    * @param {function} work the blocking job
+   * @param {{always?: boolean}} [opts] always: defer without asking the project
+   * @returns {Promise} settled once the work has run
    */
-  function busy(textKey, work) {
-    if (typeof work !== "function") return;
+  function busy(textKey, work, opts) {
+    if (typeof work !== "function") return Promise.resolve();
     var cost =
       App.polygons && App.polygons.refreshCostMs
         ? App.polygons.refreshCostMs()
         : 0;
-    if (cost < SLOW_MS) {
+    if (!(opts && opts.always) && cost < SLOW_MS) {
       work();
-      return;
+      return Promise.resolve();
     }
 
     showBusy(App.i18n.t(textKey));
     // Long enough for the overlay to be painted rather than merely added,
     // which is the same 30 ms every other deferred job in the app buys.
-    window.setTimeout(function () {
-      try {
-        work();
-      } finally {
-        hideOverlay();
-      }
-    }, 30);
+    return new Promise(function (resolve) {
+      window.setTimeout(function () {
+        try {
+          work();
+        } finally {
+          hideOverlay();
+          resolve();
+        }
+      }, 30);
+    });
   }
 
   function hideOverlay() {
