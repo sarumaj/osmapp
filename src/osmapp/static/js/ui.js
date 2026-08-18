@@ -60,24 +60,6 @@ App.ui = (function () {
       });
     }
 
-    // The uncovered count zooms to the biggest one rather than opening a
-    // list: there are rarely more than a handful, and the useful next move is
-    // to go and look at the largest.
-    var gaps = D.role(_panel, "gaps-btn");
-    if (gaps) {
-      gaps.addEventListener("click", function (e) {
-        e.preventDefault();
-        var found = App.gaps ? App.gaps.features() : [];
-        if (!found.length) return;
-        var layer = App.geometry.toLayer(found[0].geometry, {});
-        if (layer)
-          s.leafletMap.fitBounds(layer.getBounds(), {
-            padding: [60, 60],
-            maxZoom: 17,
-          });
-      });
-    }
-
     App.i18n.onChange(refreshInfo);
 
     App._loaded.push("ui");
@@ -287,8 +269,6 @@ App.ui = (function () {
       // nobody that the counter exists.
       D.toggleRole(_panel, "printed-row", hasClusters);
       if (hasClusters) D.text(_panel, "printed", info.printed || 0);
-
-      _syncGaps();
     }
 
     // hintParams rather than a pre-formatted string: refreshInfo() replays the
@@ -302,14 +282,22 @@ App.ui = (function () {
   }
 
   /**
-   * A quiet mark next to the count when a territory is worth a second look —
-   * one too small to see at this zoom, one drawn in more than one piece, one
-   * with no buildings in it at all. The first two explain a count that
-   * disagrees with what the map shows: without the mark the number looks
-   * wrong, with it the number looks explained. The third explains nothing and
-   * is the one that matters most, because an empty territory looks entirely
-   * ordinary right up until somebody is handed the card. All three are one
-   * click away in the list, which is also where they can be repaired.
+   * A quiet mark next to the count when something on the map is worth a second
+   * look — a territory drawn in more than one piece, one with no buildings in
+   * it at all, or ground inside the boundary that is in no territory.
+   *
+   * The first explains a count that disagrees with what the map shows: without
+   * the mark the number looks wrong, with it the number looks explained. The
+   * other two explain nothing and are the ones that matter most, because an
+   * empty territory and a strip nobody covers both look entirely ordinary
+   * right up until somebody is handed the card — or is not. All of them are
+   * one click away in the list, which is also where they can be repaired.
+   *
+   * The uncovered ground had a row of its own here, and lost it to this mark.
+   * A second count in the panel was a second place to look and a second thing
+   * to explain, for a fault that could only ever be acted on somewhere else:
+   * its flag, its area, the button that adopts it and the button that closes
+   * it are all in the list. One mark, one place to go.
    */
   function _syncClusterWarning() {
     var warn = App.labels ? App.labels.warnings() : null;
@@ -322,20 +310,6 @@ App.ui = (function () {
         App.i18n.t(flagged ? "info.clustersWarn" : "info.clustersHelp"),
       );
     }
-  }
-
-  /**
-   * The uncovered count, shown only when it is not zero.
-   *
-   * Unlike every other row here, the interesting value is the one that means
-   * something is wrong — so an empty answer is an absent row rather than a
-   * "0". Nobody needs to be told that the area is fully covered; that is what
-   * finished looks like.
-   */
-  function _syncGaps() {
-    var count = App.gaps ? App.gaps.count() : 0;
-    D.toggleRole(_panel, "gaps-row", count > 0);
-    if (count > 0) D.text(_panel, "gaps", count);
   }
 
   /** Re-render the panel from the last payload — after a language change or

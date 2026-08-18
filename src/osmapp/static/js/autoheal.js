@@ -9,8 +9,8 @@
  * touches. That is four gestures per fault, and the faults arrive in batches:
  * one boundary dragged across a corner leaves half a dozen.
  *
- * Two faults are mechanical enough to repair without asking, and this module
- * is those two:
+ * Three faults are mechanical enough to repair without asking, and this module
+ * is those three:
  *
  *   • **Split** — a territory whose geometry is more than one polygon. The
  *     pieces are not adjacent, so nobody can walk it as one assignment, and
@@ -24,6 +24,17 @@
  *     handed out, walked, and empty. It is absorbed into the neighbor it
  *     shares the most boundary with, which is the same repair a person would
  *     make and the same one clustering.js already makes to its own leftovers.
+ *
+ *   • **Uncovered** — ground inside the boundary that is in no territory at
+ *     all (see gaps.js). It is not a territory, so it cannot be repaired the
+ *     way the other two are; it is *made* one first, and then judged by the
+ *     same two rules as everything else. That order is the whole trick: a
+ *     strip left by dragging the boundary outward becomes a territory, is
+ *     found to hold no buildings, and is handed to the neighbor it abuts most
+ *     — which is what should have happened to it in the first place. An
+ *     uncovered piece with houses on it stays a territory of its own, and one
+ *     lying in two separate lobes becomes two. Nothing here decides which of
+ *     those outcomes applies; the split and merge passes already do.
  *
  * Deliberately *not* healed:
  *
@@ -168,7 +179,11 @@ App.autoheal = (function () {
    * costs a bbox-filtered neighbor scan and at most a few unions.
    */
   function _canFix(index) {
-    var plan = _plan(index);
+    // An empty list of uncovered pieces, not the default: this answers
+    // "would the wand on *this row* do anything", and a run that adopted
+    // every gap on the map would answer yes for a territory nothing can be
+    // done about.
+    var plan = _plan(index, []);
     return !!(plan && plan.report.changed);
   }
 
@@ -179,6 +194,10 @@ App.autoheal = (function () {
    * the building centroids behind it are cached. Splitting needs no rehearsal
    * and territories with buildings are never rehearsed at all, so the price is
    * paid per anomaly rather than per territory.
+   *
+   * `uncovered` is how many pieces of ground belong to no territory. It needs
+   * no rehearsal either: adopting one always produces a territory that was not
+   * there before, so the offer on such a row is never empty.
    */
   function audit() {
     var rows = [];
@@ -195,7 +214,54 @@ App.autoheal = (function () {
       if (issue.fixable) fixable++;
     });
 
-    return { rows: rows, split: split, empty: empty, fixable: fixable };
+    return {
+      rows: rows,
+      split: split,
+      empty: empty,
+      fixable: fixable,
+      uncovered: gaps().length,
+    };
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // UNCOVERED GROUND
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * The uncovered pieces, in the order gaps.js holds them — largest first.
+   *
+   * Read live rather than cached, because that is the list the dialog is
+   * showing and an index into a stale copy would adopt the wrong piece of
+   * ground. Empty when the gap layer is switched off or absent, which is the
+   * same answer as "everything is covered" and needs no special case.
+   */
+  function gaps() {
+    if (!App.gaps || !App.gaps.features) return [];
+    return App.gaps.features() || [];
+  }
+
+  /**
+   * Which uncovered pieces a run adopts.
+   *
+   * Same three-way convention as _scope: omitted means every one of them, a
+   * number or an array names them, and an index that no longer exists is
+   * dropped rather than throwing — the list can have been rendered before a
+   * recount landed.
+   *
+   * @param {number|number[]} [indices]
+   * @returns {Object[]} gap features
+   */
+  function _gapScope(indices) {
+    var found = gaps();
+    if (!found.length) return [];
+    if (indices === undefined || indices === null) return found;
+    return (typeof indices === "number" ? [indices] : indices)
+      .map(function (i) {
+        return found[i];
+      })
+      .filter(function (feature) {
+        return !!(feature && feature.geometry);
+      });
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -617,17 +683,23 @@ App.autoheal = (function () {
    * drift apart.
    *
    * @param {number|number[]} [indices] territories to repair; all when omitted
-   * @returns {{report: Object, kept: Object[]}|null} null with no territories
+   * @param {number|number[]} [gapIndices] uncovered pieces to adopt; all when
+   *   omitted. Pass an empty array for a run that must leave the ground
+   *   nobody covers exactly as it found it.
+   * @returns {{report: Object, kept: Object[]}|null} null when there is
+   *   nothing at all to work on
    */
-  function _plan(indices) {
+  function _plan(indices, gapIndices) {
     var entries = (s && s.clusters) || [];
-    if (entries.length === 0) return null;
+    var adopted = _gapScope(gapIndices);
+    if (entries.length === 0 && adopted.length === 0) return null;
 
     var scope = _scope(indices, entries.length);
     var points = _buildingPoints();
     var report = {
       split: 0,
       pieces: 0,
+      adopted: adopted.length,
       merged: 0,
       unresolved: 0,
       before: entries.length,
@@ -655,6 +727,28 @@ App.autoheal = (function () {
       };
     });
 
+    // Adopted before the two passes rather than after, so an uncovered piece
+    // faces the same questions every other territory does: in two lobes, it
+    // becomes two; with no buildings on it, it goes to the neighbor it abuts
+    // most. Adopting afterwards would leave exactly the faults this module
+    // exists to remove, freshly created by the repair that was meant to
+    // remove them. `buildings: null` rather than zero — the count is unknown
+    // until _buildings works it out, and claiming zero would hand a populated
+    // strip to a neighbor.
+    adopted.forEach(function (feature) {
+      slots.push({
+        feature: {
+          type: "Feature",
+          geometry: feature.geometry,
+          properties: {},
+        },
+        healing: true,
+        changed: true,
+        removed: false,
+        buildings: null,
+      });
+    });
+
     slots = _split(slots, report);
     // No buildings downloaded means "empty" is unanswerable, so the merge
     // pass has nothing to decide with and is skipped outright.
@@ -667,6 +761,7 @@ App.autoheal = (function () {
     report.changed =
       report.split > 0 ||
       report.merged > 0 ||
+      report.adopted > 0 ||
       kept.some(function (slot) {
         return slot.changed;
       });
@@ -677,14 +772,41 @@ App.autoheal = (function () {
   /**
    * Repair territories.
    *
+   * Repairing *everything* includes the ground that is in no territory: the
+   * button is the one that makes the map right, and a map with a strip nobody
+   * walks is not right. Naming a single territory does not, because that wand
+   * is about that row.
+   *
    * @param {number|number[]} [indices] which territories to repair; every one
    *   when omitted. Out-of-range entries are ignored.
-   * @returns {{split:number, pieces:number, merged:number, unresolved:number,
-   *            before:number, after:number, changed:boolean}|null} null when
-   *   there are no territories at all
+   * @returns {{split:number, pieces:number, adopted:number, merged:number,
+   *            unresolved:number, before:number, after:number,
+   *            changed:boolean}|null} null when there is nothing to work on
    */
   function heal(indices) {
-    var plan = _plan(indices);
+    var everything = indices === undefined || indices === null;
+    return _apply(_plan(indices, everything ? undefined : []));
+  }
+
+  /**
+   * Make uncovered ground into territories, and then repair what that made.
+   *
+   * The repair for a piece of ground nobody covers, in the same one Ctrl+Z as
+   * every other repair. What comes out is not always a territory — an
+   * uncovered strip with no houses on it is absorbed by the neighbor it abuts
+   * most, which is the right answer and the one gaps.js's own "close it"
+   * makes by hand.
+   *
+   * @param {number|number[]} [gapIndices] which uncovered pieces, indexed as
+   *   gaps.features() holds them; every one when omitted
+   * @returns {Object|null} the same report heal() returns
+   */
+  function healGaps(gapIndices) {
+    return _apply(_plan([], gapIndices));
+  }
+
+  /** Write a plan to the map, or say that there was nothing to write. */
+  function _apply(plan) {
     if (!plan) return null;
 
     var report = plan.report;
@@ -708,6 +830,8 @@ App.autoheal = (function () {
       report.split,
       "split into",
       report.pieces + ",",
+      report.adopted,
+      "uncovered adopted,",
       report.merged,
       "merged away,",
       report.before,
@@ -726,7 +850,9 @@ App.autoheal = (function () {
     isEmpty: isEmpty,
     issueOf: issueOf,
     audit: audit,
+    gaps: gaps,
     heal: heal,
+    healGaps: healGaps,
   };
 })();
 

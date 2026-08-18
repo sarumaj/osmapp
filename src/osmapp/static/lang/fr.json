@@ -102,9 +102,7 @@
     "notLoaded": "Limite définie",
     "hintNotLoaded": "Aucune donnée OSM pour l'instant — utilisez Recharger dans la barre d'outils pour la télécharger.",
     "clustersHelp": "Afficher la liste des territoires",
-    "clustersWarn": "Certains territoires méritent un second regard — ouvrir la liste",
-    "gapsLabel": "Non couvert",
-    "gapsHelp": "Zones à l’intérieur de la limite qui ne sont dans aucun territoire — cliquez pour zoomer sur la plus grande"
+    "clustersWarn": "Quelque chose mérite un second regard — ouvrir la liste"
   },
   "loading": {
     "cancel": "Annuler",
@@ -411,14 +409,20 @@
     "areaUnknown": "Superficie inconnue",
     "warnSplit": "En plusieurs morceaux : {n}.",
     "warnEmpty": "Sans aucun bâtiment : {n}.",
+    "warnUncovered": "Dans aucun territoire : {n}.",
     "flagPrinted": "Carte déjà imprimée",
     "flagSplit": "En {n} morceaux séparés",
     "flagEmpty": "Aucun bâtiment à l’intérieur",
+    "flagUncovered": "Zone n’appartenant à aucun territoire",
+    "uncoveredMeta": "Dans aucun territoire — personne n’y passe",
     "print": "Imprimer cette fiche",
     "fix": "Réparer ce territoire",
+    "fixUncovered": "En faire un territoire, puis le réparer",
+    "dissolve": "Refermer cette zone",
     "fixAll": "Tout réparer",
-    "fixAllHint": "Séparer les territoires en morceaux et confier les vides à un voisin",
+    "fixAllHint": "Séparer les territoires en morceaux, confier les vides à un voisin et reprendre le terrain que rien ne couvre",
     "fixedSplit": "{n} séparé en {pieces} morceaux.",
+    "fixedAdopted": "Zones non couvertes reprises : {n}.",
     "fixedMerged": "{n} fusionné avec un territoire voisin.",
     "fixedStuck": "Toujours sans voisin pouvant les reprendre : {n}.",
     "fixedNone": "Rien n’a pu être réparé ici.",
@@ -646,7 +650,7 @@
       },
       "info": {
         "title": "Où vous en êtes",
-        "body": "Combien de rues, de bâtiments et de territoires sont chargés, avec une indication sur l'étape suivante. Le nombre de territoires et celui des zones non couvertes sont des boutons : le premier ouvre la liste, le second saute à la plus grande zone que ne couvre aucune fiche."
+        "body": "Combien de rues, de bâtiments et de territoires sont chargés, avec une indication sur l'étape suivante. Le nombre de territoires est un bouton : il ouvre la liste, où tout ce qui mérite un second regard — un territoire en morceaux, un territoire sans bâtiment, une zone dans aucun territoire — est nommé, retrouvé et réparé."
       },
       "files": {
         "title": "Emportez votre travail",
@@ -698,7 +702,7 @@
       },
       "gaps": {
         "title": "Du terrain que personne ne couvre",
-        "body": "Supprimer un territoire, en découper un trop mince ou agrandir la limite laisse des parcelles qui n’appartiennent à aucune carte — et rien à l’écran n’a l’air anormal ; on le découvre quand une rue ne figure sur aucune carte. Activez « Zones non couvertes » et elles apparaissent en orange pointillé ; un clic en fait un territoire."
+        "body": "Supprimer un territoire, en découper un trop fin ou agrandir la limite laisse des zones qui n'appartiennent à aucune fiche, et rien n'a l'air anormal à l'écran — on s'en aperçoit quand une rue n'est sur aucune fiche. Activez « Zones non couvertes » et elles apparaissent en orange pointillé ; un clic en fait un territoire. Elles figurent aussi dans la liste des territoires : un bouton y reprend la zone et répare ce que cela produit, un autre la referme."
       },
       "shortcuts": {
         "title": "Sur quoi puis-je appuyer ?",

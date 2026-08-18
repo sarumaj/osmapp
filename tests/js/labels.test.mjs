@@ -317,12 +317,48 @@ test("being too small to see is not something the list warns about", () => {
   // gone — and autoheal could never repair it, so it sat among two flags that
   // are real faults and made them look like housekeeping.
   const App = setup([polygon(0, 0, 1)], { span: 1 });
-  assert.deepEqual(App.labels.warnings(), { split: 0, empty: 0, total: 0 });
+  assert.deepEqual(App.labels.warnings(), {
+    split: 0,
+    empty: 0,
+    uncovered: 0,
+    total: 0,
+  });
 });
 
 test("nothing to warn about is nothing to say", () => {
   const App = setup([polygon(0, 0, 1), polygon(2, 0, 1)]);
-  assert.deepEqual(App.labels.warnings(), { split: 0, empty: 0, total: 0 });
+  assert.deepEqual(App.labels.warnings(), {
+    split: 0,
+    empty: 0,
+    uncovered: 0,
+    total: 0,
+  });
+});
+
+// ── The case that is not a territory at all ──────────────────────────────────
+
+test("ground in no territory is counted here, since the panel no longer counts it", () => {
+  // The info panel used to carry a row of its own for the uncovered areas.
+  // It does not any more: one mark on one count, and the list says which of
+  // the faults it is. So this number has to reach the panel through here.
+  const App = setup([polygon(0, 0, 1)]);
+  App.gaps = { features: () => [polygon(4, 0, 1), polygon(6, 0, 1)] };
+
+  const warn = App.labels.warnings();
+  assert.equal(warn.uncovered, 2);
+  assert.equal(warn.total, 2, "and it marks the count like any other fault");
+});
+
+test("a gap layer that is switched off is fully covered ground", () => {
+  // gaps.js stops computing when its layer is off, and answering "unknown"
+  // with a warning would put a permanent mark on the panel of anyone who
+  // turned the layer off.
+  const App = setup([polygon(0, 0, 1)]);
+  App.gaps = { features: () => [] };
+  assert.equal(App.labels.warnings().uncovered, 0);
+
+  delete App.gaps;
+  assert.equal(App.labels.warnings().uncovered, 0);
 });
 
 // ── The case that looks fine on the map ──────────────────────────────────────

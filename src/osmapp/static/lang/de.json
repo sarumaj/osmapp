@@ -102,9 +102,7 @@
     "notLoaded": "Grenze gesetzt",
     "hintNotLoaded": "Noch keine OSM-Daten — mit „Neu laden“ in der Werkzeugleiste holen.",
     "clustersHelp": "Liste der Gebiete anzeigen",
-    "clustersWarn": "Einige Gebiete brauchen einen zweiten Blick — Liste öffnen",
-    "gapsLabel": "Nicht abgedeckt",
-    "gapsHelp": "Flächen innerhalb der Grenze, die in keinem Gebiet liegen — klicken, um zur größten zu springen"
+    "clustersWarn": "Etwas braucht einen zweiten Blick — Liste öffnen"
   },
   "loading": {
     "cancel": "Abbrechen",
@@ -411,14 +409,20 @@
     "areaUnknown": "Fläche unbekannt",
     "warnSplit": "Aus mehreren Teilen: {n}.",
     "warnEmpty": "Ohne Gebäude: {n}.",
+    "warnUncovered": "In gar keinem Gebiet: {n}.",
     "flagPrinted": "Karte bereits gedruckt",
     "flagSplit": "Besteht aus {n} Teilen",
     "flagEmpty": "Enthält keine Gebäude",
+    "flagUncovered": "Fläche, die zu keinem Gebiet gehört",
+    "uncoveredMeta": "In keinem Gebiet — niemand geht hier",
     "print": "Diese Karte drucken",
     "fix": "Dieses Gebiet reparieren",
+    "fixUncovered": "Zum Gebiet machen und dann reparieren",
+    "dissolve": "Diese Fläche schließen",
     "fixAll": "Alle reparieren",
-    "fixAllHint": "Mehrteilige Gebiete aufteilen und leere einem Nachbarn zuschlagen",
+    "fixAllHint": "Mehrteilige Gebiete aufteilen, leere einem Nachbarn zuschlagen und unbedeckte Flächen übernehmen",
     "fixedSplit": "{n} in {pieces} Teile zerlegt.",
+    "fixedAdopted": "Übernommene unbedeckte Flächen: {n}.",
     "fixedMerged": "{n} mit einem Nachbargebiet zusammengeführt.",
     "fixedStuck": "Weiterhin ohne Nachbarn, der sie aufnehmen kann: {n}.",
     "fixedNone": "Hier ließ sich nichts reparieren.",
@@ -646,7 +650,7 @@
       },
       "info": {
         "title": "Wo man gerade steht",
-        "body": "Wie viele Straßen, Gebäude und Gebiete gerade geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt. Die Gebietszahl und die Zahl der unbedeckten Flächen sind Schaltflächen: die erste öffnet die Liste, die zweite springt zur größten Fläche, die zu keiner Karte gehört."
+        "body": "Wie viele Straßen, Gebäude und Gebiete gerade geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt. Die Gebietszahl ist eine Schaltfläche: sie öffnet die Liste, in der alles Auffällige benannt, gefunden und repariert wird — ein mehrteiliges Gebiet, eines ohne Gebäude, eine Fläche in gar keinem Gebiet."
       },
       "files": {
         "title": "Die Arbeit mitnehmen",
@@ -698,7 +702,7 @@
       },
       "gaps": {
         "title": "Boden, den niemand abdeckt",
-        "body": "Ein gelöschtes Gebiet, ein zu dünn geschnittenes oder eine vergrößerte Grenze hinterlassen Flächen, die zu keiner Karte gehören — und auf dem Bildschirm sieht daran nichts falsch aus; man merkt es, wenn eine Straße auf gar keiner Karte steht. „Nicht abgedeckte Flächen“ einschalten zeichnet sie orange gestrichelt; ein Klick macht ein Gebiet daraus."
+        "body": "Ein gelöschtes Gebiet, ein zu dünner Schnitt oder eine vergrößerte Grenze hinterlassen Flächen, die zu keiner Karte gehören, und auf dem Bildschirm sieht nichts falsch aus — man merkt es, wenn eine Straße auf keiner Karte steht. Schalten Sie „Nicht abgedeckte Flächen“ ein, dann werden sie orange gestrichelt gezeichnet; ein Klick macht daraus ein Gebiet. Sie stehen auch in der Gebietsliste: dort übernimmt eine Schaltfläche die Fläche und repariert das Ergebnis, eine andere schließt sie."
       },
       "shortcuts": {
         "title": "Was kann ich drücken?",

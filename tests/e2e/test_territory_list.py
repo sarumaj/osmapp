@@ -751,31 +751,136 @@ def test_zooming_out_adds_no_flags(gridded: Page):
     assert gridded.locator(".territory-list__chip[data-axis]").count() == 2
 
 
-def test_adopting_a_gap_updates_the_uncovered_count(app_page: Page):
-    """The panel is written from a number that arrives two hundred ms late.
+@pytest.fixture
+def holed(app_page: Page) -> Page:
+    """The sample village with one territory deleted, and the list open.
 
-    Every path that changes the coverage redraws the info panel synchronously
-    and schedules the uncovered recount afterwards, so the panel read the
-    count from before the change — and nothing told it when the real one
-    landed. Adopting a gap left the panel counting the gap that had just
-    become a territory.
+    The hole is exactly the shape that was deleted, so the map is left with a
+    piece of ground in no territory at all — which is the one state the rows
+    below are about.
     """
     assert app_page.evaluate("() => window.App.demo.enter()") is True
     app_page.wait_for_function("() => window.App.state.clusters.length > 0")
-
-    row = app_page.locator("#info-panel [data-role='gaps-row']")
-    expect(row).to_be_hidden()
 
     app_page.evaluate(
         "() => window.App.polygons.deleteCluster(window.App.state.clusters[1].layer)"
     )
     app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
-    expect(row).to_be_visible()
+
+    app_page.evaluate("() => window.App.labels.openList()")
+    expect(app_page.locator(".territory-list")).to_be_visible()
+    return app_page
+
+
+def test_uncovered_ground_is_a_row_in_the_list(holed: Page):
+    """Where the info panel's own count used to be.
+
+    The panel carried a row of its own for the uncovered areas, and all it
+    could do was zoom to the largest. Everything you would then want — what it
+    is, how big, adopt it, close it — was somewhere else. So the count became a
+    mark on the territory count, and the ground became a row in the list beside
+    the territories, which is where the rest of the map's faults are named.
+    """
+    assert holed.locator("#info-panel [data-role='gaps-row']").count() == 0, (
+        "the panel should no longer carry a row of its own"
+    )
+    expect(holed.locator("#info-panel [data-role='clusters-warn']")).to_be_visible()
+
+    rows = holed.locator("[data-gap]")
+    expect(rows).to_have_count(holed.evaluate("() => window.App.gaps.count()"))
+    expect(holed.locator("[data-role='notes']")).to_be_visible()
+    # It offers the two things that can be done to it, and neither of the two
+    # that belong to a territory.
+    expect(rows.first.locator(WANDS)).to_be_visible()
+    expect(rows.first.locator(".territory-row__dissolve:not([hidden])")).to_be_visible()
+    expect(rows.first.locator("[data-role='print']")).to_be_hidden()
+    assert rows.first.evaluate("(n) => n.dataset.territory") is None, (
+        "a gap is not a territory and must stay out of the selection"
+    )
+
+
+def test_the_wand_on_a_gap_makes_a_territory_and_then_repairs_it(holed: Page):
+    """Adopt first, repair second — the order the whole feature turns on.
+
+    The hole left by deleting a territory has buildings in it, so what comes
+    back is a territory of its own. A strip with nothing on it would be
+    absorbed by a neighbor instead, and that is the same repair reached the
+    same way.
+    """
+    before = holed.evaluate("() => window.App.state.clusters.length")
+    covered = holed.evaluate("() => window.App.gaps.count()")
+    assert covered > 0
+
+    repair(holed, holed.locator("[data-gap]").first.locator(WANDS))
+
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    assert holed.evaluate("() => window.App.state.clusters.length") > before
+    expect(holed.locator("[data-gap]")).to_have_count(0)
+    expect(holed.locator("[data-role='outcome']")).to_contain_text("1")
+
+
+def test_closing_a_gap_from_the_list_leaves_no_row_behind(holed: Page):
+    """The other outcome, and the more common one.
+
+    Most uncovered ground is not worth a card. The droplet hands it to a
+    neighbor or trims the boundary back — gaps.js decides which — and the row
+    goes with it, because the recount pushes the list a new answer.
+    """
+    holed.locator("[data-gap]").first.locator(
+        ".territory-row__dissolve:not([hidden])"
+    ).click()
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+
+    expect(holed.locator(".territory-list")).to_be_visible()
+    expect(holed.locator("[data-gap]")).to_have_count(0)
+
+
+def test_fix_all_takes_in_the_ground_nothing_covers(holed: Page):
+    """"Fix all" is the button that makes the map right, and a strip nobody
+    walks is not right. So it adopts the uncovered ground too, in the same one
+    history entry as every other repair it makes.
+    """
+    holed.locator(OUTCOME).evaluate("(node) => { node.textContent = ''; }")
+    holed.locator("[data-role='fix-all']").click()
+    expect(holed.locator(OUTCOME)).not_to_be_empty()
+
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    expect(holed.locator("[data-gap]")).to_have_count(0)
+
+    holed.evaluate("() => window.App.history.undo()")
+    holed.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    assert holed.evaluate("() => window.App.gaps.count()") > 0, (
+        "one Ctrl+Z, and the ground is uncovered again"
+    )
+
+
+def test_an_open_list_follows_the_recount(app_page: Page):
+    """The count arrives two hundred milliseconds after the change.
+
+    Every path that changes the coverage redraws the panel and the list
+    synchronously and schedules the recount afterwards, so both read the answer
+    from before the change — and nothing told them when the real one landed.
+    Adopting a gap left the list offering the gap that had just become a
+    territory.
+    """
+    assert app_page.evaluate("() => window.App.demo.enter()") is True
+    app_page.wait_for_function("() => window.App.state.clusters.length > 0")
+
+    app_page.evaluate("() => window.App.labels.openList()")
+    expect(app_page.locator(".territory-list")).to_be_visible()
+    expect(app_page.locator("[data-gap]")).to_have_count(0)
+
+    app_page.evaluate(
+        "() => window.App.polygons.deleteCluster(window.App.state.clusters[1].layer)"
+    )
+    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    expect(app_page.locator("[data-gap]")).to_have_count(
+        app_page.evaluate("() => window.App.gaps.count()")
+    )
 
     app_page.evaluate("() => window.App.gaps.adopt(window.App.gaps.features()[0])")
     app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
-
-    expect(row).to_be_hidden()
+    expect(app_page.locator("[data-gap]")).to_have_count(0)
 
 
 def test_fix_all_leaves_no_work_behind_the_spinner(gridded: Page):

@@ -2118,6 +2118,37 @@ body {
 .territory-row__flag.is-empty {
   color: #2471a3;
 }
+.territory-row__flag.is-uncovered {
+  color: #b9770e;
+}
+
+/* Ground in no territory, sitting in the same list as the territories. It
+   carries the orange the shape itself is drawn in on the map — the same
+   channel the gap layer already uses — so the row and the dashed patch out
+   there read as the same object, and the row is recognizable as "not one of
+   the numbered ones" before a word of it is read. The number chip is where
+   that is said loudest: an exclamation on orange where every other row has a
+   purple number. */
+.territory-row-wrap--uncovered .territory-row__num {
+  background: #e67e22;
+}
+.territory-row-wrap--uncovered:hover {
+  background: rgba(230, 126, 34, 0.14);
+}
+.territory-row-wrap--uncovered .territory-row:focus-visible {
+  background: rgba(230, 126, 34, 0.14);
+}
+.territory-row-wrap--uncovered .territory-row__action:hover,
+.territory-row-wrap--uncovered .territory-row__action:focus-visible {
+  background: rgba(230, 126, 34, 0.18);
+  color: #935b09;
+}
+/* Closing a gap is the watery half of the pair the wand belongs to, so it
+   takes the blue the "no buildings" flag already uses rather than a third
+   color nobody has met before. */
+.territory-row__dissolve {
+  color: #2471a3;
+}
 
 /* ═══════════════════════════════════════════════════════════
    Print dialog
