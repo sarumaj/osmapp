@@ -44,11 +44,11 @@
  *
  *   • The chip lives in `innerPolygonsLayerGroup` alongside the territories
  *     themselves, rather than in a separate layer group of its own. This
- *     way the switcher's Territories toggle covers it, nothing can outlive
- *     a rebuild, and the switcher lists one entry per kind of thing on the
- *     map instead of one per implementation detail. Showing and hiding the
- *     numbers is the toolbar's job, placed next to the tools that make the
- *     numbers worth having.
+ *     way the View group's Shapes switch covers it, nothing can outlive a
+ *     rebuild, and that group lists one switch per kind of thing on the map
+ *     instead of one per implementation detail. Drawing the numbers is its own
+ *     switch in the same group, because the chips can be wanted without the
+ *     shapes and not the other way round.
  *
  * The chip also carries the printed check, which used to be a separate
  * marker in `polygons.js`. Both were anchored at the same interior point,

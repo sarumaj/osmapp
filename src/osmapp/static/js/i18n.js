@@ -8,7 +8,7 @@
  *     the page was holding — being thrown away to change some labels.
  *     Flask inlines the matching dictionary into the page as window.I18N_BUNDLE,
  *     so there is no fetch waterfall and no untranslated first paint. Fetching
- *     from static/i18n/ remains as a fallback and for in-place switching.
+ *     from static/lang/ remains as a fallback and for in-place switching.
  *   • English is always loaded as a fallback, so a half-finished translation
  *     degrades to English per key rather than showing raw key names.
  *   • Markup is annotated declaratively:
@@ -19,7 +19,7 @@
  *   • Strings built in JS go through t(). Console logging stays English on
  *     purpose — it is developer output, not user output.
  *
- * Adding a language: drop static/i18n/<code>.json next to the others and add
+ * Adding a language: drop static/lang/<code>.json next to the others and add
  * it to LANGUAGES below.
  */
 var App = window.App || {};
@@ -184,12 +184,12 @@ App.i18n = (function () {
    * Build the dictionary URL for a language.
    *
    * Two traps this avoids:
-   *   • A relative I18N_URL resolves differently per language now that the app
-   *     is served from /, /pl and /de — "static/i18n/pl.json" becomes
-   *     "/de/static/i18n/pl.json" on the German page. Resolving against
+   *   • A relative I18N_URL resolves differently per language, because the app
+   *     is served from /, /pl, /fr and /de — "static/lang/pl.json" becomes
+   *     "/de/static/lang/pl.json" on the German page. Resolving against
    *     document.baseURI pins it regardless of path depth.
-   *   • String.replace with a string pattern only swaps the FIRST match, so a
-   *     path with more than one LANG placeholder silently half-substituted.
+   *   • String.replace with a string pattern swaps only the FIRST match, so a
+   *     path with more than one LANG placeholder is half-substituted.
    *
    * If the value has no LANG placeholder it is treated as a directory, so
    * window.I18N_URL = "/assets/translations/" also works.
@@ -295,18 +295,18 @@ App.i18n = (function () {
    * @param {string} code
    * @param {{navigate?: boolean}} [opts] navigate defaults to true, which
    *   keeps the URL in step with the choice so it can be shared and
-   *   bookmarked. It no longer *reloads* to do that: the URL is rewritten with
-   *   pushState and the dictionaries are swapped in place, because a reload
-   *   threw away everything the page was holding — the drawn boundary, the
-   *   downloaded streets, the undo stack, the map view — to change some text.
-   *   Pass false to swap without touching the URL at all.
+   *   bookmarked. The URL is rewritten with pushState and the dictionaries are
+   *   swapped in place rather than reloading, which would throw away everything
+   *   the page is holding — the drawn boundary, the downloaded streets, the undo
+   *   stack, the map view — to change some text. Pass false to swap without
+   *   touching the URL at all.
    */
   function setLanguage(code, opts) {
     if (!isSupported(code) || code === _lang) return Promise.resolve(_lang);
     var updateUrl = !opts || opts.navigate !== false;
 
-    // No History API: fall back to the old full-page navigation, which is
-    // correct, just lossy.
+    // No History API: fall back to a full-page navigation, which is correct,
+    // just lossy.
     if (updateUrl && !_canPushState()) {
       window.location.assign(pathFor(code));
       return Promise.resolve(code);

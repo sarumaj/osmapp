@@ -24,8 +24,8 @@
     var map = L.map(node, { center: [47.3769, 8.5417], zoom: 13 });
     // Before i18n, deliberately: the map should have ground under it while the
     // dictionaries load. App.basemap adds whichever basemap was last chosen —
-    // OSM unless someone switched to an aid layer — and the layer control
-    // names them later, once there is a language to name them in.
+    // OSM unless someone switched to an aid layer — and the toolbar's View
+    // group names them later, once there is a language to name them in.
     App.basemap.init(map);
 
     if (typeof L.Editable === "undefined") {

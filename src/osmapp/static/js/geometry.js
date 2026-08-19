@@ -122,7 +122,7 @@ App.geometry = (function () {
       try {
         acc = union(acc, all[i]) || acc;
       } catch (e) {
-        /* keep what we have and carry on */
+        /* keep the accumulated shape and carry on */
       }
     }
     return acc;

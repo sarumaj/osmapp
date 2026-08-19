@@ -213,13 +213,14 @@ App.state = {
 
   // ── Corner handles ────────────────────────────────────────────────────
   //
-  // Leaflet.Editable draws an 8 px vertex handle, which is below every
-  // published minimum for a pointer target and much smaller than what a
-  // trackpad can reliably hit. Missing one is not harmless, because the click
-  // then lands on whatever is underneath — the boundary itself in the outline
-  // editor, a building in trim mode. See vertices.js. The visible size lives
-  // here and the invisible margin around it lives in the stylesheet, since
-  // only the first of the two is something the user has to look at.
+  // Leaflet.Editable draws an 8 px vertex handle, which is smaller than a
+  // trackpad can reliably hit. Missing one is not harmless: the click lands on
+  // whatever is underneath — the boundary itself in the outline editor, a
+  // building in trim mode. See vertices.js.
+  //
+  // This is the drawn size only. The stylesheet grows the target with a
+  // transparent pseudo-element inset by -7 px, so the handle a pointer can hit
+  // is 26 px across even though the circle is 12.
   VERTEX_SIZE_PX: 12,
   // How far the eraser reaches from the pointer. It is wider than the handle
   // on purpose: erasing is a sweeping gesture rather than an aimed click, and
@@ -230,13 +231,12 @@ App.state = {
   // main settlement, so that keeping a building always visibly reshapes the
   // boundary rather than leaving a detached island.
   //
-  // The corridor goes straight rather than following the streets. Routing it
-  // produced arms that wandered around two corners to reach a farm three
-  // hundred meters away, because the shortest way there by road is rarely the
-  // lane it stands on. Streets are the right answer for the *edge* of a
-  // territory, which has to be a line somebody can stand on; for a link the
-  // only question is how to reach the building without covering ground nobody
-  // asked for.
+  // The corridor goes straight rather than following the streets. A routed one
+  // takes the shortest way by road, which for a farm three hundred meters out
+  // is rarely the lane it stands on, so the arm wanders around two corners.
+  // Streets are the right answer for the *edge* of a territory, which has to be
+  // a line somebody can stand on; a link only has to reach the building without
+  // covering ground nobody asked for.
   TRIM_CORRIDOR_M: 12,
   TRIM_LINK_ROUNDS: 3, // bridging passes before giving up
   TRIM_LINK_MAX_GROUPS: 40, // past this it would be a starfish, not a territory

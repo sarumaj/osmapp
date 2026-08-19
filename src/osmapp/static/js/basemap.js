@@ -60,7 +60,7 @@ App.basemap = (function () {
    *
    * Called before i18n has loaded — the map needs tiles under it while the
    * dictionaries arrive — so nothing here translates anything. Names are
-   * resolved later, by the layer control, through labelKey.
+   * resolved later, by the toolbar's View group, through labelKey.
    */
   function init(map) {
     _map = map;
@@ -153,16 +153,16 @@ App.basemap = (function () {
     return _current !== BASE_ID;
   }
 
-  /** The Leaflet layer for an id, so the layer control can register it. */
+  /** The Leaflet layer for an id, or null when no such basemap exists. */
   function layer(id) {
     return _layers[id] || null;
   }
 
   /**
-   * [{ id, labelKey, layer, aid }] in switcher order, base first.
+   * [{ id, labelKey, layer, aid }] in toolbar order, base first.
    *
-   * The label is a key rather than a string: the layer control is rebuilt on
-   * every language change and resolves them itself.
+   * The label is a key rather than a string: the View group resolves it on
+   * every language change, so nothing here has to know the current one.
    */
   function entries() {
     return _order.map(function (id) {

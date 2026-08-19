@@ -96,7 +96,7 @@ App.gaps = (function () {
   }
 
   /**
-   * Driven by the layer control's checkbox.
+   * Driven by the Gaps switch in the toolbar's View group.
    *
    * Switching it off stops the computation as well as the drawing: the
    * subtraction underneath this is the most expensive thing on the page after

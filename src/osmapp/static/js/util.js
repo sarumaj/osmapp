@@ -49,7 +49,7 @@ App.util = (function () {
     try {
       return window.localStorage || null;
     } catch (e) {
-      return null; // some private browsing modes throw on the access itself
+      return null;
     }
   }
 
