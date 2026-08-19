@@ -19,12 +19,19 @@
  * questions is about the building.
  *
  * This module asks that question, and answers it the only way that keeps the
- * ground where it is: the building goes, whole, to the territory that already
- * holds most of it, and the boundary moves onto the building's own outline.
- * Not near it, not a fixed distance from it — *on* it, which is why the plain
- * union is tried before the healed one below. Where the line used to cut
- * across a kitchen it now runs along the wall, and the wall is a thing you can
- * stand next to and point at.
+ * ground where it is: the building goes, whole, to one of the territories
+ * already holding a piece of it, and the boundary moves onto the building's
+ * own outline. Not near it, not a fixed distance from it — *on* it, which is
+ * why the plain union is tried before the healed one below. Where the line
+ * used to cut across a kitchen it now runs along the wall, and the wall is a
+ * thing you can stand next to and point at.
+ *
+ * Which territory is a preference rather than a rule — the one holding most of
+ * it, unless that would break the territory on the other side. See _resolve.
+ *
+ * A footprint here means the building's outline, courtyards filled in: a
+ * boundary through a light well is no more walkable than one through a wall.
+ * See _filled.
  *
  * ── What counts as crossed ────────────────────────────────────────────────
  *
@@ -50,6 +57,10 @@
  * and only those are worth an intersection. The join is exact — a segment is
  * stamped into every cell its own bounding box spans — so nothing is missed
  * by making the cells bigger or smaller, only made slower.
+ *
+ * The intersections that remain are cut down before they are made: a whole
+ * territory clipped against one house costs the territory's whole ring, and
+ * almost none of that ring is anywhere near the house. See _slice.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -73,9 +84,9 @@ App.footprints = (function () {
   // walked against candidates filtered.
   var CELL_DEG = 0.001;
 
-  // A segment whose bounding box spans more cells than this is not a street
-  // boundary, it is a coordinate that went wrong. Stamping it would key a
-  // continent of empty buckets.
+  // A bounding box spanning more cells than this — about 11 km square — is not
+  // a building or a stretch of boundary, it is a coordinate that went wrong.
+  // Stamping it would key a continent of empty buckets.
   var MAX_CELLS = 10000;
 
   // The same 0.5 m the rest of the app calls "touching". See autoheal.js.
@@ -87,7 +98,9 @@ App.footprints = (function () {
   var NOTHING_M2 = 0.01;
 
   // How far a clipping box is grown past the footprint it was taken from, so
-  // that the clip cannot land exactly on a wall. Half a millimeter.
+  // that the clip cannot land exactly on a wall. About half a meter, which is
+  // far more than the rounding it guards against and costs nothing: the box is
+  // a scratch shape, and a larger one only carries a few more vertices.
   var PAD_DEG = 0.000005;
 
   // Fallback for state.CUT_MIN_PIECE_M2, which is the same number: what the
@@ -116,6 +129,44 @@ App.footprints = (function () {
     } catch (e) {
       return null;
     }
+  }
+
+  /**
+   * A footprint with its courtyards filled in.
+   *
+   * What a boundary must not run through is the building's outline, and a
+   * courtyard is inside it.
+   *
+   * Leaving the holes in also breaks the repair. Taking the footprint out of
+   * the territory beside it leaves every courtyard behind as a polygon of its
+   * own, so the territory comes back in several pieces and the repair is
+   * refused for splitting it — as happened on a real project to a building
+   * with three courtyards of about 300 m² each.
+   *
+   * Filled once, in _prepare, so that the survey, the ownership and the repair
+   * are all talking about one shape. A footprint with no hole in it is
+   * returned as it stands, which is nearly all of them.
+   */
+  function _filled(feature) {
+    var parts = G.polygonParts(feature);
+    var holed = parts.some(function (part) {
+      return part.geometry.coordinates.length > 1;
+    });
+    if (!holed) return feature;
+
+    var solid = [];
+    parts.forEach(function (part) {
+      try {
+        solid.push(turf.polygon([part.geometry.coordinates[0]]));
+      } catch (e) {
+        /* a ring turf will not take is one this footprint does without */
+      }
+    });
+    if (solid.length === 0) return feature;
+    if (solid.length === 1) return solid[0];
+    // Outer rings can nest — a building part drawn inside its parent — and a
+    // MultiPolygon of overlapping parts measures its overlap twice.
+    return G.unionAll(solid) || feature;
   }
 
   /** Every ring in a polygonal feature, holes included. */
@@ -161,14 +212,15 @@ App.footprints = (function () {
     var records = [];
     features.forEach(function (f) {
       if (!f.geometry) return;
-      var rings = _rings(f);
+      var solid = _filled(G.feat(f));
+      var rings = _rings(solid);
       if (rings.length === 0) return;
-      var box = _bbox(f);
+      var box = _bbox(solid);
       if (!box) return;
-      var area = G.area(f);
+      var area = G.area(solid);
       if (area <= 0) return;
       records.push({
-        feature: G.feat(f),
+        feature: solid,
         bbox: box,
         area: area,
         rings: rings,
@@ -338,44 +390,21 @@ App.footprints = (function () {
   /**
    * The part of `feature` lying inside this footprint, or null.
    *
-   * The straight answer is one call to turf.intersect, and on a real project
-   * that is where the whole survey went. turf's clipper walks both outlines,
-   * so asking a territory what it holds of one house costs the territory's
-   * entire ring — 300 ms apiece against the 11,500-vertex territory in a
-   * project export somebody sent in, to decide something about a shape twelve
-   * meters across.
+   * Cut down to the footprint's neighborhood before intersecting. turf's
+   * clipper walks both outlines, so the straight answer costs the territory's
+   * entire ring to decide something about a shape twelve meters across — 300 ms
+   * apiece against the 11,500-vertex territory in a project export, and the
+   * whole of what a survey spent. bboxClip is linear in the ring and keeps only
+   * the corner the house stands in. On that export eight footprints went from
+   * 2,520 ms to 17 ms, agreeing to the last centimeter.
    *
-   * bboxClip is linear in the ring and throws away every part of the territory
-   * that is not in the corner the house stands in; the same intersection
-   * against what is left costs nothing. On that export, eight footprints went
-   * from 2,520 ms to 17 ms, and every answer agreed to the last centimeter.
-   *
-   * Three cases go the long way round instead, and the middle one is the
-   * reason this is written as a shortcut rather than as the method:
-   *
-   *   • A territory with a hole in it. bboxClip clips each ring on its own,
-   *     and a courtyard ring clipped away from the outline it belongs to
-   *     stops being a hole. Rare enough to be worth the full price.
-   *   • A clip whose output turf then refuses to intersect. Clipping a
-   *     concave outline to a box leaves the pieces joined up along the box
-   *     edge, and those seams are exactly the degenerate arrangement polygon
-   *     clipping gives up on. Reading that throw as "this territory holds
-   *     none of it" lost 58 of 181 crossings on a straight-cut partition of a
-   *     real project export — every one a boundary through a building the
-   *     list then had nothing to say about — so it is asked again instead,
-   *     one piece of the clip at a time. The pieces are disjoint, so the
-   *     answers add up, and on those 58 they agreed with the full
-   *     intersection to the last square centimeter for a thirtieth of the
-   *     time. Quantizing the seams away was tried first and fixed none of
-   *     them.
-   *   • A clip that throws outright.
-   *
-   * An empty clip is none of these. Sutherland-Hodgman returns nothing
-   * exactly when the subject is outside the box, which is the honest answer
-   * and, for a territory whose bounding box reaches a house it does not,
-   * the common one.
+   * The shortcut stands aside where it would be wrong or unusable; the paths
+   * below say where and why.
    */
   function _slice(feature, record) {
+    // bboxClip clips each ring on its own, so a courtyard ring clipped away
+    // from the outline it belongs to stops being a hole and the territory
+    // appears to hold ground it does not.
     if (!_holed(feature)) {
       var local = null;
       try {
@@ -384,10 +413,20 @@ App.footprints = (function () {
         local = null;
       }
       if (local && local.geometry) {
+        // Nothing survived the clip, which is the honest answer rather than a
+        // failure: Sutherland-Hodgman returns nothing exactly when the subject
+        // is outside the box, and a territory whose bounding box reaches a
+        // house it does not is the common case here.
         if (_rings(local).length === 0) return null;
         try {
           return G.intersect(local, record.feature);
         } catch (e) {
+          // Clipping a concave outline to a box leaves the pieces joined up
+          // along the box edge, and those seams are the degenerate arrangement
+          // polygon clipping gives up on. Reading the throw as "holds none of
+          // it" lost 58 of 181 crossings on a straight-cut partition of a real
+          // project, so the pieces are asked one at a time instead. Quantizing
+          // the seams does not close them.
           var apart = _pieceWise(local, record.feature);
           if (apart !== undefined) return apart;
         }
@@ -430,9 +469,14 @@ App.footprints = (function () {
     return pieces.length ? G.unionAll(pieces) : null;
   }
 
-  /** A bounding box grown by a hair, so a clip to it cannot graze the edge. */
+  /** A bounding box grown by PAD_DEG, so a clip to it cannot graze the edge. */
   function _pad(box) {
-    return [box[0] - PAD_DEG, box[1] - PAD_DEG, box[2] + PAD_DEG, box[3] + PAD_DEG];
+    return [
+      box[0] - PAD_DEG,
+      box[1] - PAD_DEG,
+      box[2] + PAD_DEG,
+      box[3] + PAD_DEG,
+    ];
   }
 
   /**
@@ -443,9 +487,9 @@ App.footprints = (function () {
   function _shares(features, boxes, record) {
     // Bounding boxes first, and the count is what matters. A footprint only
     // one territory could reach is not a crossing whatever the geometry says,
-    // and establishing that with a clip apiece is what made surveying a real
-    // project take seconds: of the eleven suspects in that export, ten were
-    // one territory's alone and each cost a full intersection to find out.
+    // and settling that with a clip apiece is what made a real project's
+    // survey take seconds: ten of its eleven suspects were one territory's
+    // alone, and each cost a full intersection to find out.
     var candidates = [];
     for (var i = 0; i < features.length; i++) {
       if (!features[i] || !boxes[i]) continue;
@@ -481,11 +525,13 @@ App.footprints = (function () {
    *   allowed; a null entry is a slot nothing occupies and is skipped.
    * @param {{only?: number[]}} [opts] look only for crossings on the outlines
    *   of the territories at these indices. The survey of who holds what still
-   *   runs against all of them — the owner of a building is whichever
-   *   territory holds most of it, and that is not a question one territory can
-   *   answer about itself.
+   *   runs against all of them — which territory holds most of a building is
+   *   not a question one territory can answer about itself.
    * @returns {Array<{building:Object, area:number, owner:number,
    *                  shares:Array<{index:number, area:number, claim:boolean}>}>}
+   *   `building` is the footprint with its courtyards filled (see _filled),
+   *   and `owner` is the largest share — the repair's first choice of who
+   *   should take it, not always who does.
    */
   function crossings(features, opts) {
     if (!G || !features || features.length < 2) return [];
@@ -561,19 +607,18 @@ App.footprints = (function () {
    * A territory with the specks a difference shaved off it swept up.
    *
    * Subtracting a footprint from the territory beside it is supposed to leave
-   * one shape with a bite out of its edge. What it actually leaves, often
-   * enough to matter, is that shape plus a fleck: the boundary and the wall
-   * cross at a hair's angle, and the wedge between them survives as a separate
-   * polygon of a square meter or two. On a straight-cut partition of a real
-   * project export, fourteen of a hundred and eighty-one repairs were turned
-   * down over flecks — the largest was 1.31 m², the smallest 0.018 m², about a
-   * postcard.
+   * one shape with a bite out of its edge. What it leaves often enough to
+   * matter is that shape plus a fleck: the boundary and the wall cross at a
+   * hair's angle, and the wedge between them survives as a polygon of its own.
+   * On a straight-cut partition of a real project, fourteen of a hundred and
+   * eighty-one repairs were turned down over one — the largest 1.31 m², the
+   * smallest 0.018 m².
    *
-   * Refusing there is the wrong answer twice over. The boundary stays through
-   * the building, and the row goes on offering a repair that declines itself.
-   * So a part below the size this app already calls a crumb is swept up and
-   * handed over with the footprint, and only a genuine second lobe — a piece
-   * big enough to be somewhere — still counts as splitting a territory in two.
+   * Refusing there is wrong twice over: the boundary stays through the
+   * building, and the row goes on offering a repair that declines itself. So a
+   * part below the size this app already calls a crumb is swept up and handed
+   * over with the footprint, and only a piece big enough to be somewhere still
+   * counts as splitting a territory in two.
    *
    * @param {Object} cut what the difference returned
    * @param {number} before how many parts the territory had going in
@@ -601,6 +646,43 @@ App.footprints = (function () {
       : null;
   }
 
+  /**
+   * A territory with the pieces the footprint cut off from it handed over.
+   *
+   * _sweep's rule is a size: below a crumb it is arithmetic, above one it is a
+   * place, and a place is not something to move without a reason. This is the
+   * reason. It runs only after every way of avoiding the severance has been
+   * tried — including giving the footprint to the other side, which is what
+   * settles this in most cases — and what it does is not a loss: a piece the
+   * footprint cuts off can no longer be reached from the rest of its own
+   * territory, and the only territory it can be reached from is the one taking
+   * the footprint. Leaving it where it is would produce the split territory
+   * autoheal exists to remove; leaving it uncovered would produce the hole
+   * gaps.js exists to report.
+   *
+   * The largest pieces stay, as many as the territory had to begin with, and
+   * the rest go over. That keeps a territory that was already in two parts in
+   * two parts, rather than reading its second part as something to hand away.
+   *
+   * @returns {{feature: Object, crumbs: Object[]}|null} null when there is
+   *   nothing left to keep, which would be a territory deleted rather than a
+   *   boundary moved
+   */
+  function _strand(cut, before) {
+    var parts = G.polygonParts(cut);
+    if (parts.length <= before) return { feature: cut, crumbs: [] };
+
+    parts.sort(function (a, b) {
+      return G.area(b) - G.area(a);
+    });
+
+    var keep = parts.slice(0, before);
+    var feature = keep.length === 1 ? keep[0] : G.unionAll(keep);
+    return feature && feature.geometry
+      ? { feature: feature, crumbs: parts.slice(before) }
+      : null;
+  }
+
   /** How much ground two shapes already have in common, in square meters. */
   function _sharedArea(a, b) {
     try {
@@ -623,53 +705,210 @@ App.footprints = (function () {
   }
 
   /**
-   * The owner and the ground it is taking over, as one shape.
+   * The owner with the footprint folded into it, or null.
+   *
+   * What is unioned in is the whole footprint, not the slices being handed
+   * over, and that is the difference between a repair that works and one that
+   * declines itself. A donor's slice meets the owner only along the boundary
+   * being moved — they abut, they do not overlap — and two polygons sharing an
+   * edge dissolve only if that edge is the same coordinates in both. It very
+   * often is not: two of the three crossings in a 98-territory project export
+   * came back from that union in two pieces and were refused for it. The
+   * footprint overlaps the owner by whatever the owner already holds of it,
+   * which is real two-dimensional overlap, and unions cleanly.
+   *
+   * `spare` is the part of the footprint no territory holds, and subtracting
+   * it is what keeps the union honest. Usually there is none. When there is,
+   * it is a building standing across the edge of the downloaded area, and
+   * taking the whole footprint would push a territory out past the boundary
+   * everything else is clipped to.
    *
    * The candidate order is the opposite of autoheal's, and deliberately.
    * There the two shapes are neighbors that only nearly touch, so the healed
    * union — buffer out, union, buffer back — goes first because closing that
-   * seam is the whole job. Here they share an exact edge: both were cut from
-   * the same footprint by the same boundary, so their common border is the
-   * same coordinates in both. A plain union of those dissolves cleanly and
-   * leaves the outline sitting on the wall to the last decimal, which is the
-   * point of the exercise. The healed union rounds every corner it touches by
-   * the slack it buffers with, so it comes last — as the thing that gets an
-   * answer out of geometry the exact union choked on, not as the thing that
-   * gives the best answer.
+   * seam is the whole job. Here the exact union is the one that leaves the
+   * outline sitting on the wall to the last decimal, which is the point of the
+   * exercise. The healed union rounds every corner it touches by the slack it
+   * buffers with, so it comes last — as the thing that gets an answer out of
+   * geometry the exact union choked on, not as the thing that gives the best
+   * answer.
    *
    * The acceptance test is autoheal's, for autoheal's reasons: the result has
    * to have gained the ground it was supposed to gain, and it must not have
    * come back in more pieces than it went in as.
+   *
+   * @param {Object|null} spare the part of the footprint no territory holds
+   * @param {Object[]} extra pieces the footprint stranded, to be folded in
+   *   alongside it
+   * @param {number} gain the ground the owner is expected to end up with that
+   *   it did not have, in square meters
    */
-  function _onto(host, taken, gain) {
+  function _onto(host, building, spare, extra, gain) {
     var floor = G.area(host) + gain * 0.9 - 1;
     var before = _parts(host);
 
     var candidates = [];
-    try {
-      candidates.push(G.union(host, taken));
-    } catch (e) {
-      /* the fallbacks below are what this catch is for */
-    }
-    try {
-      candidates.push(G.union(_quantize(host), _quantize(taken)));
-    } catch (e) {
-      /* every strategy may fail; the caller treats that as "not repaired" */
-    }
-    try {
-      candidates.push(G.unionHealed([host, taken], TOUCH_SLACK_M));
-    } catch (e) {
-      /* out of ideas; the crossing keeps its flag */
-    }
+    _fold(candidates, function () {
+      return G.union(host, building);
+    });
+    _fold(candidates, function () {
+      return G.union(_quantize(host), _quantize(building));
+    });
+    _fold(candidates, function () {
+      return G.unionHealed([host, building], TOUCH_SLACK_M);
+    });
 
     for (var i = 0; i < candidates.length; i++) {
-      var candidate = candidates[i];
+      var candidate = _trim(candidates[i], spare);
+      candidate = _addAll(candidate, extra);
       if (!candidate || !candidate.geometry) continue;
       if (G.area(candidate) < floor) continue;
       if (_parts(candidate) > before) continue;
       return candidate;
     }
     return null;
+  }
+
+  /** Run one union strategy, keeping what it returns and dropping any throw. */
+  function _fold(candidates, strategy) {
+    try {
+      var result = strategy();
+      if (result && result.geometry) candidates.push(result);
+    } catch (e) {
+      /* every strategy may fail; the caller treats no candidate as no repair */
+    }
+  }
+
+  /** `shape` less the ground nobody holds, or `shape` when there is none. */
+  function _trim(shape, spare) {
+    if (!shape || !spare) return shape;
+    try {
+      return G.difference(shape, spare);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /** `shape` with each of `extra` folded in, or null if one will not go. */
+  function _addAll(shape, extra) {
+    var out = shape;
+    for (var i = 0; out && i < extra.length; i++) {
+      try {
+        out = G.union(out, extra[i]);
+      } catch (e) {
+        return null;
+      }
+    }
+    return out;
+  }
+
+  /**
+   * The part of the footprint that no territory holds.
+   *
+   * Taken away one claimant at a time rather than by unioning their slices and
+   * subtracting once, because the slices are exactly the shapes that will not
+   * union — see _onto, which exists because of that. Successive differences
+   * need no such luck, and each one is a footprint against a piece of itself.
+   *
+   * Almost always nothing, and nothing is returned as null rather than as an
+   * empty shape so the caller can skip the trimming entirely. A speck is
+   * nothing too — trimming one off cost a repair on a real project, because
+   * subtracting a hundredth of a square meter split the shape it was cut from.
+   *
+   * @param {Array<{slice: Object}>} claimants everyone holding a piece of it
+   * @returns {Object|null}
+   */
+  function _unheld(building, claimants) {
+    var rest = building;
+    for (var i = 0; i < claimants.length; i++) {
+      try {
+        rest = G.difference(rest, claimants[i].slice);
+      } catch (e) {
+        return null;
+      }
+      if (!rest || !rest.geometry) return null;
+    }
+    return G.area(rest) > CRUMB_M2 ? rest : null;
+  }
+
+  /**
+   * One attempt at a repair, with `owner` as the territory taking the
+   * footprint.
+   *
+   * All or nothing: a null return leaves `features` untouched, so _resolve can
+   * try the next owner without undoing anything.
+   *
+   * @param {Object} building the footprint, courtyards already filled
+   * @param {Array<{index:number, slice:Object}>} shares everyone holding a
+   *   piece of it, largest first
+   * @param {Object} owner the member of `shares` taking the footprint
+   * @param {Object|null} spare the part of the footprint no territory holds
+   * @param {boolean} mayStrand whether a donor may lose a piece the footprint
+   *   cuts off from it. See _resolve for when that is permitted.
+   * @returns {Object|null} feature index -> new feature, or null when this
+   *   owner does not work
+   */
+  function _attempt(features, building, shares, owner, spare, mayStrand) {
+    var next = Object.create(null);
+    var extra = [];
+    var gain = 0;
+
+    for (var i = 0; i < shares.length; i++) {
+      var donor = shares[i];
+      if (donor === owner) continue;
+
+      var cut = null;
+      try {
+        cut = G.difference(features[donor.index], building);
+      } catch (e) {
+        return null;
+      }
+      // Nothing left of it. The footprint was the whole territory, and giving
+      // it away is not moving a boundary onto a wall, it is deleting a
+      // territory nobody asked to delete.
+      if (!cut || !cut.geometry) return null;
+
+      var before = _parts(features[donor.index]);
+      var trimmed = _sweep(cut, before);
+      if (!trimmed && mayStrand) trimmed = _strand(cut, before);
+      if (!trimmed) return null;
+
+      next[donor.index] = trimmed.feature;
+      extra = extra.concat(trimmed.crumbs);
+
+      // What the owner has to pick up: the ground this donor gives up, less
+      // whatever the owner already covers of it. Measuring the loss on the
+      // shapes counts the crumbs and the stranded pieces without counting them
+      // twice, and subtracting the overlap is what makes the sum the owner's
+      // gain rather than the donor's loss — territories do overlap, so a donor
+      // can give up ground the owner has held all along.
+      var loss = null;
+      try {
+        loss = G.difference(features[donor.index], trimmed.feature);
+      } catch (e) {
+        return null;
+      }
+      if (loss && loss.geometry) {
+        // The losses are pieces of different territories, so they do not
+        // overlap each other and the sum needs no union to be honest.
+        gain += Math.max(
+          0,
+          G.area(loss) - _sharedArea(features[owner.index], loss),
+        );
+      }
+    }
+
+    // Zero is a legitimate answer: a footprint wholly inside the owner
+    // already, claimed by a neighbor only because that neighbor overlaps the
+    // owner. The owner is then left exactly as it was, and not only to save
+    // the work — autoheal clears the printed mark on every territory a repair
+    // touched, so writing back an unmoved shape throws away its card.
+    if (gain > NOTHING_M2) {
+      var grown = _onto(features[owner.index], building, spare, extra, gain);
+      if (!grown) return null;
+      next[owner.index] = grown;
+    }
+    return next;
   }
 
   /**
@@ -679,6 +918,23 @@ App.footprints = (function () {
    * two territories at once — worse than the crossing it was meant to remove,
    * and invisible afterwards because the flag it would have carried was
    * cleared by the half that worked.
+   *
+   * Every claimant is offered the footprint in turn, largest share first, and
+   * the first arrangement that works is taken. Then, if none did, every
+   * claimant again — this time allowing a donor to lose a piece the footprint
+   * cuts off from the rest of it.
+   *
+   * Both loops earn their place. Majority is a preference rather than a rule:
+   * where giving the footprint to the largest holder would break the territory
+   * on the other side of it and giving it the other way would not, the other
+   * way is simply better, and that is what settled a crossing on a building
+   * standing across a neck of its neighbor in a 98-territory project. And a
+   * stranded piece is not a loss — it goes over with the footprint, to the
+   * only territory it can still be reached from — but it moves ground nobody
+   * asked to move, so it is what is tried after everything else.
+   *
+   * If nothing works the crossing keeps its flag, and the report says so
+   * rather than the button claiming a repair it did not make.
    *
    * @returns {Object|null} feature index -> new feature
    */
@@ -709,70 +965,22 @@ App.footprints = (function () {
       return b.area - a.area;
     });
 
-    var owner = shares[0];
-    var donors = shares.slice(1);
-    var next = Object.create(null);
-    var swept = [];
+    var spare = _unheld(building, shares);
 
-    for (var i = 0; i < donors.length; i++) {
-      var donor = donors[i];
-      var cut = null;
-      try {
-        cut = G.difference(features[donor.index], building);
-      } catch (e) {
-        return null;
+    for (var pass = 0; pass < 2; pass++) {
+      for (var i = 0; i < shares.length; i++) {
+        var attempt = _attempt(
+          features,
+          building,
+          shares,
+          shares[i],
+          spare,
+          pass === 1,
+        );
+        if (attempt) return attempt;
       }
-      // Nothing left of it. The footprint was the whole territory, and giving
-      // it away is not moving a boundary onto a wall, it is deleting a
-      // territory nobody asked to delete.
-      if (!cut || !cut.geometry) return null;
-
-      var trimmed = _sweep(cut, _parts(features[donor.index]));
-      // A footprint sitting on a narrow neck can genuinely cut a territory in
-      // two. That is the fault autoheal exists to remove, so producing one
-      // here is not a repair.
-      if (!trimmed) return null;
-
-      next[donor.index] = trimmed.feature;
-      swept = swept.concat(trimmed.crumbs);
     }
-
-    var taken = G.unionAll(
-      donors
-        .map(function (donor) {
-          return donor.slice;
-        })
-        // The crumbs go over with the footprint that stranded them. They are
-        // specks, but they are ground, and ground that belongs to nobody is
-        // the fault gaps.js exists to report.
-        .concat(swept),
-    );
-    if (!taken) return null;
-
-    // What the owner actually gains: the ground being handed over, less
-    // whatever it is already covering. Territories do overlap — the healed
-    // union that merges two of them leaves half a meter of one lying inside
-    // the other, and on the sample village that was enough for both to claim
-    // a slice of the same house.
-    //
-    // Zero is a legitimate answer, and the owner is then left exactly as it
-    // was rather than unioned with ground it already holds. Two reasons, and
-    // the second is the one that bites: a union measured against the whole
-    // slice refuses a repair that has lost nothing at all, and a shape written
-    // back is a shape that has moved — autoheal clears the printed mark on
-    // every territory a repair touched, and a card would be thrown away for a
-    // boundary that did not shift a centimeter.
-    var gain = Math.max(
-      0,
-      G.area(taken) - _sharedArea(features[owner.index], taken),
-    );
-
-    if (gain > NOTHING_M2) {
-      var grown = _onto(features[owner.index], taken, gain);
-      if (!grown) return null;
-      next[owner.index] = grown;
-    }
-    return next;
+    return null;
   }
 
   /**

@@ -116,10 +116,10 @@ test("unionHealed refuses to lose a shape whose growth collapsed", () => {
   // The failure this guards against, reduced to the one fact that matters.
   //
   // turf.buffer snaps its input to jsts's precision model first, and a ring
-  // carrying a few hundred vertices two centimeters apart — what a territory
-  // looks like after a clip, a union and a round trip through unionHealed —
-  // does not survive that snap. A real project export held an 11,637 m²
-  // territory whose buffer(+0.5 m) came back as 69 m² in fourteen slivers.
+  // carrying a segment shorter than that model can represent — which a clip, a
+  // union and a round trip through unionHealed leave plenty of — does not
+  // survive that snap. A real project export held an 11,637 m² territory whose
+  // buffer(+0.5 m) came back as 69 m² in fourteen pieces.
   //
   // Everything downstream then works correctly on a shape that is wrong: the
   // union folds in the slivers, the shrink is measured against the whole

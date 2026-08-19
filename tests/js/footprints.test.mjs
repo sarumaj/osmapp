@@ -5,6 +5,14 @@
  * turf rather than a stub: what is being asserted is that a footprint ends up
  * whole inside one territory and that the ground all of them cover together
  * did not change, and a stub could only say that union was called.
+ *
+ * Two invariants recur, and every repair case checks at least one. A territory
+ * may not come back in more pieces than it went in as, because that is the
+ * fault autoheal exists to remove and producing it here would be a repair
+ * creating work. And the areas must still add up, because a footprint handed
+ * over by a difference the union then declined is ground belonging to nobody —
+ * which shows up on the map as nothing at all, and on somebody's round as a
+ * street they were never sent to.
  */
 
 import test from "node:test";
@@ -271,9 +279,12 @@ test("the survey and the shapes handed in are left as they were", () => {
   assert.equal(input[0], west, "and the array itself was not rewritten");
 });
 
-test("a territory the footprint would swallow keeps its ground and its flag", () => {
-  // The repair is a boundary moved onto a wall, not a territory deleted. A
-  // scrap lying entirely under one warehouse has nothing left to give.
+test("a footprint that would swallow a territory is given to that territory", () => {
+  // Majority is a preference, not a rule. The larger holder cannot take this
+  // warehouse: the scrap beside it lies entirely underneath, and handing the
+  // footprint over would not move a boundary, it would delete a territory. So
+  // the scrap takes it instead — the outcome the largest holder could not
+  // produce, and a better one than leaving the line through the warehouse.
   const main = box(0, 0, 1, 1);
   const scrap = box(1, 0.45, 1.1, 0.55);
   const warehouse = box(0.9, 0.4, 1.2, 0.7);
@@ -281,13 +292,42 @@ test("a territory the footprint would swallow keeps its ground and its flag", ()
 
   const found = fp.crossings([main, scrap]);
   assert.equal(found.length, 1, "the crossing is seen");
-  assert.equal(found[0].owner, 0);
+  assert.equal(found[0].owner, 0, "and the larger holder is the first choice");
 
   const result = fp.detach([main, scrap]);
+
+  assert.equal(result.resolved, 1);
+  assert.equal(result.unresolved, 0);
+  assert.ok(
+    m2(result.features[1]) > m2(scrap),
+    "the scrap is the one that grew",
+  );
+  assert.ok(m2(result.features[0]) < m2(main), "and the main territory gave");
+  assert.ok(
+    result.features.every((f) => partCount(f) === 1),
+    "neither of them was broken doing it",
+  );
+});
+
+test("a footprint no side can give up keeps its flag", () => {
+  // What is left when every way round has been tried. Two territories lie
+  // entirely under the same warehouse, so whichever of the three is given it,
+  // one of the others is deleted rather than trimmed — and deleting a
+  // territory is not a repair whichever way it is arranged.
+  const main = box(0, 0, 1, 1);
+  const scrapA = box(1, 0.45, 1.06, 0.5);
+  const scrapB = box(1, 0.55, 1.06, 0.6);
+  const warehouse = box(0.9, 0.4, 1.2, 0.7);
+  const fp = setup([warehouse]);
+
+  assert.equal(fp.crossings([main, scrapA, scrapB]).length, 1);
+
+  const result = fp.detach([main, scrapA, scrapB]);
+
   assert.equal(result.resolved, 0);
   assert.equal(result.unresolved, 1);
   assert.deepEqual(result.changed, []);
-  assert.equal(m2(result.features[1]), m2(scrap), "the scrap is untouched");
+  assert.equal(m2(result.features[1]), m2(scrapA), "and nothing was touched");
 });
 
 test("a neighbor overlapping the owner still gives the roof up", () => {
@@ -414,23 +454,43 @@ test("a speck left beside the footprint does not cost the repair", () => {
   assert.ok(Math.abs(after - before) < 0.5, `${after} against ${before}`);
 });
 
-test("a footprint that really would cut a territory in two is still refused", () => {
+test("a lobe the footprint would sever goes over with it", () => {
   // The other side of the same rule, and the reason it is a size and not a
   // count. This lobe keeps about sixty square meters past the footprint —
-  // somewhere a person could stand — and handing that to a neighbor because a
-  // building sits where it joins on is not a boundary moved onto a wall. It
-  // is the fault autoheal exists to remove, freshly created by the repair.
+  // somewhere a person could stand — so it is not swept up as arithmetic. It
+  // is moved on purpose, and only once the way round has been tried: the
+  // repair first offers the footprint to the other side, and comes to this
+  // when that does not work either.
+  //
+  // Moved, not lost. A piece the footprint cuts off cannot be reached from
+  // the rest of its own territory any more, and the only territory it can be
+  // reached from is the one taking the footprint. Leaving it where it is
+  // makes the split territory autoheal exists to remove.
   const donor = lobed(0.9);
   const owner = westOf(donor);
   const fp = setup([SEVERING]);
 
   assert.equal(fp.crossings([owner, donor]).length, 1);
 
+  const before = turf.area(owner) + turf.area(donor);
   const result = fp.detach([owner, donor]);
 
-  assert.equal(result.resolved, 0);
-  assert.equal(result.unresolved, 1, "and the crossing keeps its flag");
-  assert.deepEqual(result.changed, []);
+  assert.equal(result.unresolved, 0);
+  assert.equal(result.resolved, 1);
+  assert.ok(
+    result.features.every((f) => partCount(f) === 1),
+    "and both territories are still in one piece",
+  );
+  const after = result.features.reduce((sum, f) => sum + turf.area(f), 0);
+  assert.ok(Math.abs(after - before) < 1, `${after} against ${before}`);
+  // The lobe went to the side that took the footprint, not to nobody.
+  const lobeSpot = turf.point([0.92 * U, 0.65 * U]);
+  assert.equal(
+    result.features.filter((f) => turf.booleanPointInPolygon(lobeSpot, f))
+      .length,
+    1,
+    "the lobe belongs to exactly one territory",
+  );
 });
 
 // ── Scope ───────────────────────────────────────────────────────────────────

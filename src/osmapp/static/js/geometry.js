@@ -168,13 +168,14 @@ App.geometry = (function () {
         // A grow that lost ground is not a grow.
         //
         // turf.buffer goes through jsts, which snaps its input to a precision
-        // model first. A ring carrying a few hundred vertices two centimeters
-        // apart — which is what a territory looks like after a clip, a union
-        // and a round trip through here — collapses under that snap, and what
-        // comes back is not the shape half a meter larger but a scattering of
-        // slivers around where its outline used to be. On a territory of
-        // 11,637 m² from a real project export, `buffer(+0.5 m)` returned 69 m²
-        // in fourteen pieces.
+        // model first. A ring carrying a segment shorter than that model can
+        // represent — a clip, a union and a round trip through here leave
+        // plenty of them, some measured in nanometers — has its endpoints
+        // snapped together, the ring self-touches, and what comes back is not
+        // the shape half a meter larger but a scattering of slivers around
+        // where its outline used to be. On a 11,637 m² territory from a real
+        // project export, `buffer(+0.5 m)` returned 69 m² in fourteen pieces;
+        // deduplicating the near-coincident vertices first does not help.
         //
         // Everything downstream then behaves correctly on a shape that is
         // wrong: the union folds in the slivers, the shrink is compared

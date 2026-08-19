@@ -439,13 +439,16 @@ test("a territory that gives up its last house is then merged away", () => {
 });
 
 test("a crossing nothing can be done about is counted, not claimed", () => {
-  // The footprint is the whole of the second territory, so handing it over
-  // would delete a territory rather than move a line. It keeps its ground and
-  // the report says the crossing is still there.
+  // The warehouse is the whole of both scraps, so whichever of the three is
+  // given it, one of the others is deleted rather than trimmed. Nothing moves
+  // and the report says the crossing is still there, which is the honest
+  // outcome: the row keeps its flag rather than the button claiming a repair
+  // it did not make.
   const h = setup(
     [
       { shape: box(0, 0, 1, 1), buildings: 3 },
-      { shape: box(1, 0.45, 1.1, 0.55), buildings: 1 },
+      { shape: box(1, 0.45, 1.06, 0.5), buildings: 1 },
+      { shape: box(1, 0.55, 1.06, 0.6), buildings: 1 },
     ],
     [building(0.5, 0.5), box(0.9, 0.4, 1.2, 0.7)],
   );
