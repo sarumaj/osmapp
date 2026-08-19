@@ -208,8 +208,8 @@ App.print = (function () {
    * Null in normal use, and it has to stay that way. A card's street names and
    * house numbers come from the OpenStreetMap basemap itself; drawing the
    * app's own copy of the same streets on top would thicken every road and
-   * double nothing useful. That is why this file has always rendered tiles and
-   * one border and nothing else.
+   * double nothing useful, which is why a card is tiles and one border and
+   * nothing else.
    *
    * The guided tour is the single exception, and the reason this exists. Its
    * sample village is GeoJSON the app is holding — no tile server has ever

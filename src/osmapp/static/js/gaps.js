@@ -323,14 +323,12 @@ App.gaps = (function () {
    * grow it back. What does not survive was never a gap.
    *
    * Returns a *list*, and that is the bug this signature exists to prevent.
-   * It used to return one piece via G.largestPolygon, on the assumption that
-   * opening a region gives back a smaller version of the same region. It does
-   * not: two open areas joined by a strip narrower than a meter — a lane
-   * between two territories, the pinch where a reshaped boundary nearly
-   * touches a cluster — erode into two separate lobes, and keeping the larger
-   * silently discarded the other. On a plain 100 m barbell with a 60 cm neck
-   * that is half the uncovered ground, gone, with nothing on screen to say a
-   * second area was ever found.
+   * Opening a region does not give back a smaller version of the same region:
+   * two open areas joined by a strip narrower than a meter — a lane between two
+   * territories, the pinch where a reshaped boundary nearly touches a cluster —
+   * erode into two separate lobes. Keeping only the larger discards the other
+   * silently, and on a plain 100 m barbell with a 60 cm neck that is half the
+   * uncovered ground gone with nothing on screen to say a second area existed.
    *
    * @param {Feature} part
    * @returns {Feature[]} zero or more real uncovered pieces
@@ -793,10 +791,10 @@ App.gaps = (function () {
    * "Most" is the longest shared edge, measured as the area a thin collar
    * around the gap shares with each territory — a proxy, but a robust one,
    * and it is the rule every GIS calls sliver elimination. Splitting the gap
-   * between its neighbors proportionally was the alternative, and it is the
-   * worse answer for the shapes this actually meets: a hole where a territory
-   * used to be, handed to whichever neighbor it mostly abuts, beats the same
-   * hole carved into four wedges nobody drew.
+   * between its neighbors proportionally is the alternative, and it is the worse
+   * answer for the shapes this meets: a hole left by a deleted territory, handed
+   * whole to the neighbor it mostly abuts, beats the same hole carved into four
+   * wedges nobody drew.
    *
    * unionHealed rather than union: the piece stands half a meter clear of its
    * neighbors because opening put it there, and a plain union would leave

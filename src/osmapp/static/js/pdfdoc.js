@@ -1,27 +1,23 @@
 /**
- * pdfdoc.js — the PDF jobs that used to run in Python, run here instead.
+ * pdfdoc.js — every PDF job the app does, all of them in the browser.
  *
  * Four of them. Measuring a card template, turning one of its pages into a
  * bitmap for the placement dialog, pressing the rendered map into it, and
  * lifting a saved project back out of a card that was already printed.
  *
- * Why bother
+ * Why the browser
  *   Every other request this app makes — Overpass, Nominatim, tiles — wants a
- *   network, wherever the code happens to run. The PDF routes never did. They
- *   were simply the last thing between "tiles cached, territories sitting in
- *   localStorage" and an actual card. Working offline and working without a
- *   server are different goals; this is the slice of the second that delivers
- *   the first.
+ *   network wherever the code runs. Composing a card does not, and it is the
+ *   last step between "tiles cached, territories in localStorage" and a card in
+ *   somebody's hand. Working offline and working without a server are different
+ *   goals; this is the slice of the second that delivers the first.
  *
- * There is no server side to this any more. /inspect_template,
- * /template_preview, /compose_pdf and /extract_project are gone, and so are
- * internal/pdf.py, internal/template.py, pypdf, pypdfium2 and reportlab. They
- * survived one release as a fallback and nothing ever reached them. Carrying a
- * second implementation of all four jobs, in another language, against the day
- * the first one breaks is a great deal of code to maintain for a path with no
- * users — and an untested path is not a safety net anyway. So failures here
- * are failures: `ensure()` says up front whether the machinery is present, and
- * everything below reports its own trouble instead of handing the job on.
+ * There is no server side to any of this, and no fallback to one. A second
+ * implementation of four jobs in another language, kept against the day the
+ * first breaks, is a great deal of code for a path with no users — and an
+ * untested path is not a safety net. So failures here are failures: `ensure()`
+ * says up front whether the machinery is present, and everything below reports
+ * its own trouble instead of handing the job on.
  *
  * The libraries arrive on first use, not at boot. pdf-lib (with fontkit) does
  * the writing, pdf.js does the reading. Call it two megabytes between them,
@@ -31,29 +27,26 @@
  *
  * On coordinates
  *   Rectangles leave here measured from the mediabox origin and come back the
- *   same way, with the origin folded in when something is drawn. The old
- *   server route measured in absolute terms and then added the origin a second
- *   time at draw time, so a page whose mediabox started anywhere but 0,0 got
- *   counted twice.
+ *   same way, with the origin folded in once, at draw time. Measuring in
+ *   absolute terms and adding the origin again when drawing counts it twice, on
+ *   every page whose mediabox starts anywhere but 0,0.
  */
 var App = window.App || {};
 
 App.pdfdoc = (function () {
   "use strict";
 
-  // The name the state is filed under and the ceilings a card may carry.
-  // These used to have to agree with internal/pdf.py by hand; nothing else
-  // reads or writes the attachment now, so this is the only definition. The
-  // name stays fixed regardless: recovering the state later is one lookup
-  // instead of a hunt, and a card carrying somebody else's file is not
-  // mistaken for ours.
+  // The name the state is filed under and the ceilings a card may carry. This
+  // is the only definition — nothing else reads or writes the attachment — and
+  // the name is fixed rather than derived, so recovering the state later is one
+  // lookup instead of a hunt and a card carrying somebody else's attachment is
+  // not mistaken for one of these.
   var PROJECT_ATTACHMENT_NAME = "osmapp-project.json.gz";
   var PROJECT_MAX_BYTES = 8 * 1024 * 1024;
   var PROJECT_MAX_UNZIPPED = 32 * 1024 * 1024;
 
-  // Detection thresholds, inherited from the Python that used to do this.
-  // MARKERS can grow as needed; a template matching none of it falls back to
-  // the largest rectangle without text.
+  // Detection thresholds. MARKERS can grow as needed; a template matching none
+  // of it falls back to the largest rectangle without text.
   var MARKERS = /MIEJSCE NA MAP|MAPA TERENU|MAP AREA|KARTENFELD/i;
   var LEADER = /^[.\u2026]{4,}$/;
   var MIN_SIDE_PT = 40.0;
@@ -222,9 +215,8 @@ App.pdfdoc = (function () {
   /** gzip — or the payload untouched, on a browser with no CompressionStream. */
   function _gzip(bytes) {
     if (typeof window.CompressionStream !== "function") {
-      // _gunzip below takes an uncompressed payload as it comes, and so did
-      // the Python that used to read these, so a card written on such a
-      // browser still opens anywhere. It is just bigger.
+      // _gunzip below takes an uncompressed payload as it comes, so a card
+      // written on such a browser still opens anywhere. It is just bigger.
       return Promise.resolve(bytes);
     }
     return _collect(
@@ -515,11 +507,10 @@ App.pdfdoc = (function () {
   /**
    * For a card template: page size, the map box, and where the fields go.
    *
-   * This also hands back every rectangle that got through filtering, which the
-   * server route never bothered to. print.js has always read
-   * `layout.candidates` to drive snapping in the placement dialog, and on a
-   * detected layout that list came through empty without comment — so snapping
-   * only ever did anything on a layout somebody had already placed by hand.
+   * `layout.candidates` carries every rectangle that got through filtering, and
+   * print.js drives the placement dialog's snapping off it. Returning a detected
+   * layout without them is the quiet failure to avoid: snapping then works only
+   * on a layout somebody has already placed by hand, and says nothing about why.
    */
   function inspectTemplate(file) {
     ensure();

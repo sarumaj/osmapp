@@ -287,10 +287,9 @@ App.tour = (function () {
       placement: "right",
     },
     {
-      // The button→screen pairing every other tool here gets. Printing had no
-      // button at all until now, which is why the two steps that follow —
-      // both about a right-click menu — were the whole of what the tour could
-      // say about the thing the app exists to produce.
+      // The button→screen pairing every other tool here gets. Without it the
+      // only steps about the thing the app exists to produce are the two that
+      // follow, both of which are about a right-click menu.
       id: "printButton",
       demo: true,
       target: '[data-action="print"]',
@@ -722,7 +721,7 @@ App.tour = (function () {
       return true;
     }
     // False when the app could not be snapshotted — better to skip the sample
-    // steps than to open dialogs over work we cannot promise to give back.
+    // steps than to open dialogs over work that cannot be given back.
     return App.demo.enter();
   }
 
