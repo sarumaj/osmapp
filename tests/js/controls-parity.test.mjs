@@ -37,6 +37,11 @@ const INDEX = readFileSync(
   "utf8",
 );
 
+const CSS = readFileSync(
+  join(ROOT, "src", "osmapp", "static", "css", "style.css"),
+  "utf8",
+);
+
 const FA_CSS = readFileSync(
   join(
     ROOT,
@@ -599,10 +604,33 @@ test("every layer the old switcher offered still has a switch", () => {
   // The gaps layer is the one that is not merely a draw call: switching it off
   // stops the subtraction, so it goes through the module rather than the map.
   assert.match(SOURCE.controls, /App\.gaps\.setVisible\(!App\.gaps\.isVisible\(\)\)/);
-  // And the basemaps come from the server, so they are expanded rather than
-  // written out.
-  assert.match(SOURCE.controls, /dynamic:\s*_basemapButtons/);
-  assert.match(SOURCE.controls, /App\.basemap\.select\(entry\.id\)/);
+  // The basemap is a drop-down built from App.basemap, because which layers
+  // exist is a server decision and the choice is exclusive.
+  assert.match(SOURCE.controls, /custom:\s*_mountBasemapPicker/);
+  assert.match(SOURCE.controls, /App\.basemap\.entries\(\)/);
+  assert.match(SOURCE.controls, /App\.basemap\.select\(select\.value\)/);
+  assert.ok(
+    INDEX.includes('id="tpl-basemap-control"'),
+    "the basemap drop-down has no template",
+  );
+});
+
+test("both drop-downs show a glyph and a label, and survive the collapse", () => {
+  // The collapsed panel drops every .tb-item__label, so a control whose only
+  // identity is its label goes blank there. Both of these name the current
+  // choice with a glyph and the control with a label, which is what lets the
+  // label go without the tile becoming unreadable.
+  for (const id of ["tpl-basemap-control", "tpl-language-control"]) {
+    const start = INDEX.indexOf(`id="${id}"`);
+    assert.notEqual(start, -1, `${id} is missing`);
+    const body = INDEX.slice(start, INDEX.indexOf("</template>", start));
+    assert.match(body, /class="tb-item tb-item--select"/, `${id} is not a select tile`);
+    assert.match(body, /class="tb-item__icon"/, `${id} has no glyph`);
+    assert.match(body, /class="tb-item__label"/, `${id} has no label`);
+  }
+  assert.match(CSS, /\.tb-panel\.is-collapsed \.tb-item__label/);
+  // One rule for both, so the two cannot drift apart.
+  assert.match(CSS, /\.lang-select,\s*\n\.basemap-select \{/);
 });
 
 test("the note about aid basemaps not printing survived the move", () => {

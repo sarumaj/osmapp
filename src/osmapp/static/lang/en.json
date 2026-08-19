@@ -89,16 +89,14 @@
     "labelPrint": "Print",
     "print": "Choose a territory and print its card",
     "groupView": "View options",
-    "labelBaseOsm": "Map",
-    "labelBaseImagery": "Aerial",
-    "labelBaseTerrain": "Terrain",
     "labelLayerOuter": "Boundary",
     "labelLayerStreets": "Streets",
     "labelLayerBuildings": "Houses",
     "labelLayerClusters": "Shapes",
     "labelLayerGaps": "Gaps",
     "layerToggle": "Show or hide {name}",
-    "basemapPick": "Put {name} under the map"
+    "labelBasemap": "Background",
+    "basemap": "Choose what is drawn under the map"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -657,7 +655,7 @@
       },
       "layers": {
         "title": "What is shown",
-        "body": "This group is the picture rather than the work. The top row decides what is under the map — the map itself, aerial imagery, terrain — and only one of them can be on at a time; the aid layers are for the screen only, and a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
+        "body": "This group is the picture rather than the work. The drop-down at the top chooses what is under the map — the map itself, aerial imagery, terrain — since only one thing can be under it at a time. The aid layers are for the screen only: a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
       },
       "info": {
         "title": "Where you stand",
@@ -725,11 +723,11 @@
       },
       "territoryList": {
         "title": "The territory list",
-        "body": "One row per territory, in the order the numbers run. A row walks the map to its territory, the printer beside it makes the card, and the flags say what is wrong with it — drawn in separate pieces, no buildings in it, too small to label, or ground that is in no territory at all. The chips above filter to exactly those rows, so ninety-nine territories become the four worth a second look."
+        "body": "Two ways in: the Print button in the toolbar, or the territory count in the panel at the bottom right. One row per territory, in the order the numbers run. A row walks the map to its territory, the printer beside it makes the card, and the flags say what is wrong with it — drawn in separate pieces, no buildings in it, too small to label, or ground that is in no territory at all. The chips above filter to exactly those rows, so ninety-nine territories become the four worth a second look."
       },
       "autoheal": {
         "title": "Repairing the whole list",
-        "body": "Three faults are mechanical enough to repair without asking, and this button does all of them at once: a territory drawn in separate pieces becomes one territory per piece, a territory with no buildings is absorbed into the neighbor it shares the most boundary with, and a patch that belongs to nobody is adopted first and then judged by those same two rules — which is how the empty field east of the village ends up part of the territory beside it. The whole repair is a single undo, and the wand on one row does the same for that row alone."
+        "body": "Three faults are mechanical enough to repair without asking, and this button does all of them at once: a territory drawn in separate pieces becomes one territory per piece, a territory with no buildings is absorbed into the neighbor it shares the most boundary with, and a patch that belongs to nobody is adopted first and then judged by those same two rules — which is how the empty field east of the village ends up part of the territory beside it. The whole repair is a single undo, and the wand on one row does the same for that row alone. To get back to this list at any time: the Print button in the toolbar, or the territory count in the panel at the bottom right."
       }
     }
   },

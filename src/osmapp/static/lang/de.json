@@ -89,16 +89,14 @@
     "labelPrint": "Drucken",
     "print": "Gebiet auswählen und dessen Karte drucken",
     "groupView": "Ansicht",
-    "labelBaseOsm": "Karte",
-    "labelBaseImagery": "Luftbild",
-    "labelBaseTerrain": "Gelände",
     "labelLayerOuter": "Grenze",
     "labelLayerStreets": "Straßen",
     "labelLayerBuildings": "Häuser",
     "labelLayerClusters": "Formen",
     "labelLayerGaps": "Lücken",
     "layerToggle": "{name} ein- oder ausblenden",
-    "basemapPick": "{name} als Hintergrund verwenden"
+    "labelBasemap": "Hintergrund",
+    "basemap": "Wählen, was unter der Karte liegt"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -657,7 +655,7 @@
       },
       "layers": {
         "title": "Was angezeigt wird",
-        "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Die obere Reihe entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände — und immer nur eines davon; die Hilfsebenen gelten nur für den Bildschirm, gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
+        "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Das Auswahlfeld oben entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände —, denn darunter liegt immer nur eines. Die Hilfsebenen gelten nur für den Bildschirm: gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
       },
       "info": {
         "title": "Wo man gerade steht",
@@ -725,11 +723,11 @@
       },
       "territoryList": {
         "title": "Die Gebietsliste",
-        "body": "Eine Zeile pro Gebiet, in der Reihenfolge der Nummern. Eine Zeile führt die Karte zu ihrem Gebiet, der Drucker daneben erstellt die Gebietskarte, und die Markierungen sagen, was nicht stimmt — in getrennten Teilen gezeichnet, keine Gebäude darin, zu klein für eine Nummer oder Boden, der zu keinem Gebiet gehört. Die Chips darüber filtern genau auf diese Zeilen, sodass aus neunundneunzig Gebieten die vier werden, die einen zweiten Blick verdienen."
+        "body": "Zwei Wege hinein: die Schaltfläche „Drucken“ in der Leiste oder die Gebietszahl im Feld unten rechts. Eine Zeile pro Gebiet, in der Reihenfolge der Nummern. Eine Zeile führt die Karte zu ihrem Gebiet, der Drucker daneben erstellt die Gebietskarte, und die Markierungen sagen, was nicht stimmt — in getrennten Teilen gezeichnet, keine Gebäude darin, zu klein für eine Nummer oder Boden, der zu keinem Gebiet gehört. Die Chips darüber filtern genau auf diese Zeilen, sodass aus neunundneunzig Gebieten die vier werden, die einen zweiten Blick verdienen."
       },
       "autoheal": {
         "title": "Die ganze Liste reparieren",
-        "body": "Drei Fehler sind mechanisch genug, um sie ohne Rückfrage zu beheben, und diese Schaltfläche behebt alle auf einmal: Ein in getrennten Teilen gezeichnetes Gebiet wird zu einem Gebiet pro Teil, ein Gebiet ohne Gebäude geht in den Nachbarn über, mit dem es die längste Grenze teilt, und eine Fläche, die niemandem gehört, wird zuerst übernommen und dann nach denselben zwei Regeln beurteilt — so landet das leere Feld östlich des Dorfes im Gebiet daneben. Die ganze Reparatur ist ein einziges Rückgängig, und der Zauberstab an einer Zeile tut dasselbe nur für diese Zeile."
+        "body": "Drei Fehler sind mechanisch genug, um sie ohne Rückfrage zu beheben, und diese Schaltfläche behebt alle auf einmal: Ein in getrennten Teilen gezeichnetes Gebiet wird zu einem Gebiet pro Teil, ein Gebiet ohne Gebäude geht in den Nachbarn über, mit dem es die längste Grenze teilt, und eine Fläche, die niemandem gehört, wird zuerst übernommen und dann nach denselben zwei Regeln beurteilt — so landet das leere Feld östlich des Dorfes im Gebiet daneben. Die ganze Reparatur ist ein einziges Rückgängig, und der Zauberstab an einer Zeile tut dasselbe nur für diese Zeile. Zurück zu dieser Liste kommt man jederzeit über die Schaltfläche „Drucken“ in der Leiste oder über die Gebietszahl im Feld unten rechts."
       }
     }
   },

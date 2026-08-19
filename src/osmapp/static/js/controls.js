@@ -58,21 +58,15 @@ App.controls = (function () {
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
   var NARROW_PX = 720;
 
-  // Icons and short labels for the basemaps the server may send. Keyed by id
-  // rather than derived from it, because both are editorial: a glyph that says
-  // "photograph" and a word that fits a 52 px tile. An id absent from either
-  // table still renders — see _basemapButtons — so an aid layer added
-  // server-side needs no change here.
+  // A glyph per basemap the server may send. Keyed by id rather than derived
+  // from it, because the choice is editorial: an icon that reads as
+  // "photograph" or as "relief". An id absent from this table still renders —
+  // see _mountBasemapPicker — so an aid layer added server-side needs no change
+  // here, only a nicer icon if one is wanted.
   var BASEMAP_ICONS = {
     osm: "fa-map",
     imagery: "fa-satellite",
     terrain: "fa-mountain-sun",
-  };
-
-  var BASEMAP_LABELS = {
-    osm: "toolbar.labelBaseOsm",
-    imagery: "toolbar.labelBaseImagery",
-    terrain: "toolbar.labelBaseTerrain",
   };
 
   // ── Availability predicates ───────────────────────────────────────────
@@ -274,19 +268,16 @@ App.controls = (function () {
       // here changes a territory, a boundary or a download, which is what
       // separates the group from every other one in the panel.
       //
-      // Basemaps come first and are mutually exclusive: one thing can be
-      // under the map. Then a divider, then the overlays, each its own
-      // toggle. The layer switches are never disabled — one that greys out
-      // cannot be used to find out whether the data arrived — so Numbers is
-      // the only entry with an enabled() predicate.
+      // The basemap comes first, as one drop-down: the choice is exclusive, so
+      // it is a choice rather than a row of switches. Then a divider, then the
+      // overlays, each its own toggle. The layer switches are never disabled —
+      // one that greys out cannot be used to find out whether the data arrived
+      // — so Numbers is the only entry with an enabled() predicate.
       key: "view",
       titleKey: "toolbar.groupView",
-      // Which basemaps exist is a server decision (config.AID_LAYERS, an
-      // empty URL removes one), so that half of the group is expanded at
-      // render time instead of being written out here.
-      dynamic: _basemapButtons,
       noteTemplate: "tpl-toolbar-note",
       buttons: [
+        { id: "basemap", custom: _mountBasemapPicker },
         { separator: true },
         {
           id: "layer-outer",
@@ -664,36 +655,61 @@ App.controls = (function () {
   // ── The View group ────────────────────────────────────────────────────
 
   /**
-   * One button spec per basemap, in App.basemap's order, base first.
+   * The basemap drop-down: one tile, the glyph of the current choice, and the
+   * layers the server offers as its options.
    *
-   * Radio semantics without a radio: exactly one reads as active, because
-   * App.basemap.select() removes whatever else was under the map. They carry
-   * aria-pressed like the panel's other toggles rather than aria-checked,
-   * which would promise arrow-key navigation nothing here implements.
+   * A select rather than one tile per basemap, for the reason the language
+   * picker is one: the choice is exclusive and the options are named, so a row
+   * of mutually exclusive tiles spends three tiles' width — and three rows of a
+   * collapsed panel — saying what one control says. Which basemaps exist is a
+   * server decision (config.AID_LAYERS, an empty URL removes one), so the
+   * options are built from App.basemap rather than written out.
    *
-   * An id missing from BASEMAP_LABELS falls back to the layer's own name, so
-   * an unlabelled aid shows "Terrain" rather than a raw key — at the cost of
-   * a name that may not fit the tile.
+   * The options carry the layers' full names, because a drop-down has room for
+   * "Satellite imagery" where a 52 px tile does not.
    */
-  function _basemapButtons() {
-    return App.basemap.entries().map(function (entry) {
-      var short = BASEMAP_LABELS[entry.id];
-      return {
-        id: "basemap-" + entry.id,
-        icon: BASEMAP_ICONS[entry.id] || "fa-layer-group",
-        labelKey: short || entry.labelKey,
-        accent: entry.aid ? "orange" : "blue",
-        active: function () {
-          return App.basemap.current() === entry.id;
-        },
-        titleFn: function () {
-          return T("toolbar.basemapPick", { name: T(entry.labelKey) });
-        },
-        onClick: function () {
-          App.basemap.select(entry.id);
-        },
-      };
+  function _mountBasemapPicker(host) {
+    var node = D.mount("tpl-basemap-control", host);
+    var select = D.role(node, "basemap");
+    var glyph = D.role(node, "glyph");
+    var entries = App.basemap.entries();
+
+    entries.forEach(function (entry) {
+      var option = document.createElement("option");
+      option.value = entry.id;
+      select.appendChild(option);
     });
+
+    /** Option text is built by t(), so it has to be rebuilt on a language change. */
+    function name() {
+      entries.forEach(function (entry, i) {
+        select.options[i].textContent = T(entry.labelKey);
+      });
+    }
+
+    /**
+     * The glyph is the only thing on the tile that says which basemap is on,
+     * since the label names the control. Painted from the change rather than
+     * from the click, so a basemap chosen elsewhere — the session restore picks
+     * the remembered one — shows here too.
+     */
+    function show() {
+      var id = App.basemap.current();
+      select.value = id;
+      glyph.className =
+        "tb-item__icon fa-solid " + (BASEMAP_ICONS[id] || "fa-layer-group");
+    }
+
+    name();
+    show();
+    App.basemap.onChange(show);
+    App.i18n.onChange(name);
+
+    select.addEventListener("change", function () {
+      App.basemap.select(select.value);
+    });
+
+    return node;
   }
 
   /** @returns {Function} A predicate: true while `key`'s group is on the map. */

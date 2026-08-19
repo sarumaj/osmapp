@@ -89,16 +89,14 @@
     "labelPrint": "Drukuj",
     "print": "Wybierz teren i wydrukuj jego kartę",
     "groupView": "Widok",
-    "labelBaseOsm": "Mapa",
-    "labelBaseImagery": "Zdjęcia",
-    "labelBaseTerrain": "Rzeźba",
     "labelLayerOuter": "Granica",
     "labelLayerStreets": "Ulice",
     "labelLayerBuildings": "Domy",
     "labelLayerClusters": "Kształty",
     "labelLayerGaps": "Luki",
     "layerToggle": "Pokaż lub ukryj: {name}",
-    "basemapPick": "Ustaw jako tło: {name}"
+    "labelBasemap": "Tło",
+    "basemap": "Wybierz, co jest pod mapą"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -696,7 +694,7 @@
       },
       "layers": {
         "title": "Co jest widoczne",
-        "body": "Ta grupa dotyczy obrazu, nie pracy. Górny rząd decyduje, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — i naraz może być włączone tylko jedno; warstwy pomocnicze służą wyłącznie do pracy na ekranie, a karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
+        "body": "Ta grupa dotyczy obrazu, nie pracy. Lista rozwijana u góry wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
       },
       "info": {
         "title": "Gdzie jesteś",
@@ -764,11 +762,11 @@
       },
       "territoryList": {
         "title": "Lista terenów",
-        "body": "Jeden wiersz na teren, w kolejności numerów. Wiersz przenosi mapę do swojego terenu, drukarka obok tworzy kartę, a znaczniki mówią, co jest nie tak — narysowany w osobnych częściach, bez budynków, zbyt mały, by go opisać, albo teren, który nie należy do nikogo. Plakietki powyżej filtrują dokładnie do takich wierszy, więc z dziewięćdziesięciu dziewięciu terenów zostają te cztery warte drugiego spojrzenia."
+        "body": "Dwa wejścia: przycisk „Drukuj” w panelu narzędzi albo liczba terenów w polu na dole po prawej. Jeden wiersz na teren, w kolejności numerów. Wiersz przenosi mapę do swojego terenu, drukarka obok tworzy kartę, a znaczniki mówią, co jest nie tak — narysowany w osobnych częściach, bez budynków, zbyt mały, by go opisać, albo teren, który nie należy do nikogo. Plakietki powyżej filtrują dokładnie do takich wierszy, więc z dziewięćdziesięciu dziewięciu terenów zostają te cztery warte drugiego spojrzenia."
       },
       "autoheal": {
         "title": "Naprawa całej listy",
-        "body": "Trzy usterki są dość mechaniczne, by naprawić je bez pytania, a ten przycisk robi wszystkie naraz: teren narysowany w osobnych częściach staje się jednym terenem na każdą część, teren bez budynków zostaje wchłonięty przez sąsiada, z którym dzieli najdłuższą granicę, a obszar, który nie należy do nikogo, jest najpierw przejmowany, a potem oceniany według tych samych dwóch zasad — tak puste pole na wschód od wsi trafia do terenu obok. Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego."
+        "body": "Trzy usterki są dość mechaniczne, by naprawić je bez pytania, a ten przycisk robi wszystkie naraz: teren narysowany w osobnych częściach staje się jednym terenem na każdą część, teren bez budynków zostaje wchłonięty przez sąsiada, z którym dzieli najdłuższą granicę, a obszar, który nie należy do nikogo, jest najpierw przejmowany, a potem oceniany według tych samych dwóch zasad — tak puste pole na wschód od wsi trafia do terenu obok. Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego. Do tej listy wraca się w każdej chwili przyciskiem „Drukuj” w panelu narzędzi albo liczbą terenów w polu na dole po prawej."
       }
     }
   },

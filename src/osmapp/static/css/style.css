@@ -1374,22 +1374,60 @@ body {
   padding: 5px 0;
 }
 
+.tb-panel.is-collapsed .tb-item--select::after {
+  display: none;
+}
+
 /* Room for the chevron above the first icon. */
 .tb-panel.is-collapsed .tb-panel__groups {
   padding-top: 20px;
 }
 
-/* ── Language picker ───────────────────────────────────────────────────── */
-/* The select is stretched over the whole tile and made invisible; the flag
-   and the label underneath are plain spans. That way the label, the flag and
-   the padding are one click target, instead of only the 17 px strip the
-   select used to occupy — a labelled control whose label does nothing is
-   worse than no label. */
-.tb-item--select {
-  position: relative;
+/* ── The two drop-downs ────────────────────────────────────────────────── */
+/* The basemap picker and the language picker. In both, an invisible <select> is
+   stretched over the whole tile and the glyph and label underneath are plain
+   spans, so the label, the glyph and the padding are one click target rather
+   than only the 17 px strip a select occupies — a labelled control whose label
+   does nothing is worse than no label.
+
+   The glyph names the current choice and the label names the control, which is
+   why the collapsed panel can drop the label and still say which basemap and
+   which language are on. */
+/* leaflet.css declares `.leaflet-container a { color: #0078a8 }` and is linked
+   after this file, so its (0,1,1) beats .tb-item's own (0,1,0) color for every
+   tile that is an <a> — which is all of them except these two, which are
+   <div>s wrapping a <select>. Matching that value keeps the drop-downs the same
+   color as the buttons beside them; the alternative is overriding leaflet for
+   the whole panel, which recolors 27 icons and is a separate decision. */
+.leaflet-container .tb-item--select {
+  color: #0078a8;
 }
 
-.lang-select {
+.tb-item--select {
+  position: relative;
+  /* Two columns wide. "Background", "Hintergrund" and "Satellitenbild" do not
+     fit the 52 px tile a switch uses, and the ellipsis they get there costs the
+     word that says what the control is for. A drop-down is also a different
+     kind of control from a switch, so it is allowed to look like one. */
+  width: calc(var(--tb-tile) * 2 + var(--tb-gap));
+}
+
+/* The caret, so the tile reads as a drop-down rather than as a button. Drawn
+   from a border triangle rather than marked up, because the markup is a
+   template shared with the language picker and neither needs an element for
+   this. */
+.tb-item--select::after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  bottom: 9px;
+  border: 4px solid transparent;
+  border-top-color: var(--c-text-dim);
+  pointer-events: none;
+}
+
+.lang-select,
+.basemap-select {
   position: absolute;
   inset: 0;
   width: 100%;

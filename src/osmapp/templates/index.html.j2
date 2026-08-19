@@ -238,6 +238,25 @@
       </p>
     </template>
 
+    <!-- The basemap picker. Same shape as the language control below: an
+         invisible <select> stretched over the whole tile, with the glyph of the
+         current choice and the control's own name drawn underneath it. Three
+         mutually exclusive tiles said the same thing in three times the width,
+         and the collapsed panel had to find room for all of them. -->
+    <template id="tpl-basemap-control">
+      <div class="tb-item tb-item--select">
+        <i class="tb-item__icon" data-role="glyph" aria-hidden="true"></i>
+        <span class="tb-item__label" data-i18n="toolbar.labelBasemap">
+          Background
+        </span>
+        <select
+          class="basemap-select"
+          data-role="basemap"
+          data-i18n-attrs="aria-label=toolbar.basemap;title=toolbar.basemap"
+        ></select>
+      </div>
+    </template>
+
     <template id="tpl-language-control">
       <div class="tb-item tb-item--select">
         <span class="tb-item__icon" data-role="flag" aria-hidden="true"></span>
