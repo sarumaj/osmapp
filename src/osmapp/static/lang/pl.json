@@ -96,7 +96,13 @@
     "labelLayerGaps": "Luki",
     "layerToggle": "Pokaż lub ukryj: {name}",
     "labelBasemap": "Tło",
-    "basemap": "Wybierz, co jest pod mapą"
+    "basemap": "Wybierz, co jest pod mapą",
+    "labelZoomIn": "Przybliż",
+    "labelZoomOut": "Oddal",
+    "zoomIn": "Przybliż o jeden poziom",
+    "zoomOut": "Oddal o jeden poziom",
+    "atMaxZoom": "To już najbliżej, jak sięga to tło",
+    "atMinZoom": "To już najdalej, jak sięga to tło"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
