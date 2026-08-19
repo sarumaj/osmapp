@@ -133,6 +133,146 @@ App.geometry = (function () {
   var HEAL_METERS = 0.5; // half the width of the widest gap that gets closed
   var MIN_HOLE_M2 = 1; // below this a hole is a union artefact, not a courtyard
 
+  // Meters per degree, for the one thing here that needs a length rather than
+  // a coordinate. spatial.js owns the same two numbers and the projection
+  // built on them; this file loads first and needs neither.
+  var M_PER_DEG_LAT = 110540;
+  var M_PER_DEG_LNG = 111320;
+
+  // The largest tab despike() will remove, in square meters. A hundredth of a
+  // square meter is a hand's breadth square: below that a tab is an artefact
+  // of the clipping that produced the ring, above it it is ground.
+  var SPIKE_MAX_M2 = 0.01;
+
+  /**
+   * Does the ring double back at b without enclosing anything?
+   *
+   * True when the outgoing direction opposes the incoming one and the triangle
+   * the three points span is smaller than SPIKE_MAX_M2 — a tab that goes out
+   * along a line and returns along the same line.
+   */
+  function _isTab(a, b, c) {
+    var kx = M_PER_DEG_LNG * Math.cos((b[1] * Math.PI) / 180);
+    var ax = (b[0] - a[0]) * kx;
+    var ay = (b[1] - a[1]) * M_PER_DEG_LAT;
+    var bx = (c[0] - b[0]) * kx;
+    var by = (c[1] - b[1]) * M_PER_DEG_LAT;
+    if (ax * bx + ay * by >= 0) return false;
+    return Math.abs(ax * by - ay * bx) / 2 <= SPIKE_MAX_M2;
+  }
+
+  /**
+   * One ring with its tabs removed, or null when nothing enclosing is left.
+   *
+   * A stack rather than a scan, because removing a tab can expose the one
+   * before it: a ring that goes out, back, out and back again collapses in a
+   * single pass this way and needs several the other.
+   */
+  function _despikeRing(coords) {
+    if (!coords || coords.length < 4) return coords;
+
+    var open = coords.slice(0, -1);
+    var out = [];
+    for (var i = 0; i < open.length; i++) {
+      while (
+        out.length >= 2 &&
+        _isTab(out[out.length - 2], out[out.length - 1], open[i])
+      )
+        out.pop();
+      out.push(open[i]);
+    }
+
+    // The seam where the ring closes is a corner like any other, and a tab can
+    // straddle it. Bounded because both ends are being eaten.
+    var guard = out.length;
+    while (out.length >= 3 && guard-- > 0) {
+      if (_isTab(out[out.length - 2], out[out.length - 1], out[0])) {
+        out.pop();
+      } else if (_isTab(out[out.length - 1], out[0], out[1])) {
+        out.shift();
+      } else {
+        break;
+      }
+    }
+
+    if (out.length < 3) return null;
+    out.push(out[0]);
+    return out;
+  }
+
+  /**
+   * The same shape with its zero-width tabs removed.
+   *
+   * A tab is a ring going out along a line and coming straight back along it,
+   * enclosing nothing. Clipping produces them: a difference against a shape
+   * that shares an edge leaves the shared edge traversed twice, and rounding
+   * coordinates to five decimals on the way through the file format leaves
+   * more. They are invisible on the map, turf.booleanValid does not reliably
+   * catch them — a 49,164 m² territory carrying three of them reports valid —
+   * and they cost nothing until something asks jsts to buffer them.
+   *
+   * Then they cost a territory. jsts snaps its input to a precision model
+   * first, which welds the two sides of a tab into one edge and leaves the
+   * ring self-touching; `buffer(+0.5 m)` on a valid 49,164 m² territory with
+   * three of them returned 40 m². Everything built on that buffer —
+   * unionHealed, and so every merge in the app — then works correctly on a
+   * shape that is wrong. Two of the 98 territories in a project export were in
+   * that state, and half of the rest carried a tab that had not yet cost
+   * anything.
+   *
+   * Removing a tab moves no ground: SPIKE_MAX_M2 bounds what any one removal
+   * can enclose, and over that export the largest shift on any territory was
+   * 0.06 m² out of 49,000.
+   *
+   * Returns the input untouched when there is nothing to remove, so a caller
+   * may compare by identity to find out whether anything happened.
+   */
+  function despike(x) {
+    var f = feat(x);
+    if (!f || !f.geometry) return x;
+    if (f.geometry.type !== "Polygon" && f.geometry.type !== "MultiPolygon")
+      return x;
+
+    var parts = polygonParts(f);
+    var kept = [];
+    var removed = 0;
+
+    for (var i = 0; i < parts.length; i++) {
+      var coords = parts[i].geometry.coordinates;
+      var rings = [];
+      for (var r = 0; r < coords.length; r++) {
+        var ring = _despikeRing(coords[r]);
+        removed += coords[r].length - ((ring && ring.length) || 0);
+        // An outer ring that collapsed takes its holes with it; a hole that
+        // collapsed was never a courtyard.
+        if (!ring || ring.length < 4) {
+          if (r === 0) {
+            rings = null;
+            break;
+          }
+          continue;
+        }
+        rings.push(ring);
+      }
+      if (rings && rings.length) kept.push(rings);
+    }
+
+    if (removed === 0 || kept.length === 0) return x;
+
+    try {
+      return {
+        type: "Feature",
+        geometry:
+          kept.length === 1
+            ? { type: "Polygon", coordinates: kept[0] }
+            : { type: "MultiPolygon", coordinates: kept },
+        properties: f.properties || {},
+      };
+    } catch (e) {
+      return x;
+    }
+  }
+
   /**
    * Union features so that the boundaries between them actually disappear.
    *
@@ -163,7 +303,9 @@ App.geometry = (function () {
     for (var i = 0; i < features.length; i++) {
       try {
         var input = feat(features[i]);
-        var g = turf.buffer(input, eps, { units: "meters" });
+        // Despiked only for the buffer. What is returned still derives from
+        // what the caller passed, and a tab is what jsts cannot survive.
+        var g = turf.buffer(despike(input), eps, { units: "meters" });
         if (!g || !g.geometry) continue;
         // A grow that lost ground is not a grow.
         //
@@ -854,6 +996,7 @@ App.geometry = (function () {
     roundCoord: roundCoord,
     roundCoords: roundCoords,
     dedupCoords: dedupCoords,
+    despike: despike,
     pointToSegmentDist: pointToSegmentDist,
     isOnOuterBoundary: isOnOuterBoundary,
     bboxOverlap: bboxOverlap,

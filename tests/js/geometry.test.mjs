@@ -163,6 +163,163 @@ test("unionHealed survives a single input", () => {
   assert.ok(Math.abs(turf.area(merged) - turf.area(only)) < 60);
 });
 
+// ── despike ──────────────────────────────────────────────────────────────────
+
+/**
+ * A 2 × 2 unit square at 50°N with `tab` spliced into its southern edge.
+ *
+ * The assertions are on the buffer rather than on the vertex count, because
+ * the buffer is what the removal is for: jsts snaps its input to a precision
+ * model first, and a tab welds into a self-touching edge under that snap. A
+ * shape that buffers to less than itself is the failure, and it is silent —
+ * unionHealed refuses the result and quietly degrades to a plain union, so
+ * every merge involving the territory stops dissolving.
+ *
+ * @param {number[][]} tab vertices visited between the two southern corners
+ */
+function withTab(...tab) {
+  return turf.polygon([
+    [[0, 50], ...tab, [0.002, 50], [0.002, 50.002], [0, 50.002], [0, 50]],
+  ]);
+}
+
+/** turf.area of the +0.5 m buffer, or -1 where jsts gives nothing back. */
+function buffered(feature) {
+  try {
+    const grown = turf.buffer(feature, 0.5, { units: "meters" });
+    return grown && grown.geometry ? turf.area(grown) : -1;
+  } catch (e) {
+    return -1;
+  }
+}
+
+test("despike removes a tab and leaves the ground where it was", () => {
+  // The southern edge overshoots 44 m east and comes 22 m back along itself
+  // before carrying on. The tab encloses nothing and is invisible on the map.
+  const spiked = withTab([0.0004, 50], [0.0002, 50]);
+  assert.ok(
+    buffered(spiked) < turf.area(spiked),
+    "the fixture reproduces the failure: its buffer is smaller than it is",
+  );
+
+  const clean = G.despike(spiked);
+
+  assert.ok(
+    buffered(clean) > turf.area(clean),
+    "and buffering it works again",
+  );
+  assert.ok(
+    Math.abs(turf.area(clean) - turf.area(spiked)) < 0.01,
+    "while enclosing the same ground",
+  );
+});
+
+test("despike unwinds a tab that doubles back more than once", () => {
+  // Out, back, out and back again. Removing one pair exposes the next, so a
+  // single scan leaves half the tab behind; the vertex before each removal has
+  // to be reconsidered, which is why despike walks the ring on a stack.
+  const spiked = withTab(
+    [0.0004, 50],
+    [0.0002, 50],
+    [0.0005, 50],
+    [0.0003, 50],
+  );
+
+  const clean = G.despike(spiked);
+
+  assert.ok(buffered(clean) > turf.area(clean));
+  assert.ok(Math.abs(turf.area(clean) - turf.area(spiked)) < 0.01);
+});
+
+test("despike closes a tab straddling the seam", () => {
+  // The ring's first and last vertices are one corner, and a tab can sit on it
+  // like any other. Walking only the interior leaves this one in place.
+  const spiked = turf.polygon([
+    [
+      [0, 50],
+      [0.002, 50],
+      [0.002, 50.002],
+      [0, 50.002],
+      [0, 50.0004],
+      [0, 50.0012],
+      [0, 50],
+    ],
+  ]);
+
+  const clean = G.despike(spiked);
+
+  assert.equal(
+    clean.geometry.coordinates[0].length,
+    6,
+    "the vertex the ring reversed at is gone",
+  );
+  // Five would mean the square, and it is six because the far end of the tab
+  // is left behind as a point in the middle of the western edge. That is
+  // correct: it lies on the outline, encloses nothing either way, and removing
+  // vertices that are merely redundant is a different job with a different
+  // risk. What despike owes its callers is a ring jsts can buffer.
+  assert.ok(Math.abs(turf.area(clean) - turf.area(spiked)) < 0.01);
+});
+
+test("despike keeps a spur that encloses ground", () => {
+  // The rule is an area, not a shape. This spur is a meter wide — a driveway,
+  // a passage between two buildings — and removing it would take ground off a
+  // territory somebody has been sent to walk.
+  const spur = withTab(
+    [0.0002, 50],
+    [0.0002, 50.0005],
+    [0.0002 + 1 * M, 50.0005],
+    [0.0002 + 1 * M, 50],
+  );
+
+  const clean = G.despike(spur);
+
+  assert.equal(clean, spur, "nothing to remove, so nothing is rewritten");
+});
+
+test("despike returns a clean shape untouched", () => {
+  // Identity, not equality: polygons.setClusters compares it to decide whether
+  // to keep the geometry it was handed, and every territory on the map goes
+  // through there on every write.
+  const plain = square(turf, 0, 50, 0.001);
+  assert.equal(G.despike(plain), plain);
+});
+
+test("unionHealed dissolves a seam it could not reach past a tab", () => {
+  // What the removal is for, end to end. The two territories share an edge but
+  // not its vertices, so dissolving them needs the buffer round trip. With the
+  // tab in place jsts returns a ruin, unionHealed refuses it and falls back to
+  // the plain union, and the merge comes back as two polygons that touch.
+  const spiked = turf.polygon([
+    [
+      [0, 50],
+      [0.0004, 50],
+      [0.0002, 50],
+      [0.001, 50],
+      [0.001, 50.001],
+      [0, 50.001],
+      [0, 50],
+    ],
+  ]);
+  const east = turf.polygon([
+    [
+      [0.0010000001, 50],
+      [0.002, 50],
+      [0.002, 50.001],
+      [0.0010000001, 50.001],
+      [0.0010000001, 50],
+    ],
+  ]);
+
+  const merged = G.unionHealed([spiked, east]);
+
+  assert.equal(
+    G.polygonParts(merged).length,
+    1,
+    "the shared edge dissolved rather than leaving two pieces",
+  );
+});
+
 // ── dropSmallHoles ───────────────────────────────────────────────────────────
 
 test("dropSmallHoles removes a ring below the floor and keeps one above it", () => {

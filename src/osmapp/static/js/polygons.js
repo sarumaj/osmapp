@@ -408,6 +408,20 @@ App.polygons = (function () {
       var geometry = input && (input.geometry || (input.type ? input : null));
       if (!geometry || !geometry.type) return;
 
+      // Every territory reaches the map through here, which makes this the one
+      // place a defect can be kept out of the stored outlines rather than
+      // worked around wherever it later shows up.
+      //
+      // The defect is a zero-width tab — a ring going out along a line and
+      // straight back along it — which clipping and rounding leave behind, and
+      // which nothing on the map or in turf's validity checks reveals. It
+      // costs nothing until jsts is asked to buffer the shape, and then it
+      // costs the whole shape: see geometry.despike. Cleaning here means a
+      // territory carrying one stops carrying it the next time it is written,
+      // instead of accumulating more with every clip.
+      var cleaned = G.despike(geometry);
+      if (cleaned !== geometry && cleaned.geometry) geometry = cleaned.geometry;
+
       var feature = {
         type: "Feature",
         geometry: geometry,
