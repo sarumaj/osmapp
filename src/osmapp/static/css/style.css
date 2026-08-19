@@ -28,14 +28,14 @@
   --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
 
   --z-map-ui: 1000;
-  /* Readouts — the hint banner, the info panel — sit below anything that can
-     be clicked, because that is what they are: text about the thing rather
-     than the thing. The hint is mounted after the mode bar and the info panel
-     used to be on a hand-written 1200, so on the two levels below both of
-     them ended up on top of controls they were describing.
+  /* Readouts — the hint banner, the info panel — sit below anything that can be
+     clicked, because that is what they are: text about the thing rather than the
+     thing. Left to hand-written numbers they land on top of the controls they
+     describe, since the hint is mounted after the mode bar and wins on document
+     order alone.
 
-     Everything on the map now takes one of these four, in this order:
-     readouts, mode bars, menus, dialogs. */
+     Everything on the map takes one of these four, in this order: readouts,
+     mode bars, menus, dialogs. */
   --z-status: 1040;
   --z-mode-bar: 1060;
   --z-menu: 1100;
@@ -410,11 +410,11 @@ body {
 
 /* The gap above the buttons belongs to the buttons.
 
-   It used to belong to whatever happened to sit above them, which meant every
-   dialog got a different answer and one got none at all: the hint carries a
-   12 px bottom margin, the calc line 12, the confirm detail 14 — and the
-   territory list ends in a bordered scroll box with no margin whatsoever, so
-   Close sat flush against the last row and read as part of the list.
+   Left to whatever sits above them, every dialog gets a different answer and one
+   gets none at all: the hint carries a 12 px bottom margin, the calc line 12,
+   the confirm detail 14 — and the territory list ends in a bordered scroll box
+   with no margin at all, which puts Close flush against the last row where it
+   reads as part of the list.
 
    Stated once here, it is the same everywhere. Adjacent siblings' vertical
    margins collapse, so the dialogs whose last element already carries one end
@@ -496,30 +496,25 @@ body {
 /* ═══════════════════════════════════════════════════════════
    Mode bars (cut + merge) + draw hint
 
-   Both of these say "you are in a mode now, and here is how to get out".
-   They used to say it in two different places and one of them said it with
-   no stylesheet at all:
+   Both of these say "you are in a mode now, and here is how to get out", so they
+   share one treatment: anchored bottom-centre, where the eye ends up after a
+   click on the map, and carrying the accent of the toolbar button that turned
+   the mode on — purple for Cut, amber for Merge — so the bar and the lit button
+   read as the same thing.
 
-     • .merge-toolbar sat top-right, which is where Leaflet already puts the
-       layer control and the geocoder. A small white box among other small
-       white boxes in the busiest corner of the screen is invisible.
-     • .cut-toolbar had no rules whatsoever, so it laid itself out as an
-       unstyled block in the top-left of the map container, under the
-       toolbar panel.
-
-   Now they share one treatment, anchored bottom-centre where the eye ends up
-   after a click on the map, with the accent of the toolbar button that turned
-   the mode on — purple for Cut, amber for Merge — so the bar and the lit
-   button read as the same thing.
+   The corners are the wrong place for them. Top-right is where the geocoder
+   already sits, and a small white box among other small white boxes in the
+   busiest corner of the screen is invisible; top-left is under the toolbar
+   panel.
 
    ── The stack ────────────────────────────────────────────────────────────
 
-   Each of them used to anchor itself: bottom: 76px on the bar, bottom: 30px
-   on the banner, and 76 chosen because a one-line banner is 46px tall. Two
-   things went wrong with that. The offset was copied to three bars and missed
-   on the fourth, which is how the merge bar spent its life under the banner.
-   And the constant is only right while the banner is one line — cut's names
-   six gestures and wraps to two or three on a narrow window, growing straight
+   Anchoring each bar itself — bottom: 76px on the bar, bottom: 30px on the
+   banner, 76 chosen because a one-line banner is 46px tall — fails in two ways.
+   An offset repeated on four bars is an offset missed on one of them, which puts
+   that bar under the banner. And the constant is only right while the banner is
+   one line: cut's names six gestures and wraps to two or three on a narrow
+   window, growing straight
    up through the gap and into the bar above it.
 
    So neither one positions itself now. The stack is the only thing anchored
@@ -596,9 +591,9 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The bar used to be a count and two loose buttons. With Clear beside them
-   the actions are a group, and grouping them keeps the count from drifting
-   away from its own row as the label lengths change between languages. */
+/* The actions are a group rather than loose buttons beside the count, which
+   keeps the count from drifting away from its own row as label lengths change
+   between languages. */
 .merge-toolbar__actions {
   display: flex;
   gap: 6px;
@@ -1919,20 +1914,20 @@ body {
 /* A fixed-height column, the way the print dialog is one: title, controls,
    then a body that takes whatever is left, then the actions.
 
-   It used to be sized by its contents, so every filter click resized the
-   dialog under the pointer — narrowing ninety-nine rows to one shrank it to a
-   third of its height and moved the chips you were clicking. A repair did the
-   same, and so did the outcome line appearing. The rows box absorbs all of it
-   now, which is also what makes the scroll position worth restoring. */
+   Sized by its contents, every filter click resizes the dialog under the
+   pointer: narrowing ninety-nine rows to one shrinks it to a third of its height
+   and moves the chips being clicked. A repair does the same, and so does the
+   outcome line appearing. The rows box absorbs all of it, which is also what
+   makes the scroll position worth restoring. */
 /* A column that can be clamped, the way the print dialog is one: title,
    controls, then a body that takes what is left, then the actions.
 
-   Not a *fixed* height, which is where this first landed. Filtering must not
-   resize the dialog — the chips sit above the rows and the dialog is centred,
-   so any change in height moves the control you just clicked out from under
-   the pointer. But answering that with one constant height meant a
-   five-territory project, which is what every first-time visitor sees, opened
-   a 600 px dialog four fifths of which was empty box. Nothing else here has a
+   Not a *fixed* height. Filtering must not resize the dialog — the chips sit
+   above the rows and the dialog is centred, so any change in height moves the
+   control just clicked out from under the pointer — but one constant height
+   answers that by opening a 600 px dialog on a five-territory project, which is
+   what every first-time visitor sees, four fifths of it empty box. Nothing else
+   here has a
    hard height: the shortcut sheet caps its scroller, print and place clamp the
    whole dialog to the viewport and let a flex body absorb the rest.
 
@@ -2121,8 +2116,8 @@ body {
   margin-top: 0;
 }
 
-/* The rule that used to live on the row itself: it is the row as a whole that
-   is separated from the next one, not the half of it that zooms. */
+/* On the wrapper rather than on the row: it is the row as a whole that is
+   separated from the next one, not the half of it that zooms. */
 .territory-row-wrap {
   display: flex;
   align-items: stretch;
@@ -2267,11 +2262,11 @@ body {
 /* The dialog is a fixed-height column: title, then a body that takes what is
    left, then the actions. Nothing scrolls except the controls.
 
-   It used to be one scrolling block. With five groups in a 270 px column that
-   meant reaching Border or Card scrolled the map off the top — you adjusted a
-   color and a thickness while looking at a fieldset, then scrolled back to
-   see what you had done. The preview is the whole point of the dialog and it
-   should never leave the screen.
+   One scrolling block will not do. Five groups in a 270 px column means that
+   reaching Border or Card scrolls the map off the top: a color and a thickness
+   get adjusted against a fieldset, and seeing the result needs a scroll back.
+   The preview is the whole point of the dialog and should never leave the
+   screen.
 
    The placement dialog is built the same way, and says so by sharing these
    rules rather than copying them: it is the same kind of thing — a big

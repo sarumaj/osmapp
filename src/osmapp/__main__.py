@@ -13,6 +13,12 @@ from .internal.tiles import prune_tiles
 
 
 def main():
+    """Start the periodic jobs, then serve until interrupted.
+
+    One cancel event stops every job, so shutdown does not wait out an interval.
+    Waitress serves unless FLASK_DEBUG=1, which hands over to Flask's own server
+    for the reloader.
+    """
     app = create_app()
     cancel = threading.Event()
 

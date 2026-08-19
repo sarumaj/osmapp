@@ -99,6 +99,12 @@ def _nominatim(url: str, params: dict[str, Any]) -> requests.Response:
 
 @bp.route("/geocode")
 def geocode() -> Response:
+    """Proxy a Nominatim place search, cached by query and limit.
+
+    The proxy exists to hold Nominatim's usage policy in one place — a fixed User
+    Agent and a minimum interval between calls — which a browser cannot promise.
+    An empty query returns [] without reaching upstream.
+    """
     query = request.args.get("q", "").strip()
     if not query:
         return json_([])

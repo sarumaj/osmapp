@@ -23,6 +23,16 @@ from .internal.views import bp as views_bp
 
 
 def create_app() -> Flask:
+    """Build the configured Flask app: limits, blueprints, and osmnx headers.
+
+    Rate limits are per blueprint rather than global, because the routes differ by
+    an order of magnitude in what they cost: /service/data reaches Overpass, while
+    the page, the tiles and the manifest are cached or static and are exempt.
+
+    Returns:
+        An app ready to serve. Nothing here starts a thread — see __main__ for the
+        periodic jobs, so an app built by a test has none of them running.
+    """
     logging.basicConfig(level=logging.INFO)
 
     app = Flask(
@@ -52,6 +62,7 @@ def create_app() -> Flask:
 
     @app.errorhandler(429)
     def ratelimit_handler(e: Exception) -> Response:
+        """429 as JSON, so a throttled client parses it like any other error."""
         return make_response(
             jsonify(
                 error="Rate limit exceeded.",

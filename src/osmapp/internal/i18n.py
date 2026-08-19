@@ -18,6 +18,12 @@ _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
 def load_dictionary(code: str) -> dict[str, Any]:
+    """One language's messages, re-read only when the file's mtime changes.
+
+    A missing file yields an empty dict rather than raising, and the client falls
+    back to English per key — so an absent dictionary costs the translation and
+    not the page. A malformed one is not caught here.
+    """
     path = I18N_DIR / f"{code}.json"
     try:
         mtime = path.stat().st_mtime
@@ -38,10 +44,9 @@ def load_dictionary(code: str) -> dict[str, Any]:
 def language_paths() -> dict[str, str]:
     """Code -> URL for every supported language.
 
-    Lives here rather than beside either of its callers because it had drifted
-    into being defined twice — identically — in `views.py` and `pwa.py`, which
-    is one edit away from the page's <link rel="alternate"> set and the
-    manifest's start_url disagreeing about where a language lives.
+    Lives here rather than beside either of its callers, `views.py` and `pwa.py`,
+    because a second copy is one edit away from the page's <link rel="alternate">
+    set and the manifest's start_url disagreeing about where a language lives.
 
     Needs an application context: `url_for` resolves against the registered
     view functions, which is also what keeps this honest if the routes are

@@ -252,7 +252,7 @@ def prune_tiles(
         freed += size
         total -= size
 
-    # Deepest first so parents empty before we try to remove them.
+    # Deepest first, so a parent is empty by the time it is reached.
     for d in sorted(root.rglob("*"), key=lambda p: -len(p.parts)):
         if d.is_dir():
             try:
