@@ -659,7 +659,7 @@
       },
       "info": {
         "title": "Where you stand",
-        "body": "How many streets, buildings and territories are currently loaded, with a hint about the sensible next step. The territory count is a button: it opens the list, where everything worth a second look — a territory in pieces, one with no buildings, ground in no territory at all — is named, found and repaired."
+        "body": "How many streets, buildings and territories are loaded, with a hint about the sensible next step. The warning mark beside the territory count means something needs a second look — here it is the patch of ground no territory covers. That count is a button, and it is the shortest way to the territory list, where every such fault is named, found and repaired. The panel is hidden on a window too narrow for it; the Print button in the toolbar opens the same list."
       },
       "files": {
         "title": "Take your work with you",
@@ -674,7 +674,7 @@
         "body": "Clears the boundary, the downloaded data and every territory. It asks first, and it cannot be undone."
       },
       "language": {
-        "title": "Three languages",
+        "title": "Multiple languages",
         "body": "English, Polish, German and French. The choice is part of the address, so a link you share opens in the language you were using."
       },
       "offline": {

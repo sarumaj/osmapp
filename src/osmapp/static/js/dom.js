@@ -113,6 +113,10 @@ App.dom = (function () {
    * register as a click on the map — which closes context menus, and in a
    * modal tool places a vertex. The handler receives the event and the node.
    *
+   * The call is timed through App.util.timed, which reports only on a local
+   * host: this is the seam nearly every button in the app passes through, so it
+   * is the one worth measuring and the one that must stay silent in production.
+   *
    * @returns {Element|null} the node, or null when the role is absent
    */
   function onRole(root, name, handler) {
@@ -121,9 +125,9 @@ App.dom = (function () {
     node.addEventListener("click", function (e) {
       e.preventDefault();
       e.stopPropagation();
-      console.time("onRole " + name);
-      handler(e, node);
-      console.timeEnd("onRole " + name);
+      App.util.timed("onRole " + name, function () {
+        handler(e, node);
+      });
     });
     return node;
   }

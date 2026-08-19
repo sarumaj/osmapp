@@ -659,7 +659,7 @@
       },
       "info": {
         "title": "Où vous en êtes",
-        "body": "Combien de rues, de bâtiments et de territoires sont chargés, avec une indication sur l'étape suivante. Le nombre de territoires est un bouton : il ouvre la liste, où tout ce qui mérite un second regard — un territoire en morceaux, un territoire sans bâtiment, une zone dans aucun territoire — est nommé, retrouvé et réparé."
+        "body": "Combien de rues, de bâtiments et de territoires sont chargés, avec une indication sur l'étape suivante. La marque d'avertissement à côté du nombre de territoires signale que quelque chose mérite un second regard — ici, la zone qui n'appartient à aucun territoire. Ce nombre est un bouton, et c'est le chemin le plus court vers la liste des territoires, où tout ce qui mérite un second regard est nommé, retrouvé et réparé. Le panneau est masqué sur une fenêtre trop étroite ; le bouton « Imprimer » de la barre d'outils ouvre la même liste."
       },
       "files": {
         "title": "Emportez votre travail",
@@ -674,7 +674,7 @@
         "body": "Efface la limite, les données téléchargées et chaque territoire. Une confirmation est demandée, et l'action est irréversible."
       },
       "language": {
-        "title": "Trois langues",
+        "title": "Plusieurs langues",
         "body": "Anglais, polonais, allemand et français. Le choix fait partie de l'adresse, donc un lien que vous partagez s'ouvre dans la langue que vous utilisiez."
       },
       "offline": {

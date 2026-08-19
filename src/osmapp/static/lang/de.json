@@ -659,7 +659,7 @@
       },
       "info": {
         "title": "Wo man gerade steht",
-        "body": "Wie viele Straßen, Gebäude und Gebiete gerade geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt. Die Gebietszahl ist eine Schaltfläche: sie öffnet die Liste, in der alles Auffällige benannt, gefunden und repariert wird — ein mehrteiliges Gebiet, eines ohne Gebäude, eine Fläche in gar keinem Gebiet."
+        "body": "Wie viele Straßen, Gebäude und Gebiete geladen sind, dazu ein Hinweis auf den sinnvollen nächsten Schritt. Das Warnzeichen neben der Gebietszahl heißt, dass etwas einen zweiten Blick braucht — hier ist es die Fläche, die zu keinem Gebiet gehört. Diese Zahl ist eine Schaltfläche und der kürzeste Weg zur Gebietsliste, in der alles Auffällige benannt, gefunden und repariert wird. Auf einem zu schmalen Fenster ist das Feld ausgeblendet; die Schaltfläche „Drucken“ in der Leiste öffnet dieselbe Liste."
       },
       "files": {
         "title": "Die Arbeit mitnehmen",
@@ -674,7 +674,7 @@
         "body": "Löscht die Grenze, die geladenen Daten und alle Gebiete. Es wird vorher gefragt, und es lässt sich nicht rückgängig machen."
       },
       "language": {
-        "title": "Drei Sprachen",
+        "title": "Mehrere Sprachen",
         "body": "Englisch, Polnisch, Deutsch und Französisch. Die Wahl steht in der Adresse, ein geteilter Link öffnet sich also in der Sprache, in der man gearbeitet hat."
       },
       "offline": {

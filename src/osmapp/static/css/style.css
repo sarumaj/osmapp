@@ -1002,12 +1002,12 @@ body {
    leaflet-control-geocoder ships as a 26 px magnifier that expands on click.
    That is the right default for a plugin and the wrong one here: this is the
    fastest way into the whole workflow — search a place, accept its boundary,
-   split it — and it was the least visible control on the page.
+   split it — so it must not be the least visible control on the page.
 
-   So it is widened into a real search field, given the panel's own border and
-   shadow, and parked directly above the toolbar it belongs with. The vendored
-   stylesheet is overridden rather than edited, so Renovate can keep bumping
-   the dependency.
+   So it is widened into a real search field and given the toolbar panel's own
+   border and shadow, so the two read as parts of one interface even though they
+   sit in opposite top corners. The vendored stylesheet is overridden rather than
+   edited, so Renovate can keep bumping the dependency.
 
    Every selector here is deliberately over-qualified. Control.Geocoder.css
    is linked at the bottom of the body and leaflet.css in the head, both after

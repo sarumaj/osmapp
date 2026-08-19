@@ -654,9 +654,11 @@ App.ui = (function () {
         e.preventDefault();
         e.stopPropagation();
         closeContextMenu();
-        console.time(label);
-        if (item.onClick) item.onClick();
-        console.timeEnd(label);
+        // Timed on a local host only — see App.util.timed. The menu is the other
+        // seam every action passes through, beside App.dom.onRole.
+        App.util.timed(label, function () {
+          if (item.onClick) item.onClick();
+        });
       });
     });
 

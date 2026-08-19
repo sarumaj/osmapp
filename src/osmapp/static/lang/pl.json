@@ -698,7 +698,7 @@
       },
       "info": {
         "title": "Gdzie jesteś",
-        "body": "Ile ulic, budynków i terenów jest teraz wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Liczba terenów to przycisk: otwiera listę, w której nazwane, odnalezione i naprawione zostaje wszystko, co wymaga uwagi — teren w kawałkach, teren bez budynków, obszar poza wszystkimi terenami."
+        "body": "Ile ulic, budynków i terenów jest wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Znak ostrzeżenia obok liczby terenów oznacza, że coś wymaga uwagi — tutaj jest to obszar, który nie należy do żadnego terenu. Ta liczba to przycisk i najkrótsza droga do listy terenów, w której nazwane, odnalezione i naprawione zostaje wszystko, co wymaga uwagi. Na zbyt wąskim oknie pole jest ukryte; tę samą listę otwiera przycisk „Drukuj” w panelu narzędzi."
       },
       "files": {
         "title": "Zabierz pracę ze sobą",
@@ -713,7 +713,7 @@
         "body": "Usuwa granicę, pobrane dane i wszystkie tereny. Aplikacja najpierw pyta, a operacji nie da się cofnąć."
       },
       "language": {
-        "title": "Trzy języki",
+        "title": "Wiele języków",
         "body": "Angielski, polski, niemiecki i francuski. Wybór jest częścią adresu, więc udostępniony odnośnik otworzy się w tym samym języku, w którym pracowałeś."
       },
       "offline": {

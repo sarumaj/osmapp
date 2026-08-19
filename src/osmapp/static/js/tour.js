@@ -287,6 +287,17 @@ App.tour = (function () {
       placement: "right",
     },
     {
+      // Inside the sample block, because the panel is the one thing in the app
+      // with nothing to say on an empty map: after `restore` its counts are
+      // hidden and the territory button it describes has no list to open. Here
+      // it reads 10 streets, 43 buildings, 5 territories, 1 printed, and carries
+      // the warning mark for the sample's uncovered patch.
+      id: "info",
+      demo: true,
+      target: "#info-panel",
+      placement: "left",
+    },
+    {
       // The button→screen pairing every other tool here gets. Without it the
       // only steps about the thing the app exists to produce are the two that
       // follow, both of which are about a right-click menu.
@@ -387,7 +398,6 @@ App.tour = (function () {
     // ── back to the user's own map ──────────────────────────────────────
 
     { id: "history", target: '[data-action="undo"]', placement: "right" },
-    { id: "info", target: "#info-panel", placement: "left" },
     { id: "files", target: '[data-action="export"]', placement: "right" },
     // Export and Import were one step pointing at Export, which is half a
     // step: the half that gets you a file, not the half that gets it back.

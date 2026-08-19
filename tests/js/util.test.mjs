@@ -180,3 +180,71 @@ test("a missing localStorage entirely is not an error", () => {
   assert.equal(util.readLocal("anything", "fallback"), "fallback");
   assert.equal(util.writeLocal("anything", "x"), false);
 });
+
+// ── The timing gate ──────────────────────────────────────────────────────────
+//
+// timed() wraps App.dom.onRole and App.ui's menu entries, so it runs on nearly
+// every click in the app. Its whole job is to stay silent unless the page is
+// served locally, and the failure is invisible in development — where the gate
+// is open and everything looks right — and permanent in production, where the
+// console fills up for somebody who cannot turn it off.
+
+/** Load util.js for one hostname, capturing whatever console.time reports. */
+function withHost(hostname) {
+  const lines = [];
+  const console_ = {
+    time: (label) => lines.push(`time ${label}`),
+    timeEnd: (label) => lines.push(`timeEnd ${label}`),
+  };
+  const window = { location: { hostname } };
+  const util = loadApp(["util.js"], { window, console: console_ }).util;
+  return { util, lines };
+}
+
+for (const host of ["localhost", "127.0.0.1", "::1", "[::1]", "", "dev.localhost", "LOCALHOST"]) {
+  test(`${host || "(empty)"} counts as a development host`, () => {
+    // Empty is what a file:// URL reports; the ".localhost" suffix is reserved
+    // for loopback by RFC 6761 §6.3; the comparison is case-insensitive because
+    // a hostname is.
+    const { util, lines } = withHost(host);
+    assert.equal(util.isLocal(), true);
+    assert.equal(util.timed("job", () => 7), 7, "the value must pass through");
+    assert.deepStrictEqual(lines, ["time job", "timeEnd job"]);
+  });
+}
+
+for (const host of ["osmapp.example", "192.0.2.10", "localhost.example.com", "notlocalhost"]) {
+  test(`${host} does not, so nothing is timed`, () => {
+    // "localhost.example.com" is the one worth having: a suffix test the wrong
+    // way round treats every host under a .example.com as local.
+    const { util, lines } = withHost(host);
+    assert.equal(util.isLocal(), false);
+    assert.equal(util.timed("job", () => 7), 7);
+    assert.deepStrictEqual(lines, []);
+  });
+}
+
+test("a window with no location at all is not a development host", () => {
+  // Distinct from an empty hostname, which is a file:// page and *is* local.
+  // Reading a missing location through `|| ""` collapses the two.
+  const lines = [];
+  const util = loadApp(["util.js"], {
+    window: {},
+    console: { time: (l) => lines.push(l), timeEnd: (l) => lines.push(l) },
+  }).util;
+  assert.equal(util.isLocal(), false);
+  util.timed("job", () => {});
+  assert.deepStrictEqual(lines, []);
+});
+
+test("a handler that throws still closes its timer", () => {
+  // console.time leaves the label open otherwise, and every later call for the
+  // same one is answered with "Timer already exists" instead of a measurement.
+  const { util, lines } = withHost("localhost");
+  assert.throws(() => {
+    util.timed("job", () => {
+      throw new Error("boom");
+    });
+  }, /boom/);
+  assert.deepStrictEqual(lines, ["time job", "timeEnd job"]);
+});

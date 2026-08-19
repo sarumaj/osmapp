@@ -1,7 +1,8 @@
 /**
- * util.js — reading user preferences, and reading OSM tag values.
+ * util.js — reading user preferences, reading OSM tag values, and the
+ * development-only timing gate.
  *
- * These two jobs have nothing to do with each other beyond both being needed
+ * The three jobs have nothing to do with each other beyond all being needed
  * almost everywhere. Nothing here depends on any other module, so this file
  * loads first and its functions are safe to call from another module's top
  * level, before init() has run.
@@ -30,6 +31,12 @@
  * only one of which is a plain string. Both the map tooltips in polygons.js
  * and the locality name ranking in naming.js need all three handled the same
  * way. See tagText below for what they are.
+ *
+ * ── Timing ───────────────────────────────────────────────────────────────
+ *
+ * timed() measures a click handler, and only when the page is served locally.
+ * See there for why the gate exists rather than the measurement being
+ * unconditional or absent.
  */
 var App = window.App || {};
 
@@ -141,6 +148,71 @@ App.util = (function () {
   }
 
   // ══════════════════════════════════════════════════════════════════════
+  // TIMING
+  // ══════════════════════════════════════════════════════════════════════
+
+  // Hostnames that mean "this machine". "" is what a file:// URL reports.
+  var LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]", ""];
+
+  var _local = null;
+
+  /**
+   * Is the page served from the machine it is being developed on?
+   *
+   * Answered once and remembered: it cannot change without a navigation, and
+   * the caller is on a click path. A name ending in ".localhost" counts because
+   * RFC 6761 §6.3 reserves that suffix for loopback.
+   *
+   * @returns {boolean}
+   */
+  function isLocal() {
+    if (_local === null) _local = _readIsLocal();
+    return _local;
+  }
+
+  function _readIsLocal() {
+    var location;
+    try {
+      location = window.location;
+    } catch (e) {
+      location = null;
+    }
+    // No location object at all — a stub window, a sandboxed frame — is not a
+    // development host. An *empty* hostname is, and the two have to be told
+    // apart: reading a missing location through `|| ""` would make the first
+    // case indistinguishable from a file:// URL.
+    if (!location) return false;
+
+    var host = String(location.hostname || "").toLowerCase();
+    return LOCAL_HOSTS.indexOf(host) >= 0 || /\.localhost$/.test(host);
+  }
+
+  /**
+   * Run `fn`, and time it to the console only on a local host.
+   *
+   * Every button in the app is wired through App.dom.onRole and every context
+   * menu entry through App.ui, so timing them unconditionally writes a line to
+   * the console on more or less every click. That is a measurement worth having
+   * while developing and worth nothing to somebody using the app, who cannot
+   * switch it off and did not ask to read it.
+   *
+   * timeEnd is in a `finally`, so a handler that throws still closes its label.
+   * Without that the label stays open and every later call for the same one is
+   * answered with a "Timer already exists" warning instead of a measurement.
+   *
+   * @returns {*} whatever `fn` returns
+   */
+  function timed(label, fn) {
+    if (!isLocal()) return fn();
+    console.time(label);
+    try {
+      return fn();
+    } finally {
+      console.timeEnd(label);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
   // OSM TAG TEXT
   // ══════════════════════════════════════════════════════════════════════
 
@@ -196,6 +268,8 @@ App.util = (function () {
     writeJson: writeJson,
     tagText: tagText,
     tagOf: tagOf,
+    isLocal: isLocal,
+    timed: timed,
   };
 })();
 
