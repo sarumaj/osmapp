@@ -375,19 +375,18 @@ App.polygons = (function () {
     if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
   }
 
-  // ── Where the check went ──────────────────────────────────────────────
+  // ── Where the check lives ─────────────────────────────────────────────
   //
-  // There used to be a second marker here: a green check in a circle, dropped
-  // at each printed territory's interior point, existing purely as a
-  // non-color channel — a green wash and a purple one are the same wash to a
-  // red-green color blind reader and identical in a greyscale screenshot.
+  // Nothing here draws the printed check. It belongs to the number chip in
+  // labels.js, which is the app's non-color channel for "this one is done" — a
+  // green wash and a purple one are the same wash to a red-green color blind
+  // reader and identical in a greyscale screenshot.
   //
-  // The number chip is now that channel. It is already anchored at the same
-  // interior point, already rebuilt on every mark and unmark, and it already
-  // turns green; giving it the check costs one glyph and removes a whole
-  // second marker that had to be created, anchored, tracked on the entry,
-  // torn down in three places and kept from stacking on top of the number
-  // sitting in the same spot. See labels.js.
+  // The chip is the right carrier because it is already anchored at the
+  // territory's interior point, already rebuilt on every mark and unmark, and
+  // already turns green. A second marker at the same point would have to be
+  // created, anchored, tracked on the entry, torn down in three places and kept
+  // from stacking on top of the number.
   //
   // The tiny-territory case makes the merge worth more than the code it
   // saves: a speck's chip is red rather than green, so on the one territory
@@ -689,8 +688,8 @@ App.polygons = (function () {
    * that leaves a live listener pointing at a null tooltip.
    *
    * Removing them before every rebind also stops them stacking: a rebind
-   * clears `_tooltipHandlersAdded`, so each mode switch used to add another
-   * pair to the same element.
+   * clears `_tooltipHandlersAdded`, so without this each mode switch would add
+   * another pair to the same element.
    */
   function _dropFocusListeners(target) {
     if (!L || !L.DomEvent) return;
@@ -990,10 +989,9 @@ App.polygons = (function () {
         if (!App.trim) return;
         if (group === s.buildingsLayerGroup && e.type === "click")
           App.trim.handleBuildingClick(e.layer, e);
-        // Right-click used to fall off the end here. The trim toolbar is in
-        // the corner and the buildings being judged are under the cursor, so
-        // this is the one mode where a menu at the pointer saves the most
-        // travel — and it can name the building it opened over.
+        // The trim toolbar is in the corner and the buildings being judged are
+        // under the cursor, so this is the mode where a menu at the pointer
+        // saves the most travel — and it can name the building it opened over.
         else if (e.type === "contextmenu")
           App.trim.handleContextMenu(
             e.containerPoint,
@@ -1080,9 +1078,9 @@ App.polygons = (function () {
     // `off("mouseover mouseout click contextmenu")` with no handler is a
     // blanket removal: it takes every listener for those types off the layer,
     // and bindTooltip's own mouseover/mouseout are listeners for those types.
-    // Which meant this was silently order-dependent — bind the tooltip first
-    // and it was wiped a line later, with no error and no clue. An event map
-    // keyed on the handlers we actually own cannot do that to anything else,
+    // A blanket removal is therefore order-dependent: bind the tooltip first
+    // and it is wiped a line later, with no error and no clue. An event map
+    // naming only the handlers this module owns cannot reach anything else,
     // whichever order the two binders are called in.
     if (target._clusterHandlers) target.off(target._clusterHandlers);
 
@@ -1167,12 +1165,11 @@ App.polygons = (function () {
    * Sole write path for the outer boundary, the way setClusters() is for the
    * territories.
    *
-   * Five places used to spell out the same five statements — clear the group,
-   * add the layer, set both state fields, attach the events — and each one had
-   * to remember all five. The import path had already drifted: it was the only
-   * one that never stopped a click on the boundary from reaching the map
-   * underneath, so a restored project behaved differently from a drawn one for
-   * no reason anybody chose.
+   * The five statements it performs — clear the group, add the layer, set both
+   * state fields, attach the events — belong together, because a caller that
+   * remembers four of them produces a boundary that is subtly not like the
+   * others. Skipping the click handler is the one that hides longest: the
+   * boundary looks right and passes clicks through to the map underneath.
    *
    * @param {L.Layer} layer already styled and already in its final geometry
    * @returns {L.Layer|null} the layer, so callers can chain or bail on null
@@ -1504,7 +1501,7 @@ App.polygons = (function () {
    * so the same building is the same object from one refresh to the next, and
    * a Map keyed on the feature needs no ids invented for data that has none.
    *
-   * The group is asked whether it was emptied behind our back, because a reset
+   * The group is asked whether it was emptied from elsewhere, because a reset
    * clears it directly and the registry would otherwise go on claiming layers
    * that are no longer on the map.
    *

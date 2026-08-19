@@ -47,7 +47,7 @@ App.basemap = (function () {
   var _config = null;
   var _layers = {}; // id → L.TileLayer
   var _specs = {}; // id → server descriptor, for labels and attribution
-  var _order = []; // ids, switcher order, base first
+  var _order = []; // ids, toolbar order, base first
   var _current = BASE_ID;
   var _listeners = [];
 
