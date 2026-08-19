@@ -217,7 +217,8 @@ jobs:
       - name: Install
         run: pip install -e ".[test]"
 
-      - name: Restore the browser
+      - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
@@ -225,8 +226,13 @@ jobs:
           restore-keys: |
             playwright-${{ runner.os }}-
 
-      - name: Install Chromium
+      - name: Install Chromium and system dependencies
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: playwright install --with-deps chromium
+
+      - name: Install system dependencies only
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: playwright install-deps chromium
 
       - name: Test
         run: pytest -m "e2e" --junitxml=junit-e2e.xml --tracing=retain-on-failure
