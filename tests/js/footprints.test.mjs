@@ -75,6 +75,18 @@ function held(feature, building) {
   return shared ? turf.area(shared) : 0;
 }
 
+/** One feature holding several disconnected rectangles. */
+function pieces(...boxes) {
+  return {
+    type: "Feature",
+    geometry: {
+      type: "MultiPolygon",
+      coordinates: boxes.map((b) => b.geometry.coordinates),
+    },
+    properties: {},
+  };
+}
+
 function partCount(f) {
   return f.geometry.type === "MultiPolygon" ? f.geometry.coordinates.length : 1;
 }
@@ -143,6 +155,47 @@ test("surveying leaves the download exactly as it can be saved", () => {
 test("nothing downloaded is nothing to find", () => {
   const fp = setup(null);
   assert.deepEqual(fp.crossings([box(0, 0, 1, 1), box(1, 0, 2, 1)]), []);
+});
+
+test("a territory with a courtyard in it is still surveyed", () => {
+  // Clipping a territory to the footprint's bounding box before measuring is
+  // a shortcut, and this is the shape it is wrong for: bboxClip works one
+  // ring at a time, so a courtyard clipped away from the outline it belongs
+  // to stops being a hole and the territory appears to hold ground it does
+  // not. The shortcut has to stand aside here, and the crossing still be
+  // found.
+  const west = turf.polygon([
+    [
+      [0, 0], [1 * U, 0], [1 * U, 1 * U], [0, 1 * U], [0, 0],
+    ],
+    [
+      [0.2 * U, 0.2 * U], [0.2 * U, 0.5 * U],
+      [0.5 * U, 0.5 * U], [0.5 * U, 0.2 * U], [0.2 * U, 0.2 * U],
+    ],
+  ]);
+  const east = box(1, 0, 2, 1);
+  const house = box(0.99, 0.4, 1.03, 0.44);
+  const fp = setup([house]);
+
+  const found = fp.crossings([west, east]);
+
+  assert.equal(found.length, 1);
+  assert.equal(found[0].owner, 1);
+});
+
+test("a territory in several pieces is surveyed as one territory", () => {
+  const west = pieces(box(0, 0, 1, 0.45), box(0, 0.55, 1, 1));
+  const east = box(1, 0, 2, 1);
+  const house = box(0.99, 0.6, 1.03, 0.64);
+  const fp = setup([house]);
+
+  const found = fp.crossings([west, east]);
+
+  assert.equal(found.length, 1);
+  assert.deepEqual(
+    found[0].shares.map((share) => share.index).sort(),
+    [0, 1],
+  );
 });
 
 // ── Moving the boundary onto the wall ───────────────────────────────────────
@@ -280,6 +333,104 @@ test("three territories meeting on one roof all give it up", () => {
   );
   assert.equal(holders.length, 1, "exactly one territory holds the house");
   assert.ok(held(holders[0], house) > turf.area(house) * 0.999);
+});
+
+// ── What the difference shaves off ──────────────────────────────────────────
+
+/**
+ * A territory east of the line x = 1, with a lobe poking west of it.
+ *
+ * Subtracting a footprint that covers where the lobe joins the body leaves
+ * two polygons: the body, and whatever of the lobe the footprint did not
+ * reach. How big that leftover is decides whether it is a fleck to be swept
+ * up or a place somebody could stand — which is the whole of what _sweep
+ * exists to tell apart.
+ *
+ * Wound counter-clockwise from the south-west corner, going out around the
+ * lobe on the way back down, so the ring does not cross itself.
+ *
+ * @param {number} west how far the lobe reaches, in units of U
+ */
+function lobed(west) {
+  return turf.polygon([
+    [
+      [1 * U, 0],
+      [2 * U, 0],
+      [2 * U, 1 * U],
+      [1 * U, 1 * U],
+      [1 * U, 0.7 * U],
+      [west * U, 0.7 * U],
+      [west * U, 0.6 * U],
+      [1 * U, 0.6 * U],
+      [1 * U, 0],
+    ],
+  ]);
+}
+
+/** The western square, less whatever the lobe takes out of it. */
+function westOf(donor) {
+  return turf.difference(turf.featureCollection([box(0, 0, 1, 1), donor]));
+}
+
+// Tall enough to sever the lobe from the body, and far enough west that most
+// of it is the western territory's — so the lobed one is the side handing the
+// footprint over, which is the side a difference can break.
+const SEVERING = box(0.95, 0.25, 1.005, 0.85);
+
+test("a speck left beside the footprint does not cost the repair", () => {
+  // On a straight-cut partition of a real project export, fourteen of a
+  // hundred and eighty-one repairs were refused because the difference left a
+  // fleck: the boundary and a wall crossed at a hair's angle, and the wedge
+  // between them survived as a polygon of its own — the largest 1.31 m², the
+  // smallest 0.018 m². Refusing there is wrong twice over: the boundary stays
+  // in the building, and the row goes on offering a repair that declines
+  // itself.
+  //
+  // Here the fleck is the two and a half square meters of lobe sticking out
+  // past the footprint, stranded because the footprint covers everything
+  // joining it to the rest of its territory.
+  const donor = lobed(0.948);
+  const owner = westOf(donor);
+  const fp = setup([SEVERING]);
+
+  assert.equal(
+    fp.crossings([owner, donor]).length,
+    1,
+    "the line cuts the footprint",
+  );
+
+  const result = fp.detach([owner, donor]);
+
+  assert.equal(result.unresolved, 0, "a fleck is not a reason to refuse");
+  assert.equal(result.resolved, 1);
+  assert.equal(
+    partCount(result.features[1]),
+    1,
+    "and the donor is left in one piece rather than one piece plus a fleck",
+  );
+  // Swept up, not swept away: the fleck went over with the footprint.
+  const before = turf.area(owner) + turf.area(donor);
+  const after = result.features.reduce((sum, f) => sum + turf.area(f), 0);
+  assert.ok(Math.abs(after - before) < 0.5, `${after} against ${before}`);
+});
+
+test("a footprint that really would cut a territory in two is still refused", () => {
+  // The other side of the same rule, and the reason it is a size and not a
+  // count. This lobe keeps about sixty square meters past the footprint —
+  // somewhere a person could stand — and handing that to a neighbor because a
+  // building sits where it joins on is not a boundary moved onto a wall. It
+  // is the fault autoheal exists to remove, freshly created by the repair.
+  const donor = lobed(0.9);
+  const owner = westOf(donor);
+  const fp = setup([SEVERING]);
+
+  assert.equal(fp.crossings([owner, donor]).length, 1);
+
+  const result = fp.detach([owner, donor]);
+
+  assert.equal(result.resolved, 0);
+  assert.equal(result.unresolved, 1, "and the crossing keeps its flag");
+  assert.deepEqual(result.changed, []);
 });
 
 // ── Scope ───────────────────────────────────────────────────────────────────

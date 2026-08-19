@@ -414,6 +414,7 @@
     "cutNoSeparation": "Linia przecięła teren, ale go nie rozdzieliła. Poprowadź ją na wylot, od jednej granicy do drugiej.",
     "mergeTooFew": "Zaznacz co najmniej dwa tereny do połączenia.",
     "mergeFailed": "Nie udało się połączyć tych terenów.\n\n{message}",
+    "mergeIncomplete": "Scalanie zostało odrzucone: {n} z zaznaczonych terenów zostałoby utraconych. Ich obszar nie należałby już do nikogo.",
     "healFailed": "Nie udało się naprawić tych terenów.",
     "partitionFailed": "Podział nie powiódł się: {message}",
     "clearPrintedConfirm": {

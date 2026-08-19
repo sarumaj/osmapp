@@ -112,6 +112,50 @@ test("unionHealed keeps a courtyard but drops a union sliver", () => {
   );
 });
 
+test("unionHealed refuses to lose a shape whose growth collapsed", () => {
+  // The failure this guards against, reduced to the one fact that matters.
+  //
+  // turf.buffer snaps its input to jsts's precision model first, and a ring
+  // carrying a few hundred vertices two centimeters apart — what a territory
+  // looks like after a clip, a union and a round trip through unionHealed —
+  // does not survive that snap. A real project export held an 11,637 m²
+  // territory whose buffer(+0.5 m) came back as 69 m² in fourteen slivers.
+  //
+  // Everything downstream then works correctly on a shape that is wrong: the
+  // union folds in the slivers, the shrink is measured against the whole
+  // footprint and passes because the loss is a fraction of a percent of it,
+  // and one territory quietly stops existing. On the map the merge looks
+  // right. The ground is discovered missing by whoever was sent to walk it.
+  //
+  // jsts is stubbed rather than provoked, because what is under test is the
+  // response to a buffer that came back smaller, not turf's arithmetic.
+  const big = square(turf, 0, 50, 0.002);
+  const small = square(turf, 0.002, 50, 0.0002);
+  const real = turf.buffer;
+  try {
+    turf.buffer = (feature, distance, options) => {
+      const grown = real(feature, distance, options);
+      // The small one collapses; everything else, including the shrink at the
+      // end, behaves.
+      if (distance > 0 && turf.area(feature) < 1000) return turf.buffer0Collapsed;
+      return grown;
+    };
+    turf.buffer0Collapsed = square(turf, 0.002, 50, 0.00001);
+
+    const merged = G.unionHealed([big, small]);
+
+    assert.ok(merged && merged.geometry);
+    const shared = turf.intersect(turf.featureCollection([merged, small]));
+    assert.ok(
+      shared && turf.area(shared) > turf.area(small) * 0.99,
+      "the territory that could not be grown is still in the result",
+    );
+  } finally {
+    turf.buffer = real;
+    delete turf.buffer0Collapsed;
+  }
+});
+
 test("unionHealed survives a single input", () => {
   const only = square(turf, 0, 50, 0.001);
   const merged = G.unionHealed([only]);

@@ -86,6 +86,14 @@ App.footprints = (function () {
   // owner gains below this is ground it already had.
   var NOTHING_M2 = 0.01;
 
+  // How far a clipping box is grown past the footprint it was taken from, so
+  // that the clip cannot land exactly on a wall. Half a millimeter.
+  var PAD_DEG = 0.000005;
+
+  // Fallback for state.CUT_MIN_PIECE_M2, which is the same number: what the
+  // knife is allowed to shave off without anybody calling it a piece.
+  var CRUMB_M2 = 5;
+
   // Prepared footprints and the cell index over them, plus the collection
   // they were taken from. See _prepare.
   var _prepared = null;
@@ -320,29 +328,139 @@ App.footprints = (function () {
   // THE SURVEY
   // ══════════════════════════════════════════════════════════════════════
 
+  /** Does any part of this feature have an interior ring? */
+  function _holed(feature) {
+    return G.polygonParts(feature).some(function (part) {
+      return part.geometry.coordinates.length > 1;
+    });
+  }
+
+  /**
+   * The part of `feature` lying inside this footprint, or null.
+   *
+   * The straight answer is one call to turf.intersect, and on a real project
+   * that is where the whole survey went. turf's clipper walks both outlines,
+   * so asking a territory what it holds of one house costs the territory's
+   * entire ring — 300 ms apiece against the 11,500-vertex territory in a
+   * project export somebody sent in, to decide something about a shape twelve
+   * meters across.
+   *
+   * bboxClip is linear in the ring and throws away every part of the territory
+   * that is not in the corner the house stands in; the same intersection
+   * against what is left costs nothing. On that export, eight footprints went
+   * from 2,520 ms to 17 ms, and every answer agreed to the last centimeter.
+   *
+   * Three cases go the long way round instead, and the middle one is the
+   * reason this is written as a shortcut rather than as the method:
+   *
+   *   • A territory with a hole in it. bboxClip clips each ring on its own,
+   *     and a courtyard ring clipped away from the outline it belongs to
+   *     stops being a hole. Rare enough to be worth the full price.
+   *   • A clip whose output turf then refuses to intersect. Clipping a
+   *     concave outline to a box leaves the pieces joined up along the box
+   *     edge, and those seams are exactly the degenerate arrangement polygon
+   *     clipping gives up on. Reading that throw as "this territory holds
+   *     none of it" lost 58 of 181 crossings on a straight-cut partition of a
+   *     real project export — every one a boundary through a building the
+   *     list then had nothing to say about — so it is asked again instead,
+   *     one piece of the clip at a time. The pieces are disjoint, so the
+   *     answers add up, and on those 58 they agreed with the full
+   *     intersection to the last square centimeter for a thirtieth of the
+   *     time. Quantizing the seams away was tried first and fixed none of
+   *     them.
+   *   • A clip that throws outright.
+   *
+   * An empty clip is none of these. Sutherland-Hodgman returns nothing
+   * exactly when the subject is outside the box, which is the honest answer
+   * and, for a territory whose bounding box reaches a house it does not,
+   * the common one.
+   */
+  function _slice(feature, record) {
+    if (!_holed(feature)) {
+      var local = null;
+      try {
+        local = turf.bboxClip(feature, _pad(record.bbox));
+      } catch (e) {
+        local = null;
+      }
+      if (local && local.geometry) {
+        if (_rings(local).length === 0) return null;
+        try {
+          return G.intersect(local, record.feature);
+        } catch (e) {
+          var apart = _pieceWise(local, record.feature);
+          if (apart !== undefined) return apart;
+        }
+      }
+    }
+
+    try {
+      return G.intersect(feature, record.feature);
+    } catch (e) {
+      // A shape turf refuses to clip claims nothing rather than failing the
+      // survey. It keeps whatever flag its own geometry has earned it.
+      return null;
+    }
+  }
+
+  /**
+   * `a` clipped to `b`, one polygon of `a` at a time.
+   *
+   * For the case where the whole of `a` is unclippable but its parts are not.
+   * The parts of a polygonal feature do not overlap, so the union of the
+   * per-part answers is the answer.
+   *
+   * @returns {Object|null|undefined} the slice, null for no overlap, or
+   *   undefined when a part failed too and the caller should try something
+   *   else — three outcomes because "nothing" and "no idea" are different.
+   */
+  function _pieceWise(a, b) {
+    var parts = G.polygonParts(a);
+    if (parts.length < 2) return undefined;
+
+    var pieces = [];
+    for (var i = 0; i < parts.length; i++) {
+      try {
+        var piece = G.intersect(parts[i], b);
+        if (piece && piece.geometry) pieces.push(piece);
+      } catch (e) {
+        return undefined;
+      }
+    }
+    return pieces.length ? G.unionAll(pieces) : null;
+  }
+
+  /** A bounding box grown by a hair, so a clip to it cannot graze the edge. */
+  function _pad(box) {
+    return [box[0] - PAD_DEG, box[1] - PAD_DEG, box[2] + PAD_DEG, box[3] + PAD_DEG];
+  }
+
   /**
    * How much of this footprint each territory holds, largest share first.
    *
    * @returns {Array<{index:number, area:number, slice:Object}>}
    */
   function _shares(features, boxes, record) {
-    var out = [];
+    // Bounding boxes first, and the count is what matters. A footprint only
+    // one territory could reach is not a crossing whatever the geometry says,
+    // and establishing that with a clip apiece is what made surveying a real
+    // project take seconds: of the eleven suspects in that export, ten were
+    // one territory's alone and each cost a full intersection to find out.
+    var candidates = [];
     for (var i = 0; i < features.length; i++) {
       if (!features[i] || !boxes[i]) continue;
-      if (!G.bboxOverlap(boxes[i], record.bbox)) continue;
+      if (G.bboxOverlap(boxes[i], record.bbox)) candidates.push(i);
+    }
+    if (candidates.length < 2) return [];
 
-      var slice = null;
-      try {
-        slice = G.intersect(features[i], record.feature);
-      } catch (e) {
-        // A shape turf refuses to clip claims nothing rather than failing the
-        // survey. It keeps whatever flag its own geometry has earned it.
-        continue;
-      }
+    var out = [];
+    for (var c = 0; c < candidates.length; c++) {
+      var idx = candidates[c];
+      var slice = _slice(features[idx], record);
       if (!slice || !slice.geometry) continue;
 
       var area = G.area(slice);
-      if (area > 0) out.push({ index: i, area: area, slice: slice });
+      if (area > 0) out.push({ index: idx, area: area, slice: slice });
     }
 
     out.sort(function (a, b) {
@@ -437,6 +555,50 @@ App.footprints = (function () {
     } catch (e) {
       return 0;
     }
+  }
+
+  /**
+   * A territory with the specks a difference shaved off it swept up.
+   *
+   * Subtracting a footprint from the territory beside it is supposed to leave
+   * one shape with a bite out of its edge. What it actually leaves, often
+   * enough to matter, is that shape plus a fleck: the boundary and the wall
+   * cross at a hair's angle, and the wedge between them survives as a separate
+   * polygon of a square meter or two. On a straight-cut partition of a real
+   * project export, fourteen of a hundred and eighty-one repairs were turned
+   * down over flecks — the largest was 1.31 m², the smallest 0.018 m², about a
+   * postcard.
+   *
+   * Refusing there is the wrong answer twice over. The boundary stays through
+   * the building, and the row goes on offering a repair that declines itself.
+   * So a part below the size this app already calls a crumb is swept up and
+   * handed over with the footprint, and only a genuine second lobe — a piece
+   * big enough to be somewhere — still counts as splitting a territory in two.
+   *
+   * @param {Object} cut what the difference returned
+   * @param {number} before how many parts the territory had going in
+   * @returns {{feature: Object, crumbs: Object[]}|null} null when sweeping
+   *   cannot settle it, which is the case this exists to keep refusing
+   */
+  function _sweep(cut, before) {
+    var parts = G.polygonParts(cut);
+    if (parts.length <= before) return { feature: cut, crumbs: [] };
+
+    var floor = (s && s.CUT_MIN_PIECE_M2) || CRUMB_M2;
+    var keep = [];
+    var crumbs = [];
+    parts.forEach(function (part) {
+      (G.area(part) < floor ? crumbs : keep).push(part);
+    });
+
+    // Sweeping has to actually settle it, and it must not be what empties the
+    // territory: a shape made only of crumbs is one this repair would delete.
+    if (keep.length === 0 || keep.length > before) return null;
+
+    var feature = keep.length === 1 ? keep[0] : G.unionAll(keep);
+    return feature && feature.geometry
+      ? { feature: feature, crumbs: crumbs }
+      : null;
   }
 
   /** How much ground two shapes already have in common, in square meters. */
@@ -550,6 +712,7 @@ App.footprints = (function () {
     var owner = shares[0];
     var donors = shares.slice(1);
     var next = Object.create(null);
+    var swept = [];
 
     for (var i = 0; i < donors.length; i++) {
       var donor = donors[i];
@@ -563,18 +726,26 @@ App.footprints = (function () {
       // it away is not moving a boundary onto a wall, it is deleting a
       // territory nobody asked to delete.
       if (!cut || !cut.geometry) return null;
-      // A footprint sitting on a narrow neck can cut a territory in two. That
-      // is the fault autoheal exists to remove, so producing one here is not a
-      // repair.
-      if (_parts(cut) > _parts(features[donor.index])) return null;
 
-      next[donor.index] = cut;
+      var trimmed = _sweep(cut, _parts(features[donor.index]));
+      // A footprint sitting on a narrow neck can genuinely cut a territory in
+      // two. That is the fault autoheal exists to remove, so producing one
+      // here is not a repair.
+      if (!trimmed) return null;
+
+      next[donor.index] = trimmed.feature;
+      swept = swept.concat(trimmed.crumbs);
     }
 
     var taken = G.unionAll(
-      donors.map(function (donor) {
-        return donor.slice;
-      }),
+      donors
+        .map(function (donor) {
+          return donor.slice;
+        })
+        // The crumbs go over with the footprint that stranded them. They are
+        // specks, but they are ground, and ground that belongs to nobody is
+        // the fault gaps.js exists to report.
+        .concat(swept),
     );
     if (!taken) return null;
 

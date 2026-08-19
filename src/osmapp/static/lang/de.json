@@ -389,6 +389,7 @@
     "cutNoSeparation": "Die Linie hat ein Gebiet gekreuzt, es aber nicht geteilt. Ziehe sie ganz durch, von einer Grenze zur anderen.",
     "mergeTooFew": "Wähle mindestens zwei Gebiete zum Zusammenführen aus.",
     "mergeFailed": "Diese Gebiete konnten nicht zusammengeführt werden.\n\n{message}",
+    "mergeIncomplete": "Die Zusammenführung wurde abgelehnt: {n} der ausgewählten Gebiete wären dabei verloren gegangen. Ihre Fläche hätte niemandem mehr gehört.",
     "healFailed": "Diese Gebiete konnten nicht repariert werden.",
     "partitionFailed": "Die Partitionierung ist fehlgeschlagen: {message}",
     "clearPrintedConfirm": {

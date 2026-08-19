@@ -389,6 +389,7 @@
     "cutNoSeparation": "La ligne a traversé un territoire mais ne l'a pas séparé. Tracez en travers, d'une limite à l'autre.",
     "mergeTooFew": "Sélectionnez au moins deux territoires à fusionner.",
     "mergeFailed": "Impossible de fusionner ces territoires.\n\n{message}",
+    "mergeIncomplete": "La fusion a été refusée : elle aurait fait disparaître {n} des territoires sélectionnés. Leur terrain n’aurait plus appartenu à personne.",
     "healFailed": "Ces territoires n’ont pas pu être réparés.",
     "partitionFailed": "La partition a échoué : {message}",
     "clearPrintedConfirm": {

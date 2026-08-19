@@ -162,8 +162,30 @@ App.geometry = (function () {
     var grown = [];
     for (var i = 0; i < features.length; i++) {
       try {
-        var g = turf.buffer(feat(features[i]), eps, { units: "meters" });
-        if (g && g.geometry) grown.push(g);
+        var input = feat(features[i]);
+        var g = turf.buffer(input, eps, { units: "meters" });
+        if (!g || !g.geometry) continue;
+        // A grow that lost ground is not a grow.
+        //
+        // turf.buffer goes through jsts, which snaps its input to a precision
+        // model first. A ring carrying a few hundred vertices two centimeters
+        // apart — which is what a territory looks like after a clip, a union
+        // and a round trip through here — collapses under that snap, and what
+        // comes back is not the shape half a meter larger but a scattering of
+        // slivers around where its outline used to be. On a territory of
+        // 11,637 m² from a real project export, `buffer(+0.5 m)` returned 69 m²
+        // in fourteen pieces.
+        //
+        // Everything downstream then behaves correctly on a shape that is
+        // wrong: the union folds in the slivers, the shrink is compared
+        // against the whole footprint and passes because the loss is a
+        // fraction of a percent of it, and a territory disappears — its
+        // ground uncovered, discovered by whoever was supposed to walk it.
+        // Nothing below can catch that, because by then there is nothing left
+        // to notice. It has to be caught here, against the one thing that is
+        // known for certain: a positive buffer cannot shrink a polygon.
+        if (area(g) < area(input)) return plain;
+        grown.push(g);
       } catch (e) {
         /* fall back to the ungrown input below */
       }
