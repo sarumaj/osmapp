@@ -68,6 +68,13 @@ function fakeLayer(L) {
   return layer;
 }
 
+/**
+ * Stand polygons.js up over a Leaflet fake that records handler bookkeeping.
+ *
+ * The fake layer counts what is bound and what is removed, because the property
+ * under test is that a rebind neither stacks handlers nor strips the tooltip's
+ * own — neither of which is visible from anything the module returns.
+ */
 function setup() {
   const L = fakeL();
   const App = loadApp(["util.js", "polygons.js"], { window: {}, document: {}, L });

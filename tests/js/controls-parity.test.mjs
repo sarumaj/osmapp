@@ -303,13 +303,11 @@ test("every modal tool explains itself with a hint banner", () => {
 
 // ── Dialogs answer the keyboard too ──────────────────────────────────────────
 //
-// Every screen that takes over used to be a hole: App.shortcuts asked App.ui
-// whether a dialog was open and, if so, dispatched nothing that was not marked
-// overModal. The tools underneath were correctly silenced and the dialog got
-// nothing in exchange — so the print view's single binding sat on a listener
-// the sheet could not see, the partition dialog's two number fields did not
-// answer Enter, and "?" was blocked in exactly the screens with the most keys
-// worth listing.
+// A screen that takes over has to register its own keys, not merely silence the
+// tools beneath it. Deciding on "is a dialog open" does only the second half,
+// which leaves a dialog's bindings on listeners the sheet cannot see, number
+// fields that do not answer Enter, and "?" blocked in exactly the screens with
+// the most keys worth listing.
 //
 // Read off the source for the same reason as everything above: standing these
 // up means a map, a PDF and a network.

@@ -166,15 +166,11 @@ test("every toolbar button the tour points at exists in the toolbar", () => {
 });
 
 test("offline drops no step, the print chain included", () => {
-  // This used to assert the opposite. The three print steps — the toolbar
-  // button, the menu entry that reaches the same place from a territory, and
-  // the view itself — were dropped offline because composing a card needed
-  // /compose_pdf. It does not any more, so a tour that skips them offline
-  // would be hiding a feature that works.
-  //
-  // Kept rather than deleted because the failure it guards against is still
-  // live: gate one of the three and not the other two and you get a button
-  // whose screen never arrives.
+  // Composition is client-side, so printing works offline and no step may be
+  // gated on the connection. The three print steps — the toolbar button, the
+  // menu entry that reaches the same place from a territory, and the view
+  // itself — are the ones at risk: gate one of the three and not the other two
+  // and the tour offers a button whose screen never arrives.
   const offline = loadApp(["util.js", "tour.js"], {
     window: { localStorage: fakeStorage(), location: { search: "" } },
     navigator: { onLine: false },

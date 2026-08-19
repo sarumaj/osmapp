@@ -584,10 +584,10 @@ test("an empty territory with nowhere to go is flagged but not offered", () => {
 // ── The offer and the repair are one thing ──────────────────────────────────
 
 test("a wand is offered exactly when the repair would change something", () => {
-  // The invariant the whole `fixable` flag exists to hold. It used to be a
-  // prediction — "does a populated neighbor touch me?" — which is a different
-  // question from "can that neighbor take me?", and the row ended up offering
-  // a button that ran and did nothing.
+  // The invariant the whole `fixable` flag exists to hold. Predicting it —
+  // "does a populated neighbor touch me?" — answers a different question from
+  // "can that neighbor take me?", and the gap between the two is a row offering
+  // a button that runs and changes nothing.
   const h = setup(
     [
       { shape: box(0, 0, 1, 1), buildings: 6 },
@@ -673,9 +673,9 @@ test("a neighbor that cannot take it hands the job to the next one", () => {
 
 test("a sliver lying inside its neighbor is absorbed, not refused", () => {
   // Straight from a real partition: territory 36, thirty square metres, no
-  // buildings, and 87% of it already inside territory 37. The union was
-  // perfect and lost nothing — it simply did not make the host thirty metres
-  // bigger, because twenty-six of those metres were already the host's. An
+  // buildings, and 87% of it already inside territory 37. The union is perfect
+  // and loses nothing, yet it does not make the host thirty metres bigger,
+  // because twenty-six of those metres are already the host's. An
   // acceptance test written as "host plus nine tenths of the victim" assumes
   // neighbors never overlap, and territories overlap all the time: a merge
   // that keeps unionHealed's grown result leaves half a metre along the seam,

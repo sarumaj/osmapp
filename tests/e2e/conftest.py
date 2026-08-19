@@ -193,7 +193,7 @@ def live_server() -> Iterator[str]:
 
 @pytest.fixture(scope="session")
 def base_url(live_server: str) -> str:
-    """Point pytest-playwright's relative navigation at our own server."""
+    """Point pytest-playwright's relative navigation at the fixture server."""
     return live_server
 
 

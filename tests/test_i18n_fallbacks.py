@@ -7,12 +7,11 @@ dictionary never arrives, and what anyone reading the template believes the
 string says.
 
 Nothing keeps the two in step at runtime — apply() overwrites the markup, so a
-fallback can say something the app has not said for months and no page load
-will ever reveal it. Nine of them had drifted by the time this test was
-written, two of them into statements that were no longer true: the print
-dialog's frame hint described an Alt-drag on the rotation slider where the
-bundle documents Shift-drag on the preview, and a label read "Detail" where
-the bundle had moved on to "Label size".
+fallback can say something the app has not said for months and no page load will
+ever reveal it. The drift is not always cosmetic either: a frame hint naming an
+Alt-drag where the bundle documents Shift-drag, or a label reading "Detail" where
+the bundle says "Label size", is a fallback that describes a gesture the app does
+not have.
 
 Only single-line, text-only elements are compared. Anything with a nested tag
 is skipped: those are structural and their key is on the child.

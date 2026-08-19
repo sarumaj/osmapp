@@ -65,6 +65,14 @@ function box(west, south, east, north) {
   ]);
 }
 
+/**
+ * Stand gaps.js up over a real geometry.js and stubs for everything else.
+ *
+ * The subtraction is the thing under test, so geometry.js and turf are the real
+ * ones; App.dom, App.ui, App.controls and App.history are inert, and the layer
+ * group only records what was added to it. `outer` is what
+ * geometry.getOuterFeature returns, since the boundary is one of the two inputs.
+ */
 function setup({ clusters = [], outer = box(0, 0, 0.02, 0.02) } = {}) {
   const noop = () => {};
   const layers = [];
@@ -272,9 +280,10 @@ test("both halves of a gap pinched in the middle are offered", () => {
 });
 
 test("a plot-sized gap is offered", () => {
-  // 30 × 30 m — a house plot between two territories. The floor used to sit
-  // at 1000 m², so this was found, measured, and then dropped for being
-  // small, which is precisely the ground somebody still has to walk.
+  // 30 × 30 m — a house plot between two territories, and 900 m² is the size
+  // that decides where GAP_MIN_M2 belongs. A floor at 1000 would find this,
+  // measure it, and drop it for being small, which is precisely the ground
+  // somebody still has to walk.
   const outer = ring([
     [0, 0],
     [100 * M, 0],

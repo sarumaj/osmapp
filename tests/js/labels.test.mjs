@@ -118,6 +118,13 @@ const turf = {
  *   pixels the map claims each degree covers, which is the only thing the
  *   "too small to see" flag is derived from.
  */
+/**
+ * Stand labels.js up over real geometry, with Leaflet reduced to a fake map.
+ *
+ * `opts.span` is the on-screen size the fake map reports for every territory, in
+ * pixels: it is what decides the `tiny` flag, so a test picks it to sit either
+ * side of TINY_TERRITORY_PX rather than by zooming anything.
+ */
 function setup(features, opts = {}) {
   const span = opts.span ?? 200;
   const window = {};
@@ -338,9 +345,9 @@ test("nothing to warn about is nothing to say", () => {
 // ── The case that is not a territory at all ──────────────────────────────────
 
 test("ground in no territory is counted here, since the panel no longer counts it", () => {
-  // The info panel used to carry a row of its own for the uncovered areas.
-  // It does not any more: one mark on one count, and the list says which of
-  // the faults it is. So this number has to reach the panel through here.
+  // Uncovered ground has no row of its own in the info panel: one mark on one
+  // count, and the list says which of the faults it is. That makes this module
+  // the only route the number has to the panel, so a miss here loses it.
   const App = setup([polygon(0, 0, 1)]);
   App.gaps = { features: () => [polygon(4, 0, 1), polygon(6, 0, 1)] };
 

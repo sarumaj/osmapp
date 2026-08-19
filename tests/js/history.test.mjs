@@ -30,9 +30,9 @@
  * *Asymmetry between undo and redo.* A tool that intercepts one and not the
  * other lets the unhandled key fall through to the territories mid-edit.
  *
- * *A leaked scope.* This one has no symptom at the moment it happens. Undo
- * simply keeps answering for a tool that has closed, and the territories stop
- * being undoable for the rest of the session with nothing on screen to say so.
+ * *A leaked scope.* This one has no symptom at the moment it happens: undo goes
+ * on answering for a tool that has closed, so the territories stop being
+ * undoable for the rest of the session with nothing on screen to say so.
  */
 
 import test from "node:test";

@@ -14,8 +14,8 @@
  *
  * The assertions here are about *excess area* rather than about the outline,
  * and that is deliberate. A failure of the shrink step is invisible on screen:
- * the merged shape looks exactly right and is simply half a meter too big all
- * the way round. Nothing reports it, and the error persists through export,
+ * the merged shape looks exactly right and is half a meter too big all the way
+ * round. Nothing reports it, and the error persists through export,
  * session restore and every later merge. Area is the only symptom that can be
  * asserted on, so a change that skips or breaks the shrink fails here rather
  * than reaching a printed card.

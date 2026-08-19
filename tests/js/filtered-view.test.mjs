@@ -3,10 +3,10 @@
  *
  * refreshFilteredData() runs inside every change to the map, and on a real
  * project — a hundred territories, twelve thousand buildings, eighteen hundred
- * streets — it used to take a second of blocked main thread each time. Almost
- * all of it was work that had already been done: the same streets tested
- * against the same territories, and twelve thousand Leaflet shapes destroyed
- * and rebuilt in the same places.
+ * streets — an uncached pass is a second of blocked main thread each time,
+ * nearly all of it repeated work: the same streets tested against the same
+ * territories, and twelve thousand Leaflet shapes destroyed and rebuilt in the
+ * same places.
  *
  * Both caches key on object identity, which is only sound because the app
  * never rewrites geometry in place — a changed territory is a new object, and

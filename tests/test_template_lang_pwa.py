@@ -4,10 +4,10 @@ The dictionaries and their call sites fall back to English without a warning
 when a key is missing or a plural is called without a count. The PWA cache
 version is the only thing that tells a browser a deploy happened.
 
-Template detection used to be the third. It moved into the browser with the
-rest of the PDF work, and `tests/js/pdfdoc.test.mjs` covers the same ground —
-the marked box beating the page frame, the smallest enclosing rectangle, the
-largest empty one, and leader dots becoming named fields.
+Template detection is not checked here. It runs in the browser with the rest of
+the PDF work, so `tests/js/pdfdoc.test.mjs` covers that ground — the marked box
+beating the page frame, the smallest enclosing rectangle, the largest empty one,
+and leader dots becoming named fields.
 """
 
 import json

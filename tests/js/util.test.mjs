@@ -46,6 +46,14 @@ function fakeStorage(initial = {}) {
   };
 }
 
+/**
+ * Load util.js against one localStorage stand-in.
+ *
+ * `storage` may be an object or a function. A function is invoked on every
+ * property access, which is what lets a test make the *access itself* throw —
+ * the Firefox private-mode case util.js exists to survive, and one an object
+ * cannot reproduce.
+ */
 function withStorage(storage) {
   const window = {};
   Object.defineProperty(window, "localStorage", {

@@ -106,11 +106,11 @@ const turf = {
 };
 
 /**
- * Load the module with a state object of our own.
+ * Load naming.js against a stub state object holding `buildings`.
  *
- * naming.js reads App.labels and App.i18n at call time rather than at init,
- * so they can be attached afterwards — which is also what lets a test leave
- * them off entirely and check the module survives it.
+ * App.labels and App.i18n are read at call time rather than at init, so a test
+ * may attach them afterwards — or leave them off entirely, which is how the
+ * module's tolerance of their absence is checked.
  */
 function setup(buildings) {
   const App = loadApp(["util.js", "state.js", "geometry.js", "naming.js"], { window: {}, turf });
@@ -300,6 +300,15 @@ test("a shape that is not one of the current territories has no number", () => {
 
 // ── Reverse geocoding ────────────────────────────────────────────────────────
 
+/**
+ * Run `run` with `globalThis.fetch` replaced by `handler`, restoring it after.
+ *
+ * Restoration is in a `finally`, so a rejecting assertion inside `run` cannot
+ * leave the stub installed for the tests that follow — which would look like a
+ * failure in whichever one happened to run next.
+ *
+ * @returns {Promise<*>} whatever `run` resolves to
+ */
 function withFetch(handler, run) {
   const original = globalThis.fetch;
   globalThis.fetch = handler;
