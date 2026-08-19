@@ -327,6 +327,7 @@ test("being too small to see is not something the list warns about", () => {
   assert.deepEqual(App.labels.warnings(), {
     split: 0,
     empty: 0,
+    crossed: 0,
     uncovered: 0,
     total: 0,
   });
@@ -337,6 +338,7 @@ test("nothing to warn about is nothing to say", () => {
   assert.deepEqual(App.labels.warnings(), {
     split: 0,
     empty: 0,
+    crossed: 0,
     uncovered: 0,
     total: 0,
   });

@@ -129,6 +129,10 @@
     // After polygons and outline: it subtracts the territories from the
     // boundary, and both of those are what change underneath it.
     App.gaps.init();
+    // Before autoheal, which surveys through it, and read by clustering at the
+    // end of a partition for the same question: which boundaries are drawn
+    // through a building.
+    App.footprints.init();
     // Beside gaps rather than beside labels: both are repairs to the coverage
     // rather than descriptions of it, and both write through setClusters.
     App.autoheal.init();

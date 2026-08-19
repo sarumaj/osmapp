@@ -6,7 +6,8 @@
  *   Phase 2  Voronoi -> clip each cell to the outer polygon
  *   Phase 3  build the street graph
  *   Phase 4  route each unique cell edge along the street network, once
- *   Phase 5  polygonize, assign, fill gaps, enforce connectivity, render
+ *   Phase 5  polygonize, assign, fill gaps, enforce connectivity, take the
+ *            boundaries off the buildings they run through, render
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -646,6 +647,17 @@ App.clustering = (function () {
       // ── Guarantee every territory is a single connected piece ──────────
       _enforceConnectivity(slots);
 
+      // ── Take every boundary off the buildings it runs through ─────────
+      // Last, because the two passes above both weld shapes together with
+      // unionHealed, which buffers out and back by half a meter and rounds
+      // whatever outline it touches — including one already sitting on a
+      // wall. Going the other way round would put boundaries back into
+      // buildings after this had taken them out. Nothing here can undo the
+      // connectivity pass in return: a footprint handed over is refused
+      // outright if it would leave a territory in more pieces than it found
+      // it in.
+      _detachBuildings(slots);
+
       // ── Emit ──────────────────────────────────────────────────────────
       var partitions = Object.keys(slots)
         .map(function (idx) {
@@ -852,6 +864,52 @@ App.clustering = (function () {
     return hits.map(function (h) {
       return h.idx;
     });
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // BUILDINGS ON THE BOUNDARY
+  // ══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Move any boundary that runs through a building onto that building's wall.
+   *
+   * Phase 4 routes every cell edge along the street network, and where it
+   * succeeds this pass finds nothing to do — a street is not inside a house.
+   * Where it fails the edge stays the straight Voronoi line, and a straight
+   * line across a block goes through whatever is built on it. Those are the
+   * ones this repairs, and it repairs them the same way autoheal does later:
+   * the footprint goes whole to whichever territory already holds most of it,
+   * so the boundary comes to rest on the outline instead of across the middle.
+   *
+   * Not a substitute for the routing. A boundary along a wall is a boundary
+   * you can point at but not one you can walk; a street is both. This is what
+   * happens when there is no street to be had.
+   */
+  function _detachBuildings(slots) {
+    if (!App.footprints) return;
+
+    var keys = Object.keys(slots);
+    if (keys.length < 2) return;
+
+    var result = App.footprints.detach(
+      keys.map(function (idx) {
+        return slots[idx];
+      }),
+    );
+    if (result.resolved === 0 && result.unresolved === 0) return;
+
+    result.changed.forEach(function (position) {
+      slots[keys[position]] = result.features[position];
+    });
+
+    console.log(
+      ">>> Buildings on a boundary:",
+      result.resolved,
+      "moved onto the wall",
+      result.unresolved > 0
+        ? "| " + result.unresolved + " could not be, and stay flagged"
+        : "",
+    );
   }
 
   // ══════════════════════════════════════════════════════════════════════
