@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "osmapp"
-version = "0.0.0"
+version = "1.2.2"
 description = "A web application for editing OpenStreetMap data with clustering and session management."
 requires-python = ">=3.12"
 authors = [
