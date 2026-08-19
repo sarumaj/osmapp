@@ -631,6 +631,37 @@ test("both drop-downs show a glyph and a label, and survive the collapse", () =>
   assert.match(CSS, /\.lang-select,\s*\n\.basemap-select \{/);
 });
 
+test("both drop-downs list a pictogram and a name, not one or the other", () => {
+  // The two arrived at this from opposite ends: a flag with no language name,
+  // and layer names with no pictogram. Either half alone costs something — a
+  // list of bare flags cannot be read by anyone who does not know the flags, and
+  // a list of bare names cannot be scanned without reading it.
+  //
+  // Checked as "the option text is built from both parts", because the parts
+  // themselves live in different places: the languages are literals in i18n.js,
+  // the basemap names come out of the dictionary through t().
+  assert.match(
+    SOURCE.controls,
+    /textContent = lang\.flag \+ " " \+ lang\.name/,
+    "the language list drops one half",
+  );
+  assert.match(
+    SOURCE.controls,
+    /textContent = _emoji\(entry\.id\) \+ " " \+ T\(entry\.labelKey\)/,
+    "the basemap list drops one half",
+  );
+
+  // And the tile's pictogram is the same string as the list's, so the two cannot
+  // disagree about which basemap is which.
+  assert.match(SOURCE.controls, /glyph\.textContent = _emoji\(id\)/);
+  assert.match(SOURCE.controls, /var BASEMAP_EMOJI = \{/);
+  assert.doesNotMatch(
+    SOURCE.controls,
+    /BASEMAP_ICONS/,
+    "a second table for the tile is what this arrangement exists to avoid",
+  );
+});
+
 test("the note about aid basemaps not printing survived the move", () => {
   // The one line that says a satellite card has no street names on it. Mounted
   // into the group whose basemaps it is about, from a template that carries the

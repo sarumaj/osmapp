@@ -58,16 +58,26 @@ App.controls = (function () {
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
   var NARROW_PX = 720;
 
-  // A glyph per basemap the server may send. Keyed by id rather than derived
-  // from it, because the choice is editorial: an icon that reads as
-  // "photograph" or as "relief". An id absent from this table still renders —
-  // see _mountBasemapPicker — so an aid layer added server-side needs no change
-  // here, only a nicer icon if one is wanted.
-  var BASEMAP_ICONS = {
-    osm: "fa-map",
-    imagery: "fa-satellite",
-    terrain: "fa-mountain-sun",
+  // An emoji per basemap the server may send, used both on the picker's tile
+  // and in front of each name in its list.
+  //
+  // An emoji rather than a Font Awesome class, which is what every other icon
+  // in this panel is: an <option> renders as plain text, so a pictogram in the
+  // list has to be a character. One table rather than a glyph for the tile and a
+  // character for the list is what keeps the two from disagreeing about which
+  // basemap is which — and it is the arrangement the language picker beside it
+  // already uses, where the flag is the same string in both places.
+  //
+  // Keyed by id rather than derived from it, because the choice is editorial. An
+  // id absent from this table falls back to a globe, so an aid layer added
+  // server-side needs no change here.
+  var BASEMAP_EMOJI = {
+    osm: "🗺️",
+    imagery: "🛰️",
+    terrain: "⛰️",
   };
+
+  var BASEMAP_EMOJI_FALLBACK = "🌍";
 
   // ── Availability predicates ───────────────────────────────────────────
   //
@@ -665,8 +675,10 @@ App.controls = (function () {
    * server decision (config.AID_LAYERS, an empty URL removes one), so the
    * options are built from App.basemap rather than written out.
    *
-   * The options carry the layers' full names, because a drop-down has room for
-   * "Satellite imagery" where a 52 px tile does not.
+   * Each option is an emoji and the layer's full name, the way the language
+   * picker lists a flag and a language: a list has room for "Satellite imagery"
+   * where a 52 px tile does not, and the emoji is what makes the row scannable
+   * without reading it.
    */
   function _mountBasemapPicker(host) {
     var node = D.mount("tpl-basemap-control", host);
@@ -683,12 +695,12 @@ App.controls = (function () {
     /** Option text is built by t(), so it has to be rebuilt on a language change. */
     function name() {
       entries.forEach(function (entry, i) {
-        select.options[i].textContent = T(entry.labelKey);
+        select.options[i].textContent = _emoji(entry.id) + " " + T(entry.labelKey);
       });
     }
 
     /**
-     * The glyph is the only thing on the tile that says which basemap is on,
+     * The emoji is the only thing on the tile that says which basemap is on,
      * since the label names the control. Painted from the change rather than
      * from the click, so a basemap chosen elsewhere — the session restore picks
      * the remembered one — shows here too.
@@ -696,8 +708,7 @@ App.controls = (function () {
     function show() {
       var id = App.basemap.current();
       select.value = id;
-      glyph.className =
-        "tb-item__icon fa-solid " + (BASEMAP_ICONS[id] || "fa-layer-group");
+      glyph.textContent = _emoji(id);
     }
 
     name();
@@ -710,6 +721,10 @@ App.controls = (function () {
     });
 
     return node;
+  }
+
+  function _emoji(id) {
+    return BASEMAP_EMOJI[id] || BASEMAP_EMOJI_FALLBACK;
   }
 
   /** @returns {Function} A predicate: true while `key`'s group is on the map. */
@@ -1125,10 +1140,14 @@ App.controls = (function () {
     var select = D.role(node, "lang");
     var flag = D.role(node, "flag");
 
+    // Flag and endonym, so the list is scannable by shape and readable by
+    // anyone who has landed in a language they cannot read. Neither part goes
+    // through t(): both are the same string in every language, which is what
+    // makes this the one control in the panel a language change leaves alone.
     App.i18n.languages().forEach(function (lang) {
       var option = document.createElement("option");
       option.value = lang.code;
-      option.textContent = lang.label;
+      option.textContent = lang.flag + " " + lang.name;
       select.appendChild(option);
     });
     select.value = App.i18n.current();
@@ -1137,7 +1156,7 @@ App.controls = (function () {
     function showFlag() {
       var current = App.i18n.current();
       App.i18n.languages().forEach(function (lang) {
-        if (lang.code === current) flag.textContent = lang.label;
+        if (lang.code === current) flag.textContent = lang.flag;
       });
     }
     showFlag();

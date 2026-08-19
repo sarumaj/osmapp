@@ -29,11 +29,18 @@ App.i18n = (function () {
 
   var FALLBACK_LANG = "en";
 
+  // Each language names itself. An endonym rather than a translated name,
+  // because the reader most in need of this control is the one who has landed
+  // in a language they cannot read: "Deutsch" is findable from any starting
+  // point, "German" only from English. The flag is the same string in the
+  // switcher's own tile, which is why both live here rather than in the
+  // dictionaries — a name in four translations is four places to keep in step
+  // for a word that never changes.
   var LANGUAGES = [
-    { code: "en", label: "🇺🇸" },
-    { code: "pl", label: "🇵🇱" },
-    { code: "de", label: "🇩🇪" },
-    { code: "fr", label: "🇫🇷" },
+    { code: "en", flag: "🇺🇸", name: "English" },
+    { code: "pl", flag: "🇵🇱", name: "Polski" },
+    { code: "de", flag: "🇩🇪", name: "Deutsch" },
+    { code: "fr", flag: "🇫🇷", name: "Français" },
   ];
 
   var _lang = FALLBACK_LANG;
@@ -166,6 +173,10 @@ App.i18n = (function () {
   // LIFECYCLE
   // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * @returns {Array<{code:string, flag:string, name:string}>} A copy, so a
+   *   caller building a picker cannot reorder the switcher for everyone else.
+   */
   function languages() {
     return LANGUAGES.slice();
   }
