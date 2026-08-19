@@ -96,7 +96,13 @@
     "labelLayerGaps": "Gaps",
     "layerToggle": "Show or hide {name}",
     "labelBasemap": "Background",
-    "basemap": "Choose what is drawn under the map"
+    "basemap": "Choose what is drawn under the map",
+    "labelZoomIn": "Zoom in",
+    "labelZoomOut": "Zoom out",
+    "zoomIn": "Zoom in one step",
+    "zoomOut": "Zoom out one step",
+    "atMaxZoom": "Already as close in as this background goes",
+    "atMinZoom": "Already as far out as this background goes"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",

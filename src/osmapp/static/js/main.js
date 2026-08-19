@@ -21,7 +21,16 @@
       console.error(">>> No #map element in the page.");
       return;
     }
-    var map = L.map(node, { center: [47.3769, 8.5417], zoom: 13 });
+    // zoomControl: false — the two zoom buttons are tiles in the toolbar's
+    // View group instead (see controls.js). Leaflet's own pair is a second
+    // control in the same top-left corner, styled by leaflet.css rather than
+    // by this app, so it read as the one piece of chrome that belonged to a
+    // different program — and it named neither of its buttons.
+    var map = L.map(node, {
+      center: [47.3769, 8.5417],
+      zoom: 13,
+      zoomControl: false,
+    });
     // Before i18n, deliberately: the map should have ground under it while the
     // dictionaries load. App.basemap adds whichever basemap was last chosen —
     // OSM unless someone switched to an aid layer — and the toolbar's View

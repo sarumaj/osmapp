@@ -96,7 +96,13 @@
     "labelLayerGaps": "Lücken",
     "layerToggle": "{name} ein- oder ausblenden",
     "labelBasemap": "Hintergrund",
-    "basemap": "Wählen, was unter der Karte liegt"
+    "basemap": "Wählen, was unter der Karte liegt",
+    "labelZoomIn": "Vergrößern",
+    "labelZoomOut": "Verkleinern",
+    "zoomIn": "Eine Stufe hineinzoomen",
+    "zoomOut": "Eine Stufe herauszoomen",
+    "atMaxZoom": "Näher geht dieser Hintergrund nicht",
+    "atMinZoom": "Weiter heraus geht dieser Hintergrund nicht"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",

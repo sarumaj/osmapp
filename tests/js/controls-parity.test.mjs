@@ -581,6 +581,42 @@ test("the layer switcher is the toolbar, not a second panel", () => {
   assert.match(SOURCE.controls, /titleKey:\s*"toolbar\.groupView"/);
 });
 
+test("zooming is the toolbar's too, not Leaflet's control beside it", () => {
+  // Same argument as the layer switcher above, and the last control it left
+  // behind: Leaflet's zoom pair sat in the top-left corner the panel occupies,
+  // styled by leaflet.css and by nothing in this app, and named neither of its
+  // two buttons. So the map had one piece of chrome that looked like it came
+  // from a different program — which is the whole thing the single panel was
+  // built to end.
+  assert.match(
+    SOURCE.main,
+    /zoomControl:\s*false/,
+    "Leaflet's own zoom control is back beside the panel",
+  );
+  for (const id of ["zoom-in", "zoom-out"]) {
+    assert.ok(
+      SOURCE.controls.includes(`id: "${id}"`),
+      `the View group has no ${id} tile`,
+    );
+  }
+  assert.match(SOURCE.controls, /_map\.zoomIn\(\)/);
+  assert.match(SOURCE.controls, /_map\.zoomOut\(\)/);
+
+  // Greyed at the ends of the scale, with a tooltip that says why — the same
+  // bargain every other unavailable button in the panel makes. Which only
+  // holds while something repaints it: the scroll wheel and a fitBounds change
+  // these two buttons' availability without anyone touching the panel.
+  assert.match(SOURCE.controls, /function canZoomIn\(/);
+  assert.match(SOURCE.controls, /function canZoomOut\(/);
+  assert.match(SOURCE.controls, /disabledTitleKey:\s*"toolbar\.atMaxZoom"/);
+  assert.match(SOURCE.controls, /disabledTitleKey:\s*"toolbar\.atMinZoom"/);
+  assert.match(
+    SOURCE.controls,
+    /\.on\("zoomend", refresh\)/,
+    "nothing repaints the pair when the map zooms by itself",
+  );
+});
+
 test("every layer the old switcher offered still has a switch", () => {
   // The five overlays and the basemaps. A layer with no switch cannot be turned
   // off, and nothing about the map says which one is missing.

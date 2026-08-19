@@ -117,6 +117,21 @@ App.controls = (function () {
     return hasBoundary() || hasClusters();
   }
 
+  /**
+   * The zoom limits are the basemap's, not the map's: getMaxZoom() answers
+   * from the layers currently on the map, so switching to an aid basemap that
+   * stops at 17 greys the button out at 17 rather than letting the click zoom
+   * past the last tile that exists. Both read the live map, so refresh() on
+   * "zoomend" is what keeps the pair honest.
+   */
+  function canZoomIn() {
+    return !!_map && _map.getZoom() < _map.getMaxZoom();
+  }
+
+  function canZoomOut() {
+    return !!_map && _map.getZoom() > _map.getMinZoom();
+  }
+
   // ══════════════════════════════════════════════════════════════════════
   // TOOLBAR CONTENT
   // ══════════════════════════════════════════════════════════════════════
@@ -287,6 +302,42 @@ App.controls = (function () {
       titleKey: "toolbar.groupView",
       noteTemplate: "tpl-toolbar-note",
       buttons: [
+        // The zoom pair heads the group: it is the switch used most often and
+        // the only one here that is a plain action rather than a state. It
+        // replaces Leaflet's own zoom control, which main.js no longer adds —
+        // two unlabelled squares in this same corner, styled by leaflet.css
+        // and by nothing in this app.
+        //
+        // Disabled at the ends of the scale rather than silently doing
+        // nothing, which is the whole reason a button gets an enabled()
+        // predicate here: the tooltip then says why, and the greyed tile says
+        // that the map is as close in as this basemap goes rather than that
+        // the click missed.
+        {
+          id: "zoom-in",
+          icon: "fa-magnifying-glass-plus",
+          labelKey: "toolbar.labelZoomIn",
+          titleKey: "toolbar.zoomIn",
+          disabledTitleKey: "toolbar.atMaxZoom",
+          accent: "green",
+          enabled: canZoomIn,
+          onClick: function () {
+            _map.zoomIn();
+          },
+        },
+        {
+          id: "zoom-out",
+          icon: "fa-magnifying-glass-minus",
+          labelKey: "toolbar.labelZoomOut",
+          titleKey: "toolbar.zoomOut",
+          disabledTitleKey: "toolbar.atMinZoom",
+          accent: "green",
+          enabled: canZoomOut,
+          onClick: function () {
+            _map.zoomOut();
+          },
+        },
+        { separator: true },
         { id: "basemap", custom: _mountBasemapPicker },
         { separator: true },
         {
@@ -531,6 +582,11 @@ App.controls = (function () {
     });
 
     App.i18n.onChange(refresh);
+
+    // The zoom pair is the only button in the panel whose availability the map
+    // changes on its own — a scroll wheel, a double-click, a fitBounds — so it
+    // is the only one that needs the map to say when it moved.
+    leafletMap.on("zoomend", refresh);
 
     _registerKeys();
     refresh();
@@ -782,9 +838,9 @@ App.controls = (function () {
           title.textContent = T(group.titleKey);
 
           var host = D.role(section, "items");
-          // dynamic() first, then the written-out buttons: the only group with
-          // both is View, where the server-driven basemaps head the list and
-          // the separator immediately after them is the first written entry.
+          // dynamic() first, then the written-out buttons, so a group that is
+          // partly server-driven puts what the server sent at the top of its
+          // own list rather than after it.
           var specs = (group.dynamic ? group.dynamic() : []).concat(
             group.buttons || [],
           );

@@ -96,7 +96,13 @@
     "labelLayerGaps": "Vides",
     "layerToggle": "Afficher ou masquer {name}",
     "labelBasemap": "Fond",
-    "basemap": "Choisir ce qui est dessiné sous la carte"
+    "basemap": "Choisir ce qui est dessiné sous la carte",
+    "labelZoomIn": "Agrandir",
+    "labelZoomOut": "Réduire",
+    "zoomIn": "Zoomer d'un niveau",
+    "zoomOut": "Dézoomer d'un niveau",
+    "atMaxZoom": "Ce fond ne va pas plus près",
+    "atMinZoom": "Ce fond ne va pas plus loin"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
