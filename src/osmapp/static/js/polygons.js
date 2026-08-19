@@ -170,6 +170,7 @@ App.polygons = (function () {
       _buildingHoverStyle,
       _buildingStyle,
     );
+    _wireMapExit();
     App._loaded.push("polygons");
   }
 
@@ -667,6 +668,10 @@ App.polygons = (function () {
 
   var _tooltipMode = "full";
 
+  // The one street or building whose tooltip is open. See _openFeatureTooltip
+  // for why there is a slot rather than a set.
+  var _hoveredFeature = null;
+
   /**
    * Rebind every cluster tooltip in a new presentation. Rebinding rather than
    * opening and closing on each hover avoids the flicker of a tooltip that
@@ -676,7 +681,7 @@ App.polygons = (function () {
   function setTooltipMode(mode) {
     if (!(mode in TOOLTIP_MODES) || mode === _tooltipMode) return;
     _tooltipMode = mode;
-    if (!_featureInfoAllowed()) _closeFeatureTooltips();
+    if (!_featureInfoAllowed()) _forgetFeatureTooltips();
     clusterLayers().forEach(function (layer) {
       _bindTooltip(layer);
     });
@@ -739,7 +744,7 @@ App.polygons = (function () {
    * stay lit for as long as the tool is active.
    */
   function clearHover() {
-    _closeFeatureTooltips();
+    _forgetFeatureTooltips();
     clusterLayers().forEach(function (layer) {
       if (!layer._hover) return;
       layer._hover = false;
@@ -978,21 +983,21 @@ App.polygons = (function () {
       var layer = e.layer;
       if (!layer || !layer.setStyle) return;
       layer.setStyle(styleFor(hoverStyle, layer));
-      if (!_featureInfoAllowed()) return;
-      if (!layer._infoBound) {
-        layer.bindTooltip(contentFn, FEATURE_TOOLTIP);
-        layer._infoBound = true;
+      if (!_featureInfoAllowed()) {
+        // Nothing may be open in a mode that shows no panels, including the
+        // one left over from the shape the pointer was on when the mode
+        // changed under it.
+        _closeFeatureTooltip(_hoveredFeature);
+        return;
       }
-      // bindTooltip's own mouseover handler is registered too late to catch
-      // the event currently being dispatched, so the first open is manual.
-      layer.openTooltip(e.latlng);
+      _openFeatureTooltip(layer, contentFn, e.latlng);
     });
 
     group.on("mouseout", function (e) {
       var layer = e.layer;
       if (!layer || !layer.setStyle) return;
       layer.setStyle(styleFor(restStyle, layer));
-      if (layer._infoBound) layer.closeTooltip();
+      _closeFeatureTooltip(layer);
     });
 
     group.on("click contextmenu", function (e) {
@@ -1016,6 +1021,28 @@ App.polygons = (function () {
       var found = clusterAt(e.latlng);
       if (!found) return;
       found.entry.layer.fire(e.type, e, true);
+    });
+  }
+
+  /**
+   * Close whatever is open when the pointer leaves the map.
+   *
+   * The last resort behind the slot in _openFeatureTooltip. A shape's mouseout
+   * is what normally closes its tooltip, and it does not always come — the
+   * pointer moving off the map onto the info panel, onto a dialog, or out of
+   * the window is the case people actually hit, and the one that leaves a
+   * panel sitting over the map with nothing under the cursor at all.
+   *
+   * `mouseleave` on the container rather than the map's own `mouseout`: the
+   * DOM event does not bubble, so it fires when the pointer truly leaves the
+   * map and not every time it crosses between two shapes inside it.
+   */
+  function _wireMapExit() {
+    var container =
+      s.leafletMap && s.leafletMap.getContainer && s.leafletMap.getContainer();
+    if (!container || !L || !L.DomEvent) return;
+    L.DomEvent.on(container, "mouseleave", function () {
+      _closeFeatureTooltip(_hoveredFeature);
     });
   }
 
@@ -1051,14 +1078,75 @@ App.polygons = (function () {
     return (_tooltipMode === "full" || _tooltipMode === "features") && !s.editMode;
   }
 
-  function _closeFeatureTooltips() {
+  /**
+   * Open one feature's tooltip, and only one.
+   *
+   * The slot is the point. Leaflet closes a tooltip when the pointer leaves
+   * the shape, and that is enough right up until the mouseout does not
+   * arrive — the shape is taken off the map, a mark is dropped on top of it,
+   * the pointer leaves the window, the element is rebuilt under a cursor that
+   * has not moved. Any of those leaves a panel on the map describing a
+   * building nobody is pointing at, and nothing else ever closes it.
+   *
+   * Holding the open one means the next hover closes it whether or not its own
+   * mouseout ever came, which turns a panel that stays until the page is
+   * reloaded into one that stays until the pointer touches anything else.
+   */
+  function _openFeatureTooltip(layer, contentFn, latlng) {
+    if (_hoveredFeature && _hoveredFeature !== layer)
+      _closeFeatureTooltip(_hoveredFeature);
+    if (!layer._infoBound) {
+      layer.bindTooltip(contentFn, FEATURE_TOOLTIP);
+      layer._infoBound = true;
+    }
+    _hoveredFeature = layer;
+    // bindTooltip's own mouseover handler is registered too late to catch the
+    // event currently being dispatched, so the first open is manual.
+    layer.openTooltip(latlng);
+  }
+
+  function _closeFeatureTooltip(layer) {
+    if (!layer) return;
+    if (layer._infoBound) layer.closeTooltip();
+    if (_hoveredFeature === layer) _hoveredFeature = null;
+  }
+
+  /**
+   * Take a feature's tooltip off it altogether.
+   *
+   * Closing is not enough where tooltips have been switched off. bindTooltip
+   * installs Leaflet's own `mouseover` opener on the layer, and that handler
+   * knows nothing about this app's modes: with the binding left in place, the
+   * next hover opens a panel the cut tool has just finished suppressing, over
+   * the street the pointer is drawing along. Unbinding leaves nothing to fire,
+   * and the hover after the mode comes back binds it again.
+   *
+   * The focus listeners go with it. Leaflet 1.9's unbindTooltip leaves the
+   * ones it put on the element, and they read `this._tooltip._source` with no
+   * guard — see _dropFocusListeners, which is here for the same reason on the
+   * territory side.
+   */
+  function _forgetFeatureTooltip(layer) {
+    if (!layer._infoBound) return;
+    layer.closeTooltip();
+    layer.unbindTooltip();
+    _dropFocusListeners(layer);
+    layer._infoBound = false;
+    if (_hoveredFeature === layer) _hoveredFeature = null;
+  }
+
+  /** Take the tooltip off every street and building that has one. */
+  function _forgetFeatureTooltips() {
+    // First, because the layer holding the slot may not be in either group any
+    // more — which is one of the ways it came to be stale.
+    _hoveredFeature = null;
     [s.streetsLayerGroup, s.buildingsLayerGroup].forEach(function (group) {
       if (!group) return;
       (function walk(parent) {
         parent.eachLayer(function (layer) {
           if (layer.eachLayer) walk(layer);
           if (layer._infoBound) {
-            layer.closeTooltip();
+            _forgetFeatureTooltip(layer);
             if (layer.setStyle)
               layer.setStyle(
                 group === s.streetsLayerGroup

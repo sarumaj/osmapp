@@ -130,6 +130,7 @@
     "misordering",
     "monkeypatch",
     "mousedown",
+    "mouseleave",
     "mousemove",
     "mouseout",
     "mouseup",
