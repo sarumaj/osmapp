@@ -114,14 +114,14 @@ test("the territories tile the outer boundary", () => {
 });
 
 test("one territory has a bite out of it, and it is in the interior", () => {
-  // The uncovered patch the tour needs. Without it the sample tiles the
-  // boundary exactly, so the step about ground nobody covers points at a map
-  // with none of it and the territory list's repair button — hidden when there
-  // is nothing to repair — is absent for the whole walkthrough.
+  // The uncovered patch the tour needs: without it the sample covers the
+  // boundary exactly, the step about ground nobody covers points at a map with
+  // none of it, and the territory list's repair button — hidden when there is
+  // nothing to repair — never appears.
   //
-  // Asserted as "exactly one territory is not a rectangle", which is the
-  // property, rather than by hunting for the hole with a boolean union: that
-  // needs turf, and demo.js is testable precisely because it needs nothing.
+  // Asserted as "exactly one territory is not a rectangle" rather than by
+  // hunting for the hole with a boolean union, which would need turf. demo.js
+  // is testable precisely because it needs nothing.
   const notched = payload.clusters.filter((c) => ring(c).length > 5);
   assert.equal(notched.length, 1, "the sample has no uncovered patch");
 
@@ -219,8 +219,9 @@ test("the collections are the shape the print overlay walks", () => {
 });
 
 test("both new tour steps are in the dictionary", () => {
-  // "gaps" and "autoheal" join them: both are steps about the patch the notch
-  // above leaves behind, and both are useless as a raw key path on screen.
+  // "gaps" and "autoheal" belong here too: both describe the patch the notch
+  // above leaves behind, and a raw key path teaches a first-time reader
+  // nothing.
   for (const id of ["sample", "restore", "gaps", "autoheal"]) {
     assert.equal(typeof DICT.tour.steps[id].title, "string", id);
     assert.equal(typeof DICT.tour.steps[id].body, "string", id);

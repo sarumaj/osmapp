@@ -33,13 +33,11 @@
  * Translation notes:
  *   • Labels and static tooltips carry data-i18n / data-i18n-attrs, so
  *     App.i18n.apply(document.body) refreshes them on a language change.
- *     Computed titles (undo depth, disabled reasons) are re-applied by
- *     refresh(), which is registered as an i18n listener.
- *   • Titles that are computed rather than declared — an undo depth, a
- *     disabled reason, "Show or hide Streets" — do not survive an
- *     App.i18n.apply() pass, so refresh() is registered as an i18n listener
- *     and rebuilds them. With URL routing a language change is a page load,
- *     so this only matters for an in-place switch.
+ *   • Computed titles — an undo depth, a disabled reason, "Show or hide
+ *     Streets" — do not survive an App.i18n.apply() pass, so refresh() is
+ *     registered as an i18n listener and rebuilds them. With URL routing a
+ *     language change is a page load, so this only matters for an in-place
+ *     switch.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -62,9 +60,9 @@ App.controls = (function () {
 
   // Icons and short labels for the basemaps the server may send. Keyed by id
   // rather than derived from it, because both are editorial: a glyph that says
-  // "photograph" and a word that fits a 52 px tile. An id with no entry here
-  // still renders — see _basemapButtons — so adding an aid layer server-side
-  // needs no client change, and giving it a nicer face is one line each.
+  // "photograph" and a word that fits a 52 px tile. An id absent from either
+  // table still renders — see _basemapButtons — so an aid layer added
+  // server-side needs no change here.
   var BASEMAP_ICONS = {
     osm: "fa-map",
     imagery: "fa-satellite",
@@ -272,21 +270,15 @@ App.controls = (function () {
       ],
     },
     {
-      // What is on screen, as opposed to what is in the document.
-      //
-      // This was Leaflet's own layer switcher, pinned to the opposite corner
-      // of the map: a nine-line list of radio buttons and checkboxes in a
-      // second panel with its own idea of what a control looks like. Nothing
-      // was wrong with it except that it was the only part of the app that
-      // did not look like the app, and the one view switch that had never
-      // been a layer — the number chips — lived over here instead, so "what
-      // is shown" was answered in two places.
+      // What is on screen, as opposed to what is in the document: no switch
+      // here changes a territory, a boundary or a download, which is what
+      // separates the group from every other one in the panel.
       //
       // Basemaps come first and are mutually exclusive: one thing can be
-      // under the map. Then a divider, and then the overlays, each its own
-      // toggle. None of them is ever disabled, on purpose — a layer switch
-      // that greys out is a switch you cannot use to find out whether the
-      // data arrived.
+      // under the map. Then a divider, then the overlays, each its own
+      // toggle. The layer switches are never disabled — one that greys out
+      // cannot be used to find out whether the data arrived — so Numbers is
+      // the only entry with an enabled() predicate.
       key: "view",
       titleKey: "toolbar.groupView",
       // Which basemaps exist is a server decision (config.AID_LAYERS, an
@@ -299,9 +291,8 @@ App.controls = (function () {
         {
           id: "layer-outer",
           // A crop frame rather than a polygon: fa-draw-polygon is the Draw
-          // button's glyph, and two identical icons in one panel is the
-          // problem this toolbar was rebuilt to fix — collapsed, the label
-          // that tells them apart is not there.
+          // button's glyph, and a collapsed panel has dropped the labels that
+          // would tell two identical icons apart.
           icon: "fa-crop-simple",
           labelKey: "toolbar.labelLayerOuter",
           accent: "blue",
@@ -344,13 +335,13 @@ App.controls = (function () {
         {
           // Its own switch rather than riding with the territories: it is the
           // opposite of a territory, and somebody who has finished checking
-          // the coverage should be able to put it away without losing the
-          // shapes it was drawn against.
+          // the coverage can put it away without losing the shapes it was
+          // drawn against.
           //
-          // It is also the only one of these that is not merely a draw call.
-          // App.gaps stops subtracting when it is off — see setVisible there
-          // — so the switch is routed through the module rather than through
-          // the map, and the layer group stays where main.js put it.
+          // The only switch here that is not merely a draw call: App.gaps
+          // stops subtracting while it is off (see setVisible there), so this
+          // one goes through the module rather than through the map, and the
+          // layer group stays where main.js put it.
           id: "layer-gaps",
           icon: "fa-triangle-exclamation",
           labelKey: "toolbar.labelLayerGaps",
@@ -366,12 +357,11 @@ App.controls = (function () {
           },
         },
         {
-          // Moved here from Territories, where it was the odd one out: every
-          // other button in that group changes the document and this one only
-          // changes the picture. The count in the info panel is a number
-          // people check against the map by eye, and they lose — this puts the
-          // same number *on* each territory, so counting is reading rather
-          // than searching.
+          // A view switch rather than a territory tool: it changes the
+          // picture and not the document, which is what puts it in this group.
+          // The count in the info panel is a number people check against the
+          // map by eye, and they lose — this puts the same number *on* each
+          // territory, so counting is reading rather than searching.
           id: "numbers",
           icon: "fa-hashtag",
           labelKey: "toolbar.labelNumbers",
@@ -674,18 +664,16 @@ App.controls = (function () {
   // ── The View group ────────────────────────────────────────────────────
 
   /**
-   * One button per basemap, in the order the server sent them, base first.
+   * One button spec per basemap, in App.basemap's order, base first.
    *
-   * Radio semantics without a radio: exactly one of these reads as active,
-   * because App.basemap.select() removes whatever else was under the map.
-   * `aria-pressed` rather than `aria-checked` — they are the same kind of
-   * control as every other tile in the panel, and a lone radio group inside a
-   * toolbar is a promise about arrow keys that nothing here keeps.
+   * Radio semantics without a radio: exactly one reads as active, because
+   * App.basemap.select() removes whatever else was under the map. They carry
+   * aria-pressed like the panel's other toggles rather than aria-checked,
+   * which would promise arrow-key navigation nothing here implements.
    *
-   * The short label is looked up by id and falls back to the layer's own name,
-   * which is what an aid nobody has written a label for should show: "Terrain"
-   * fits a 52 px tile, "Ukształtowanie terenu" does not, and a raw key would
-   * be worse than either.
+   * An id missing from BASEMAP_LABELS falls back to the layer's own name, so
+   * an unlabelled aid shows "Terrain" rather than a raw key — at the cost of
+   * a name that may not fit the tile.
    */
   function _basemapButtons() {
     return App.basemap.entries().map(function (entry) {
@@ -708,13 +696,14 @@ App.controls = (function () {
     });
   }
 
-  /** True while `key`'s layer group is on the map. */
+  /** @returns {Function} A predicate: true while `key`'s group is on the map. */
   function _overlayShown(key) {
     return function () {
       return !!(s[key] && _map.hasLayer(s[key]));
     };
   }
 
+  /** @returns {Function} A click handler that adds or removes `key`'s group. */
   function _toggleOverlay(key) {
     return function () {
       var group = s[key];
@@ -726,11 +715,11 @@ App.controls = (function () {
   }
 
   /**
-   * "Show or hide Streets".
+   * A tooltip naming the layer, e.g. "Show or hide Streets".
    *
-   * Computed rather than a key per layer: the layer names are already in the
-   * dictionary — the print dialog and the tour both read them — and a second
-   * copy of "Streets" phrased as a sentence is a second copy to keep in step.
+   * Interpolated rather than given a key per layer, so the layer names stay in
+   * one place in the dictionary: a "Show or hide Streets" spelled out per
+   * switch is a second copy of every name to keep in step with the first.
    */
   function _overlayTitle(nameKey) {
     return function () {

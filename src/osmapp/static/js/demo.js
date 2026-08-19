@@ -102,18 +102,16 @@ App.demo = (function () {
   // ── The uncovered patch ───────────────────────────────────────────────
   //
   // A notch bitten out of one territory, in the empty field between the last
-  // street and the first farm. It exists for the same reason the farms do: on
-  // a grid that tiles the boundary exactly there is no uncovered ground, so
-  // the step about uncovered ground pointed at a map with none of it, and the
-  // repair button the territory list offers was hidden for the whole
-  // walkthrough — a feature explained in the abstract and never shown.
+  // street and the first farm. A grid that tiles the boundary exactly leaves
+  // no uncovered ground, so this is what gives the tour's gaps and autoheal
+  // steps something to point at, the way the outlying farms give the trim step
+  // something to trim.
   //
-  // Deliberately in the interior, bounded on all four sides by territories:
-  // an edge notch would only shrink the covered area, and "the boundary grew
-  // and nothing filled it" is the case people actually hit. Deliberately
-  // empty of houses too, which is what makes it the whole autoheal story in
-  // one shape — adopted as a territory, found to hold nothing, handed to the
-  // neighbor it shares the most boundary with.
+  // Interior rather than an edge notch, so it stands for ground the boundary
+  // gained that no territory covers, which is the case people hit. Empty of
+  // houses, which makes it the whole autoheal repair in one shape: adopted as
+  // a territory, found to hold nothing, handed to the neighbor it shares the
+  // most boundary with.
   var GAP_W = 150; // east–west, meters
   var GAP_D = 110; // north–south, meters
 
@@ -309,13 +307,13 @@ App.demo = (function () {
   }
 
   /**
-   * Five territories tiling the boundary, split on three of the grid lines —
-   * all but one of them a plain rectangle.
+   * Five territories covering the boundary, cut on two of the grid lines and
+   * once out in the field, all but one of them a plain rectangle.
    *
    * One carries a printed mark, so the green fill and the tick are on screen
    * from the moment the sample loads rather than being described in the
-   * abstract two steps later. One is L-shaped, which is where the uncovered
-   * patch comes from: the notch is the piece nobody covers.
+   * abstract two steps later. One is L-shaped, and its missing corner is the
+   * uncovered patch: the piece nobody covers.
    */
   function _clusters() {
     var west = STREETS[0] - MARGIN;

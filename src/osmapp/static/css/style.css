@@ -1128,13 +1128,12 @@ body {
    for phones and for anyone who has learned the icons.
    ═══════════════════════════════════════════════════════════ */
 .tb-panel {
-  /* The grid the panel is measured in. .tb-group__items wraps, so the width is
-     what decides how many tiles a group puts on a line — and until it was
-     stated the answer was "however many the largest group has", which is how
-     adding the View group's nine switches turned a 334 px panel into a 502 px
-     one and took a third of the map with it. Six columns is the width the
-     panel already had; every group either fits on one line or wraps onto two
-     tidy ones. */
+  /* The grid the panel is measured in, and the reason the width is stated at
+     all: .tb-group__items wraps, so the panel's width is what decides how many
+     tiles a group puts on a line. Left to the content it is instead however
+     many the largest group happens to hold, and one group gaining a switch
+     silently widens the whole panel over the map. Six columns fits every group
+     on one line or two. */
   --tb-tile: 52px;
   --tb-gap: 2px;
   --tb-cols: 6;
@@ -1213,10 +1212,8 @@ body {
 }
 
 /* ── The View group's two halves ───────────────────────────────────────── */
-/* Pick-one basemaps above, toggle-each overlays below. Leaflet's switcher drew
-   the same line with a divider between its radios and its checkboxes, and that
-   divider was most of the explanation it needed — so the line came along when
-   the entries became tiles.
+/* The divider between the pick-one basemaps above and the toggle-each overlays
+   below, which is most of the explanation those two halves need.
 
    flex-basis: 100% is what forces the wrap in the expanded panel, where the
    items are a wrapping row. Collapsed they are a column, where a 100% basis
@@ -1322,16 +1319,15 @@ body {
 }
 
 /* ── View switches ─────────────────────────────────────────────────────── */
-/* The solid purple .is-active fill says "a tool is running", and it is right
-   for Cut and Merge: they are modes, they are the exception, and while one is
-   on it is the most important thing on the panel. It is wrong for every switch
-   in the View group, where on is the resting state — five overlays and the
-   numbers all start on, so the same treatment turned the group into a block of
-   filled tiles that read as six alarms.
-   So a switch that is on gets the quiet version of the same idea: the hover
-   tint it would have under the cursor anyway, an accent-colored glyph, and a
-   hairline ring saying it is pressed. Off is a plain tile — a control you can
-   press, not one that is unavailable. */
+/* The solid purple .is-active fill says "a tool is running", which is right for
+   Cut and Merge: a mode is the exception, and while one is on it is the most
+   important thing on the panel. In the View group on is instead the resting
+   state — all five overlays and the numbers start on — so the same fill would
+   render six filled tiles that read as six alarms.
+   A switch that is on therefore gets the quiet form: the hover tint it would
+   have under the cursor anyway, an accent-colored glyph, and a hairline ring
+   for the pressed state. Off is a plain tile, which reads as a control you can
+   press rather than one that is unavailable. */
 .tb-group[data-group="view"] .tb-item.is-active,
 .tb-group[data-group="view"] .tb-item.is-active:hover {
   background: var(--c-surface-hover);

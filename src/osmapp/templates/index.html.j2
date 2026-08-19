@@ -222,16 +222,15 @@
     </template>
 
     <!-- The hairline between the two halves of the View group: pick-one
-         basemaps above, toggle-each overlays below. Leaflet's own switcher
-         drew the same distinction with a divider, and it was most of the
-         explanation the switcher needed — so it comes along. -->
+         basemaps above, toggle-each overlays below. That divider is most of
+         the explanation the two halves need. -->
     <template id="tpl-toolbar-break">
       <span class="tb-group__break" aria-hidden="true"></span>
     </template>
 
-    <!-- One line under the View group, and only while an aid basemap is
-         selected. The rule it states — cards always print OSM — is invisible
-         until someone has already printed fifty of them. -->
+    <!-- One line under the View group, shown only while an aid basemap is
+         selected. The rule it states — cards always print OSM — is otherwise
+         invisible until someone has already printed fifty of them. -->
     <template id="tpl-toolbar-note">
       <p class="tb-group__note" role="note" data-i18n="layers.aidNote">
         An on-screen aid only. Territory cards are always printed on the

@@ -261,11 +261,9 @@ App.tour = (function () {
       },
     },
     {
-      // The View group used to be Leaflet's layer switcher in the opposite
-      // corner, and this step used to be after the sample was put away —
-      // which meant the two switches that only make sense with territories on
-      // screen were explained over an empty map. It is here now, and the two
-      // steps that follow are the two entries in it that are not layers.
+      // Inside the sample block: this step introduces the group, and the two
+      // that follow point at the switches in it that say nothing without
+      // territories on screen.
       id: "layers",
       demo: true,
       target: '[data-group="view"]',
@@ -278,11 +276,11 @@ App.tour = (function () {
       placement: "right",
     },
     {
-      // The one entry in the group that is not a layer at all: it finds ground
-      // that belongs to no territory, which is the failure the rest of the app
-      // cannot show you because nothing looks wrong when it happens. The
-      // sample carries one such patch on purpose — see demo.js — so this is a
-      // switch with something to switch on.
+      // The one switch in the group that computes rather than draws: it finds
+      // ground belonging to no territory, which is the failure the rest of the
+      // app cannot show because nothing looks wrong when it happens. The sample
+      // carries one such patch on purpose — see demo.js — so the switch has
+      // something to switch on.
       id: "gaps",
       demo: true,
       target: '[data-action="layer-gaps"]',
@@ -299,10 +297,9 @@ App.tour = (function () {
       placement: "right",
     },
     {
-      // The screen the print button actually opens, which no step showed: the
-      // two that followed were both about a right-click menu, so the list —
-      // the place where the map's faults are named — was reachable from the
-      // walkthrough and never in it.
+      // The screen the print button opens, and the place where the map's
+      // faults are named — so it comes before the step about repairing them,
+      // and before the two that reach a card from a territory instead.
       id: "territoryList",
       demo: true,
       target: ".territory-list",
@@ -315,12 +312,10 @@ App.tour = (function () {
       },
     },
     {
-      // Autoheal had no step of its own, and it is the one feature in the app
-      // that changes the territories without being asked how. Explaining it
-      // needed a list with something wrong in it, which is why the sample now
-      // carries an uncovered patch: the button this rings is hidden when there
-      // is nothing to repair, so a tidy sample would have left the step
-      // pointing at an absence.
+      // Autoheal rewrites the territories without asking how, so it is worth
+      // a step of its own. The button this rings is hidden when there is
+      // nothing to repair, which is why the sample carries an uncovered patch
+      // — see demo.js. On a tidy sample the step points at an absence.
       id: "autoheal",
       demo: true,
       target: '.territory-list [data-role="fix-all"]',
@@ -414,11 +409,11 @@ App.tour = (function () {
   ];
 
   /**
-   * The territory list, opened on the sample.
+   * Open the territory list on the sample.
    *
-   * Idempotent by way of labels.openList(), which re-opens rather than
-   * stacking — so stepping back into the step that precedes this one and
-   * forward again lands on one dialog rather than two.
+   * Safe to call with the list already open: labels.openList() re-opens rather
+   * than stacking, so stepping back and forward across the two steps that use
+   * this lands on one dialog rather than two.
    */
   function _openSampleList() {
     if (App.labels) App.labels.openList();

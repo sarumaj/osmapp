@@ -541,15 +541,13 @@ test("the gestures the print view lists are the modifiers it reads", () => {
 // ── The icons are real ───────────────────────────────────────────────────────
 
 test("every glyph the toolbar names exists in the icon font", () => {
-  // A name that Font Awesome does not define renders as nothing at all: the
-  // tile keeps its label, its tooltip and its click, and loses only the one
-  // thing a collapsed panel has left. Nothing else in the suite can see it —
-  // the spec is valid JavaScript, the button works, and the gap is a blank
-  // 15 px square in a screenshot nobody diffs.
+  // A name Font Awesome does not define renders as nothing at all: the tile
+  // keeps its label, its tooltip and its click, and loses the only thing a
+  // collapsed panel has left. Nothing else in the suite can see that — the
+  // spec is valid JavaScript and the button works.
   //
-  // It is also a live risk rather than a hypothetical one: fa-vector-square
-  // shipped in the free set for years and is gone from 7.x, so the way this
-  // breaks is a dependency bump rather than a typo.
+  // The free set is not stable across majors: fa-vector-square is absent from
+  // 7.x, so a rename arrives with a dependency bump rather than with a typo.
   //
   // The bundle is minified with aliases grouped into one rule
   // (`.fa-warning,.fa-triangle-exclamation{--fa:"\f071"}`), so the selector is
@@ -568,10 +566,10 @@ test("every glyph the toolbar names exists in the icon font", () => {
 // ── What is shown is answered in one place ───────────────────────────────────
 
 test("the layer switcher is the toolbar, not a second panel", () => {
-  // Leaflet's own control was the only part of the app that did not look like
-  // the app, and it answered "what is shown" from the opposite corner of the
-  // map while the number chips — a view switch that had never been a layer —
-  // answered it from the toolbar.
+  // "What is shown" is answered by one group in one panel. A second control in
+  // another corner splits that answer in two, and the number chips — a view
+  // switch that is not a layer — have no place to live in a switcher that only
+  // holds layers.
   assert.ok(
     !/L\.control\s*\n?\s*\.layers\(/.test(SOURCE.controls),
     "the Leaflet layer control is back",
@@ -581,9 +579,8 @@ test("the layer switcher is the toolbar, not a second panel", () => {
 });
 
 test("every layer the old switcher offered still has a switch", () => {
-  // The five overlays and the basemaps, which is the whole of what the control
-  // used to hold. A switch quietly dropped in the move is a layer that can no
-  // longer be turned off, and nothing about the map says so.
+  // The five overlays and the basemaps. A layer with no switch cannot be turned
+  // off, and nothing about the map says which one is missing.
   for (const group of [
     "outerPolygonLayerGroup",
     "streetsLayerGroup",
@@ -609,9 +606,9 @@ test("every layer the old switcher offered still has a switch", () => {
 });
 
 test("the note about aid basemaps not printing survived the move", () => {
-  // The one line that says a satellite card has no street names on it. It was
-  // appended to the layer control's container; it is now mounted into the
-  // group it belongs to, and the template carries the English fallback.
+  // The one line that says a satellite card has no street names on it. Mounted
+  // into the group whose basemaps it is about, from a template that carries the
+  // English fallback for the moment before the dictionary arrives.
   assert.match(SOURCE.controls, /noteTemplate:\s*"tpl-toolbar-note"/);
   assert.match(SOURCE.controls, /function _syncAidNote/);
   assert.match(SOURCE.controls, /App\.basemap\.isAid\(\)/);
