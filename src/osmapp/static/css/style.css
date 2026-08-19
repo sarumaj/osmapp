@@ -2227,6 +2227,12 @@ body {
 .territory-row__flag.is-uncovered {
   color: #b9770e;
 }
+/* A boundary drawn through a building. Red, and the only flag that is: the
+   other three describe a shape that is awkward, while this one describes a
+   house that two people will each be sent to walk. */
+.territory-row__flag.is-crossed {
+  color: #c0392b;
+}
 
 /* Ground in no territory, sitting in the same list as the territories. It
    carries the orange the shape itself is drawn in on the map — the same

@@ -455,6 +455,13 @@ App.labels = (function () {
    * cluster entries rather than off `_rows`, because the counts are filled in
    * by refreshFilteredData *after* the rows are built.
    *
+   * `crossed` is a boundary drawn straight through a building, so that one
+   * house is half in one territory and half in the next. It is the one fault
+   * here that is invisible at the zoom the list is usually read at, and the
+   * one that costs two people a walk each: two cards get printed showing the
+   * same roof. autoheal answers it from a cached survey of the whole map, so
+   * asking per row costs nothing after the first.
+   *
    * `uncovered` is not about a territory at all: it is ground inside the
    * boundary that is in no territory (see gaps.js). It is counted here rather
    * than given a row of its own in the info panel, because a second number
@@ -468,16 +475,19 @@ App.labels = (function () {
   function warnings() {
     var split = 0;
     var empty = 0;
+    var crossed = 0;
     _rows.forEach(function (row) {
       if (row.parts > 1) split++;
       if (_isEmpty(row.index)) empty++;
+      if (_isCrossed(row.index)) crossed++;
     });
     var uncovered = _gaps().length;
     return {
       split: split,
       empty: empty,
+      crossed: crossed,
       uncovered: uncovered,
-      total: split + empty + uncovered,
+      total: split + empty + crossed + uncovered,
     };
   }
 
@@ -498,6 +508,16 @@ App.labels = (function () {
   function _isEmpty(index) {
     if (!App.autoheal) return false;
     return App.autoheal.isEmpty((s.clusters || [])[index]) === true;
+  }
+
+  /** How many buildings territory `index`'s boundary is drawn through. */
+  function _crossed(index) {
+    if (!App.autoheal || !App.autoheal.crossed) return 0;
+    return App.autoheal.crossed(index);
+  }
+
+  function _isCrossed(index) {
+    return _crossed(index) > 0;
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -841,6 +861,8 @@ App.labels = (function () {
     var notes = [];
     if (warn.split > 0) notes.push(T("list.warnSplit", { n: warn.split }));
     if (warn.empty > 0) notes.push(T("list.warnEmpty", { n: warn.empty }));
+    if (warn.crossed > 0)
+      notes.push(T("list.warnCrossed", { n: warn.crossed }));
     if (warn.uncovered > 0)
       notes.push(T("list.warnUncovered", { n: warn.uncovered }));
     D.text(dialog, "notes", notes.join(" "));
@@ -905,6 +927,14 @@ App.labels = (function () {
         );
       if (_isEmpty(row.index))
         _flag(flags, "fa-house-circle-xmark", "is-empty", T("list.flagEmpty"));
+      var crossed = _crossed(row.index);
+      if (crossed > 0)
+        _flag(
+          flags,
+          "fa-house-chimney-crack",
+          "is-crossed",
+          T("list.flagCrossed", { count: crossed }),
+        );
 
       // The row is addressed by its number rather than by its position in the
       // DOM, so a repair can put the focus back on the same territory even
@@ -1168,7 +1198,7 @@ App.labels = (function () {
    * cannot repair is still one to be taken to.
    */
   function _isFlagged(row) {
-    return row.parts > 1 || _isEmpty(row.index);
+    return row.parts > 1 || _isEmpty(row.index) || _isCrossed(row.index);
   }
 
   /** Is any axis actually narrowing the list? */
@@ -1504,10 +1534,14 @@ App.labels = (function () {
       said.push(
         T("list.fixedSplit", { n: report.split, pieces: report.pieces }),
       );
+    if (report.detached > 0)
+      said.push(T("list.fixedDetached", { n: report.detached }));
     if (report.merged > 0)
       said.push(T("list.fixedMerged", { n: report.merged }));
     if (report.unresolved > 0)
       said.push(T("list.fixedStuck", { n: report.unresolved }));
+    if (report.crossed > 0)
+      said.push(T("list.fixedStuckWalls", { n: report.crossed }));
     return said.join(" ");
   }
 

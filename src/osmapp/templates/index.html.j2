@@ -464,8 +464,9 @@
          or for a piece of ground in no territory at all. The main button goes
          to it on the map; the rest depend on which of the two it is. A
          territory offers print, and the wand when App.autoheal can repair the
-         fault its flags name — a shape drawn in pieces, or one with no
-         buildings that a neighbor can take. Uncovered ground has no card to
+         fault its flags name — a shape drawn in pieces, one with no buildings
+         that a neighbor can take, or a boundary drawn through a building that
+         can be moved onto its wall. Uncovered ground has no card to
          print and always offers both of its own: the wand adopts it and then
          repairs what that made, and the droplet closes it. -->
     <template id="tpl-territory-row">
@@ -1620,6 +1621,7 @@
     <script src="{{ url_for('static', filename='js/trim.js') }}"></script>
     <script src="{{ url_for('static', filename='js/outline.js') }}"></script>
     <script src="{{ url_for('static', filename='js/gaps.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/footprints.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autoheal.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print.js') }}"></script>

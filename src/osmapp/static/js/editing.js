@@ -1592,6 +1592,26 @@ App.editing = (function () {
     redoKey: "toolbar.redoSelect",
   };
 
+  /**
+   * Is essentially all of `part` inside `whole`?
+   *
+   * A percent of slack, because unionHealed rounds an outline by the few
+   * centimeters it buffers with and a territory is allowed to come back a
+   * hair smaller than it went in. A territory that came back missing is not
+   * a hair.
+   */
+  function _isCovered(part, whole) {
+    try {
+      var shared = G.intersect(whole, part);
+      if (!shared || !shared.geometry) return false;
+      return G.area(shared) >= G.area(part) * 0.99;
+    } catch (e) {
+      // Unmeasurable. Treated as covered, because refusing every merge whose
+      // arithmetic this check cannot do is worse than the fault it looks for.
+      return true;
+    }
+  }
+
   function mergeSelectedClusters() {
     if (!canMerge()) {
       alert(T("alert.mergeTooFew"));
@@ -1620,6 +1640,36 @@ App.editing = (function () {
         App.ui.hideOverlay();
         console.error(">>> Merge failed:", e);
         alert(T("alert.mergeFailed", { message: e.message }));
+        toggleMergeMode();
+        return;
+      }
+
+      // Did the union actually take all of them?
+      //
+      // This is the one failure that cannot be seen on the map. What comes
+      // back is a perfectly ordinary-looking territory, and the ground that
+      // went missing is only discovered by whoever was sent to walk it —
+      // weeks later, as a hole in the coverage. It happens: unionAll answers
+      // a throw with a partial union by design, because for its other callers
+      // most of an outline beats none of it, and geometry.unionHealed can be
+      // handed a shape that turf's buffer has already destroyed. Both are
+      // guarded at their own end; this is the check that does not depend on
+      // knowing how it went wrong.
+      //
+      // Before the clip to the outer boundary, which is entitled to take
+      // ground away, and against each input separately rather than against
+      // the total, because a small territory swallowed whole is a rounding
+      // error in a sum and the whole of somebody's afternoon on the ground.
+      var lost = selected.filter(function (item) {
+        return !_isCovered(item.feature, merged);
+      });
+      if (lost.length > 0) {
+        App.ui.hideOverlay();
+        console.error(
+          ">>> Merge dropped", lost.length, "of", selected.length,
+          "territories — refusing rather than losing the ground",
+        );
+        alert(T("alert.mergeIncomplete", { n: lost.length }));
         toggleMergeMode();
         return;
       }

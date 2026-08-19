@@ -4,8 +4,10 @@
  *   • A territory drawn in separate pieces becomes one territory per piece.
  *   • A territory with no buildings is absorbed by the neighbor it shares the
  *     most boundary with.
+ *   • A boundary drawn through a building hands the footprint whole to the
+ *     side holding most of it, which puts the line on the building's wall.
  *   • Ground in no territory at all becomes a territory first, and is then
- *     judged by the two rules above like anything else.
+ *     judged by the rules above like anything else.
  */
 
 import test from "node:test";
@@ -69,7 +71,7 @@ function feature(shape, properties = {}) {
  *   order — largest first. Omitted means the map is fully covered.
  */
 function setup(territories, footprints = [], uncovered = []) {
-  const App = loadApp(["geometry.js", "autoheal.js"], {
+  const App = loadApp(["geometry.js", "footprints.js", "autoheal.js"], {
     window: {},
     document: {},
     turf,
@@ -98,6 +100,7 @@ function setup(territories, footprints = [], uncovered = []) {
     },
   };
 
+  App.footprints.init();
   App.autoheal.init();
   return {
     App,
@@ -105,6 +108,7 @@ function setup(territories, footprints = [], uncovered = []) {
     healGaps: App.autoheal.healGaps,
     audit: App.autoheal.audit,
     isEmpty: App.autoheal.isEmpty,
+    crossed: App.autoheal.crossed,
     issueOf: App.autoheal.issueOf,
     emitted: () => emitted,
     pushes: () => pushes,
@@ -330,6 +334,129 @@ test("a piece stranded on a neighbor is split off and handed over", () => {
     emitted.every((f) => partCount(f) === 1),
     "and nothing is left in pieces",
   );
+});
+
+// ── Boundaries through buildings ────────────────────────────────────────────
+
+/** A footprint straddling the line x = 1, more of it on the western side. */
+const straddler = () => box(0.96, 0.4, 1.02, 0.46);
+
+test("a boundary through a building is moved onto the building's wall", () => {
+  const west = box(0, 0, 1, 1);
+  const east = box(1, 0, 2, 1);
+  const house = straddler();
+
+  const h = setup(
+    [
+      { shape: west, buildings: 6 },
+      { shape: east, buildings: 4 },
+    ],
+    [building(0.5, 0.5), building(1.5, 0.5), house],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.detached, 1);
+  assert.equal(report.crossed, 0);
+  assert.equal(report.after, 2, "no territory was created or lost by it");
+
+  const emitted = h.emitted();
+  const holders = emitted.filter((f) => {
+    const shared = turf.intersect(turf.featureCollection([f, house]));
+    return shared && turf.area(shared) > turf.area(house) * 0.01;
+  });
+  assert.equal(holders.length, 1, "one house, one territory");
+  const shared = turf.intersect(turf.featureCollection([holders[0], house]));
+  assert.ok(
+    turf.area(shared) > turf.area(house) * 0.999,
+    "and it holds all of it, wall to wall",
+  );
+
+  const before = turf.area(west) + turf.area(east);
+  assert.ok(
+    Math.abs(emitted.reduce((sum, f) => sum + turf.area(f), 0) - before) < 1,
+    "no ground moved anywhere but across that footprint",
+  );
+});
+
+test("the list is told which rows have a boundary through a building", () => {
+  const h = setup(
+    [
+      { shape: box(0, 0, 1, 1), buildings: 6 },
+      { shape: box(1, 0, 2, 1), buildings: 4 },
+    ],
+    [building(0.5, 0.5), building(1.5, 0.5), straddler()],
+  );
+
+  const audit = h.audit();
+
+  assert.equal(audit.crossed, 2, "both sides of the line are a party to it");
+  assert.equal(audit.fixable, 2);
+  assert.equal(h.crossed(0), 1);
+  assert.equal(h.crossed(1), 1);
+  assert.ok(
+    audit.rows.every((row) => row.crossed === 1 && row.fixable),
+    "and each row is offered the repair",
+  );
+});
+
+test("nothing downloaded means no boundary is drawn through anything", () => {
+  // The same three-valued caution isEmpty takes. A survey against a download
+  // that never arrived finds no crossings, which must not be reported as a
+  // map that has none.
+  const h = setup(
+    [{ shape: box(0, 0, 1, 1) }, { shape: box(1, 0, 2, 1) }],
+    null,
+  );
+
+  assert.equal(h.audit().crossed, 0);
+  assert.equal(h.heal().detached, 0);
+});
+
+test("a territory that gives up its last house is then merged away", () => {
+  // The reason the footprints come between splitting and merging. The strip
+  // has exactly one building and half of it belongs to the block next door;
+  // once the footprint is settled the strip is empty, and the merge that
+  // follows hands it to the neighbor it abuts. Run the other way round it
+  // would still count a house here, and keep its card.
+  const west = box(0, 0, 1, 1);
+  const strip = box(1, 0, 1.3, 1);
+
+  const h = setup(
+    [
+      { shape: west, buildings: 2 },
+      { shape: strip, buildings: 1 },
+    ],
+    [building(0.5, 0.5), straddler()],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.detached, 1);
+  assert.equal(report.merged, 1);
+  assert.equal(report.after, 1);
+  assert.equal(partCount(h.emitted()[0]), 1);
+});
+
+test("a crossing nothing can be done about is counted, not claimed", () => {
+  // The warehouse is the whole of both scraps, so whichever of the three is
+  // given it, one of the others is deleted rather than trimmed. Nothing moves
+  // and the report says the crossing is still there, which is the honest
+  // outcome: the row keeps its flag rather than the button claiming a repair
+  // it did not make.
+  const h = setup(
+    [
+      { shape: box(0, 0, 1, 1), buildings: 3 },
+      { shape: box(1, 0.45, 1.06, 0.5), buildings: 1 },
+      { shape: box(1, 0.55, 1.06, 0.6), buildings: 1 },
+    ],
+    [building(0.5, 0.5), box(0.9, 0.4, 1.2, 0.7)],
+  );
+
+  const report = h.heal();
+
+  assert.equal(report.detached, 0);
+  assert.equal(report.crossed, 1);
 });
 
 // ── Ground in no territory ──────────────────────────────────────────────────

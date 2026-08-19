@@ -284,7 +284,8 @@ App.ui = (function () {
   /**
    * A quiet mark next to the count when something on the map is worth a second
    * look — a territory drawn in more than one piece, one with no buildings in
-   * it at all, or ground inside the boundary that is in no territory.
+   * it at all, one whose boundary is drawn through a building, or ground
+   * inside the boundary that is in no territory.
    *
    * The first explains a count that disagrees with what the map shows: without
    * the mark the number looks wrong, with it the number looks explained. The

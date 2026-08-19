@@ -9,8 +9,8 @@
  * touches. That is four gestures per fault, and the faults arrive in batches:
  * one boundary dragged across a corner leaves half a dozen.
  *
- * Three faults are mechanical enough to repair without asking, and this module
- * is those three:
+ * Four faults are mechanical enough to repair without asking, and this module
+ * is those four:
  *
  *   • **Split** — a territory whose geometry is more than one polygon. The
  *     pieces are not adjacent, so nobody can walk it as one assignment, and
@@ -25,16 +25,25 @@
  *     shares the most boundary with, which is the same repair a person would
  *     make and the same one clustering.js already makes to its own leftovers.
  *
+ *   • **Crossed** — a boundary drawn straight through a building, so that one
+ *     house belongs to two territories. Two cards get printed showing the same
+ *     roof, and each of the two people holding one assumes the other half is
+ *     somebody else's. The footprint goes whole to whichever territory already
+ *     holds most of it, which puts the boundary onto the building's own wall —
+ *     a line you can stand next to instead of one that runs through a kitchen.
+ *     See footprints.js, which does the geometry and which clustering.js runs
+ *     on its own output for the same reason.
+ *
  *   • **Uncovered** — ground inside the boundary that is in no territory at
  *     all (see gaps.js). It is not a territory, so it cannot be repaired the
- *     way the other two are; it is *made* one first, and then judged by the
- *     same two rules as everything else. That order is the whole trick: a
+ *     way the others are; it is *made* one first, and then judged by the
+ *     same rules as everything else. That order is the whole trick: a
  *     strip left by dragging the boundary outward becomes a territory, is
  *     found to hold no buildings, and is handed to the neighbor it abuts most
  *     — which is what should have happened to it in the first place. An
  *     uncovered piece with houses on it stays a territory of its own, and one
  *     lying in two separate lobes becomes two. Nothing here decides which of
- *     those outcomes applies; the split and merge passes already do.
+ *     those outcomes applies; the split, footprint and merge passes already do.
  *
  * Deliberately *not* healed:
  *
@@ -58,6 +67,16 @@
  * to whoever it actually touches — one pass, no second look. The reverse order
  * would merge the whole two-piece thing into a neighbor and produce a
  * territory in three pieces.
+ *
+ * The buildings come between the two, and that is not arbitrary either. A
+ * strip that gives up the one house standing on its edge becomes empty, and
+ * the merge that follows hands it to a neighbor — which is the right end for
+ * it, and one it only reaches if the footprints are settled first. Running the
+ * two the other way round merges the strip while it still counts a house, and
+ * then moves a boundary inside the territory that just swallowed it.
+ *
+ * Those last two then take turns until a round changes nothing, because the
+ * merge does not leave an outline as it found it — see the loop in _plan.
  *
  * The repair is computed against plain features and applied in one
  * setClusters() call, behind one history entry, so the whole thing is a single
@@ -93,10 +112,22 @@ App.autoheal = (function () {
   // which is the very fault being repaired.
   var TOUCH_SLACK_M = 0.5;
 
+  // How many times the footprint pass and the merge pass may take turns. Two
+  // rounds settle everything seen so far; the third is the safety net, and a
+  // partition that still moves after it is one this module has run out of
+  // mechanical answers for.
+  var ROUNDS = 3;
+
   // Building centroids, and the collection they were taken from. See
   // _buildingPoints.
   var _points = null;
   var _pointsFor = null;
+
+  // Buildings a boundary runs through, counted per territory, and what that
+  // count was taken from. See _crossings.
+  var _crossed = null;
+  var _crossedFor = null;
+  var _crossedBuildings = null;
 
   function init() {
     s = App.state;
@@ -133,10 +164,63 @@ App.autoheal = (function () {
   }
 
   /**
+   * How many buildings each territory's boundary is drawn through.
+   *
+   * One survey for the whole map, cached on the two things it is derived
+   * from: the cluster array, which setClusters replaces wholesale on every
+   * change, and the download. Asked per row by issueOf, and the list asks
+   * issueOf about every row it has.
+   *
+   * Only a territory holding a real share of the footprint is counted. The
+   * other side of a graze gives up a few centimeters when the crossing is
+   * repaired, which is not a fault worth putting a flag on a row for.
+   *
+   * @returns {Object} territory index -> buildings crossed
+   */
+  function _crossings() {
+    var entries = (s && s.clusters) || [];
+    var buildings = (s && s.cachedBuildings) || null;
+    if (_crossedFor === entries && _crossedBuildings === buildings)
+      return _crossed;
+
+    var counts = Object.create(null);
+    if (App.footprints && buildings) {
+      App.footprints
+        .crossings(
+          entries.map(function (entry) {
+            return entry.feature;
+          }),
+        )
+        .forEach(function (crossing) {
+          crossing.shares.forEach(function (share) {
+            if (!share.claim) return;
+            counts[share.index] = (counts[share.index] || 0) + 1;
+          });
+        });
+    }
+
+    _crossedFor = entries;
+    _crossedBuildings = buildings;
+    _crossed = counts;
+    return counts;
+  }
+
+  /**
+   * How many buildings territory `index` has a boundary drawn through.
+   *
+   * The cheap half of issueOf, for callers that want the flag without the
+   * rehearsed repair behind it — the info panel asks on every refresh, and
+   * the list asks once per row.
+   */
+  function crossed(index) {
+    return _crossings()[index] || 0;
+  }
+
+  /**
    * What is wrong with territory `index`, and whether this module can fix it.
    *
    * @returns {{index:number, parts:number, split:boolean, empty:boolean,
-   *            fixable:boolean}|null}
+   *            crossed:number, fixable:boolean}|null}
    */
   function issueOf(index) {
     var entry = (s && s.clusters && s.clusters[index]) || null;
@@ -151,15 +235,17 @@ App.autoheal = (function () {
 
     var split = parts > 1;
     var empty = isEmpty(entry) === true;
+    var crossings = crossed(index);
     return {
       index: index,
       parts: parts,
       split: split,
       empty: empty,
+      crossed: crossings,
       // Splitting a multi-part shape always changes it, so that one needs no
       // rehearsal. Everything else is answered by running the repair and
       // throwing the result away — see _canFix.
-      fixable: split || (empty && _canFix(index)),
+      fixable: split || ((empty || crossings > 0) && _canFix(index)),
     };
   }
 
@@ -198,11 +284,17 @@ App.autoheal = (function () {
    * `uncovered` is how many pieces of ground belong to no territory. It needs
    * no rehearsal either: adopting one always produces a territory that was not
    * there before, so the offer on such a row is never empty.
+   *
+   * `crossed` costs one survey of the whole map, cached — see _crossings —
+   * rather than one per row.
    */
   function audit() {
     var rows = [];
     var split = 0;
     var empty = 0;
+    // Not `crossed`: that is the name of a function in this module, and a
+    // local number wearing it here reads like a call three lines later.
+    var crossings = 0;
     var fixable = 0;
 
     ((s && s.clusters) || []).forEach(function (entry, index) {
@@ -211,6 +303,9 @@ App.autoheal = (function () {
       rows.push(issue);
       if (issue.split) split++;
       if (issue.empty) empty++;
+      // Territories, not buildings, so that the number reads the same way the
+      // other two do: how many rows in this list have this wrong with them.
+      if (issue.crossed > 0) crossings++;
       if (issue.fixable) fixable++;
     });
 
@@ -218,6 +313,7 @@ App.autoheal = (function () {
       rows: rows,
       split: split,
       empty: empty,
+      crossed: crossings,
       fixable: fixable,
       uncovered: gaps().length,
     };
@@ -594,6 +690,56 @@ App.autoheal = (function () {
   }
 
   /**
+   * Take every boundary that runs through a building off it.
+   *
+   * The footprint goes whole to whichever territory already holds most of it,
+   * and the boundary comes to rest on the building's own outline. footprints.js
+   * does the geometry; what is decided here is only which territories a run is
+   * allowed to move, and what happens to the counts afterwards.
+   *
+   * A crossing is repaired when *either* side of it is in scope, and the other
+   * side moves too. That is not scope creep: a boundary is the one line two
+   * territories share, and there is no way to take it off a building for one
+   * of them without taking it off for the other. The merge pass has always
+   * worked the same way — it rewrites the host it hands an empty territory to,
+   * in or out of scope.
+   *
+   * Every territory a repair touched loses its building count, because moving
+   * a footprint from one to the other is precisely the event that changes it.
+   */
+  function _detach(slots, report) {
+    if (!App.footprints) return;
+
+    var live = slots.filter(function (slot) {
+      return !slot.removed;
+    });
+    if (live.length < 2) return;
+
+    var only = [];
+    live.forEach(function (slot, position) {
+      if (slot.healing) only.push(position);
+    });
+    if (only.length === 0) return;
+
+    var result = App.footprints.detach(
+      live.map(function (slot) {
+        return slot.feature;
+      }),
+      { only: only },
+    );
+
+    result.changed.forEach(function (position) {
+      var slot = live[position];
+      slot.feature = _derive(slot.feature, result.features[position].geometry);
+      slot.changed = true;
+      slot.buildings = null;
+    });
+
+    report.detached += result.resolved;
+    report.crossed += result.unresolved;
+  }
+
+  /**
    * Give every empty territory to the populated neighbor it abuts most.
    *
    * Smallest first, so a scrap is absorbed by a real territory rather than
@@ -700,6 +846,12 @@ App.autoheal = (function () {
       split: 0,
       pieces: 0,
       adopted: adopted.length,
+      detached: 0,
+      // Crossings that could not be undone, kept apart from `unresolved`: one
+      // is a territory with nowhere to go, the other is a building nobody
+      // could be given, and a row saying "still empty" about the second would
+      // be describing the wrong fault.
+      crossed: 0,
       merged: 0,
       unresolved: 0,
       before: entries.length,
@@ -750,9 +902,39 @@ App.autoheal = (function () {
     });
 
     slots = _split(slots, report);
-    // No buildings downloaded means "empty" is unanswerable, so the merge
-    // pass has nothing to decide with and is skipped outright.
-    if (points) _merge(slots, points, report);
+
+    // Footprints, then merges, then footprints again, until a round changes
+    // nothing. Both orders are needed and neither is enough on its own.
+    //
+    // Footprints first, because a strip that gives up its last house becomes
+    // empty and the merge that follows hands it to a neighbor — the end it
+    // should have had. Merges first would keep the strip while it still counts
+    // that house.
+    //
+    // And round again after, because the merge does not put two outlines
+    // together the way it found them: _absorb closes the seam with a healed
+    // union, which buffers out and back by the touch slack, and a line that
+    // had just been set down on a wall comes back half a meter inside it. The
+    // first heal on the sample village left two territories still flagged that
+    // way — repaired by clicking the same button a second time, which is
+    // exactly the thing this module refuses to ship.
+    //
+    // Each round costs less than the last: the survey only finds what the
+    // previous one moved.
+    var round = 0;
+    var settled = false;
+    while (!settled && round++ < ROUNDS) {
+      var moved = report.detached + report.merged;
+      // Both of these are "what is still wrong now the passes are done", so
+      // each round replaces the last round's tally rather than adding to it.
+      report.crossed = 0;
+      report.unresolved = 0;
+      _detach(slots, report);
+      // No buildings downloaded means "empty" is unanswerable, so the merge
+      // pass has nothing to decide with and is skipped outright.
+      if (points) _merge(slots, points, report);
+      settled = report.detached + report.merged === moved;
+    }
 
     var kept = slots.filter(function (slot) {
       return !slot.removed;
@@ -762,6 +944,7 @@ App.autoheal = (function () {
       report.split > 0 ||
       report.merged > 0 ||
       report.adopted > 0 ||
+      report.detached > 0 ||
       kept.some(function (slot) {
         return slot.changed;
       });
@@ -779,9 +962,10 @@ App.autoheal = (function () {
    *
    * @param {number|number[]} [indices] which territories to repair; every one
    *   when omitted. Out-of-range entries are ignored.
-   * @returns {{split:number, pieces:number, adopted:number, merged:number,
-   *            unresolved:number, before:number, after:number,
-   *            changed:boolean}|null} null when there is nothing to work on
+   * @returns {{split:number, pieces:number, adopted:number, detached:number,
+   *            crossed:number, merged:number, unresolved:number,
+   *            before:number, after:number, changed:boolean}|null} null when
+   *   there is nothing to work on
    */
   function heal(indices) {
     var everything = indices === undefined || indices === null;
@@ -832,6 +1016,8 @@ App.autoheal = (function () {
       report.pieces + ",",
       report.adopted,
       "uncovered adopted,",
+      report.detached,
+      "buildings put back on one side,",
       report.merged,
       "merged away,",
       report.before,
@@ -841,6 +1027,9 @@ App.autoheal = (function () {
       report.unresolved > 0
         ? "(" + report.unresolved + " still empty, nothing to merge into)"
         : "",
+      report.crossed > 0
+        ? "(" + report.crossed + " boundaries still through a building)"
+        : "",
     );
     return report;
   }
@@ -848,6 +1037,7 @@ App.autoheal = (function () {
   return {
     init: init,
     isEmpty: isEmpty,
+    crossed: crossed,
     issueOf: issueOf,
     audit: audit,
     gaps: gaps,
