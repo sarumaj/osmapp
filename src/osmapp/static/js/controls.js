@@ -35,9 +35,11 @@
  *     App.i18n.apply(document.body) refreshes them on a language change.
  *     Computed titles (undo depth, disabled reasons) are re-applied by
  *     refresh(), which is registered as an i18n listener.
- *   • Leaflet's layer control has no API for renaming entries, so it is
- *     rebuilt when the language changes. With URL routing a change is a page
- *     load, so this only matters for an in-place switch.
+ *   • Titles that are computed rather than declared — an undo depth, a
+ *     disabled reason, "Show or hide Streets" — do not survive an
+ *     App.i18n.apply() pass, so refresh() is registered as an i18n listener
+ *     and rebuilds them. With URL routing a language change is a page load,
+ *     so this only matters for an in-place switch.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -49,7 +51,6 @@ App.controls = (function () {
   var T = null;
   var D = null;
   var _map = null;
-  var _layerControl = null;
   var _aidNote = null;
   var _panel = null;
 
@@ -58,6 +59,23 @@ App.controls = (function () {
 
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
   var NARROW_PX = 720;
+
+  // Icons and short labels for the basemaps the server may send. Keyed by id
+  // rather than derived from it, because both are editorial: a glyph that says
+  // "photograph" and a word that fits a 52 px tile. An id with no entry here
+  // still renders — see _basemapButtons — so adding an aid layer server-side
+  // needs no client change, and giving it a nicer face is one line each.
+  var BASEMAP_ICONS = {
+    osm: "fa-map",
+    imagery: "fa-satellite",
+    terrain: "fa-mountain-sun",
+  };
+
+  var BASEMAP_LABELS = {
+    osm: "toolbar.labelBaseOsm",
+    imagery: "toolbar.labelBaseImagery",
+    terrain: "toolbar.labelBaseTerrain",
+  };
 
   // ── Availability predicates ───────────────────────────────────────────
   //
@@ -218,26 +236,6 @@ App.controls = (function () {
           },
         },
         {
-          // The count in the info panel is a number people check against the
-          // map by eye, and they lose. This puts the same number *on* each
-          // territory, so counting is reading rather than searching.
-          id: "numbers",
-          icon: "fa-hashtag",
-          labelKey: "toolbar.labelNumbers",
-          titleKey: "toolbar.numbers",
-          disabledTitleKey: "toolbar.needsTerritories",
-          accent: "purple",
-          shortcut: "N",
-          enabled: hasClusters,
-          active: function () {
-            return App.labels.isVisible();
-          },
-          onClick: function () {
-            App.labels.setVisible(!App.labels.isVisible());
-            refresh();
-          },
-        },
-        {
           // The app exists to produce cards, and until now the only way to
           // ask for one was to right-click the right shape on the map: a
           // gesture you have to already know about, aimed at a polygon you
@@ -270,6 +268,125 @@ App.controls = (function () {
             return App.polygons.printedCount() > 0;
           },
           onClick: _clearPrinted,
+        },
+      ],
+    },
+    {
+      // What is on screen, as opposed to what is in the document.
+      //
+      // This was Leaflet's own layer switcher, pinned to the opposite corner
+      // of the map: a nine-line list of radio buttons and checkboxes in a
+      // second panel with its own idea of what a control looks like. Nothing
+      // was wrong with it except that it was the only part of the app that
+      // did not look like the app, and the one view switch that had never
+      // been a layer — the number chips — lived over here instead, so "what
+      // is shown" was answered in two places.
+      //
+      // Basemaps come first and are mutually exclusive: one thing can be
+      // under the map. Then a divider, and then the overlays, each its own
+      // toggle. None of them is ever disabled, on purpose — a layer switch
+      // that greys out is a switch you cannot use to find out whether the
+      // data arrived.
+      key: "view",
+      titleKey: "toolbar.groupView",
+      // Which basemaps exist is a server decision (config.AID_LAYERS, an
+      // empty URL removes one), so that half of the group is expanded at
+      // render time instead of being written out here.
+      dynamic: _basemapButtons,
+      noteTemplate: "tpl-toolbar-note",
+      buttons: [
+        { separator: true },
+        {
+          id: "layer-outer",
+          // A crop frame rather than a polygon: fa-draw-polygon is the Draw
+          // button's glyph, and two identical icons in one panel is the
+          // problem this toolbar was rebuilt to fix — collapsed, the label
+          // that tells them apart is not there.
+          icon: "fa-crop-simple",
+          labelKey: "toolbar.labelLayerOuter",
+          accent: "blue",
+          active: _overlayShown("outerPolygonLayerGroup"),
+          titleFn: _overlayTitle("layers.outer"),
+          onClick: _toggleOverlay("outerPolygonLayerGroup"),
+        },
+        {
+          id: "layer-streets",
+          icon: "fa-road",
+          labelKey: "toolbar.labelLayerStreets",
+          accent: "blue",
+          active: _overlayShown("streetsLayerGroup"),
+          titleFn: _overlayTitle("layers.streets"),
+          onClick: _toggleOverlay("streetsLayerGroup"),
+        },
+        {
+          id: "layer-buildings",
+          icon: "fa-building",
+          labelKey: "toolbar.labelLayerBuildings",
+          accent: "blue",
+          active: _overlayShown("buildingsLayerGroup"),
+          titleFn: _overlayTitle("layers.buildings"),
+          onClick: _toggleOverlay("buildingsLayerGroup"),
+        },
+        {
+          // The number chips ride along in this one: they are territories,
+          // not a separate kind of thing to switch on and off. Which is also
+          // why the Numbers button below is a second switch rather than a
+          // duplicate of this one — that one draws the chips, this one draws
+          // the shapes they sit on.
+          id: "layer-clusters",
+          icon: "fa-object-group",
+          labelKey: "toolbar.labelLayerClusters",
+          accent: "purple",
+          active: _overlayShown("innerPolygonsLayerGroup"),
+          titleFn: _overlayTitle("layers.clusters"),
+          onClick: _toggleOverlay("innerPolygonsLayerGroup"),
+        },
+        {
+          // Its own switch rather than riding with the territories: it is the
+          // opposite of a territory, and somebody who has finished checking
+          // the coverage should be able to put it away without losing the
+          // shapes it was drawn against.
+          //
+          // It is also the only one of these that is not merely a draw call.
+          // App.gaps stops subtracting when it is off — see setVisible there
+          // — so the switch is routed through the module rather than through
+          // the map, and the layer group stays where main.js put it.
+          id: "layer-gaps",
+          icon: "fa-triangle-exclamation",
+          labelKey: "toolbar.labelLayerGaps",
+          accent: "orange",
+          active: function () {
+            return !!(App.gaps && App.gaps.isVisible());
+          },
+          titleFn: _overlayTitle("layers.gaps"),
+          onClick: function () {
+            if (!App.gaps) return;
+            App.gaps.setVisible(!App.gaps.isVisible());
+            refresh();
+          },
+        },
+        {
+          // Moved here from Territories, where it was the odd one out: every
+          // other button in that group changes the document and this one only
+          // changes the picture. The count in the info panel is a number
+          // people check against the map by eye, and they lose — this puts the
+          // same number *on* each territory, so counting is reading rather
+          // than searching.
+          id: "numbers",
+          icon: "fa-hashtag",
+          labelKey: "toolbar.labelNumbers",
+          titleKey: "toolbar.numbers",
+          disabledTitleKey: "toolbar.needsTerritories",
+          accent: "purple",
+          shortcut: "N",
+          enabled: hasClusters,
+          active: function () {
+            return App.labels.isVisible();
+          },
+          onClick: function () {
+            App.labels.setVisible(!App.labels.isVisible());
+            refresh();
+          },
         },
       ],
     },
@@ -412,32 +529,17 @@ App.controls = (function () {
     D = App.dom;
     _map = leafletMap;
 
-    _buildLayerControl();
     _makePanel().addTo(leafletMap);
 
-    // The layer control does the swap itself; this is how App.basemap finds
-    // out, so the choice is remembered and anything watching for it — the
-    // print dialog's note, the aid styling — hears about it too.
-    _map.on("baselayerchange", function (e) {
-      App.basemap.entries().forEach(function (entry) {
-        if (entry.layer === e.layer) App.basemap.select(entry.id);
-      });
-    });
-    App.basemap.onChange(_syncAidNote);
-
-    // The overlay checkbox is the only switch the gap layer has, so it is
-    // also where the module finds out whether its work is worth doing.
-    _map.on("overlayadd", function (e) {
-      if (e.layer === s.gapsLayerGroup) App.gaps.setVisible(true);
-    });
-    _map.on("overlayremove", function (e) {
-      if (e.layer === s.gapsLayerGroup) App.gaps.setVisible(false);
-    });
-
-    App.i18n.onChange(function () {
-      _buildLayerControl();
+    // A basemap can also be chosen from outside the toolbar — the session
+    // restore picks the remembered one — so the group's own state is painted
+    // from the change rather than from the click, and the aid note with it.
+    App.basemap.onChange(function () {
+      _syncAidNote();
       refresh();
     });
+
+    App.i18n.onChange(refresh);
 
     _registerKeys();
     refresh();
@@ -569,63 +671,71 @@ App.controls = (function () {
     _locate(item ? item.node : null);
   }
 
-  // ── Layer control ─────────────────────────────────────────────────────
+  // ── The View group ────────────────────────────────────────────────────
 
   /**
-   * Basemaps as radio entries, everything else as checkboxes.
+   * One button per basemap, in the order the server sent them, base first.
    *
-   * The basemaps are mutually exclusive by nature — one thing can be under the
-   * map — and Leaflet already renders that distinction with a divider, which
-   * is most of the explanation the switcher needs. The rest is _aidNote below:
-   * one line, shown only while an aid layer is selected, saying the thing
-   * somebody would otherwise only discover on paper.
+   * Radio semantics without a radio: exactly one of these reads as active,
+   * because App.basemap.select() removes whatever else was under the map.
+   * `aria-pressed` rather than `aria-checked` — they are the same kind of
+   * control as every other tile in the panel, and a lone radio group inside a
+   * toolbar is a promise about arrow keys that nothing here keeps.
+   *
+   * The short label is looked up by id and falls back to the layer's own name,
+   * which is what an aid nobody has written a label for should show: "Terrain"
+   * fits a 52 px tile, "Ukształtowanie terenu" does not, and a raw key would
+   * be worse than either.
    */
-  function _buildLayerControl() {
-    if (_layerControl) _map.removeControl(_layerControl);
-
-    var bases = {};
-    App.basemap.entries().forEach(function (entry) {
-      bases[T(entry.labelKey)] = entry.layer;
+  function _basemapButtons() {
+    return App.basemap.entries().map(function (entry) {
+      var short = BASEMAP_LABELS[entry.id];
+      return {
+        id: "basemap-" + entry.id,
+        icon: BASEMAP_ICONS[entry.id] || "fa-layer-group",
+        labelKey: short || entry.labelKey,
+        accent: entry.aid ? "orange" : "blue",
+        active: function () {
+          return App.basemap.current() === entry.id;
+        },
+        titleFn: function () {
+          return T("toolbar.basemapPick", { name: T(entry.labelKey) });
+        },
+        onClick: function () {
+          App.basemap.select(entry.id);
+        },
+      };
     });
-
-    var overlays = {};
-    overlays[T("layers.outer")] = s.outerPolygonLayerGroup;
-    overlays[T("layers.streets")] = s.streetsLayerGroup;
-    overlays[T("layers.buildings")] = s.buildingsLayerGroup;
-    // The number chips ride along in this one: they are territories, not a
-    // separate kind of thing to switch on and off.
-    overlays[T("layers.clusters")] = s.innerPolygonsLayerGroup;
-    // Its own entry rather than riding with the territories: it is the
-    // opposite of a territory, and somebody who has finished checking the
-    // coverage should be able to put it away without losing the shapes it
-    // was drawn against.
-    overlays[T("layers.gaps")] = s.gapsLayerGroup;
-
-    // Three basemaps, five overlays and a note is a nine-line box, and it was
-    // pinned open at every width. On a phone that is the top-right corner of
-    // the map gone, next to a toolbar that already collapses itself for the
-    // same reason — so it uses the same threshold.
-    _layerControl = L.control
-      .layers(bases, overlays, { collapsed: window.innerWidth < NARROW_PX })
-      .addTo(_map);
-
-    _mountAidNote();
   }
 
-  /** The "this one does not print" line, kept in sync with the selection. */
-  function _mountAidNote() {
-    var container = _layerControl.getContainer();
-    if (!container) return;
+  /** True while `key`'s layer group is on the map. */
+  function _overlayShown(key) {
+    return function () {
+      return !!(s[key] && _map.hasLayer(s[key]));
+    };
+  }
 
-    var note = document.createElement("div");
-    note.className = "layer-note";
-    note.setAttribute("role", "note");
-    note.setAttribute("data-i18n", "layers.aidNote");
-    note.textContent = T("layers.aidNote");
-    container.appendChild(note);
+  function _toggleOverlay(key) {
+    return function () {
+      var group = s[key];
+      if (!group) return;
+      if (_map.hasLayer(group)) _map.removeLayer(group);
+      else _map.addLayer(group);
+      refresh();
+    };
+  }
 
-    _aidNote = note;
-    _syncAidNote();
+  /**
+   * "Show or hide Streets".
+   *
+   * Computed rather than a key per layer: the layer names are already in the
+   * dictionary — the print dialog and the tour both read them — and a second
+   * copy of "Streets" phrased as a sentence is a second copy to keep in step.
+   */
+  function _overlayTitle(nameKey) {
+    return function () {
+      return T("toolbar.layerToggle", { name: T(nameKey) });
+    };
   }
 
   function _syncAidNote() {
@@ -652,13 +762,30 @@ App.controls = (function () {
           title.textContent = T(group.titleKey);
 
           var host = D.role(section, "items");
-          group.buttons.forEach(function (spec) {
+          // dynamic() first, then the written-out buttons: the only group with
+          // both is View, where the server-driven basemaps head the list and
+          // the separator immediately after them is the first written entry.
+          var specs = (group.dynamic ? group.dynamic() : []).concat(
+            group.buttons || [],
+          );
+          specs.forEach(function (spec) {
+            if (spec.separator) {
+              D.mount("tpl-toolbar-break", host);
+              return;
+            }
             if (spec.custom) {
               spec.custom(host);
               return;
             }
             _items[spec.id] = { spec: spec, node: _makeButton(spec, host) };
           });
+
+          // Below the items rather than inside them: it is a sentence about
+          // the group, and it is hidden until it has something to say.
+          if (group.noteTemplate) {
+            _aidNote = D.mount(group.noteTemplate, section);
+            _syncAidNote();
+          }
         });
 
         D.onRole(_panel, "collapse", function () {

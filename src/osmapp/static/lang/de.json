@@ -87,7 +87,18 @@
     "redoCornerCount": "Eckpunktänderung wiederherstellen ({count} verfügbar)",
     "redoCornerNone": "Nichts wiederherzustellen",
     "labelPrint": "Drucken",
-    "print": "Gebiet auswählen und dessen Karte drucken"
+    "print": "Gebiet auswählen und dessen Karte drucken",
+    "groupView": "Ansicht",
+    "labelBaseOsm": "Karte",
+    "labelBaseImagery": "Luftbild",
+    "labelBaseTerrain": "Gelände",
+    "labelLayerOuter": "Grenze",
+    "labelLayerStreets": "Straßen",
+    "labelLayerBuildings": "Häuser",
+    "labelLayerClusters": "Formen",
+    "labelLayerGaps": "Lücken",
+    "layerToggle": "{name} ein- oder ausblenden",
+    "basemapPick": "{name} als Hintergrund verwenden"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -574,7 +585,7 @@
       },
       "toolbar": {
         "title": "Alle Werkzeuge in einer Leiste",
-        "body": "Alles, was die App kann, steht hier, gruppiert nach Zweck: Fläche, Gebiete, Verlauf, Datei und die App selbst. Was noch nicht benutzbar ist, wird ausgegraut statt versteckt, und der Tooltip sagt, was dafür fehlt. Der Pfeil oben blendet die Beschriftungen aus, wenn die Karte den Platz braucht."
+        "body": "Alles, was die App kann, steht hier, gruppiert nach Zweck: Fläche, Gebiete, Ansicht, Verlauf, Datei und die App selbst. Was noch nicht benutzbar ist, wird ausgegraut statt versteckt, und der Tooltip sagt, was dafür fehlt. Der Pfeil oben blendet die Beschriftungen aus, wenn die Karte den Platz braucht."
       },
       "search": {
         "title": "Mit der Suche anfangen",
@@ -646,7 +657,7 @@
       },
       "layers": {
         "title": "Was angezeigt wird",
-        "body": "Hintergrund zwischen Karte, Luftbild und Gelände umschalten und Straßen, Gebäude und Gebiete ein- und ausblenden. Die Hilfsebenen gelten nur für den Bildschirm — gedruckt wird immer auf der OpenStreetMap-Ebene."
+        "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Die obere Reihe entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände — und immer nur eines davon; die Hilfsebenen gelten nur für den Bildschirm, gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
       },
       "info": {
         "title": "Wo man gerade steht",
@@ -702,7 +713,7 @@
       },
       "gaps": {
         "title": "Boden, den niemand abdeckt",
-        "body": "Ein gelöschtes Gebiet, ein zu dünner Schnitt oder eine vergrößerte Grenze hinterlassen Flächen, die zu keiner Karte gehören, und auf dem Bildschirm sieht nichts falsch aus — man merkt es, wenn eine Straße auf keiner Karte steht. Schalten Sie „Nicht abgedeckte Flächen“ ein, dann werden sie orange gestrichelt gezeichnet; ein Klick macht daraus ein Gebiet. Sie stehen auch in der Gebietsliste: dort übernimmt eine Schaltfläche die Fläche und repariert das Ergebnis, eine andere schließt sie."
+        "body": "Ein gelöschtes Gebiet, ein zu dünner Schnitt oder eine vergrößerte Grenze hinterlassen Flächen, die zu keiner Karte gehören, und auf dem Bildschirm sieht nichts falsch aus — man merkt es, wenn eine Straße auf keiner Karte steht. Dieser Schalter zeichnet sie orange gestrichelt, und in diesem Beispiel gibt es eine: draußen im Feld östlich des Dorfes. Ein Klick macht daraus ein Gebiet, und sie stehen auch als Zeilen in der Gebietsliste."
       },
       "shortcuts": {
         "title": "Was kann ich drücken?",
@@ -711,6 +722,14 @@
       "printButton": {
         "title": "Eine Karte drucken",
         "body": "Das öffnet die Gebietsliste mit einem Drucker neben jeder Zeile — der Weg, wenn die Nummer schon feststeht. Dieselbe Ansicht liegt am Gebiet selbst einen Rechtsklick entfernt."
+      },
+      "territoryList": {
+        "title": "Die Gebietsliste",
+        "body": "Eine Zeile pro Gebiet, in der Reihenfolge der Nummern. Eine Zeile führt die Karte zu ihrem Gebiet, der Drucker daneben erstellt die Gebietskarte, und die Markierungen sagen, was nicht stimmt — in getrennten Teilen gezeichnet, keine Gebäude darin, zu klein für eine Nummer oder Boden, der zu keinem Gebiet gehört. Die Chips darüber filtern genau auf diese Zeilen, sodass aus neunundneunzig Gebieten die vier werden, die einen zweiten Blick verdienen."
+      },
+      "autoheal": {
+        "title": "Die ganze Liste reparieren",
+        "body": "Drei Fehler sind mechanisch genug, um sie ohne Rückfrage zu beheben, und diese Schaltfläche behebt alle auf einmal: Ein in getrennten Teilen gezeichnetes Gebiet wird zu einem Gebiet pro Teil, ein Gebiet ohne Gebäude geht in den Nachbarn über, mit dem es die längste Grenze teilt, und eine Fläche, die niemandem gehört, wird zuerst übernommen und dann nach denselben zwei Regeln beurteilt — so landet das leere Feld östlich des Dorfes im Gebiet daneben. Die ganze Reparatur ist ein einziges Rückgängig, und der Zauberstab an einer Zeile tut dasselbe nur für diese Zeile."
       }
     }
   },

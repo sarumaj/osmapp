@@ -261,20 +261,32 @@ App.tour = (function () {
       },
     },
     {
+      // The View group used to be Leaflet's layer switcher in the opposite
+      // corner, and this step used to be after the sample was put away —
+      // which meant the two switches that only make sense with territories on
+      // screen were explained over an empty map. It is here now, and the two
+      // steps that follow are the two entries in it that are not layers.
+      id: "layers",
+      demo: true,
+      target: '[data-group="view"]',
+      placement: "right",
+    },
+    {
       id: "numbers",
       demo: true,
       target: '[data-action="numbers"]',
       placement: "right",
     },
     {
-      // The one feature on the layer switcher that is not a layer: it finds
-      // ground that belongs to no territory, which is the failure the rest of
-      // the app cannot show you because nothing looks wrong when it happens.
+      // The one entry in the group that is not a layer at all: it finds ground
+      // that belongs to no territory, which is the failure the rest of the app
+      // cannot show you because nothing looks wrong when it happens. The
+      // sample carries one such patch on purpose — see demo.js — so this is a
+      // switch with something to switch on.
       id: "gaps",
       demo: true,
-      target: ".leaflet-control-layers",
-      placement: "left",
-      skipIfNoTarget: true,
+      target: '[data-action="layer-gaps"]',
+      placement: "right",
     },
     {
       // The button→screen pairing every other tool here gets. Printing had no
@@ -285,6 +297,43 @@ App.tour = (function () {
       demo: true,
       target: '[data-action="print"]',
       placement: "right",
+    },
+    {
+      // The screen the print button actually opens, which no step showed: the
+      // two that followed were both about a right-click menu, so the list —
+      // the place where the map's faults are named — was reachable from the
+      // walkthrough and never in it.
+      id: "territoryList",
+      demo: true,
+      target: ".territory-list",
+      placement: "right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
+    },
+    {
+      // Autoheal had no step of its own, and it is the one feature in the app
+      // that changes the territories without being asked how. Explaining it
+      // needed a list with something wrong in it, which is why the sample now
+      // carries an uncovered patch: the button this rings is hidden when there
+      // is nothing to repair, so a tidy sample would have left the step
+      // pointing at an absence.
+      id: "autoheal",
+      demo: true,
+      target: '.territory-list [data-role="fix-all"]',
+      // Docked rather than placed: the bubble is a long one and every side of
+      // a button at the foot of a centred dialog lands on the dialog, over the
+      // very rows the text is about. The corner is clear of both.
+      dock: "bottom-right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
     },
     {
       id: "territory",
@@ -344,12 +393,6 @@ App.tour = (function () {
     // ── back to the user's own map ──────────────────────────────────────
 
     { id: "history", target: '[data-action="undo"]', placement: "right" },
-    {
-      id: "layers",
-      target: ".leaflet-control-layers",
-      placement: "left",
-      skipIfNoTarget: true,
-    },
     { id: "info", target: "#info-panel", placement: "left" },
     { id: "files", target: '[data-action="export"]', placement: "right" },
     // Export and Import were one step pointing at Export, which is half a
@@ -369,6 +412,17 @@ App.tour = (function () {
     },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
+
+  /**
+   * The territory list, opened on the sample.
+   *
+   * Idempotent by way of labels.openList(), which re-opens rather than
+   * stacking — so stepping back into the step that precedes this one and
+   * forward again lands on one dialog rather than two.
+   */
+  function _openSampleList() {
+    if (App.labels) App.labels.openList();
+  }
 
   /** Right-click a sample territory, without anybody having to right-click. */
   function _openSampleMenu() {

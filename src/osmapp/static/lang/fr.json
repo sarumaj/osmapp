@@ -87,7 +87,18 @@
     "redoCornerCount": "Rétablir une modification de sommet ({count} disponibles)",
     "redoCornerNone": "Rien à rétablir",
     "labelPrint": "Imprimer",
-    "print": "Choisir un territoire et imprimer sa fiche"
+    "print": "Choisir un territoire et imprimer sa fiche",
+    "groupView": "Affichage",
+    "labelBaseOsm": "Carte",
+    "labelBaseImagery": "Satellite",
+    "labelBaseTerrain": "Terrain",
+    "labelLayerOuter": "Limite",
+    "labelLayerStreets": "Rues",
+    "labelLayerBuildings": "Maisons",
+    "labelLayerClusters": "Formes",
+    "labelLayerGaps": "Vides",
+    "layerToggle": "Afficher ou masquer {name}",
+    "basemapPick": "Utiliser {name} comme fond"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -574,7 +585,7 @@
       },
       "toolbar": {
         "title": "Un panneau pour tous les outils",
-        "body": "Tout ce que fait l'application se trouve ici, regroupé par usage : la zone, les territoires, annuler et rétablir, les fichiers, l'application elle-même. Un outil non disponible est grisé plutôt que masqué, et son infobulle indique ce qui manque. La flèche en haut masque les étiquettes quand la carte a besoin de place."
+        "body": "Tout ce que fait l'application se trouve ici, regroupé par usage : la zone, les territoires, ce qui est affiché, annuler et rétablir, les fichiers, l'application elle-même. Un outil non disponible est grisé plutôt que masqué, et son infobulle indique ce qui manque. La flèche en haut masque les étiquettes quand la carte a besoin de place."
       },
       "search": {
         "title": "Commencez par une recherche",
@@ -646,7 +657,7 @@
       },
       "layers": {
         "title": "Ce qui est affiché",
-        "body": "Changez le fond entre la carte, l'imagerie aérienne et le terrain, et activez ou désactivez les rues, bâtiments et territoires. Les couches d'aide sont uniquement pour l'écran — les fiches sont toujours imprimées sur le fond OpenStreetMap."
+        "body": "Ce groupe concerne l'image, pas le travail. La rangée du haut décide de ce qui se trouve sous la carte — la carte elle-même, l'imagerie aérienne, le terrain — et un seul à la fois ; les couches d'aide sont uniquement pour l'écran, et une fiche est toujours imprimée sur le fond OpenStreetMap. Sous la ligne, chaque interrupteur retire une chose de la carte sans la retirer du projet : la limite, les rues, les maisons, les formes des territoires."
       },
       "info": {
         "title": "Où vous en êtes",
@@ -702,7 +713,7 @@
       },
       "gaps": {
         "title": "Du terrain que personne ne couvre",
-        "body": "Supprimer un territoire, en découper un trop fin ou agrandir la limite laisse des zones qui n'appartiennent à aucune fiche, et rien n'a l'air anormal à l'écran — on s'en aperçoit quand une rue n'est sur aucune fiche. Activez « Zones non couvertes » et elles apparaissent en orange pointillé ; un clic en fait un territoire. Elles figurent aussi dans la liste des territoires : un bouton y reprend la zone et répare ce que cela produit, un autre la referme."
+        "body": "Supprimer un territoire, en découper un trop fin ou agrandir la limite laisse des zones qui n'appartiennent à aucune fiche, et rien n'a l'air anormal à l'écran — on s'en aperçoit quand une rue n'est sur aucune fiche. Cet interrupteur les dessine en orange pointillé, et il y en a une dans cet exemple : dans le champ à l'est du village. Un clic en fait un territoire, et elles figurent aussi comme lignes dans la liste des territoires."
       },
       "shortcuts": {
         "title": "Sur quoi puis-je appuyer ?",
@@ -711,6 +722,14 @@
       "printButton": {
         "title": "Imprimer une fiche",
         "body": "Ceci ouvre la liste des territoires avec une imprimante à côté de chaque ligne — la voie à prendre quand le numéro est déjà connu. Le même écran est à un clic droit sur le territoire lui-même."
+      },
+      "territoryList": {
+        "title": "La liste des territoires",
+        "body": "Une ligne par territoire, dans l'ordre des numéros. Une ligne amène la carte jusqu'à son territoire, l'imprimante à côté produit la fiche, et les drapeaux disent ce qui ne va pas — dessiné en morceaux séparés, sans aucun bâtiment, trop petit pour être numéroté, ou du terrain qui n'appartient à aucun territoire. Les pastilles au-dessus filtrent exactement ces lignes : quatre-vingt-dix-neuf territoires deviennent les quatre qui méritent un second regard."
+      },
+      "autoheal": {
+        "title": "Réparer toute la liste",
+        "body": "Trois défauts sont assez mécaniques pour être réparés sans rien demander, et ce bouton les traite tous d'un coup : un territoire dessiné en morceaux séparés devient un territoire par morceau, un territoire sans bâtiment est absorbé par le voisin avec lequel il partage la plus longue limite, et une zone qui n'appartient à personne est d'abord reprise puis jugée selon ces deux mêmes règles — c'est ainsi que le champ vide à l'est du village finit dans le territoire d'à côté. Toute la réparation ne fait qu'une annulation, et la baguette sur une ligne fait la même chose pour cette ligne seule."
       }
     }
   },

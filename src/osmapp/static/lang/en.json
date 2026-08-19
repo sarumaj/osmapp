@@ -87,7 +87,18 @@
     "redoCornerCount": "Redo a corner change ({count} available)",
     "redoCornerNone": "Nothing to redo",
     "labelPrint": "Print",
-    "print": "Choose a territory and print its card"
+    "print": "Choose a territory and print its card",
+    "groupView": "View options",
+    "labelBaseOsm": "Map",
+    "labelBaseImagery": "Aerial",
+    "labelBaseTerrain": "Terrain",
+    "labelLayerOuter": "Boundary",
+    "labelLayerStreets": "Streets",
+    "labelLayerBuildings": "Houses",
+    "labelLayerClusters": "Shapes",
+    "labelLayerGaps": "Gaps",
+    "layerToggle": "Show or hide {name}",
+    "basemapPick": "Put {name} under the map"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -574,7 +585,7 @@
       },
       "toolbar": {
         "title": "One panel for the tools",
-        "body": "Everything the app does is in here, grouped by what it is for: the area, the territories, undo and redo, files, the app itself. A tool you cannot use yet is greyed out rather than hidden, and its tooltip says what is missing. The arrow at the top hides the labels when the map needs the room."
+        "body": "Everything the app does is in here, grouped by what it is for: the area, the territories, what is shown, undo and redo, files, the app itself. A tool you cannot use yet is greyed out rather than hidden, and its tooltip says what is missing. The arrow at the top hides the labels when the map needs the room."
       },
       "search": {
         "title": "Start with a search",
@@ -646,7 +657,7 @@
       },
       "layers": {
         "title": "What is shown",
-        "body": "Switch the background between the map, aerial imagery and terrain, and turn streets, buildings and territories on and off. The aid layers are for the screen only — cards are always printed on the OpenStreetMap layer."
+        "body": "This group is the picture rather than the work. The top row decides what is under the map — the map itself, aerial imagery, terrain — and only one of them can be on at a time; the aid layers are for the screen only, and a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
       },
       "info": {
         "title": "Where you stand",
@@ -702,7 +713,7 @@
       },
       "gaps": {
         "title": "Ground nobody covers",
-        "body": "Deleting a territory, cutting one thin or growing the boundary all leave patches that belong to no card, and nothing about them looks wrong on screen — you find out when a street is on no card at all. Switch \"Uncovered areas\" on and they are drawn in dashed orange; clicking one turns it into a territory. They are rows in the territory list too, where one button adopts a patch and repairs what that made, and another closes it."
+        "body": "Deleting a territory, cutting one thin or growing the boundary all leave patches that belong to no card, and nothing about them looks wrong on screen — you find out when a street is on no card at all. This switch draws them in dashed orange, and there is one in this sample, out in the field east of the village. Clicking a patch turns it into a territory, and they are rows in the territory list as well."
       },
       "shortcuts": {
         "title": "What can I press?",
@@ -711,6 +722,14 @@
       "printButton": {
         "title": "Printing a card",
         "body": "This opens the territory list with a printer beside every row, which is the way in when you know which number you want. The same view is one right-click away on the territory itself."
+      },
+      "territoryList": {
+        "title": "The territory list",
+        "body": "One row per territory, in the order the numbers run. A row walks the map to its territory, the printer beside it makes the card, and the flags say what is wrong with it — drawn in separate pieces, no buildings in it, too small to label, or ground that is in no territory at all. The chips above filter to exactly those rows, so ninety-nine territories become the four worth a second look."
+      },
+      "autoheal": {
+        "title": "Repairing the whole list",
+        "body": "Three faults are mechanical enough to repair without asking, and this button does all of them at once: a territory drawn in separate pieces becomes one territory per piece, a territory with no buildings is absorbed into the neighbor it shares the most boundary with, and a patch that belongs to nobody is adopted first and then judged by those same two rules — which is how the empty field east of the village ends up part of the territory beside it. The whole repair is a single undo, and the wand on one row does the same for that row alone."
       }
     }
   },

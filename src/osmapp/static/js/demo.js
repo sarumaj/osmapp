@@ -99,6 +99,24 @@ App.demo = (function () {
   // the partitioner with one territory eight times the size of its neighbors.
   var SPLIT_FIELD = 1250;
 
+  // ── The uncovered patch ───────────────────────────────────────────────
+  //
+  // A notch bitten out of one territory, in the empty field between the last
+  // street and the first farm. It exists for the same reason the farms do: on
+  // a grid that tiles the boundary exactly there is no uncovered ground, so
+  // the step about uncovered ground pointed at a map with none of it, and the
+  // repair button the territory list offers was hidden for the whole
+  // walkthrough — a feature explained in the abstract and never shown.
+  //
+  // Deliberately in the interior, bounded on all four sides by territories:
+  // an edge notch would only shrink the covered area, and "the boundary grew
+  // and nothing filled it" is the case people actually hit. Deliberately
+  // empty of houses too, which is what makes it the whole autoheal story in
+  // one shape — adopted as a territory, found to hold nothing, handed to the
+  // neighbor it shares the most boundary with.
+  var GAP_W = 150; // east–west, meters
+  var GAP_D = 110; // north–south, meters
+
   var _active = false;
   var _snapshot = null;
   var _view = null;
@@ -291,11 +309,13 @@ App.demo = (function () {
   }
 
   /**
-   * Four territories tiling the boundary, split on two of the grid lines.
+   * Five territories tiling the boundary, split on three of the grid lines —
+   * all but one of them a plain rectangle.
    *
-   * One of them carries a printed mark, so the green fill and the tick are on
-   * screen from the moment the sample loads rather than being described in the
-   * abstract two steps later.
+   * One carries a printed mark, so the green fill and the tick are on screen
+   * from the moment the sample loads rather than being described in the
+   * abstract two steps later. One is L-shaped, which is where the uncovered
+   * patch comes from: the notch is the piece nobody covers.
    */
   function _clusters() {
     var west = STREETS[0] - MARGIN;
@@ -303,21 +323,44 @@ App.demo = (function () {
     var south = AVENUES[0] - MARGIN;
     var north = AVENUES[AVENUES.length - 1] + MARGIN;
 
-    var boxes = [
-      [west, south, SPLIT_X, SPLIT_Y],
-      [SPLIT_X, south, SPLIT_FIELD, SPLIT_Y],
-      [west, SPLIT_Y, SPLIT_X, north],
-      [SPLIT_X, SPLIT_Y, SPLIT_FIELD, north],
-      [SPLIT_FIELD, south, east, north],
+    var rings = [
+      _rect(west, south, SPLIT_X, SPLIT_Y),
+      _rect(SPLIT_X, south, SPLIT_FIELD, SPLIT_Y),
+      _rect(west, SPLIT_Y, SPLIT_X, north),
+      // The notched one. Its missing corner is enclosed by the territory below
+      // it, the one to its east and its own two remaining arms, so the hole is
+      // interior to the covered area rather than a dent in its outline.
+      _notched(SPLIT_X, SPLIT_Y, SPLIT_FIELD, north),
+      _rect(SPLIT_FIELD, south, east, north),
     ];
 
-    return boxes.map(function (box, i) {
+    return rings.map(function (coordinates, i) {
       return {
         type: "Feature",
-        geometry: { type: "Polygon", coordinates: _rect(box[0], box[1], box[2], box[3]) },
+        geometry: { type: "Polygon", coordinates: coordinates },
         properties: i === 0 ? { printed: new Date().toISOString() } : {},
       };
     });
+  }
+
+  /**
+   * The rectangle x0,y0..x1,y1 with a GAP_W by GAP_D bite taken out of its
+   * south-east corner, as one closed ring — six corners rather than four.
+   */
+  function _notched(x0, y0, x1, y1) {
+    var cutX = x1 - GAP_W;
+    var cutY = y0 + GAP_D;
+    return [
+      [
+        _project(x0, y0),
+        _project(cutX, y0),
+        _project(cutX, cutY),
+        _project(x1, cutY),
+        _project(x1, y1),
+        _project(x0, y1),
+        _project(x0, y0),
+      ],
+    ];
   }
 
   function _bounds() {

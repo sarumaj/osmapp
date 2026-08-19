@@ -980,7 +980,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   Basemaps and the layer switcher
+   Basemaps
 
    The aid basemaps are photographs and shaded relief, and everything the app
    actually draws — territory outlines, streets, buildings — sits on top of
@@ -993,23 +993,12 @@ body {
    the entire reason the layer exists — while the vectors regain their
    contrast. Applied through the layer's className so it follows the tiles and
    touches nothing else.
+
+   Which basemap is on is chosen in the toolbar's View group; the note that
+   says an aid one does not print is styled with the rest of that panel below.
    ═══════════════════════════════════════════════════════════ */
 .basemap-aid {
   filter: saturate(0.8) brightness(1.08);
-}
-
-/* One line, and only while an aid basemap is selected. The rule it states —
-   cards always print OSM — is invisible until someone has already printed
-   fifty of them, which is far too late to find out. */
-.layer-note {
-  margin: 6px -10px -6px;
-  padding: 6px 10px;
-  border-top: 1px solid var(--c-border);
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
-  background: var(--c-surface-hover);
-  font: var(--ui-fs-sm) / 1.35 var(--ui-font);
-  color: var(--c-text-dim);
-  max-width: 180px;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -1139,6 +1128,23 @@ body {
    for phones and for anyone who has learned the icons.
    ═══════════════════════════════════════════════════════════ */
 .tb-panel {
+  /* The grid the panel is measured in. .tb-group__items wraps, so the width is
+     what decides how many tiles a group puts on a line — and until it was
+     stated the answer was "however many the largest group has", which is how
+     adding the View group's nine switches turned a 334 px panel into a 502 px
+     one and took a third of the map with it. Six columns is the width the
+     panel already had; every group either fits on one line or wraps onto two
+     tidy ones. */
+  --tb-tile: 52px;
+  --tb-gap: 2px;
+  --tb-cols: 6;
+  box-sizing: border-box;
+  width: calc(
+    var(--tb-cols) * var(--tb-tile) + (var(--tb-cols) - 1) * var(--tb-gap) + 12px
+  );
+  /* A phone in landscape with the labels on: narrower than six tiles, and the
+     wrap handles the rest. */
+  max-width: calc(100vw - 20px);
   background: var(--c-surface);
   border: 2px solid var(--c-border-strong);
   border-radius: var(--radius-md);
@@ -1203,7 +1209,36 @@ body {
 .tb-group__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: var(--tb-gap);
+}
+
+/* ── The View group's two halves ───────────────────────────────────────── */
+/* Pick-one basemaps above, toggle-each overlays below. Leaflet's switcher drew
+   the same line with a divider between its radios and its checkboxes, and that
+   divider was most of the explanation it needed — so the line came along when
+   the entries became tiles.
+
+   flex-basis: 100% is what forces the wrap in the expanded panel, where the
+   items are a wrapping row. Collapsed they are a column, where a 100% basis
+   would mean the full *height* of the group — hence the override further
+   down. */
+.tb-group__break {
+  flex: 0 0 100%;
+  height: 0;
+  margin: 3px 2px;
+  border-top: 1px dashed var(--c-border);
+}
+
+/* One line under the group, and only while an aid basemap is selected. The
+   rule it states — cards always print OSM — is invisible until someone has
+   already printed fifty of them, which is far too late to find out. */
+.tb-group__note {
+  margin: 5px 1px 1px;
+  padding: 5px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: var(--ui-fs-sm) / 1.3 var(--ui-font);
+  color: var(--c-text-dim);
 }
 
 .tb-item {
@@ -1212,7 +1247,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  width: 52px;
+  width: var(--tb-tile);
   padding: 5px 2px;
   border-radius: var(--radius-sm);
   color: var(--c-text);
@@ -1286,14 +1321,56 @@ body {
   color: var(--c-warn);
 }
 
+/* ── View switches ─────────────────────────────────────────────────────── */
+/* The solid purple .is-active fill says "a tool is running", and it is right
+   for Cut and Merge: they are modes, they are the exception, and while one is
+   on it is the most important thing on the panel. It is wrong for every switch
+   in the View group, where on is the resting state — five overlays and the
+   numbers all start on, so the same treatment turned the group into a block of
+   filled tiles that read as six alarms.
+   So a switch that is on gets the quiet version of the same idea: the hover
+   tint it would have under the cursor anyway, an accent-colored glyph, and a
+   hairline ring saying it is pressed. Off is a plain tile — a control you can
+   press, not one that is unavailable. */
+.tb-group[data-group="view"] .tb-item.is-active,
+.tb-group[data-group="view"] .tb-item.is-active:hover {
+  background: var(--c-surface-hover);
+  color: var(--c-accent);
+  box-shadow: inset 0 0 0 1px var(--c-accent);
+}
+
+/* A disabled switch is greyed by .is-disabled, and the ring would fight it:
+   Numbers is on by default and unavailable until there are territories, which
+   is the one combination where both rules apply at once. */
+.tb-group[data-group="view"] .tb-item.is-active.is-disabled {
+  box-shadow: none;
+}
+
 /* ── Collapsed: icons only, one column ─────────────────────────────────── */
+/* One column, so the panel is as wide as an icon rather than as wide as six of
+   them and the six-column measure above does not apply. */
+.tb-panel.is-collapsed {
+  width: auto;
+}
+
+/* The note goes with the labels: a paragraph of prose in a 30 px strip is not
+   a paragraph anybody reads, and the rule it states is repeated in the print
+   dialog, where it also matters. */
 .tb-panel.is-collapsed .tb-group__title,
-.tb-panel.is-collapsed .tb-item__label {
+.tb-panel.is-collapsed .tb-item__label,
+.tb-panel.is-collapsed .tb-group__note {
   display: none;
 }
 
 .tb-panel.is-collapsed .tb-group__items {
   flex-direction: column;
+}
+
+/* Full width of the column rather than full height of it. */
+.tb-panel.is-collapsed .tb-group__break {
+  flex-basis: auto;
+  align-self: stretch;
+  margin: 3px 0;
 }
 
 .tb-panel.is-collapsed .tb-item {

@@ -37,6 +37,23 @@ const INDEX = readFileSync(
   "utf8",
 );
 
+const FA_CSS = readFileSync(
+  join(
+    ROOT,
+    "src",
+    "osmapp",
+    "static",
+    "vendor",
+    "cdnjs.cloudflare.com",
+    "ajax",
+    "libs",
+    "font-awesome",
+    "css",
+    "all.min.css",
+  ),
+  "utf8",
+);
+
 const SOURCE = {
   editing: readFileSync(join(JS_DIR, "editing.js"), "utf8"),
   trim: readFileSync(join(JS_DIR, "trim.js"), "utf8"),
@@ -519,4 +536,85 @@ test("the gestures the print view lists are the modifiers it reads", () => {
     /combos: \["Alt\+drag"\]/,
     "and Alt must not be listed as a gesture of its own",
   );
+});
+
+// ── The icons are real ───────────────────────────────────────────────────────
+
+test("every glyph the toolbar names exists in the icon font", () => {
+  // A name that Font Awesome does not define renders as nothing at all: the
+  // tile keeps its label, its tooltip and its click, and loses only the one
+  // thing a collapsed panel has left. Nothing else in the suite can see it —
+  // the spec is valid JavaScript, the button works, and the gap is a blank
+  // 15 px square in a screenshot nobody diffs.
+  //
+  // It is also a live risk rather than a hypothetical one: fa-vector-square
+  // shipped in the free set for years and is gone from 7.x, so the way this
+  // breaks is a dependency bump rather than a typo.
+  //
+  // The bundle is minified with aliases grouped into one rule
+  // (`.fa-warning,.fa-triangle-exclamation{--fa:"\f071"}`), so the selector is
+  // matched inside a rule head rather than at the start of one.
+  const named = [
+    ...SOURCE.controls.matchAll(/\bicon:\s*"(fa-[\w-]+)"/g),
+  ].map((m) => m[1]);
+  assert.ok(named.length >= 15, "the toolbar names no icons at all");
+
+  const missing = named.filter(
+    (name) => !new RegExp(`\\.${name}[,{]`).test(FA_CSS),
+  );
+  assert.deepStrictEqual(missing, []);
+});
+
+// ── What is shown is answered in one place ───────────────────────────────────
+
+test("the layer switcher is the toolbar, not a second panel", () => {
+  // Leaflet's own control was the only part of the app that did not look like
+  // the app, and it answered "what is shown" from the opposite corner of the
+  // map while the number chips — a view switch that had never been a layer —
+  // answered it from the toolbar.
+  assert.ok(
+    !/L\.control\s*\n?\s*\.layers\(/.test(SOURCE.controls),
+    "the Leaflet layer control is back",
+  );
+  assert.match(SOURCE.controls, /key:\s*"view"/);
+  assert.match(SOURCE.controls, /titleKey:\s*"toolbar\.groupView"/);
+});
+
+test("every layer the old switcher offered still has a switch", () => {
+  // The five overlays and the basemaps, which is the whole of what the control
+  // used to hold. A switch quietly dropped in the move is a layer that can no
+  // longer be turned off, and nothing about the map says so.
+  for (const group of [
+    "outerPolygonLayerGroup",
+    "streetsLayerGroup",
+    "buildingsLayerGroup",
+    "innerPolygonsLayerGroup",
+  ]) {
+    assert.ok(
+      SOURCE.controls.includes(`_toggleOverlay("${group}")`),
+      `${group} has no switch`,
+    );
+    assert.ok(
+      SOURCE.controls.includes(`_overlayShown("${group}")`),
+      `${group}'s switch does not show its state`,
+    );
+  }
+  // The gaps layer is the one that is not merely a draw call: switching it off
+  // stops the subtraction, so it goes through the module rather than the map.
+  assert.match(SOURCE.controls, /App\.gaps\.setVisible\(!App\.gaps\.isVisible\(\)\)/);
+  // And the basemaps come from the server, so they are expanded rather than
+  // written out.
+  assert.match(SOURCE.controls, /dynamic:\s*_basemapButtons/);
+  assert.match(SOURCE.controls, /App\.basemap\.select\(entry\.id\)/);
+});
+
+test("the note about aid basemaps not printing survived the move", () => {
+  // The one line that says a satellite card has no street names on it. It was
+  // appended to the layer control's container; it is now mounted into the
+  // group it belongs to, and the template carries the English fallback.
+  assert.match(SOURCE.controls, /noteTemplate:\s*"tpl-toolbar-note"/);
+  assert.match(SOURCE.controls, /function _syncAidNote/);
+  assert.match(SOURCE.controls, /App\.basemap\.isAid\(\)/);
+  assert.ok(INDEX.includes('id="tpl-toolbar-note"'), "the note template is gone");
+  assert.ok(INDEX.includes('data-i18n="layers.aidNote"'), "the note lost its key");
 });

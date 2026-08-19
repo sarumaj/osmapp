@@ -221,6 +221,24 @@
       </a>
     </template>
 
+    <!-- The hairline between the two halves of the View group: pick-one
+         basemaps above, toggle-each overlays below. Leaflet's own switcher
+         drew the same distinction with a divider, and it was most of the
+         explanation the switcher needed — so it comes along. -->
+    <template id="tpl-toolbar-break">
+      <span class="tb-group__break" aria-hidden="true"></span>
+    </template>
+
+    <!-- One line under the View group, and only while an aid basemap is
+         selected. The rule it states — cards always print OSM — is invisible
+         until someone has already printed fifty of them. -->
+    <template id="tpl-toolbar-note">
+      <p class="tb-group__note" role="note" data-i18n="layers.aidNote">
+        An on-screen aid only. Territory cards are always printed on the
+        OpenStreetMap layer.
+      </p>
+    </template>
+
     <template id="tpl-language-control">
       <div class="tb-item tb-item--select">
         <span class="tb-item__icon" data-role="flag" aria-hidden="true"></span>
