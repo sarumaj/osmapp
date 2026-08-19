@@ -83,11 +83,10 @@ App.editing = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Streets and boundaries go into separate grids. They used to share one,
-   * which meant a territory outline 150 m away could outrank the street the
-   * cursor was sitting on — and a cut line that snaps onto the outline of the
-   * territory you are trying to cut runs along it instead of across it, which
-   * is the "this cluster will not split at all" symptom.
+   * Streets and boundaries go into separate grids rather than one, so that a
+   * territory outline 150 m away cannot outrank the street under the cursor. A
+   * cut line snapped onto the outline of the territory being cut runs along it
+   * instead of across it, which presents as "this cluster will not split".
    */
   function rebuildSnapIndex() {
     N.build();
@@ -328,7 +327,7 @@ App.editing = (function () {
       }
     }
 
-    // Overshoot unconditionally: past the boundary we met, or past the
+    // Overshoot unconditionally: past the boundary it met, or past the
     // endpoint itself when there was nothing to meet.
     var anchor = best || to;
     var overDeg = s.CUT_EXTEND_OVERSHOOT_M / SP.M_PER_DEG_LAT;
@@ -522,10 +521,10 @@ App.editing = (function () {
    * clicking, and a pan that only moves a pixel or two silently eats a
    * vertex. The right button pans without ever touching the line.
    *
-   * Leaflet's own drag handler ignores every button but the primary one, so
-   * this is a handler of our own rather than a flag on map.dragging. Right
-   * click has no other job here — the territory context menu already bows out
-   * while s.editMode is set.
+   * Leaflet's own drag handler ignores every button but the primary one, so the
+   * panning is done from a handler here rather than through map.dragging. Right
+   * click has no other job in this mode — the territory context menu already
+   * bows out while s.editMode is set.
    */
   function _bindRightPan() {
     var container = s.leafletMap.getContainer();
@@ -890,10 +889,10 @@ App.editing = (function () {
   // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Every key the cut tool answers, in one list, plus the two gestures that
-   * are not keys at all. Shift+Backspace is new and is the whole reason the
-   * list is worth having: Backspace has always stepped back, and until the
-   * list existed nobody noticed that nothing stepped forward.
+   * Every key the cut tool answers, in one list, plus the two gestures that are
+   * not keys at all. The list is what makes a missing half visible: Backspace
+   * steps back and Shift+Backspace steps forward, and a pair with one member is
+   * obvious here and invisible in the handlers.
    */
   var CUT_KEYS = {
     id: "cut",

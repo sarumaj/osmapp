@@ -1,12 +1,11 @@
 /**
- * The street graph, now that two tools share it.
+ * The street graph, which the cut tool and the trim tool share.
  *
- * It was private to the cut tool until the trim tool needed the same answers,
- * and shared code that nothing tests is how the two would have drifted apart
- * anyway — just in one file instead of two. What is worth pinning is the part
- * both callers reason about: routing returns the *shortest* path or nothing at
- * all, "nothing at all" includes two ends in different components, and the pop
- * budget is a real ceiling rather than a suggestion.
+ * Shared code that nothing tests drifts inside one file as readily as it does
+ * across two, so what is pinned here is the part both callers reason about:
+ * routing returns the *shortest* path or nothing at all, "nothing at all"
+ * includes two ends in different components, and the pop budget is a real
+ * ceiling rather than a suggestion.
  *
  * Leaflet is stubbed down to the two things this module uses of it: a latLng
  * with a distanceTo. Everything else is arithmetic.
@@ -42,6 +41,13 @@ function street(coordinates) {
   };
 }
 
+/**
+ * Build the graph from `features`, a plain list of street LineStrings.
+ *
+ * spatial.js and network.js are the real modules; Leaflet is reduced to latLng
+ * with a distanceTo, which is all either one uses. Everything else is
+ * arithmetic, so no map exists here to snap against.
+ */
 function load(features) {
   const window = {};
   const App = loadApp(["spatial.js", "network.js"], {

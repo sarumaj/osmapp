@@ -13,7 +13,7 @@
  *
  * Trimming before partitioning is the fix, and it is the one step of the
  * workflow that was missing. What the boundary should actually enclose is
- * "everywhere within walking reach of a building we care about" — which is a
+ * "everywhere within walking reach of a building that matters" — which is a
  * shape nobody wants to trace by hand.
  *
  * ── How the shape is found ─────────────────────────────────────────────────
@@ -173,11 +173,10 @@ App.trim = (function () {
   var _byFeature = null; // feature → key, so painting a building is not a scan
   // ── Who decided what ──────────────────────────────────────────────────
   //
-  // The selection used to be one set of excluded keys, written to by both the
-  // automatic pass and the user. That was fine while the pass ran once, and
-  // it is not fine now that two sliders re-run it: re-running would either
-  // wipe every decision made by hand or pile the new answer on top of the old
-  // one, and neither is what moving a slider means.
+  // Two sliders re-run the automatic pass, so the pass's answer and the user's
+  // edits cannot share one set of excluded keys: re-running would either wipe
+  // every decision made by hand or pile the new answer on top of the old one,
+  // and neither is what moving a slider means.
   //
   // So the two are kept apart. `_auto` is the pass's current answer and is
   // replaced wholesale whenever it runs; `_manual` holds only the buildings
@@ -771,14 +770,13 @@ App.trim = (function () {
 
     // Exactly what the slider says, and nothing else.
     //
-    // This used to be lifted to a share of everything downloaded, so that
-    // "at most eight buildings" would not be silly in a town of four
-    // thousand. The intent was right and the effect was the bug people
-    // actually hit: in a city the ceiling worked out at two hundred, so a
-    // whole block on the far side of a park was small enough to sweep away —
-    // and the readout beside the slider went on saying eight. A control that
-    // reports one number and applies another is worse than a blunt one, and
-    // the slider reaches sixty now for the towns that need it.
+    // Lifting it to a share of the download would keep "at most eight
+    // buildings" from being silly in a town of four thousand, but in a city the
+    // ceiling works out at two hundred — enough to sweep away a whole block on
+    // the far side of a park while the readout beside the slider still says
+    // eight. A control that reports one number and applies another is worse
+    // than a blunt one, so the slider reaches sixty for the towns that need it
+    // and the value is used as given.
     var maxSize = groupMax;
     var reach = Math.max(threshold * 4, 2000);
     var homeGrid = new SP.Grid(120);
@@ -1259,7 +1257,7 @@ App.trim = (function () {
   /**
    * Make the kept buildings one place, and say which raster component that is.
    *
-   * Without this, a building that is not near any other simply lost: it formed
+   * Without this, a building that is not near any other loses outright: it forms
    * its own component, the vote went to the settlement, and the proposal came
    * back unchanged. Which made un-excluding one a no-op — you clicked, the
    * count went up, and the boundary did not move. That is the single most
@@ -1866,13 +1864,12 @@ App.trim = (function () {
 
     // ── The outlier sliders ─────────────────────────────────────────────
     //
-    // The pass runs on arrival and used to be the end of the conversation:
-    // the only reply to "it took too much" or "it left the four farms in"
-    // was to click buildings one at a time, or drag a box, and to do that
-    // again on the next area. These two are the same conversation held with
-    // the rule instead of with its output — and because both are relative to
-    // the area's own spacing, a setting that suits one village keeps meaning
-    // the same thing in the next one.
+    // The pass runs on arrival, and these two sliders are how its answer is
+    // argued with. Without them the only reply to "it took too much" or "it
+    // left the four farms in" is clicking buildings one at a time, and doing it
+    // again on the next area. They address the rule rather than its output, and
+    // because both are relative to the area's own spacing, a setting that suits
+    // one village means the same thing in the next one.
     var isolation = D.role(_toolbar, "isolation");
     isolation.min = String(_scaled(s.TRIM_OUTLIER_FACTOR_MIN || 1));
     isolation.max = String(_scaled(s.TRIM_OUTLIER_FACTOR_MAX || 20));
@@ -2301,10 +2298,10 @@ App.trim = (function () {
 
   // ── Selection history ─────────────────────────────────────────────────
   //
-  // The ignore set is what this tool edits, and until now nothing recorded
-  // it: Ctrl+Z while trimming reached straight past it into the cluster
-  // stack and undid whatever geometry change came before the tool was
-  // opened. Snapshots are small — a set of keys — so every change gets one.
+  // The ignore set is what this tool edits, so it needs a stack of its own:
+  // without one, Ctrl+Z while trimming reaches past it into the cluster stack
+  // and undoes whatever geometry change came before the tool was opened.
+  // Snapshots are small — a set of keys — so every change gets one.
 
   var _ignoreUndo = [];
   var _ignoreRedo = [];
@@ -2322,11 +2319,9 @@ App.trim = (function () {
   /**
    * Both halves, because both can change.
    *
-   * The pass's answer used to be indistinguishable from the user's edits
-   * inside a snapshot, which was harmless while it was computed once. Clear
-   * empties it and the Outliers button replaces it, so a snapshot that only
-   * carried the derived set would undo those two by putting the *result*
-   * back while leaving the inputs saying something else.
+   * Clear empties the pass's answer and the Outliers button replaces it, so a
+   * snapshot carrying only the derived set would undo either one by putting the
+   * *result* back while leaving the inputs saying something else.
    *
    * Slider moves are deliberately not on this stack, for the same reason the
    * reach and detail sliders are not: they are settings rather than edits.

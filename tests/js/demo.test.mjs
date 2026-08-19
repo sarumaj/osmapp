@@ -113,6 +113,49 @@ test("the territories tile the outer boundary", () => {
   }
 });
 
+test("one territory has a bite out of it, and it is in the interior", () => {
+  // The uncovered patch the tour needs: without it the sample covers the
+  // boundary exactly, the step about ground nobody covers points at a map with
+  // none of it, and the territory list's repair button — hidden when there is
+  // nothing to repair — never appears.
+  //
+  // Asserted as "exactly one territory is not a rectangle" rather than by
+  // hunting for the hole with a boolean union, which would need turf. demo.js
+  // is testable precisely because it needs nothing.
+  const notched = payload.clusters.filter((c) => ring(c).length > 5);
+  assert.equal(notched.length, 1, "the sample has no uncovered patch");
+
+  // Interior, not a dent in the outline: an edge notch would shrink the
+  // covered area instead, and the case people actually hit is a boundary that
+  // grew with nothing filling the new ground.
+  const outer = bbox(ring(payload.outerPolygon));
+  const covered = bbox(payload.clusters.flatMap((c) => ring(c)));
+  assert.deepStrictEqual(covered, outer);
+
+  // And the patch itself holds no houses, which is what makes it the whole
+  // autoheal story in one shape: adopted as a territory, found to hold
+  // nothing, handed to the neighbor it shares the most boundary with. A patch
+  // with houses on it would stay a territory of its own and the step would be
+  // describing a repair the button does not make.
+  //
+  // The patch is the rectangle the notch cut away, and its fourth corner is
+  // the one the ring no longer has. Recovering it is vector arithmetic on the
+  // three corners that are still there — legitimate because the village is
+  // projected by a rotation and two scales, and an affine map takes
+  // "p1 + (p3 - p2)" to the same point either side of it.
+  const corners = ring(notched[0]);
+  const [, p1, p2, p3] = corners;
+  const missing = [p1[0] + p3[0] - p2[0], p1[1] + p3[1] - p2[1]];
+  const [west, south, east, north] = bbox([p1, p2, p3, missing]);
+
+  const houses = payload.buildings.features.filter((b) =>
+    ring(b).some(
+      ([lng, lat]) => lng >= west && lng <= east && lat >= south && lat <= north,
+    ),
+  );
+  assert.deepStrictEqual(houses, [], "the uncovered patch has houses on it");
+});
+
 test("every building is inside the boundary", () => {
   const [west, south, east, north] = bbox(ring(payload.outerPolygon));
   for (const building of payload.buildings.features) {
@@ -176,7 +219,10 @@ test("the collections are the shape the print overlay walks", () => {
 });
 
 test("both new tour steps are in the dictionary", () => {
-  for (const id of ["sample", "restore"]) {
+  // "gaps" and "autoheal" belong here too: both describe the patch the notch
+  // above leaves behind, and a raw key path teaches a first-time reader
+  // nothing.
+  for (const id of ["sample", "restore", "gaps", "autoheal"]) {
     assert.equal(typeof DICT.tour.steps[id].title, "string", id);
     assert.equal(typeof DICT.tour.steps[id].body, "string", id);
   }

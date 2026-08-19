@@ -24,8 +24,8 @@
     var map = L.map(node, { center: [47.3769, 8.5417], zoom: 13 });
     // Before i18n, deliberately: the map should have ground under it while the
     // dictionaries load. App.basemap adds whichever basemap was last chosen —
-    // OSM unless someone switched to an aid layer — and the layer control
-    // names them later, once there is a language to name them in.
+    // OSM unless someone switched to an aid layer — and the toolbar's View
+    // group names them later, once there is a language to name them in.
     App.basemap.init(map);
 
     if (typeof L.Editable === "undefined") {
@@ -67,13 +67,13 @@
     App.vertices.watch(map);
 
     // ── Panes ───────────────────────────────────────────────────────────
-    // Stacking used to be a side effect of the order things happened to be
-    // drawn in: setClusters() builds cluster layers and then calls
-    // refreshFilteredData(), so streets and buildings were appended to the SVG
-    // after the territories and ended up on top. That is the order we want —
-    // hovering a building should tell you about the building — but it should
-    // be stated rather than inherited from a call sequence, because whichever
-    // path is topmost is the one that receives pointer events.
+    // Stacking is stated here rather than left to draw order. Without these
+    // panes it is a side effect of a call sequence: setClusters() builds cluster
+    // layers and then calls refreshFilteredData(), so streets and buildings are
+    // appended to the SVG after the territories and land on top. That happens to
+    // be the right order — hovering a building should tell you about the
+    // building — but whichever path is topmost receives the pointer events, so
+    // it is not something to inherit by accident.
     //
     // The outer boundary sits at the bottom on purpose: it spans everything,
     // so anywhere else it would swallow every hover in the working area.
@@ -134,9 +134,6 @@
     App.autoheal.init();
     App.print.init();
     App.boundary.init();
-    // Before controls.init: Leaflet stacks a corner's controls in the order
-    // they were added, and the search belongs above the toolbar — it is the
-    // first step of the workflow, not an afterthought beside the zoom buttons.
     _setupGeocoder(s);
     App.controls.init(map);
     App.history.init();
@@ -178,11 +175,11 @@
   /**
    * Right-click on bare map.
    *
-   * The layer handlers in polygons.js, gaps.js and trim.js all stop
-   * propagation, so this only ever runs when there was nothing under the
-   * pointer — which used to mean the browser's own menu, even in the modes
-   * whose hint banner says "Right-click for the menu" and whose menu is the
-   * only place some of their actions live.
+   * The layer handlers in polygons.js, gaps.js and trim.js all stop propagation,
+   * so this only runs when there was nothing under the pointer. Without it that
+   * case falls through to the browser's own menu — including in the modes whose
+   * hint banner says "Right-click for the menu" and whose menu is the only place
+   * some of their actions live.
    *
    * The cut tool is the one exception and has to stay one: it watches the
    * right button on the map container to pan with, and a menu opened from a
@@ -209,11 +206,10 @@
   /**
    * Bring back whatever the last visit left behind.
    *
-   * session.js has been writing to IndexedDB on every edit since it landed,
-   * and nothing ever read it back — so every reload silently discarded the
-   * boundary, the downloaded streets and the territories. Language switching
-   * used to be a reload, which is why it felt like the language was losing the
-   * work; it was the navigation, and it took F5 and every PWA relaunch with it.
+   * session.js writes to IndexedDB on every edit, and this is the only reader.
+   * Without it a reload discards the boundary, the downloaded streets and the
+   * territories — which is a reload of any kind: F5, a PWA relaunch, or the
+   * navigation a language change once was.
    *
    * The view is applied last. applyPayload fits the whole territory, which is
    * the right default with nothing better to go on, but wrong when the last
@@ -481,10 +477,9 @@
     });
 
     var geocoder = L.Control.geocoder({
-      // topleft, above the toolbar panel. It used to be a 26 px magnifier in
-      // the top-right, wedged between the layer control and the zoom buttons
-      // and collapsed by default — three small grey squares in the busiest
-      // corner, of which this one was the only text input.
+      // Top-right, which is a corner of its own: the zoom buttons and the
+      // toolbar panel are both top-left, so the search does not have to compete
+      // with them for width or be mistaken for one of them.
       position: "topright",
       // Always open. A search box that has to be found before it can be used
       // is a search box most people never find.

@@ -12,18 +12,19 @@
  *
  * ── Problem one: an eight-pixel target ────────────────────────────────────
  *
- * L.Editable.VertexIcon is 8 × 8 CSS pixels on a pointer device. That is
- * below every published minimum for a click target, and it is *well* below
- * what is comfortable on a trackpad, where the last two pixels of a movement
- * are not really under anybody's control. Missing it does not do nothing,
- * either: the click lands on the polygon underneath, which in the outline
- * editor is the boundary and in trim mode is a building that then toggles.
+ * L.Editable.VertexIcon is 8 × 8 CSS pixels on a pointer device, which is
+ * well below what is comfortable on a trackpad, where the last two pixels of a
+ * movement are not really under anybody's control. Missing it does not do
+ * nothing, either: the click lands on the polygon underneath, which in the
+ * outline editor is the boundary and in trim mode is a building that then
+ * toggles.
  *
- * So the handle is drawn bigger, and — separately — it is made bigger still
- * than it is drawn. `HIT_PAD_PX` of invisible margin comes from a CSS
- * pseudo-element rather than from the icon size, because the icon size is
- * also what the eye sees: a 26-pixel dot on every corner of a hand-traced
- * boundary is a shape you can no longer see for the handles.
+ * So the handle is drawn bigger — state.VERTEX_SIZE_PX, applied to the
+ * library's prototype by install() below — and made bigger still than it is
+ * drawn. The extra reach is a transparent pseudo-element in the stylesheet
+ * rather than more icon, because the icon size is also what the eye sees: a
+ * 26-pixel dot on every corner of a hand-traced boundary is a shape you can no
+ * longer see for the handles.
  *
  * Middle markers — the half-handles that add a corner — get the same box and
  * a smaller dot inside it. They are the ones that sit *on* the line, so a big
@@ -44,9 +45,10 @@
  *
  * Two rules keep it honest:
  *
- *   • It never takes the last three corners. That is the library's own
- *     MIN_VERTEX, asked through `vertexCanBeDeleted` rather than reimplemented
- *     here, so a sweep across a triangle stops rather than leaving a line.
+ *   • It never takes the last three corners. That is PolygonEditor's own
+ *     MIN_VERTEX of 3, asked through `vertexCanBeDeleted` rather than
+ *     reimplemented here, so a sweep across a triangle stops rather than
+ *     leaving a line.
  *   • A stroke is one undo step. The host suspends its per-vertex bookkeeping
  *     while the key is down and records once on release — twenty separate
  *     steps to take back one gesture is an undo stack that describes the

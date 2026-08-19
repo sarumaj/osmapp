@@ -261,30 +261,84 @@ App.tour = (function () {
       },
     },
     {
+      // Inside the sample block: this step introduces the group, and the two
+      // that follow point at the switches in it that say nothing without
+      // territories on screen.
+      id: "layers",
+      demo: true,
+      target: '[data-group="view"]',
+      placement: "right",
+    },
+    {
       id: "numbers",
       demo: true,
       target: '[data-action="numbers"]',
       placement: "right",
     },
     {
-      // The one feature on the layer switcher that is not a layer: it finds
-      // ground that belongs to no territory, which is the failure the rest of
-      // the app cannot show you because nothing looks wrong when it happens.
+      // The one switch in the group that computes rather than draws: it finds
+      // ground belonging to no territory, which is the failure the rest of the
+      // app cannot show because nothing looks wrong when it happens. The sample
+      // carries one such patch on purpose — see demo.js — so the switch has
+      // something to switch on.
       id: "gaps",
       demo: true,
-      target: ".leaflet-control-layers",
-      placement: "left",
-      skipIfNoTarget: true,
+      target: '[data-action="layer-gaps"]',
+      placement: "right",
     },
     {
-      // The button→screen pairing every other tool here gets. Printing had no
-      // button at all until now, which is why the two steps that follow —
-      // both about a right-click menu — were the whole of what the tour could
-      // say about the thing the app exists to produce.
+      // Inside the sample block, because the panel is the one thing in the app
+      // with nothing to say on an empty map: after `restore` its counts are
+      // hidden and the territory button it describes has no list to open. Here
+      // it reads 10 streets, 43 buildings, 5 territories, 1 printed, and carries
+      // the warning mark for the sample's uncovered patch.
+      id: "info",
+      demo: true,
+      target: "#info-panel",
+      placement: "left",
+    },
+    {
+      // The button→screen pairing every other tool here gets. Without it the
+      // only steps about the thing the app exists to produce are the two that
+      // follow, both of which are about a right-click menu.
       id: "printButton",
       demo: true,
       target: '[data-action="print"]',
       placement: "right",
+    },
+    {
+      // The screen the print button opens, and the place where the map's
+      // faults are named — so it comes before the step about repairing them,
+      // and before the two that reach a card from a territory instead.
+      id: "territoryList",
+      demo: true,
+      target: ".territory-list",
+      placement: "right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
+    },
+    {
+      // Autoheal rewrites the territories without asking how, so it is worth
+      // a step of its own. The button this rings is hidden when there is
+      // nothing to repair, which is why the sample carries an uncovered patch
+      // — see demo.js. On a tidy sample the step points at an absence.
+      id: "autoheal",
+      demo: true,
+      target: '.territory-list [data-role="fix-all"]',
+      // Docked rather than placed: the bubble is a long one and every side of
+      // a button at the foot of a centred dialog lands on the dialog, over the
+      // very rows the text is about. The corner is clear of both.
+      dock: "bottom-right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
     },
     {
       id: "territory",
@@ -344,13 +398,6 @@ App.tour = (function () {
     // ── back to the user's own map ──────────────────────────────────────
 
     { id: "history", target: '[data-action="undo"]', placement: "right" },
-    {
-      id: "layers",
-      target: ".leaflet-control-layers",
-      placement: "left",
-      skipIfNoTarget: true,
-    },
-    { id: "info", target: "#info-panel", placement: "left" },
     { id: "files", target: '[data-action="export"]', placement: "right" },
     // Export and Import were one step pointing at Export, which is half a
     // step: the half that gets you a file, not the half that gets it back.
@@ -369,6 +416,17 @@ App.tour = (function () {
     },
     { id: "done", target: '[data-action="help"]', placement: "right" },
   ];
+
+  /**
+   * Open the territory list on the sample.
+   *
+   * Safe to call with the list already open: labels.openList() re-opens rather
+   * than stacking, so stepping back and forward across the two steps that use
+   * this lands on one dialog rather than two.
+   */
+  function _openSampleList() {
+    if (App.labels) App.labels.openList();
+  }
 
   /** Right-click a sample territory, without anybody having to right-click. */
   function _openSampleMenu() {
@@ -673,7 +731,7 @@ App.tour = (function () {
       return true;
     }
     // False when the app could not be snapshotted — better to skip the sample
-    // steps than to open dialogs over work we cannot promise to give back.
+    // steps than to open dialogs over work that cannot be given back.
     return App.demo.enter();
   }
 

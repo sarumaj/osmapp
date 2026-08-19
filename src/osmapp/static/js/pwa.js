@@ -159,10 +159,9 @@ App.pwa = (function () {
    * next, so mark a control with `data-online-only` and the stylesheet handles
    * the rest — now and after any future clone.
    *
-   * Printing used to be the main thing wearing that attribute and no longer
-   * is: a card is composed in the browser and drawn on cached tiles, so it
-   * works with the connection down. What is left needs Overpass or Nominatim,
-   * which nothing local can stand in for.
+   * Printing deliberately does not wear it: a card is composed in the browser
+   * and drawn on cached tiles, so it works with the connection down. What does
+   * wear it needs Overpass or Nominatim, which nothing local can stand in for.
    */
   function _apply(online) {
     document.body.classList.toggle("is-offline", !online);

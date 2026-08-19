@@ -87,7 +87,16 @@
     "redoCornerCount": "Ponów zmianę narożnika (dostępne: {count})",
     "redoCornerNone": "Nie ma czego ponowić",
     "labelPrint": "Drukuj",
-    "print": "Wybierz teren i wydrukuj jego kartę"
+    "print": "Wybierz teren i wydrukuj jego kartę",
+    "groupView": "Widok",
+    "labelLayerOuter": "Granica",
+    "labelLayerStreets": "Ulice",
+    "labelLayerBuildings": "Domy",
+    "labelLayerClusters": "Kształty",
+    "labelLayerGaps": "Luki",
+    "layerToggle": "Pokaż lub ukryj: {name}",
+    "labelBasemap": "Tło",
+    "basemap": "Wybierz, co jest pod mapą"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -613,7 +622,7 @@
       },
       "toolbar": {
         "title": "Wszystkie narzędzia w jednym panelu",
-        "body": "Wszystko, co aplikacja potrafi, jest tutaj, pogrupowane według przeznaczenia: obszar, tereny, historia, plik i sama aplikacja. Narzędzie, którego nie można jeszcze użyć, jest wyszarzone, a nie ukryte, a jego podpowiedź mówi, czego brakuje. Strzałka u góry chowa podpisy, gdy mapa potrzebuje miejsca."
+        "body": "Wszystko, co aplikacja potrafi, jest tutaj, pogrupowane według przeznaczenia: obszar, tereny, widok, historia, plik i sama aplikacja. Narzędzie, którego nie można jeszcze użyć, jest wyszarzone, a nie ukryte, a jego podpowiedź mówi, czego brakuje. Strzałka u góry chowa podpisy, gdy mapa potrzebuje miejsca."
       },
       "search": {
         "title": "Zacznij od wyszukiwania",
@@ -685,11 +694,11 @@
       },
       "layers": {
         "title": "Co jest widoczne",
-        "body": "Przełączaj tło między mapą, zdjęciami lotniczymi i terenem oraz włączaj i wyłączaj ulice, budynki i tereny. Warstwy pomocnicze służą tylko do pracy na ekranie — karty zawsze drukują się na warstwie OpenStreetMap."
+        "body": "Ta grupa dotyczy obrazu, nie pracy. Lista rozwijana u góry wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
       },
       "info": {
         "title": "Gdzie jesteś",
-        "body": "Ile ulic, budynków i terenów jest teraz wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Liczba terenów to przycisk: otwiera listę, w której nazwane, odnalezione i naprawione zostaje wszystko, co wymaga uwagi — teren w kawałkach, teren bez budynków, obszar poza wszystkimi terenami."
+        "body": "Ile ulic, budynków i terenów jest wczytanych, wraz z podpowiedzią o sensownym następnym kroku. Znak ostrzeżenia obok liczby terenów oznacza, że coś wymaga uwagi — tutaj jest to obszar, który nie należy do żadnego terenu. Ta liczba to przycisk i najkrótsza droga do listy terenów, w której nazwane, odnalezione i naprawione zostaje wszystko, co wymaga uwagi. Na zbyt wąskim oknie pole jest ukryte; tę samą listę otwiera przycisk „Drukuj” w panelu narzędzi."
       },
       "files": {
         "title": "Zabierz pracę ze sobą",
@@ -704,7 +713,7 @@
         "body": "Usuwa granicę, pobrane dane i wszystkie tereny. Aplikacja najpierw pyta, a operacji nie da się cofnąć."
       },
       "language": {
-        "title": "Trzy języki",
+        "title": "Wiele języków",
         "body": "Angielski, polski, niemiecki i francuski. Wybór jest częścią adresu, więc udostępniony odnośnik otworzy się w tym samym języku, w którym pracowałeś."
       },
       "offline": {
@@ -741,7 +750,7 @@
       },
       "gaps": {
         "title": "Teren, którego nikt nie obejmuje",
-        "body": "Usunięcie terenu, zbyt cienkie cięcie albo powiększenie granicy zostawiają miejsca, których nie obejmuje żadna karta, a na ekranie nic nie wygląda źle — okazuje się to dopiero, gdy ulica nie trafia na żadną kartę. Włącz „Obszary nieobjęte”, a zostaną narysowane pomarańczową kreską; kliknięcie zamienia jeden w teren. Są też wierszami na liście terenów: tam jeden przycisk przejmuje obszar i naprawia to, co powstało, a drugi go zamyka."
+        "body": "Usunięcie terenu, zbyt cienkie cięcie albo powiększenie granicy zostawiają miejsca, których nie obejmuje żadna karta, a na ekranie nic nie wygląda źle — okazuje się to dopiero, gdy ulica nie trafia na żadną kartę. Ten przełącznik rysuje je pomarańczową kreską, a w tym przykładzie jest jedno takie miejsce: w polu na wschód od wsi. Kliknięcie zamienia je w teren, a każde z nich jest też wierszem na liście terenów."
       },
       "shortcuts": {
         "title": "Co mogę nacisnąć?",
@@ -750,6 +759,14 @@
       "printButton": {
         "title": "Drukowanie karty",
         "body": "Otwiera listę terenów z drukarką przy każdym wierszu — droga dla kogoś, kto zna już numer. Ten sam widok jest o jedno kliknięcie prawym przyciskiem od samego terenu."
+      },
+      "territoryList": {
+        "title": "Lista terenów",
+        "body": "Dwa wejścia: przycisk „Drukuj” w panelu narzędzi albo liczba terenów w polu na dole po prawej. Jeden wiersz na teren, w kolejności numerów. Wiersz przenosi mapę do swojego terenu, drukarka obok tworzy kartę, a znaczniki mówią, co jest nie tak — narysowany w osobnych częściach, bez budynków, zbyt mały, by go opisać, albo teren, który nie należy do nikogo. Plakietki powyżej filtrują dokładnie do takich wierszy, więc z dziewięćdziesięciu dziewięciu terenów zostają te cztery warte drugiego spojrzenia."
+      },
+      "autoheal": {
+        "title": "Naprawa całej listy",
+        "body": "Trzy usterki są dość mechaniczne, by naprawić je bez pytania, a ten przycisk robi wszystkie naraz: teren narysowany w osobnych częściach staje się jednym terenem na każdą część, teren bez budynków zostaje wchłonięty przez sąsiada, z którym dzieli najdłuższą granicę, a obszar, który nie należy do nikogo, jest najpierw przejmowany, a potem oceniany według tych samych dwóch zasad — tak puste pole na wschód od wsi trafia do terenu obok. Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego. Do tej listy wraca się w każdej chwili przyciskiem „Drukuj” w panelu narzędzi albo liczbą terenów w polu na dole po prawej."
       }
     }
   },

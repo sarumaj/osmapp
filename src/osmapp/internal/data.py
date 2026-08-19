@@ -130,6 +130,13 @@ def _with_osm_id(gdf: Any) -> Any:
 
 @bp.route("/fetch_streets", methods=["POST"])
 def fetch_streets() -> Response:
+    """Drivable street network inside the posted polygon, as GeoJSON.
+
+    404 when Overpass answers with nothing, which is a real answer for open
+    country and not a failure. Anything else is 502 and flagged retryable: the
+    client cannot tell a busy Overpass from a refusing one, and only one of the
+    two is worth waiting out.
+    """
     try:
         geom = polygon_from_request()
     except BadRequest as exc:
@@ -157,6 +164,12 @@ def fetch_streets() -> Response:
 
 @bp.route("/fetch_buildings", methods=["POST"])
 def fetch_buildings() -> Response:
+    """Building footprints inside the posted polygon, as GeoJSON.
+
+    An area with no buildings returns an empty collection with 200 rather than
+    404: unlike streets, that is the expected result for farmland the boundary
+    happens to include, and the client draws the rest of the map from it.
+    """
     try:
         geom = polygon_from_request()
     except BadRequest as exc:

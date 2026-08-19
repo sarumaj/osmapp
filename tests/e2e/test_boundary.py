@@ -9,8 +9,7 @@ whole of the app's entrance.
 It is also the part with the least standing in for it. Nothing in `tests/js/`
 constructs a Leaflet.Editable, and main.js says why that matters: it checks for
 the library twice and logs past both failures rather than stopping, so a build
-that ships without it still starts, still renders a map, and simply never
-draws. `tests/e2e/test_boot.py` would not notice — the page boots.
+that ships without it still starts, still renders a map, and never draws. `tests/e2e/test_boot.py` would not notice — the page boots.
 """
 
 import pytest

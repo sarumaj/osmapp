@@ -1,24 +1,22 @@
 /**
  * The keyboard, and which context answers it.
  *
- * This module exists because the answer used to be "whichever module happened
- * to bind a listener first, filtered through its own reading of a mode flag".
- * That arrangement shipped three bugs of the same shape and they are the ones
- * pinned below:
+ * Three failures are what these tests are for, and all three are silent — a key
+ * that does nothing looks the same as a key that does not exist:
  *
- *   • A mode bound one half of a pair. Cut had Backspace and nothing for
- *     going forward; merge had Escape and nothing else at all. A registry
- *     does not prevent that by itself — but a registry that renders the help
- *     sheet does, because the gap becomes something you can see.
- *   • A key kept firing after its tool closed. Nothing popped, nothing
- *     complained, and the binding simply outlived the thing it belonged to.
- *   • A modal shared its keys with whatever was behind it. Enter in a dialog
- *     also committed the cut underneath, which is a modal that is not modal.
+ *   • A mode binds one half of a pair: Backspace with nothing going forward,
+ *     Escape with no Enter. A registry does not prevent that by itself, but a
+ *     registry that renders the help sheet does, because the gap becomes
+ *     something a reader can see.
+ *   • A key keeps firing after its tool closes, because nothing popped its
+ *     context and nothing complains.
+ *   • A modal shares its keys with what is behind it, so Enter in a dialog also
+ *     commits the cut underneath — a modal that is not modal.
  *
- * The sheet is asserted through the registry rather than through the DOM: the
- * point is that the list which dispatches and the list which is displayed are
- * the same object, so what is worth checking is that entries with no `run`
- * never fire and entries with a false `when` are skipped rather than hidden.
+ * The sheet is asserted through the registry rather than through the DOM,
+ * because the property worth pinning is that the list which dispatches and the
+ * list which is displayed are the same object: entries with no `run` never
+ * fire, and entries with a false `when` are greyed rather than hidden.
  */
 
 import test from "node:test";
@@ -606,12 +604,11 @@ test("a hold whose when() says no never starts, so it never owes a release", () 
 
 // ── Dialogs ──────────────────────────────────────────────────────────────────
 //
-// A dialog used to be a hole in this module: App.ui was asked whether one was
-// open and, if so, nothing fired except the handful of entries marked
-// overModal. That was right about the tool underneath and wrong about the
-// dialog itself, which had no way to register anything — so the print view's
-// one binding lived on a listener nobody could enumerate, and "?", whose
-// entire job is to enumerate, was the binding a dialog blocked.
+// A dialog has two claims to check, and they pull in opposite directions: the
+// tool underneath must stop answering, and the dialog itself must be able to
+// register keys of its own. Blocking on "is any dialog open" satisfies the first
+// and breaks the second, which costs "?" — the one binding whose entire job is
+// to enumerate the others — precisely inside the screens with the most to list.
 
 function withModes(h) {
   h.shortcuts.push({
@@ -765,10 +762,10 @@ test("a slider or a checkbox is not a text field", () => {
 });
 
 test("the sheet greys what a modal has taken away", () => {
-  // The sheet rendered every context on the stack as though all of them were
-  // live, so a dialog produced a list whose top group worked and whose lower
-  // groups were decoration. Nothing was wrong with the dispatch; the list
-  // simply was not asking dispatch's question.
+  // A sheet that renders every context on the stack as though all were live
+  // produces a list whose top group works and whose lower groups are
+  // decoration. Dispatch can be entirely correct and the list still wrong, so
+  // the two have to be asked the same question — see _reach in shortcuts.js.
   const h = setup();
   h.shortcuts.push({
     id: "tool",

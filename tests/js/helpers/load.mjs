@@ -34,16 +34,18 @@ import vm from "node:vm";
 
 const JS_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "src", "osmapp", "static", "js");
 
-const GLOBALS = ["window", "document", "navigator", "turf", "L"];
+const GLOBALS = ["window", "document", "navigator", "turf", "L", "console"];
 
 /**
  * Execute browser modules and return the `App` object they built.
  *
  * @param {string[]} files paths relative to src/osmapp/static/js, in load order
  * @param {Object} [stubs] replacements for the browser globals. Any of
- *   `window`, `document`, `navigator`, `turf` and `L` may be given; the first
- *   three default to empty objects and the last two to undefined, which is
- *   correct for a module that never touches them.
+ *   `window`, `document`, `navigator`, `turf`, `L` and `console` may be given;
+ *   `window`, `document` and `navigator` default to empty objects, `turf` and
+ *   `L` to undefined — correct for a module that never touches them — and
+ *   `console` to the real one, so a module that warns during load still warns
+ *   somewhere a test run can show it.
  * @returns {Object} the `App` namespace, read back off the window object used
  */
 export function loadApp(files, stubs = {}) {
@@ -62,6 +64,10 @@ export function loadApp(files, stubs = {}) {
     navigator: stubs.navigator ?? {},
     turf: stubs.turf,
     L: stubs.L,
+    // Defaulted rather than stubbed away: several modules warn on a path a test
+    // deliberately exercises, and swallowing those by default would hide them
+    // from every test that is not asserting on them. Supply one to capture.
+    console: stubs.console ?? console,
   };
 
   for (const file of files) {

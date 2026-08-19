@@ -1,17 +1,15 @@
 /**
  * network.js — the street graph, shared by everything that has to follow one.
  *
- * This used to live inside editing.js as three private fields and an A*. It
- * had to move because the trim tool needs exactly the same thing: given a
+ * The cut tool and the trim tool ask this the same two questions: given a
  * point, which street is under it, and given two points on the network, what
- * is the route between them. Two copies of a routing heuristic is two sets of
- * detour limits, two definitions of "snapped", and one of them silently
- * drifting — the same reason spatial.js exists.
+ * is the route between them. One graph answers both, because two copies of a
+ * routing heuristic is two sets of detour limits and two definitions of
+ * "snapped", one of which drifts — the same reason spatial.js exists.
  *
- * What stayed behind in editing.js is the boundary-edge grid. That one indexes
- * territory outlines rather than streets, and it is the cut tool's business:
- * a cut is allowed to snap onto the shape it is cutting, a trimmed boundary is
- * not.
+ * The boundary-edge grid is deliberately *not* here. That one indexes territory
+ * outlines rather than streets and belongs to the cut tool alone: a cut may
+ * snap onto the shape it is cutting, a trimmed boundary may not.
  *
  * The graph is built from s.cachedStreets and cached until invalidate(), so a
  * mouse-move handler and a slider drag can both ask for it every frame.

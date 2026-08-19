@@ -596,13 +596,10 @@ App.ui = (function () {
   /**
    * A context menu from a list of items, anywhere on the map.
    *
-   * There used to be exactly one of these, hard-wired to a territory, built
-   * from a template that spelled out its four entries. Every mode that wanted
-   * one — and the modal tools want one badly, because their toolbar sits in a
-   * corner while the work happens under the cursor — would have meant another
-   * template and another copy of "position it, close it on an outside click".
-   * So the shape is the argument now and there is one implementation of the
-   * behavior, keyboard navigation included.
+   * The items are an argument rather than a template, so every mode gets a menu
+   * without a second implementation of "position it, close it on an outside
+   * click, answer the arrow keys". The modal tools need one badly: their
+   * toolbar sits in a corner while the work happens under the cursor.
    *
    * @param {{x:number, y:number}} point container coordinates
    * @param {Array<{labelKey?:string, label?:string, icon?:string,
@@ -657,9 +654,11 @@ App.ui = (function () {
         e.preventDefault();
         e.stopPropagation();
         closeContextMenu();
-        console.time(label);
-        if (item.onClick) item.onClick();
-        console.timeEnd(label);
+        // Timed on a local host only — see App.util.timed. The menu is the other
+        // seam every action passes through, beside App.dom.onRole.
+        App.util.timed(label, function () {
+          if (item.onClick) item.onClick();
+        });
       });
     });
 

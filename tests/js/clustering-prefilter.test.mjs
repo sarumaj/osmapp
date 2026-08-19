@@ -1,9 +1,9 @@
 /**
- * Two loops in clustering.js were replaced with indexed or pre-filtered
- * versions for speed. Both are supposed to return exactly what they returned
- * before — a faster search over the same candidates, not a different answer —
- * and neither is reachable from outside the module, so nothing else in this
- * directory can notice if that stops being true.
+ * Two loops in clustering.js search an index instead of every candidate. Each
+ * has to return what the exhaustive search returns — a faster search over the
+ * same candidates, not a different answer — and neither is reachable from
+ * outside the module, so nothing else in this directory can notice when that
+ * stops being true.
  *
  * These tests therefore assert the *equivalence* rather than the result: the
  * reference implementation and the shipped shape are both run over the same
@@ -12,10 +12,10 @@
  *
  * ── The boundary index (phase 4) ──────────────────────────────────────────
  *
- * _phase4 used to call G.isOnOuterBoundary three times per unique cell edge,
- * and each call walks the whole outer ring. It now stamps the ring into an
- * App.spatial grid once and measures only the segments in the neighboring
- * cells.
+ * _phase4 stamps the outer ring into an App.spatial grid once and measures only
+ * the segments in the neighboring cells. The exhaustive form calls
+ * G.isOnOuterBoundary three times per unique cell edge, and each call walks the
+ * whole ring.
  *
  * The equivalence rests on a margin: a grid cell is 25 m, the tolerance is
  * 0.00005 deg — under 6 m however the axes are weighted — and one ring of
@@ -49,6 +49,13 @@ const CELL_M = 25;
 
 // ── fixtures ──────────────────────────────────────────────────────────────
 
+/**
+ * Deterministic 0..1 generator, seeded per fixture.
+ *
+ * The equivalence assertions compare two implementations over the same random
+ * geometry, so the geometry has to be reproducible: with Math.random a failure
+ * names a case nobody can generate a second time.
+ */
 function rng(seed) {
   return () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
 }

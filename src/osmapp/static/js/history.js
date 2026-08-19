@@ -11,15 +11,14 @@
  * territories". Undoing a merge because someone hit Ctrl+Z while placing a
  * vertex is not a smaller version of the right answer, it is the wrong one.
  *
- * That routing used to live in the keyboard handler alone, which had two
- * consequences worth naming, because they are exactly what a scope stack
- * fixes:
+ * The routing therefore belongs in the stack rather than in the keyboard
+ * handler, for two reasons that are exactly what a scope stack is for:
  *
- *   • The toolbar Undo button called history.undo() directly and so ignored
- *     the routing completely. Ctrl+Z and the button that means Ctrl+Z did
- *     different things.
- *   • Cut mode intercepted undo but not redo, so Ctrl+Y mid-draw fell through
- *     to the cluster stack and restored old geometry underneath a split line
+ *   • The toolbar Undo button goes through the same routing. A button meaning
+ *     Ctrl+Z that calls history.undo() directly does something else than the key
+ *     it stands for.
+ *   • A mode that intercepts undo but not redo lets Ctrl+Y mid-draw fall through
+ *     to the cluster stack and restore old geometry underneath a split line
  *     that was still being drawn.
  *
  * Now a mode pushes a scope when it starts and pops it when it ends, and every
@@ -226,12 +225,11 @@ App.history = (function () {
   /**
    * A snapshot is the outer boundary plus the territories.
    *
-   * It used to be the territories alone, which was true for as long as
-   * nothing changed the boundary once territories existed — drawing or
-   * adopting one clears the history rather than adding to it. The trim tool
-   * breaks that: it reshapes the boundary and clips the territories to the
-   * result in a single action, and undoing only the second half would leave
-   * territories that spill outside the outline they belong to.
+   * The territories alone would do for as long as nothing changes the boundary
+   * once they exist — drawing or adopting one clears the history rather than
+   * adding to it. The trim tool breaks that: it reshapes the boundary and clips
+   * the territories to the result in one action, and undoing only the second
+   * half leaves territories spilling outside the outline they belong to.
    */
   function _snapshot() {
     return JSON.stringify({

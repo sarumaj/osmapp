@@ -167,12 +167,12 @@ App.autoheal = (function () {
    * Would repairing this territory actually change anything?
    *
    * Answered by running the repair against a copy and discarding it, not by a
-   * cheaper test that resembles it. This module used to predict with
-   * `does a populated neighbor touch me?`, which is a different question from
-   * `can that neighbor take me?`: a union turf refuses, or one that comes back
-   * as two pieces, is declined by _absorb, and the row was left offering a
-   * button that ran and did nothing. Two pieces of code answering one question
-   * will disagree eventually, so now there is only one.
+   * cheaper test that resembles it. Predicting with `does a populated neighbor
+   * touch me?` answers a different question from `can that neighbor take me?`:
+   * a union turf refuses, or one that comes back as two pieces, is declined by
+   * _absorb, which leaves the row offering a button that runs and changes
+   * nothing. Two pieces of code answering one question disagree eventually, so
+   * there is only one.
    *
    * The rehearsal is not free, so it is reached only for a territory already
    * known to be empty — a handful of rows in a list of hundreds — and each one
@@ -544,7 +544,7 @@ App.autoheal = (function () {
    *     rejected a union that had lost nothing at all.
    *   • and it must be a single polygon, or the repair has produced the exact
    *     fault it exists to remove, and the next run would split it back into
-   *     the two shapes we started with.
+   *     the two shapes it started with.
    *
    * Failing every candidate is not a failure of the heal. It is one merge not
    * made, on a territory that keeps its flag and says so.
@@ -678,7 +678,7 @@ App.autoheal = (function () {
    *
    * Pure: it reads s.clusters and returns new features, and nothing on the
    * map moves. That is what lets the same function answer "would this change
-   * anything?" for the wand on a row and "what shall we write back?" for the
+   * anything?" for the wand on a row and "what shall be written back?" for the
    * click on it — one implementation, so the button and the repair cannot
    * drift apart.
    *

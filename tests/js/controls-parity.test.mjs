@@ -37,6 +37,28 @@ const INDEX = readFileSync(
   "utf8",
 );
 
+const CSS = readFileSync(
+  join(ROOT, "src", "osmapp", "static", "css", "style.css"),
+  "utf8",
+);
+
+const FA_CSS = readFileSync(
+  join(
+    ROOT,
+    "src",
+    "osmapp",
+    "static",
+    "vendor",
+    "cdnjs.cloudflare.com",
+    "ajax",
+    "libs",
+    "font-awesome",
+    "css",
+    "all.min.css",
+  ),
+  "utf8",
+);
+
 const SOURCE = {
   editing: readFileSync(join(JS_DIR, "editing.js"), "utf8"),
   trim: readFileSync(join(JS_DIR, "trim.js"), "utf8"),
@@ -281,13 +303,11 @@ test("every modal tool explains itself with a hint banner", () => {
 
 // ── Dialogs answer the keyboard too ──────────────────────────────────────────
 //
-// Every screen that takes over used to be a hole: App.shortcuts asked App.ui
-// whether a dialog was open and, if so, dispatched nothing that was not marked
-// overModal. The tools underneath were correctly silenced and the dialog got
-// nothing in exchange — so the print view's single binding sat on a listener
-// the sheet could not see, the partition dialog's two number fields did not
-// answer Enter, and "?" was blocked in exactly the screens with the most keys
-// worth listing.
+// A screen that takes over has to register its own keys, not merely silence the
+// tools beneath it. Deciding on "is a dialog open" does only the second half,
+// which leaves a dialog's bindings on listeners the sheet cannot see, number
+// fields that do not answer Enter, and "?" blocked in exactly the screens with
+// the most keys worth listing.
 //
 // Read off the source for the same reason as everything above: standing these
 // up means a map, a PDF and a network.
@@ -519,4 +539,136 @@ test("the gestures the print view lists are the modifiers it reads", () => {
     /combos: \["Alt\+drag"\]/,
     "and Alt must not be listed as a gesture of its own",
   );
+});
+
+// ── The icons are real ───────────────────────────────────────────────────────
+
+test("every glyph the toolbar names exists in the icon font", () => {
+  // A name Font Awesome does not define renders as nothing at all: the tile
+  // keeps its label, its tooltip and its click, and loses the only thing a
+  // collapsed panel has left. Nothing else in the suite can see that — the
+  // spec is valid JavaScript and the button works.
+  //
+  // The free set is not stable across majors: fa-vector-square is absent from
+  // 7.x, so a rename arrives with a dependency bump rather than with a typo.
+  //
+  // The bundle is minified with aliases grouped into one rule
+  // (`.fa-warning,.fa-triangle-exclamation{--fa:"\f071"}`), so the selector is
+  // matched inside a rule head rather than at the start of one.
+  const named = [
+    ...SOURCE.controls.matchAll(/\bicon:\s*"(fa-[\w-]+)"/g),
+  ].map((m) => m[1]);
+  assert.ok(named.length >= 15, "the toolbar names no icons at all");
+
+  const missing = named.filter(
+    (name) => !new RegExp(`\\.${name}[,{]`).test(FA_CSS),
+  );
+  assert.deepStrictEqual(missing, []);
+});
+
+// ── What is shown is answered in one place ───────────────────────────────────
+
+test("the layer switcher is the toolbar, not a second panel", () => {
+  // "What is shown" is answered by one group in one panel. A second control in
+  // another corner splits that answer in two, and the number chips — a view
+  // switch that is not a layer — have no place to live in a switcher that only
+  // holds layers.
+  assert.ok(
+    !/L\.control\s*\n?\s*\.layers\(/.test(SOURCE.controls),
+    "the Leaflet layer control is back",
+  );
+  assert.match(SOURCE.controls, /key:\s*"view"/);
+  assert.match(SOURCE.controls, /titleKey:\s*"toolbar\.groupView"/);
+});
+
+test("every layer the old switcher offered still has a switch", () => {
+  // The five overlays and the basemaps. A layer with no switch cannot be turned
+  // off, and nothing about the map says which one is missing.
+  for (const group of [
+    "outerPolygonLayerGroup",
+    "streetsLayerGroup",
+    "buildingsLayerGroup",
+    "innerPolygonsLayerGroup",
+  ]) {
+    assert.ok(
+      SOURCE.controls.includes(`_toggleOverlay("${group}")`),
+      `${group} has no switch`,
+    );
+    assert.ok(
+      SOURCE.controls.includes(`_overlayShown("${group}")`),
+      `${group}'s switch does not show its state`,
+    );
+  }
+  // The gaps layer is the one that is not merely a draw call: switching it off
+  // stops the subtraction, so it goes through the module rather than the map.
+  assert.match(SOURCE.controls, /App\.gaps\.setVisible\(!App\.gaps\.isVisible\(\)\)/);
+  // The basemap is a drop-down built from App.basemap, because which layers
+  // exist is a server decision and the choice is exclusive.
+  assert.match(SOURCE.controls, /custom:\s*_mountBasemapPicker/);
+  assert.match(SOURCE.controls, /App\.basemap\.entries\(\)/);
+  assert.match(SOURCE.controls, /App\.basemap\.select\(select\.value\)/);
+  assert.ok(
+    INDEX.includes('id="tpl-basemap-control"'),
+    "the basemap drop-down has no template",
+  );
+});
+
+test("both drop-downs show a glyph and a label, and survive the collapse", () => {
+  // The collapsed panel drops every .tb-item__label, so a control whose only
+  // identity is its label goes blank there. Both of these name the current
+  // choice with a glyph and the control with a label, which is what lets the
+  // label go without the tile becoming unreadable.
+  for (const id of ["tpl-basemap-control", "tpl-language-control"]) {
+    const start = INDEX.indexOf(`id="${id}"`);
+    assert.notEqual(start, -1, `${id} is missing`);
+    const body = INDEX.slice(start, INDEX.indexOf("</template>", start));
+    assert.match(body, /class="tb-item tb-item--select"/, `${id} is not a select tile`);
+    assert.match(body, /class="tb-item__icon"/, `${id} has no glyph`);
+    assert.match(body, /class="tb-item__label"/, `${id} has no label`);
+  }
+  assert.match(CSS, /\.tb-panel\.is-collapsed \.tb-item__label/);
+  // One rule for both, so the two cannot drift apart.
+  assert.match(CSS, /\.lang-select,\s*\n\.basemap-select \{/);
+});
+
+test("both drop-downs list a pictogram and a name, not one or the other", () => {
+  // The two arrived at this from opposite ends: a flag with no language name,
+  // and layer names with no pictogram. Either half alone costs something — a
+  // list of bare flags cannot be read by anyone who does not know the flags, and
+  // a list of bare names cannot be scanned without reading it.
+  //
+  // Checked as "the option text is built from both parts", because the parts
+  // themselves live in different places: the languages are literals in i18n.js,
+  // the basemap names come out of the dictionary through t().
+  assert.match(
+    SOURCE.controls,
+    /textContent = lang\.flag \+ " " \+ lang\.name/,
+    "the language list drops one half",
+  );
+  assert.match(
+    SOURCE.controls,
+    /textContent = _emoji\(entry\.id\) \+ " " \+ T\(entry\.labelKey\)/,
+    "the basemap list drops one half",
+  );
+
+  // And the tile's pictogram is the same string as the list's, so the two cannot
+  // disagree about which basemap is which.
+  assert.match(SOURCE.controls, /glyph\.textContent = _emoji\(id\)/);
+  assert.match(SOURCE.controls, /var BASEMAP_EMOJI = \{/);
+  assert.doesNotMatch(
+    SOURCE.controls,
+    /BASEMAP_ICONS/,
+    "a second table for the tile is what this arrangement exists to avoid",
+  );
+});
+
+test("the note about aid basemaps not printing survived the move", () => {
+  // The one line that says a satellite card has no street names on it. Mounted
+  // into the group whose basemaps it is about, from a template that carries the
+  // English fallback for the moment before the dictionary arrives.
+  assert.match(SOURCE.controls, /noteTemplate:\s*"tpl-toolbar-note"/);
+  assert.match(SOURCE.controls, /function _syncAidNote/);
+  assert.match(SOURCE.controls, /App\.basemap\.isAid\(\)/);
+  assert.ok(INDEX.includes('id="tpl-toolbar-note"'), "the note template is gone");
+  assert.ok(INDEX.includes('data-i18n="layers.aidNote"'), "the note lost its key");
 });

@@ -222,7 +222,7 @@ def test_the_filter_narrows_the_list_to_what_needs_attention(gridded: Page):
 
     assert rows.count() == with_issues
     assert flagged_rows(gridded).count() == with_issues, "and they are the flagged ones"
-    # The count above the list has to say it is no longer the whole list.
+    # The count above the list has to say that it is a filtered count.
     assert str(everything) in gridded.locator("[data-role='total']").inner_text()
 
 
@@ -560,12 +560,12 @@ def test_nothing_matching_says_so_where_the_rows_would_be(gridded: Page):
 def test_the_dialog_is_the_same_size_whatever_the_filter_says(gridded: Page):
     """Sized by the window rather than by its contents, in both directions.
 
-    Narrowing thirty-one rows to a handful used to shrink the dialog to a
-    third of its height — which moved the chips out from under the pointer
-    that had just clicked one, so the second click of a filtering session
-    landed somewhere else. The width did the same thing more quietly: rows
-    reading "Buildings: 141 · Streets: 42" are wider than rows reading
-    "Buildings: 0 · Streets: 0", so the edge moved by eight pixels.
+    A dialog sized by its contents shrinks when thirty-one rows narrow to a
+    handful, which moves the chips out from under the pointer that has just
+    clicked one — so the second click of a filtering session lands somewhere
+    else. The width does the same thing more quietly: rows reading
+    "Buildings: 141 · Streets: 42" are wider than rows reading
+    "Buildings: 0 · Streets: 0", so the edge moves by eight pixels.
     """
     sizes = {dialog_box(gridded)}
 
@@ -666,12 +666,12 @@ def test_a_double_click_puts_back_the_latest_selection_not_a_stale_one(gridded: 
 
 
 def test_picking_a_row_does_not_rebuild_the_list(gridded: Page):
-    """Why selecting used to take the better part of a second.
+    """Why selecting must not go through the filter's path.
 
-    A selection cannot change which rows exist, what they say, or what is
-    wrong with them — but it went through the same path as a filter, which
-    rebuilds every row and re-runs an audit that rehearses a repair per empty
-    territory. Row identity is the observable form of that: if the nodes
+    A selection cannot change which rows exist, what they say, or what is wrong
+    with them, so it must not rebuild every row and re-run an audit that
+    rehearses a repair per empty territory — the better part of a second on a
+    real partition. Row identity is the observable form of that: if the nodes
     survive the click, the work did not happen.
     """
     stamp = """() => {
@@ -773,13 +773,13 @@ def holed(app_page: Page) -> Page:
 
 
 def test_uncovered_ground_is_a_row_in_the_list(holed: Page):
-    """Where the info panel's own count used to be.
+    """Uncovered ground is named in the list, not in the info panel.
 
-    The panel carried a row of its own for the uncovered areas, and all it
-    could do was zoom to the largest. Everything you would then want — what it
-    is, how big, adopt it, close it — was somewhere else. So the count became a
-    mark on the territory count, and the ground became a row in the list beside
-    the territories, which is where the rest of the map's faults are named.
+    A row of its own in the panel can only zoom to the largest patch, leaving
+    everything a reader then wants — what it is, how big, adopt it, close it —
+    somewhere else. So the panel carries one mark on the territory count, and the
+    ground is a row in the list beside the territories, which is where the rest
+    of the map's faults are named.
     """
     assert holed.locator("#info-panel [data-role='gaps-row']").count() == 0, (
         "the panel should no longer carry a row of its own"

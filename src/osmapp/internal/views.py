@@ -25,11 +25,13 @@ def _render_app(lang: str) -> str:
 
 @bp.route("/")
 def index() -> str:
+    """The app in the default language."""
     return _render_app(DEFAULT_LANG)
 
 
 @bp.route("/service/health")
 def health() -> str:
+    """Liveness probe: 200 and a fixed body, touching nothing else."""
     return "OK"
 
 
@@ -38,6 +40,11 @@ def health() -> str:
     strict_slashes=False,
 )
 def index_localized(lang: str) -> Response | str:
+    """The app under a language prefix, e.g. /de.
+
+    Redirects rather than serving two URLs for one page: the default language
+    belongs at / and a trailing slash is not a second address for /de.
+    """
     if lang == DEFAULT_LANG:
         return redirect(url_for("views.index"), code=302)
     if request.path.endswith("/"):

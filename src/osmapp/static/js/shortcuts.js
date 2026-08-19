@@ -1,27 +1,11 @@
 /**
- * shortcuts.js — one keyboard dispatcher, and the sheet that lists it.
+ * shortcuts.js — the keyboard dispatcher, and the sheet that lists it.
  *
- * ── Why this exists ───────────────────────────────────────────────────────
- *
- * Keyboard handling used to be four `document.addEventListener("keydown")`
- * calls in four modules, each re-deriving "am I the one who should answer
- * this?" from a mode flag. That worked, and it drifted, in the two ways a
- * design like that always drifts:
- *
- *   • Asymmetry. The cut tool bound Backspace to "take back a vertex" and
- *     nothing to "put one back", even though redoPoint() existed and the
- *     toolbar had a Back button with no forward twin. Merge mode bound
- *     Escape and nothing else — no Enter, though every other modal tool in
- *     the app commits on Enter. The outer-boundary drawer had no way to take
- *     back a vertex at all, though Leaflet.Editable has had pop() all along.
- *   • Invisibility. A shortcut nobody can enumerate is a shortcut nobody
- *     knows. Three of them were written on a hint banner, three more on
- *     <kbd> tags in the cut toolbar, and the rest were in the source.
- *
- * Both are the same bug: there was no list. So there is a list now, and it is
- * the list that runs — the help sheet is rendered *from* the registry rather
- * than written alongside it, which is what stops the documentation and the
- * behavior from disagreeing again.
+ * One registry answers every key in the app, and the help sheet is rendered
+ * *from* that registry rather than written alongside it. That is the point of
+ * the module: a list and a set of handlers maintained separately disagree about
+ * which keys exist, and a shortcut nobody can enumerate is a shortcut nobody
+ * knows.
  *
  * ── Contexts ──────────────────────────────────────────────────────────────
  *
@@ -48,10 +32,9 @@
  * An entry with `hold: true` is the third kind: `run` on the way down and
  * `release` on the way up, for a gesture that is only live while the key is
  * held. The vertex eraser is the case that asked for it — a pointer that
- * destroys what it touches must not be something you can leave switched on —
- * and it went here rather than into a private keydown listener because a
- * private listener is exactly what this module was written to replace: it
- * cannot be ordered by the context stack and cannot be shown on the sheet.
+ * destroys what it touches must not be something you can leave switched on.
+ * Such a gesture belongs here rather than in a private keydown listener, which
+ * the context stack cannot order and the sheet cannot show.
  *
  * Two guarantees the holders rely on. Auto-repeat does not re-fire `run`,
  * because a key held down is one press however many times the platform says
@@ -68,12 +51,12 @@
  *
  * A context marked `exclusive: true` is a barrier: nothing beneath it answers
  * the keyboard, and the tool the dialog opened on top of keeps its keys without
- * having to pop its own context. That is what a modal *is*, and it used to be
- * enforced by asking App.ui whether any dialog was open at all — which was
- * right about the tools underneath and wrong about the dialog itself, because
- * it left the dialog with no way to register keys of its own. Every screen in
- * the app that takes over now pushes an exclusive context, and the ones that
- * have not been converted still get the old blanket rule.
+ * having to pop its own context. That is what a modal *is*, and every screen
+ * that takes over should push one.
+ *
+ * A dialog with no context of its own falls back to the blanket rule in
+ * _reach(): the tools underneath are blocked, which is right, but the dialog
+ * itself has no way to register keys, which is why the barrier is preferred.
  *
  * `whileTyping: true` is the exception to the exception. Nothing fires while a
  * text field has focus, which is right for every single-letter shortcut and
@@ -165,9 +148,9 @@ App.shortcuts = (function () {
         note: true,
       },
       {
-        // Was "Menu for a territory", which is what it used to be: every
-        // menu in the app needed a shape under the pointer, so bare map fell
-        // through to the browser's own. There is one for empty ground now.
+        // Labelled for anywhere rather than for a territory: bare ground has
+        // a menu of its own, so the right button is never handed back to the
+        // browser.
         combos: ["Right-click"],
         labelKey: "shortcuts.menuAnywhere",
         note: true,
@@ -392,8 +375,8 @@ App.shortcuts = (function () {
    * earns it: undo and redo, which do not mean anything on their own. They
    * ask App.history which scope is active, and a dialog that has pushed one —
    * the print dialog pushes the eraser's — is the thing they are already
-   * addressed to. Blocking them would have quietly taken Ctrl+Z away from the
-   * eraser, which had it before this module existed.
+   * addressed to. Blocking them takes Ctrl+Z away from the eraser, which is the
+   * one place inside a dialog where it has something to undo.
    */
   function _modalOpen() {
     if (App.print && App.print.isOpen && App.print.isOpen()) return true;
@@ -410,12 +393,9 @@ App.shortcuts = (function () {
    * Who can answer right now — the one calculation behind both halves of this
    * module.
    *
-   * It used to live inline in _onKeyDown, and the sheet did not do it at all:
-   * it rendered every context on the stack as though all of them were live,
-   * so opening a dialog produced a list where the top group worked and the
-   * three groups under it were decoration. That is the failure this module was
-   * written to prevent, arrived at from the other side — the list and the
-   * behavior agreed about which keys exist and disagreed about which of them
+   * The dispatcher and the sheet both go through here, so a group the sheet
+   * greys out is a group that would not fire. Deriving it twice is how a list
+   * that agrees about which keys exist comes to disagree about which of them
    * do anything.
    *
    * @returns {{stack:Array, covered:function(number, Object):boolean}}
@@ -431,8 +411,8 @@ App.shortcuts = (function () {
         break;
       }
     }
-    // A dialog that has not been given a context of its own still blocks the
-    // tools underneath, the way every dialog did before contexts existed.
+    // A dialog with no context of its own still blocks the tools underneath:
+    // being covered is a property of the dialog, not of what it registered.
     var blanket = barrier < 0 && _modalOpen();
 
     return {
@@ -620,8 +600,7 @@ App.shortcuts = (function () {
       // Mounted on top rather than opened as *the* dialog, the way the
       // placement frame stacks over the print dialog. App.ui.openDialog()
       // closes whatever is already up, and a help sheet that destroys the
-      // screen you asked for help about is not help — which is precisely
-      // what "?" did in every dialog in the app until now.
+      // screen you asked for help about is not help.
       _sheet = D.mountOnMap("tpl-shortcuts-dialog", App.state.leafletMap);
       dialog = _sheet;
     } else {

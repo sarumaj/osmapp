@@ -4,10 +4,10 @@ The dictionaries and their call sites fall back to English without a warning
 when a key is missing or a plural is called without a count. The PWA cache
 version is the only thing that tells a browser a deploy happened.
 
-Template detection used to be the third. It moved into the browser with the
-rest of the PDF work, and `tests/js/pdfdoc.test.mjs` covers the same ground —
-the marked box beating the page frame, the smallest enclosing rectangle, the
-largest empty one, and leader dots becoming named fields.
+Template detection is not checked here. It runs in the browser with the rest of
+the PDF work, so `tests/js/pdfdoc.test.mjs` covers that ground — the marked box
+beating the page frame, the smallest enclosing rectangle, the largest empty one,
+and leader dots becoming named fields.
 """
 
 import json
@@ -20,6 +20,7 @@ import pytest
 from flask import Flask
 
 from osmapp import create_app
+from osmapp.internal import i18n as i18n_module
 from osmapp.internal import pwa as pwa_module
 from osmapp.internal.config import I18N_DIR, STATIC_DIR
 from osmapp.internal.i18n import DEFAULT_LANG, SUPPORTED_LANGS
@@ -55,6 +56,39 @@ def test_the_dictionaries_have_the_same_keys(code: str):
         f"{code}.json differs: missing {sorted(set(FLAT[DEFAULT_LANG]) - set(FLAT[code]))[:5]}, "
         f"extra {sorted(set(FLAT[code]) - set(FLAT[DEFAULT_LANG]))[:5]}"
     )
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param('{"toolbar": {', id="truncated"),
+        pytest.param('{"toolbar": {"draw": "Draw",}}', id="trailing-comma"),
+        pytest.param("[1, 2, 3]", id="not-an-object"),
+        pytest.param("", id="empty"),
+    ],
+)
+def test_a_broken_dictionary_costs_the_translation_not_the_page(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: str
+):
+    """A malformed dictionary must degrade to English, not raise.
+
+    The dictionary is inlined into every render, so an exception here is a 500 on
+    every route in every language — from a stray comma in a file the client is
+    already built to survive the absence of. The four cases are the ways a hand
+    edit actually breaks one: cut short, a trailing comma, the wrong top-level
+    type, and empty.
+    """
+    monkeypatch.setattr(i18n_module, "I18N_DIR", tmp_path)
+    monkeypatch.setattr(i18n_module, "_cache", {})
+    (tmp_path / "pl.json").write_text(content, encoding="utf-8")
+
+    assert i18n_module.load_dictionary("pl") == {}
+
+    # And it recovers without a restart, because a failed read is not cached.
+    (tmp_path / "pl.json").write_text(
+        '{"toolbar": {"draw": "Rysuj"}}', encoding="utf-8"
+    )
+    assert i18n_module.load_dictionary("pl") == {"toolbar": {"draw": "Rysuj"}}
 
 
 def test_every_inflecting_key_is_called_with_a_count():

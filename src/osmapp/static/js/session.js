@@ -52,8 +52,8 @@ App.session = (function () {
   function _saveView() {
     if (!s.leafletMap || _suspended) return;
     var center = s.leafletMap.getCenter();
-    // Private mode: the view simply does not persist, which App.util already
-    // knows how to shrug off.
+    // In private mode the view does not persist, which App.util already knows
+    // how to shrug off.
     App.util.writeJson(VIEW_KEY, {
       lat: center.lat,
       lng: center.lng,
@@ -191,8 +191,8 @@ App.session = (function () {
         )
         .then(function () {
           // After the work rather than in a finally around it: the saves this
-          // suppresses are queued by what applyPayload does, and it no longer
-          // all happens on this tick.
+          // suppresses are queued by what applyPayload does, and not all of that
+          // lands on this tick.
           _restoring = false;
           return ok;
         });

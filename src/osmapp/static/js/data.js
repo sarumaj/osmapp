@@ -126,10 +126,9 @@ App.data = (function () {
    * Ask before spending a minute of someone's time and a slice of a shared
    * public service on a download they may not have meant to start.
    *
-   * Committing a polygon and picking a search result both used to fire a
-   * download on the spot, which is the wrong default: the click that ends a
-   * drawing is about the drawing, and a search result is often just a way to
-   * pan the map.
+   * Committing a polygon and picking a search result both reach here, and
+   * neither should download on the spot: the click that ends a drawing is about
+   * the drawing, and a search result is often only a way to pan the map.
    *
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>}
    */
@@ -198,8 +197,9 @@ App.data = (function () {
       })
         .then(_parse, function (err) {
           // fetch only rejects on a transport problem — DNS, a dropped
-          // connection, a proxy timeout, or our own abort() — so everything
-          // that lands here except a cancellation is worth another try.
+          // connection, a proxy timeout, or this module's own abort() — so
+          // everything that lands here except a cancellation is worth another
+          // try.
           if (_cancelled) throw _cancelledError();
           throw _retryableError(
             (err && err.message) || "Network request failed",

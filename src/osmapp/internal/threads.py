@@ -21,6 +21,22 @@ def execute_in_thread(  # noqa: UP047
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> threading.Thread:
+    """Run `target` on a daemon thread until `ev` is set.
+
+    Exceptions from `target` are logged and swallowed, so one failed run does not
+    end the schedule — these jobs are cache eviction and disk trimming, where
+    stopping quietly is worse than failing loudly once.
+
+    Args:
+        ev: Set it to stop the thread; it is also what the sleep waits on, so a
+            shutdown does not block for the rest of the interval.
+        interval: Seconds between runs.
+        run_immediately: Run once before the first wait rather than after it.
+
+    Returns:
+        The started thread, for a caller that wants to join it.
+    """
+
     def loop():
         logger.info("Starting thread %s", threading.current_thread().name)
         first = run_immediately

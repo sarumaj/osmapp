@@ -75,6 +75,13 @@ function pointToSegment(p, a, b) {
   return Math.sqrt(ex * ex + ey * ey);
 }
 
+/**
+ * Reference Douglas-Peucker, used as the oracle rather than as a fixture.
+ *
+ * The assertions compare trim.js's simplification against this, so it must stay
+ * an independent implementation: importing or sharing the module's own would
+ * make the comparison tautological.
+ */
 function douglasPeucker(points, tolerance) {
   if (!tolerance || points.length < 3) return points;
   let worst = 0;
@@ -919,8 +926,8 @@ test("a block across the park is still in the town", () => {
 
 test("the farm outside the town is still found", () => {
   // The other half of the same test: a bigger unit must not make the rule
-  // blind. If a town could no longer name anything, the fix would be a
-  // switched-off feature rather than a corrected one.
+  // blind. A town that names nothing at all is a switched-off feature rather
+  // than a corrected one.
   const trim = load();
   const houses = town(0, 0, 1500);
   const farm = [entry(at(ORIGIN, 4200, 4200))];
@@ -932,10 +939,10 @@ test("the farm outside the town is still found", () => {
 });
 
 test("a village is judged exactly as it was before the town term existed", () => {
-  // The span term is a maximum against the old floor, so anything small
-  // enough for the floor to win is untouched by all of this. Worth pinning:
-  // villages are what the tool is mostly pointed at, and a fix for cities
-  // that quietly retuned them would be a bad trade.
+  // The span term is a maximum against the floor, so anything small enough for
+  // the floor to win is untouched by it. Worth pinning: villages are what the
+  // tool is mostly pointed at, and a fix for cities that quietly retuned them
+  // would be a bad trade.
   const trim = load();
   const houses = village(400, 400, 6, 6, 40);
   const hamlet = [0, 1, 2].map((i) => entry(at(ORIGIN, 1600 + i * 30, 1500)));
@@ -948,10 +955,10 @@ test("a village is judged exactly as it was before the town term existed", () =>
 });
 
 test("the group ceiling is the number the slider is showing", () => {
-  // It used to be lifted to a share of everything downloaded — which in a
-  // town of two thousand worked out at a hundred, while the control beside
-  // it said eight. A dozen buildings well outside the town is exactly the
-  // case that gap decided, and it must now be decided by the slider.
+  // The ceiling is the slider's own number and is not scaled to the size of the
+  // download. Scaled, a town of two thousand would allow a hundred while the
+  // control beside it read eight — and a dozen buildings well outside the town
+  // is exactly the case that gap decides.
   const trim = load();
   const houses = town(0, 0, 1000);
   const hamlet = [];

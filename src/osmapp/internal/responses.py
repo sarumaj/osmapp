@@ -10,6 +10,7 @@ class BadRequest(Exception):
 
 
 def json_(payload: dict[str, Any] | list[Any], status: int = 200) -> Response:
+    """JSON response with an explicit status."""
     return make_response(jsonify(payload), status)
 
 

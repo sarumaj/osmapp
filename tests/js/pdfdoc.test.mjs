@@ -1,12 +1,11 @@
 /**
- * Whatever in pdfdoc.js used to live in internal/template.py.
+ * Template detection in pdfdoc.js: which rectangle on a form is the map box.
  *
- * Nothing but the pure geometry runs here. Pulling in pdf-lib and pdf.js and
- * building a real PDF is an integration test wanting a browser and a template
- * file. What can be nailed down without either is the placeholder choice,
- * since that is the piece capable of being wrong while looking fine. Detect
- * the map box one rectangle too far out and the map lands on the card's own
- * frame — and the only way anyone finds out is by printing one.
+ * Only the pure geometry runs here. Pulling in pdf-lib and pdf.js to build a
+ * real PDF is an integration test wanting a browser and a template file, and the
+ * placeholder choice is the piece that can be wrong while looking fine: pick one
+ * rectangle too far out and the map lands on the card's own frame, which nobody
+ * discovers until a card is printed.
  */
 
 import test from "node:test";

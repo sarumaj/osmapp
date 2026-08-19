@@ -44,11 +44,11 @@
  *
  *   • The chip lives in `innerPolygonsLayerGroup` alongside the territories
  *     themselves, rather than in a separate layer group of its own. This
- *     way the switcher's Territories toggle covers it, nothing can outlive
- *     a rebuild, and the switcher lists one entry per kind of thing on the
- *     map instead of one per implementation detail. Showing and hiding the
- *     numbers is the toolbar's job, placed next to the tools that make the
- *     numbers worth having.
+ *     way the View group's Shapes switch covers it, nothing can outlive a
+ *     rebuild, and that group lists one switch per kind of thing on the map
+ *     instead of one per implementation detail. Drawing the numbers is its own
+ *     switch in the same group, because the chips can be wanted without the
+ *     shapes and not the other way round.
  *
  * The chip also carries the printed check, which used to be a separate
  * marker in `polygons.js`. Both were anchored at the same interior point,
@@ -114,7 +114,7 @@ App.labels = (function () {
   var _audit = null;
 
   // A double click arrives as two clicks and then a dblclick, so the first of
-  // the pair has already changed the selection by the time we learn it was
+  // the pair has already changed the selection before anything can know it was
   // half of a gesture rather than a whole one. The selection as it stood
   // before the pair is kept here and put back, because zooming to a territory
   // is a look rather than a decision and should leave the picking alone.
@@ -338,9 +338,9 @@ App.labels = (function () {
 
     // Described whether or not the chips are drawn. The rows are the audit —
     // the count, the too-small warning, the list dialog — and all of that is
-    // about the territories rather than about the numbers. Returning early
-    // here used to leave _rows empty, so switching the numbers off silently
-    // took the info panel's warning with them.
+    // about the territories rather than about the numbers. Returning early on
+    // `!_visible` would leave _rows empty, so switching the numbers off would
+    // silently take the info panel's warning with them.
     _rows = (s.clusters || []).map(_describe);
 
     if (_visible) {
@@ -456,12 +456,11 @@ App.labels = (function () {
    * by refreshFilteredData *after* the rows are built.
    *
    * `uncovered` is not about a territory at all: it is ground inside the
-   * boundary that is in no territory (see gaps.js). It is counted here because
-   * the info panel used to carry a row of its own for it, and a second number
-   * in the panel meant a second place to look and a second thing to explain —
-   * for a fault whose repair, its flag and its place on the map all live in
-   * the list. One mark on the one count, and the list says which of the three
-   * it is.
+   * boundary that is in no territory (see gaps.js). It is counted here rather
+   * than given a row of its own in the info panel, because a second number
+   * there is a second place to look and a second thing to explain — for a fault
+   * whose repair, its flag and its place on the map all live in the list. One
+   * mark on the one count, and the list says which of the three it is.
    *
    * All of them are what App.autoheal repairs, or declines to; see there for
    * why `tiny` is the one it leaves alone.
@@ -1068,10 +1067,9 @@ App.labels = (function () {
   /**
    * Zoom to a piece of uncovered ground.
    *
-   * The move the info panel's uncovered count used to make, which is why it
-   * keeps that button's framing: 17 rather than the 19 a territory gets,
-   * because a gap is understood by what is around it — the territories it
-   * sits between — and a tighter zoom shows the hole and nothing else.
+   * Zoom 17 rather than the 19 a territory gets: a gap is understood by what is
+   * around it — the territories it sits between — and a tighter zoom shows the
+   * hole and nothing else.
    */
   function focusGap(feature) {
     if (!feature || !feature.geometry || !s.leafletMap) return false;
@@ -1091,12 +1089,11 @@ App.labels = (function () {
   /**
    * Show which rows are picked, and nothing else.
    *
-   * Selecting used to go through _renderList, which rebuilds every row and
-   * re-audits every territory — a second of work on a real partition to move
-   * a highlight from one row to another. Nothing about a selection can change
-   * which rows exist, what they say, or what is wrong with them, so none of
-   * that needs doing: this walks the rows already on screen and sets a flag on
-   * each.
+   * Deliberately not _renderList, which rebuilds every row and re-audits every
+   * territory — a second of work on a real partition to move a highlight from
+   * one row to another. Nothing about a selection can change which rows exist,
+   * what they say, or what is wrong with them, so this walks the rows already
+   * on screen and sets a flag on each.
    */
   function _paintSelection(dialog) {
     var rows = dialog.querySelectorAll("[data-territory]");
@@ -1322,8 +1319,8 @@ App.labels = (function () {
    * The selection it replaces is remembered first, so that the double click
    * this may turn out to be the first half of can put it back. Only the first
    * click of a pair takes the snapshot — the second one is inside the window
-   * and would otherwise overwrite it with the state the first one just
-   * created, which is the state we are trying to get away from.
+   * and would otherwise overwrite it with the state the first one just created,
+   * which is the state being backed out of.
    */
   function _pickOnly(dialog, index) {
     var now = Date.now();
