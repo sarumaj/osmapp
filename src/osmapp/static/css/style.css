@@ -1400,11 +1400,20 @@ body {
 
 .tb-item--select {
   position: relative;
-  /* Two columns wide. "Background", "Hintergrund" and "Satellitenbild" do not
-     fit the 52 px tile a switch uses, and the ellipsis they get there costs the
-     word that says what the control is for. A drop-down is also a different
-     kind of control from a switch, so it is allowed to look like one. */
-  width: calc(var(--tb-tile) * 2 + var(--tb-gap));
+  /* Wider than the 52 px tile a switch uses, and narrower than two of them.
+     "Background" and "Hintergrund" do not fit one tile, and the ellipsis they
+     get there costs the word that says what the control is for; two full tiles
+     then spent the rest of that width on nothing, and kept the basemap off the
+     zoom pair's line. A drop-down is also a different kind of control from a
+     switch, so it is allowed to look like one. */
+  width: calc(var(--tb-tile) * 1.5 + var(--tb-gap));
+  /* The caret takes the right-hand end and there is nothing at the left one,
+     so the gap that belongs beside it is not owed to both sides. Paying it once
+     is what buys the half tile above without moving the label under the caret:
+     the glyph and the label centre inside what is left, which is why they sit
+     a little left of the tile's middle. */
+  padding-right: 11px;
+  padding-left: 3px;
 }
 
 /* The caret, so the tile reads as a drop-down rather than as a button. Drawn
@@ -1414,7 +1423,7 @@ body {
 .tb-item--select::after {
   content: "";
   position: absolute;
-  right: 6px;
+  right: 4px;
   bottom: 9px;
   border: 4px solid transparent;
   border-top-color: var(--c-text-dim);

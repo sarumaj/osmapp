@@ -221,10 +221,10 @@
       </a>
     </template>
 
-    <!-- The hairlines inside the View group, which holds three kinds of
-         control: the zoom pair on top, then the pick-one basemap, then the
-         toggle-each overlays. Those dividers are most of the explanation the
-         three parts need. -->
+    <!-- The hairline inside the View group, which holds two kinds of control:
+         the line that says what is under the map — the zoom pair and the
+         pick-one basemap — and the toggle-each overlays below it. That divider
+         is most of the explanation the two parts need. -->
     <template id="tpl-toolbar-break">
       <span class="tb-group__break" aria-hidden="true"></span>
     </template>
@@ -243,7 +243,11 @@
          invisible <select> stretched over the whole tile, with the glyph of the
          current choice and the control's own name drawn underneath it. Three
          mutually exclusive tiles said the same thing in three times the width,
-         and the collapsed panel had to find room for all of them. -->
+         and the collapsed panel had to find room for all of them.
+
+         The glyph carries no icon class here: controls.js writes the class of
+         whichever basemap is current (see BASEMAP_ICONS), and the element is
+         empty until it does. -->
     <template id="tpl-basemap-control">
       <div class="tb-item tb-item--select">
         <span class="tb-item__icon" data-role="glyph" aria-hidden="true"></span>

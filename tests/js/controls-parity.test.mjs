@@ -555,9 +555,12 @@ test("every glyph the toolbar names exists in the icon font", () => {
   // The bundle is minified with aliases grouped into one rule
   // (`.fa-warning,.fa-triangle-exclamation{--fa:"\f071"}`), so the selector is
   // matched inside a rule head rather than at the start of one.
+  // Every bare "fa-…" literal in the file, so the basemap picker's table
+  // (BASEMAP_ICONS) is checked by the same rule as the buttons' icon: specs —
+  // its glyph is the one thing a collapsed panel keeps.
   const named = [
-    ...SOURCE.controls.matchAll(/\bicon:\s*"(fa-[\w-]+)"/g),
-  ].map((m) => m[1]);
+    ...new Set([...SOURCE.controls.matchAll(/"(fa-[\w-]+)"/g)].map((m) => m[1])),
+  ];
   assert.ok(named.length >= 15, "the toolbar names no icons at all");
 
   const missing = named.filter(
@@ -667,34 +670,42 @@ test("both drop-downs show a glyph and a label, and survive the collapse", () =>
   assert.match(CSS, /\.lang-select,\s*\n\.basemap-select \{/);
 });
 
-test("both drop-downs list a pictogram and a name, not one or the other", () => {
-  // The two arrived at this from opposite ends: a flag with no language name,
-  // and layer names with no pictogram. Either half alone costs something — a
-  // list of bare flags cannot be read by anyone who does not know the flags, and
-  // a list of bare names cannot be scanned without reading it.
-  //
-  // Checked as "the option text is built from both parts", because the parts
-  // themselves live in different places: the languages are literals in i18n.js,
-  // the basemap names come out of the dictionary through t().
+test("the language list keeps its flags, which are text", () => {
+  // A flag with no language name cannot be read by anyone who does not know the
+  // flags, and a language name with no flag cannot be scanned by anyone who
+  // cannot read that language — which is the only reader this control has.
+  // Both halves are plain characters, so an <option> can paint them.
   assert.match(
     SOURCE.controls,
     /textContent = lang\.flag \+ " " \+ lang\.name/,
     "the language list drops one half",
   );
+});
+
+test("the basemap tile's glyph comes from the icon font, not from an emoji", () => {
+  // The tile is the one place the current basemap is named, and it sits beside
+  // 27 line icons. An emoji is drawn by the platform, in the font vendor's
+  // weight and color, so it is the one glyph in the panel that matches nothing
+  // around it.
+  assert.match(SOURCE.controls, /var BASEMAP_ICONS = \{/);
   assert.match(
     SOURCE.controls,
-    /textContent = _emoji\(entry\.id\) \+ " " \+ T\(entry\.labelKey\)/,
-    "the basemap list drops one half",
+    /glyph\.className = "tb-item__icon fa-solid " \+ _icon\(id\)/,
+    "the tile does not paint the current basemap's icon",
   );
-
-  // And the tile's pictogram is the same string as the list's, so the two cannot
-  // disagree about which basemap is which.
-  assert.match(SOURCE.controls, /glyph\.textContent = _emoji\(id\)/);
-  assert.match(SOURCE.controls, /var BASEMAP_EMOJI = \{/);
   assert.doesNotMatch(
     SOURCE.controls,
-    /BASEMAP_ICONS/,
-    "a second table for the tile is what this arrangement exists to avoid",
+    /BASEMAP_EMOJI/,
+    "the emoji table is back, so the tile has two sources of truth",
+  );
+
+  // The price, and the reason the list is not checked for a pictogram the way
+  // the language list is: an <option> paints text, and a webfont glyph is not
+  // text. So the options carry the name alone.
+  assert.match(
+    SOURCE.controls,
+    /textContent = T\(entry\.labelKey\)/,
+    "the basemap list lost its names",
   );
 });
 

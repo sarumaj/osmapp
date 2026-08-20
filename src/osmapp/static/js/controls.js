@@ -58,26 +58,30 @@ App.controls = (function () {
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
   var NARROW_PX = 720;
 
-  // An emoji per basemap the server may send, used both on the picker's tile
-  // and in front of each name in its list.
+  // A Font Awesome class per basemap the server may send, drawn on the picker's
+  // tile the way every other glyph in this panel is drawn.
   //
-  // An emoji rather than a Font Awesome class, which is what every other icon
-  // in this panel is: an <option> renders as plain text, so a pictogram in the
-  // list has to be a character. One table rather than a glyph for the tile and a
-  // character for the list is what keeps the two from disagreeing about which
-  // basemap is which — and it is the arrangement the language picker beside it
-  // already uses, where the flag is the same string in both places.
+  // A webfont icon rather than an emoji: an emoji is a picture the platform
+  // draws, so it arrives in whatever weight, color and size the font vendor
+  // chose and sits beside 27 line icons that share none of those. The tile is
+  // the one place the current basemap is named, so it is the one place that
+  // difference is on screen the whole time.
+  //
+  // The cost is the list: an <option> renders as plain text, and a webfont
+  // glyph is not text the browser will paint there. So the options carry the
+  // layer's full name and nothing else — which is the half a list has room for
+  // anyway, where a 52 px tile does not.
   //
   // Keyed by id rather than derived from it, because the choice is editorial. An
   // id absent from this table falls back to a globe, so an aid layer added
   // server-side needs no change here.
-  var BASEMAP_EMOJI = {
-    osm: "🗺️",
-    imagery: "🛰️",
-    terrain: "⛰️",
+  var BASEMAP_ICONS = {
+    osm: "fa-map",
+    imagery: "fa-satellite",
+    terrain: "fa-mountain-sun",
   };
 
-  var BASEMAP_EMOJI_FALLBACK = "🌍";
+  var BASEMAP_ICON_FALLBACK = "fa-earth-europe";
 
   // ── Availability predicates ───────────────────────────────────────────
   //
@@ -293,16 +297,19 @@ App.controls = (function () {
       // here changes a territory, a boundary or a download, which is what
       // separates the group from every other one in the panel.
       //
-      // The basemap comes first, as one drop-down: the choice is exclusive, so
-      // it is a choice rather than a row of switches. Then a divider, then the
-      // overlays, each its own toggle. The layer switches are never disabled —
-      // one that greys out cannot be used to find out whether the data arrived
-      // — so Numbers is the only entry with an enabled() predicate.
+      // The zoom pair and the basemap drop-down share the first line: all
+      // three are about the map underneath rather than about what is drawn on
+      // it, and three and a half tiles of the panel's six hold them. The
+      // basemap is one drop-down rather than a row of switches because the
+      // choice is exclusive. Then a divider, then the overlays, each its own
+      // toggle. The layer switches are never disabled — one that greys out
+      // cannot be used to find out whether the data arrived — so Numbers is the
+      // only entry with an enabled() predicate.
       key: "view",
       titleKey: "toolbar.groupView",
       noteTemplate: "tpl-toolbar-note",
       buttons: [
-        // The zoom pair heads the group: it is the switch used most often and
+        // The zoom pair heads the line: it is the switch used most often and
         // the only one here that is a plain action rather than a state. It
         // replaces Leaflet's own zoom control, which main.js no longer adds —
         // two unlabelled squares in this same corner, styled by leaflet.css
@@ -337,7 +344,6 @@ App.controls = (function () {
             _map.zoomOut();
           },
         },
-        { separator: true },
         { id: "basemap", custom: _mountBasemapPicker },
         { separator: true },
         {
@@ -731,10 +737,10 @@ App.controls = (function () {
    * server decision (config.AID_LAYERS, an empty URL removes one), so the
    * options are built from App.basemap rather than written out.
    *
-   * Each option is an emoji and the layer's full name, the way the language
-   * picker lists a flag and a language: a list has room for "Satellite imagery"
-   * where a 52 px tile does not, and the emoji is what makes the row scannable
-   * without reading it.
+   * Each option is the layer's full name: a list has room for "Satellite
+   * imagery" where a 52 px tile does not. No pictogram in front of it, unlike
+   * the language picker's flags — the tile's glyph comes out of the icon font
+   * (see BASEMAP_ICONS) and an <option> paints plain text only.
    */
   function _mountBasemapPicker(host) {
     var node = D.mount("tpl-basemap-control", host);
@@ -751,20 +757,23 @@ App.controls = (function () {
     /** Option text is built by t(), so it has to be rebuilt on a language change. */
     function name() {
       entries.forEach(function (entry, i) {
-        select.options[i].textContent = _emoji(entry.id) + " " + T(entry.labelKey);
+        select.options[i].textContent = T(entry.labelKey);
       });
     }
 
     /**
-     * The emoji is the only thing on the tile that says which basemap is on,
+     * The glyph is the only thing on the tile that says which basemap is on,
      * since the label names the control. Painted from the change rather than
      * from the click, so a basemap chosen elsewhere — the session restore picks
      * the remembered one — shows here too.
+     *
+     * className rather than classList, so the previous basemap's icon goes when
+     * the new one arrives; the tile class is restated for the same reason.
      */
     function show() {
       var id = App.basemap.current();
       select.value = id;
-      glyph.textContent = _emoji(id);
+      glyph.className = "tb-item__icon fa-solid " + _icon(id);
     }
 
     name();
@@ -779,8 +788,8 @@ App.controls = (function () {
     return node;
   }
 
-  function _emoji(id) {
-    return BASEMAP_EMOJI[id] || BASEMAP_EMOJI_FALLBACK;
+  function _icon(id) {
+    return BASEMAP_ICONS[id] || BASEMAP_ICON_FALLBACK;
   }
 
   /** @returns {Function} A predicate: true while `key`'s group is on the map. */
