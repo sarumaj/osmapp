@@ -604,10 +604,14 @@ App.ui = (function () {
    *
    * @param {{x:number, y:number}} point container coordinates
    * @param {Array<{labelKey?:string, label?:string, icon?:string,
-   *                danger?:boolean, checked?:boolean, disabled?:boolean,
-   *                onlineOnly?:boolean, separator?:boolean,
+   *                role?:string, danger?:boolean, checked?:boolean,
+   *                disabled?:boolean, onlineOnly?:boolean, separator?:boolean,
    *                onClick?:Function}>} items
-   *   A `separator: true` entry draws a divider and nothing else.
+   *   A `separator: true` entry draws a divider and nothing else. `role` is a
+   *   name for the entry that survives translation — the item's own text is
+   *   whatever language the app is in, so anything that has to find one
+   *   particular entry from outside (the guided tour rings the print one)
+   *   would otherwise be matching on a label.
    * @returns {HTMLElement|null} the menu root, or null while a dialog owns
    *   the screen
    */
@@ -630,6 +634,7 @@ App.ui = (function () {
       }
 
       var node = D.mount("tpl-context-menu-item", menu);
+      if (item.role) node.dataset.role = item.role;
       var label = item.labelKey ? App.i18n.t(item.labelKey) : item.label || "";
       if (item.labelKey) {
         var span = D.role(node, "label");
@@ -765,6 +770,7 @@ App.ui = (function () {
         // basemap under it comes from the service worker's tile cache.
         labelKey: "menu.print",
         icon: "fa-print",
+        role: "print",
         onClick: function () {
           App.print.printCluster(feature);
         },

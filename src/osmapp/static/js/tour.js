@@ -403,7 +403,7 @@ App.tour = (function () {
     // step: the half that gets you a file, not the half that gets it back.
     { id: "importFiles", target: '[data-action="import"]', placement: "right" },
     { id: "reset", target: '[data-action="reset"]', placement: "right" },
-    { id: "language", target: ".tb-item--select", placement: "right" },
+    { id: "language", target: '[data-action="language"]', placement: "right" },
     { id: "offline" },
     {
       // The tour answers "what is this app for" once. This answers "what can
@@ -531,6 +531,7 @@ App.tour = (function () {
 
   function start(index) {
     if (_root) stop();
+    _closeModes();
 
     _steps = STEPS.filter(function (step) {
       if (step.available && !step.available()) return false;
@@ -626,6 +627,32 @@ App.tour = (function () {
    * is a no-op when there is nothing to close, so running it twice is free —
    * and running it one time too few is how someone's afternoon disappears.
    */
+  /**
+   * Turn every modal tool off.
+   *
+   * Called on both sides of the tour, because a mode running while the sample
+   * is swapped in or out is a tool holding layers that are about to be taken
+   * away from it. On the way out this is the safety net for a step whose
+   * exit() did not run; on the way in the mode is the user's own — pressing H
+   * mid-cut is not blocked by anything, none of the mode contexts being
+   * exclusive — and it cannot survive the swap either way, so it ends here
+   * rather than halfway through the first sample step.
+   *
+   * outline is cancelled rather than toggled: toggling it off would keep
+   * whatever the reshape had done to the boundary so far.
+   */
+  function _closeModes() {
+    if (!App.state) return;
+    try {
+      if (App.state.editMode && App.editing) App.editing.toggleEditMode();
+      if (App.state.mergeMode && App.editing) App.editing.toggleMergeMode();
+      if (App.state.trimMode && App.trim) App.trim.toggle();
+      if (App.state.outlineMode && App.outline) App.outline.cancel();
+    } catch (e) {
+      console.warn(">>> Tour could not close a mode:", e && e.message);
+    }
+  }
+
   function _cleanup() {
     try {
       if (App.print && App.print.isOpen()) App.print.close();
@@ -633,10 +660,7 @@ App.tour = (function () {
         App.ui.closeDialog();
         App.ui.closeContextMenu();
       }
-      if (App.state && App.editing) {
-        if (App.state.editMode) App.editing.toggleEditMode();
-        if (App.state.mergeMode) App.editing.toggleMergeMode();
-      }
+      _closeModes();
     } catch (e) {
       console.warn(">>> Tour cleanup:", e && e.message);
     }

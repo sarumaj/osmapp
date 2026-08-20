@@ -165,6 +165,100 @@ test("every toolbar button the tour points at exists in the toolbar", () => {
   assert.deepStrictEqual(missing, []);
 });
 
+test("a class a step points at belongs to one thing", () => {
+  // The language step spent a release pointing at the basemap picker: it
+  // named .tb-item--select, and by then the toolbar had two tiles carrying
+  // that class. querySelector answers with whichever the panel built first,
+  // and a spotlight on the wrong control is not a failure anything reports.
+  //
+  // So: every class a step names must appear on at most one element in the
+  // page. Classes the templates never mention are built by a module or by a
+  // Leaflet plugin (.trim-marker, .leaflet-control-geocoder) and are left to
+  // the modules that own them.
+  const template = readFileSync(
+    join(ROOT, "src", "osmapp", "templates", "index.html.j2"),
+    "utf8",
+  );
+  const elements = [...template.matchAll(/class="([^"]*)"/g)].map((m) =>
+    m[1].split(/\s+/),
+  );
+
+  const shared = [];
+  for (const step of load().steps()) {
+    for (const selector of [step.target, step.origin]) {
+      if (!selector) continue;
+      for (const [, name] of selector.matchAll(/(?:^|[\s>])\.([\w-]+)/g)) {
+        const count = elements.filter((list) => list.includes(name)).length;
+        if (count > 1) shared.push(`${step.id} → .${name} (${count})`);
+      }
+    }
+  }
+  assert.deepStrictEqual(shared, []);
+});
+
+test("every mode a step switches on is one the tour can switch off", () => {
+  // Steps turn modal tools on in enter() and off again in exit(), and that is
+  // the ordinary path. _closeModes is the other one: a step whose enter()
+  // threw, a tour abandoned with Escape, or a tour started while the user was
+  // already in a mode of their own. It was written when cut and merge were
+  // the only two modes and did not grow when the trim and outline steps
+  // arrived — which handed a boundary back to a tool still running on the
+  // sample's.
+  const source = readFileSync(
+    join(ROOT, "src", "osmapp", "static", "js", "tour.js"),
+    "utf8",
+  );
+  const steps = source.slice(
+    source.indexOf("var STEPS = ["),
+    source.indexOf("\n  ];"),
+  );
+  const modes = new Set(
+    [...steps.matchAll(/App\.state\.(\w+Mode)/g)].map((m) => m[1]),
+  );
+  assert.ok(modes.size > 0, "no step switches a mode on any more");
+
+  const start = source.indexOf("function _closeModes()");
+  assert.notEqual(start, -1, "the tour has no way to close a mode");
+  const body = source.slice(start, source.indexOf("\n  }\n", start));
+
+  const stranded = [...modes].filter((mode) => !body.includes(mode));
+  assert.deepStrictEqual(stranded, []);
+});
+
+test("the menu entry the print step rings carries the role it names", () => {
+  // The quieter half of the same failure: this step named
+  // [data-role="print"] on a menu entry that never carried one, so the ring
+  // it asked for was drawn round nothing and the step arrived as a centred
+  // card about an entry nobody could see. The entries are built from a list
+  // and their text is translated, so a name that survives translation is the
+  // only thing outside the menu can match on.
+  const ui = readFileSync(
+    join(ROOT, "src", "osmapp", "static", "js", "ui.js"),
+    "utf8",
+  );
+  const step = load()
+    .steps()
+    .find((candidate) => candidate.id === "printMenu");
+  assert.ok(step, "the step that reaches a card from a territory is gone");
+  const role = step.target.match(/\[data-role="([\w-]+)"\]/);
+  assert.notEqual(role, null, "the print step no longer names a role");
+
+  assert.match(
+    ui,
+    /if \(item\.role\) node\.dataset\.role = item\.role;/,
+    "showContextMenu drops the name its items are given",
+  );
+
+  const menu = ui.indexOf("function showPolygonContextMenu(");
+  assert.notEqual(menu, -1, "the territory menu is gone");
+  const body = ui.slice(menu, ui.indexOf("\n  }\n", menu));
+  assert.match(
+    body,
+    new RegExp(`role: "${role[1]}"`),
+    "no entry in the territory menu answers to the name the step points at",
+  );
+});
+
 test("offline drops no step, the print chain included", () => {
   // Composition is client-side, so printing works offline and no step may be
   // gated on the connection. The three print steps — the toolbar button, the

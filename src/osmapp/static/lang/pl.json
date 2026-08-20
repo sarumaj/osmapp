@@ -710,7 +710,7 @@
       },
       "layers": {
         "title": "Co jest widoczne",
-        "body": "Ta grupa dotyczy obrazu, nie pracy. Lista rozwijana u góry wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
+        "body": "Ta grupa dotyczy obrazu, nie pracy. Para przycisków u góry przybliża i oddala mapę, a lista rozwijana obok nich wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
       },
       "info": {
         "title": "Gdzie jesteś",
@@ -746,7 +746,7 @@
       },
       "trim": {
         "title": "Pomiń to, czego nie potrzebujesz",
-        "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Jeden suwak ustala, jak daleko za domami biegnie nowa granica, drugi — jak mocno krawędź jest wygładzana, a przy włączonym „Podążaj za ulicami” przyciąga się ona do sieci dróg zamiast ciąć przez ogrody. Zielone zostaje, czerwone odpada."
+        "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Dwa suwaki kształtują nową granicę — jak daleko za domami biegnie i jak mocno wygładzana jest jej krawędź — a dwa kolejne ustalają, co automat odrzuca za Ciebie: jak daleko musi stać budynek, aby uchodzić za odosobniony, i jak dużą grupę wolno odrzucić naraz. Przy włączonym „Podążaj za ulicami” granica przyciąga się do sieci dróg zamiast ciąć przez ogrody. Zielone zostaje, czerwone odpada."
       },
       "trimMarks": {
         "title": "Znaczniki pokazują, co odpada",

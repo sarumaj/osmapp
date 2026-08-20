@@ -741,6 +741,8 @@ App.controls = (function () {
    * imagery" where a 52 px tile does not. No pictogram in front of it, unlike
    * the language picker's flags — the tile's glyph comes out of the icon font
    * (see BASEMAP_ICONS) and an <option> paints plain text only.
+   *
+   * @returns {HTMLElement} the tile, which _makePanel names with data-action.
    */
   function _mountBasemapPicker(host) {
     var node = D.mount("tpl-basemap-control", host);
@@ -859,7 +861,15 @@ App.controls = (function () {
               return;
             }
             if (spec.custom) {
-              spec.custom(host);
+              // Named the same way as the buttons beside it. The two custom
+              // tiles share one class with each other and their own class with
+              // nothing, so without this the only selector that reaches the
+              // language picker also reaches the basemap one — and the guided
+              // tour, which addresses every other tile as [data-action="id"],
+              // spotlit whichever of the two the panel happened to build
+              // first.
+              var tile = spec.custom(host);
+              if (tile && tile.dataset) tile.dataset.action = spec.id;
               return;
             }
             _items[spec.id] = { spec: spec, node: _makeButton(spec, host) };
@@ -1200,6 +1210,9 @@ App.controls = (function () {
 
   // ── Language picker ───────────────────────────────────────────────────
 
+  /**
+   * @returns {HTMLElement} the tile, which _makePanel names with data-action.
+   */
   function _mountLanguagePicker(host) {
     var node = D.mount("tpl-language-control", host);
     var select = D.role(node, "lang");
