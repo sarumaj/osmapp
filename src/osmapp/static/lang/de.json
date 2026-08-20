@@ -669,7 +669,7 @@
       },
       "layers": {
         "title": "Was angezeigt wird",
-        "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Das Auswahlfeld oben entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände —, denn darunter liegt immer nur eines. Die Hilfsebenen gelten nur für den Bildschirm: gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
+        "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Das Paar oben zoomt die Karte hinein und heraus, und das Auswahlfeld daneben entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände —, denn darunter liegt immer nur eines. Die Hilfsebenen gelten nur für den Bildschirm: gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
       },
       "info": {
         "title": "Wo man gerade steht",
@@ -705,7 +705,7 @@
       },
       "trim": {
         "title": "Ausnehmen, was nicht gebraucht wird",
-        "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Ein Regler bestimmt, wie weit die neue Grenze hinter den Häusern verläuft, der andere, wie stark die Kante begradigt wird; mit „Straßen folgen“ rastet sie am Straßennetz ein, statt durch Gärten zu schneiden. Grün bleibt, Rot fällt weg."
+        "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Zwei Regler formen die neue Grenze — wie weit sie hinter den Häusern verläuft und wie stark ihre Kante begradigt wird —, zwei weitere bestimmen, was der automatische Durchgang für Sie ausnimmt: ab welcher Entfernung ein Gebäude als abgelegen gilt und wie groß die Gruppe höchstens sein darf, die er auf einmal fallen lässt. Mit „Straßen folgen“ rastet die Grenze am Straßennetz ein, statt durch Gärten zu schneiden. Grün bleibt, Rot fällt weg."
       },
       "trimMarks": {
         "title": "Die Markierungen zeigen, was wegfällt",

@@ -669,7 +669,7 @@
       },
       "layers": {
         "title": "What is shown",
-        "body": "This group is the picture rather than the work. The drop-down at the top chooses what is under the map — the map itself, aerial imagery, terrain — since only one thing can be under it at a time. The aid layers are for the screen only: a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
+        "body": "This group is the picture rather than the work. The pair at the top steps the map in and out, and the drop-down beside them chooses what is under it — the map itself, aerial imagery, terrain — since only one thing can be under it at a time. The aid layers are for the screen only: a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
       },
       "info": {
         "title": "Where you stand",
@@ -705,7 +705,7 @@
       },
       "trim": {
         "title": "Ignore what you do not need",
-        "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. One slider sets how far the new boundary runs behind the houses, the other how much the edge is straightened, and with \"Follow streets\" on it snaps onto the road network instead of cutting through gardens. Green is what you keep, red is what you give up."
+        "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. Two sliders shape the new boundary — how far behind the houses it runs, and how much its edge is straightened — and two more set what the automatic pass excludes for you: how far out a building has to stand to count as isolated, and the largest group it may drop in one go. With \"Follow streets\" on, the boundary snaps onto the road network instead of cutting through gardens. Green is what you keep, red is what you give up."
       },
       "trimMarks": {
         "title": "The marks show what is being dropped",

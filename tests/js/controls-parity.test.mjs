@@ -670,6 +670,36 @@ test("both drop-downs show a glyph and a label, and survive the collapse", () =>
   assert.match(CSS, /\.lang-select,\s*\n\.basemap-select \{/);
 });
 
+test("the custom tiles are named the way the buttons beside them are", () => {
+  // _makeButton writes data-action from the spec id, and everything that has
+  // to find a tile from outside — the guided tour, the tests here —
+  // addresses it that way. The two drop-downs are mounted by their own
+  // functions and so went without a name of their own: both carry class
+  // tb-item--select and nothing that tells them apart, which left the tour's
+  // language step spotlighting whichever of the two the panel built first.
+  assert.match(
+    SOURCE.controls,
+    /var tile = spec\.custom\(host\);/,
+    "the panel throws the custom tile away",
+  );
+  assert.match(
+    SOURCE.controls,
+    /tile\.dataset\.action = spec\.id;/,
+    "custom tiles are mounted without a data-action",
+  );
+
+  // Which only works while the mount functions hand the tile back.
+  for (const name of ["_mountBasemapPicker", "_mountLanguagePicker"]) {
+    const start = SOURCE.controls.indexOf(`function ${name}(host) {`);
+    assert.notEqual(start, -1, `${name} is missing`);
+    const body = SOURCE.controls.slice(
+      start,
+      SOURCE.controls.indexOf("\n  }\n", start),
+    );
+    assert.match(body, /\n    return node;/, `${name} returns nothing to name`);
+  }
+});
+
 test("the language list keeps its flags, which are text", () => {
   // A flag with no language name cannot be read by anyone who does not know the
   // flags, and a language name with no flag cannot be scanned by anyone who

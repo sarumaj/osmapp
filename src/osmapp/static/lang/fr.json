@@ -669,7 +669,7 @@
       },
       "layers": {
         "title": "Ce qui est affiché",
-        "body": "Ce groupe concerne l'image, pas le travail. La liste déroulante en haut choisit ce qui se trouve sous la carte — la carte elle-même, l'imagerie aérienne, le terrain — puisqu'un seul fond à la fois est possible. Les couches d'aide sont uniquement pour l'écran : une fiche est toujours imprimée sur le fond OpenStreetMap. Sous la ligne, chaque interrupteur retire une chose de la carte sans la retirer du projet : la limite, les rues, les maisons, les formes des territoires."
+        "body": "Ce groupe concerne l'image, pas le travail. La paire en haut rapproche et éloigne la carte, et la liste déroulante à côté choisit ce qui se trouve sous la carte — la carte elle-même, l'imagerie aérienne, le terrain — puisqu'un seul fond à la fois est possible. Les couches d'aide sont uniquement pour l'écran : une fiche est toujours imprimée sur le fond OpenStreetMap. Sous la ligne, chaque interrupteur retire une chose de la carte sans la retirer du projet : la limite, les rues, les maisons, les formes des territoires."
       },
       "info": {
         "title": "Où vous en êtes",
@@ -705,7 +705,7 @@
       },
       "trim": {
         "title": "Excluez ce dont vous n’avez pas besoin",
-        "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Un curseur fixe la distance derrière les maisons, l’autre le lissage du contour, et avec « Suivre les rues » la limite s’accroche au réseau routier au lieu de couper à travers les jardins. Le vert reste, le rouge disparaît."
+        "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Deux curseurs façonnent la nouvelle limite — la distance derrière les maisons et le lissage de son contour — et deux autres règlent ce que la passe automatique écarte pour vous : à quelle distance un bâtiment est tenu pour isolé, et le plus grand groupe qu’elle peut abandonner d’un coup. Avec « Suivre les rues », la limite s’accroche au réseau routier au lieu de couper à travers les jardins. Le vert reste, le rouge disparaît."
       },
       "trimMarks": {
         "title": "Les marques montrent ce qui disparaît",
