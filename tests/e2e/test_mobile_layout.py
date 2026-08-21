@@ -37,8 +37,10 @@ anything, so a browser that does not emulate it fails loudly rather than
 quietly testing the desktop sizes.
 """
 
+from typing import Any, cast
+
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, ViewportSize, expect
 
 # Two phones, both below the 720 px breakpoint. Written as a list of pairs
 # rather than a dict so a failure names the size it happened at.
@@ -91,8 +93,8 @@ OVERLAP = """([a, b]) => {
 
 @pytest.fixture(params=PHONES, ids=lambda size: f"{size[0]}x{size[1]}")
 def browser_context_args(
-    browser_context_args: dict[str, object], request: pytest.FixtureRequest
-) -> dict[str, object]:
+    browser_context_args: dict[str, Any], request: pytest.FixtureRequest
+) -> dict[str, Any]:
     """Every context in this module is a phone, at each size in turn.
 
     Overriding the fixture rather than resizing the page afterwards, because
@@ -161,7 +163,7 @@ def spills(box: dict[str, float], page: Page) -> list[str]:
     """Which viewport edges this rectangle has crossed, if any."""
     size = page.viewport_size
     assert size
-    out = []
+    out: list[str] = []
     if box["left"] < -1:
         out.append(f"left by {-box['left']:.0f}")
     if box["right"] > size["width"] + 1:
@@ -233,7 +235,9 @@ def test_the_search_field_takes_the_whole_top_edge(phone: Page):
         ("reset", "document.querySelector('[data-action=reset]').click()"),
     ],
 )
-def test_nothing_hangs_off_the_side_of_the_screen(sample: Page, name: str, open_it: str):
+def test_nothing_hangs_off_the_side_of_the_screen(
+    sample: Page, name: str, open_it: str
+):
     """Every bar and dialog, measured against the screen it opened on.
 
     The failure this catches is not a layout anyone chose. Each of these boxes
@@ -334,10 +338,13 @@ def test_an_open_toolbar_still_leaves_a_map(phone: Page):
     assert panel["bottom"] < size["height"] * 0.75, (
         "the open panel leaves less than a quarter of the screen"
     )
-    assert phone.evaluate(
-        "() => { const n = document.querySelector('.tb-panel');"
-        "        return getComputedStyle(n).overflowY; }"
-    ) == "auto", "a panel that outgrows its cap has to scroll, not clip"
+    assert (
+        phone.evaluate(
+            "() => { const n = document.querySelector('.tb-panel');"
+            "        return getComputedStyle(n).overflowY; }"
+        )
+        == "auto"
+    ), "a panel that outgrows its cap has to scroll, not clip"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -384,7 +391,9 @@ TARGETS = """(floor) => {
         ("reset", "document.querySelector('[data-action=reset]').click()"),
     ],
 )
-def test_what_you_have_to_tap_is_big_enough_to_tap(sample: Page, name: str, open_it: str):
+def test_what_you_have_to_tap_is_big_enough_to_tap(
+    sample: Page, name: str, open_it: str
+):
     """A fingertip covers about 8 mm and hides what it is aiming at.
 
     It also gets no tooltip, so a control that is hard to hit is a control whose
@@ -511,9 +520,12 @@ def test_the_counts_do_not_explain_a_mouse_to_a_phone(sample: Page):
     size = sample.viewport_size
     assert size
 
-    assert sample.evaluate(
-        "() => getComputedStyle(document.querySelector('.info-panel__hint')).display"
-    ) == "none"
+    assert (
+        sample.evaluate(
+            "() => getComputedStyle(document.querySelector('.info-panel__hint')).display"
+        )
+        == "none"
+    )
     assert (panel["bottom"] - panel["top"]) < size["height"] * 0.2, (
         "the readout takes a fifth of the screen"
     )
@@ -618,7 +630,7 @@ def test_every_tour_step_leaves_its_subject_in_view(phone: Page):
     expect(phone.locator(".tour__bubble")).to_be_visible()
 
     seen = 0
-    worst = []
+    worst: list[str] = []
     while seen < 60:
         phone.wait_for_timeout(250)
         step = phone.evaluate(STEP)
@@ -641,22 +653,24 @@ def test_every_tour_step_leaves_its_subject_in_view(phone: Page):
             elif step["visible"] < 0.99 and not step["atEdge"]:
                 worst.append(
                     f'"{step["title"]}" overlaps from the middle '
-                    f'({step["visible"]:.0%} visible, card at {step["card"]}, '
-                    f'spot at {step["spotBox"]})'
+                    f"({step['visible']:.0%} visible, card at {step['card']}, "
+                    f"spot at {step['spotBox']})"
                 )
         if step["last"]:
             break
         phone.locator(".tour__next").click()
 
     assert seen > 20, f"only walked {seen} steps — the tour stopped early"
-    assert not worst, "the card is on top of what the step points at: " + "; ".join(worst)
+    assert not worst, "the card is on top of what the step points at: " + "; ".join(
+        worst
+    )
 
 
 # A phone held sideways. Not in PHONES, because it is not a second phone to run
 # every assertion in this file against — it is one arrangement, and the one that
 # was broken: 844 px is wide enough to miss every `max-width: 720px` rule in the
 # stylesheet while being 390 px tall.
-LANDSCAPE = {"width": 844, "height": 390}
+LANDSCAPE: ViewportSize = {"width": 844, "height": 390}
 
 # Where the card is, whether it fits, and whether its text does.
 CARD = """() => {
@@ -679,9 +693,6 @@ CARD = """() => {
 }"""
 
 
-
-
-
 # The step on screen is no longer the one that was on screen.
 #
 # Clicking Next returns as soon as the event is dispatched, and the predicate
@@ -694,11 +705,11 @@ ARRIVED = """(was) => {
 }"""
 
 
-def walk_the_tour(page: Page, probe: str) -> list[dict]:
+def walk_the_tour(page: Page, probe: str) -> list[dict[str, Any]]:
     """Every step in order, with `probe` evaluated once each has settled."""
     page.evaluate("() => window.App.tour.start()")
     expect(page.locator(".tour__bubble")).to_be_visible()
-    seen: list[dict] = []
+    seen: list[dict[str, Any]] = []
     while len(seen) < 60:
         if seen:
             page.wait_for_function(ARRIVED, arg=seen[-1]["title"], timeout=5000)
@@ -726,17 +737,19 @@ def test_the_tour_card_fits_the_screen_in_both_orientations(page: Page):
     the assertion is about the pair of orientations, and a fixture parametrized
     on one size can only ever see half of it.
     """
-    for size in (LANDSCAPE, {"width": 390, "height": 844}):
+    for size in (LANDSCAPE, cast(ViewportSize, {"width": 390, "height": 844})):
         page.set_viewport_size(size)
         page.goto("/?tour=0")
         expect(page.locator(".tb-panel")).to_be_visible()
-        where = f'{size["width"]}x{size["height"]}'
+        where = f"{size['width']}x{size['height']}"
 
         for step in walk_the_tour(page, CARD):
             assert step["fits"], (
                 f'{where} "{step["title"]}": the card is {step["box"]} on this screen'
             )
-            assert step["nextOnScreen"], f'{where} "{step["title"]}": Next is off screen'
+            assert step["nextOnScreen"], (
+                f'{where} "{step["title"]}": Next is off screen'
+            )
 
 
 def test_a_step_never_rings_a_control_you_cannot_see(sample: Page):
@@ -772,11 +785,12 @@ def test_a_step_never_rings_a_control_you_cannot_see(sample: Page):
             return out;
         }""",
     ):
-        if step["framed"] is None:
+        if not isinstance(step["framed"], dict):
             continue
+
         assert "tb-" in step["framed"], (
             f'"{step["title"]}": the origin ring is drawn around '
-            f'{step["framed"]!r} rather than around a toolbar button'
+            f"{step['framed']!r} rather than around a toolbar button"
         )
 
 
@@ -811,8 +825,9 @@ def test_the_spotlight_is_always_somewhere_on_the_screen(sample: Page):
             return out;
         }""",
     ):
-        if step["outside"] is None:
+        if not isinstance(step["outside"], (int, float)):
             continue
+
         assert step["outside"] <= 0.02, (
             f'"{step["title"]}": {step["outside"]:.0%} of the spotlight is off '
             "the screen, so what it draws is not a frame round anything"
@@ -898,7 +913,7 @@ def test_the_spotlight_lands_on_a_target_that_is_still_moving(page: Page):
             assert frame, f'"{title}": no spotlight on {selector}'
             assert max(abs(frame[d]) for d in ("dx", "dy", "dw", "dh")) < 1, (
                 f'"{title}": the frame is at {frame["spot"]} and {selector} is '
-                f'at {frame["target"]}'
+                f"at {frame['target']}"
             )
             checked += 1
         else:
@@ -955,14 +970,12 @@ def test_a_drop_down_opens_the_app_s_own_menu_under_its_tile(sample: Page, tile:
     )
 
     assert shape["rows"] >= 2, "a picker with fewer than two choices is not a picker"
-    assert shape["dx"] <= 2, f'the menu starts {shape["dx"]:.0f} px from its tile'
+    assert shape["dx"] <= 2, f"the menu starts {shape['dx']:.0f} px from its tile"
     assert shape["below"], "the menu is not under the tile it belongs to"
     assert shape["onScreen"], "the menu is off the screen"
-    assert shape["shortest"] >= TAPPABLE, (
-        f'a row is {shape["shortest"]:.0f} px tall'
-    )
+    assert shape["shortest"] >= TAPPABLE, f"a row is {shape['shortest']:.0f} px tall"
     # Sized by its content rather than by the 80 px tile it hangs from, which
     # is the half of the old behavior that made it unreadable.
     assert shape["narrowest"] > 100, (
-        f'the menu is {shape["narrowest"]:.0f} px wide — as narrow as the tile'
+        f"the menu is {shape['narrowest']:.0f} px wide — as narrow as the tile"
     )
