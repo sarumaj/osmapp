@@ -26,6 +26,19 @@ def draw_label(code: str) -> str:
     return DICTIONARIES[code]["toolbar"]["labelDraw"]
 
 
+def pick_language(page: Page, name: str):
+    """Open the language tile's menu and choose a row by its endonym.
+
+    The tile is a button over the app's own menu rather than a <select>, so
+    there is no `select_option` to call — and the row is addressed by the name
+    a reader would look for, which is the endonym rather than the code. Both
+    halves of the label are the same string in every language, so this reads
+    the same whichever language the page is currently in.
+    """
+    page.locator(".lang-select").click()
+    page.locator(".polygon-context-menu-item", has_text=name).click()
+
+
 def test_the_picker_swaps_the_language_without_reloading(app_page: Page):
     """A reload here would be a data-loss bug, not a cosmetic one.
 
@@ -38,7 +51,7 @@ def test_the_picker_swaps_the_language_without_reloading(app_page: Page):
     expect(label).to_have_text(draw_label("en"))
 
     app_page.evaluate("() => { window.__stillHere = true; }")
-    app_page.locator(".lang-select").select_option("de")
+    pick_language(app_page, "Deutsch")
 
     expect(label).to_have_text(draw_label("de"))
     expect(app_page).to_have_url(re.compile(r"/de$"))
@@ -51,7 +64,7 @@ def test_the_picker_swaps_the_language_without_reloading(app_page: Page):
 def test_back_returns_to_the_language_you_came_from(app_page: Page):
     """pushState put the language in the history, so Back has to honour it."""
     label = app_page.locator('.tb-item[data-action="draw"] .tb-item__label')
-    app_page.locator(".lang-select").select_option("de")
+    pick_language(app_page, "Deutsch")
     expect(label).to_have_text(draw_label("de"))
 
     app_page.go_back()

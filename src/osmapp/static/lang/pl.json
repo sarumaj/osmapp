@@ -638,7 +638,7 @@
       },
       "toolbar": {
         "title": "Wszystkie narzędzia w jednym panelu",
-        "body": "Wszystko, co aplikacja potrafi, jest tutaj, pogrupowane według przeznaczenia: obszar, tereny, widok, historia, plik i sama aplikacja. Narzędzie, którego nie można jeszcze użyć, jest wyszarzone, a nie ukryte, a jego podpowiedź mówi, czego brakuje. Strzałka u góry chowa podpisy, gdy mapa potrzebuje miejsca."
+        "body": "Wszystko, co aplikacja potrafi, jest tutaj, pogrupowane według przeznaczenia: obszar, tereny, widok, historia, plik i sama aplikacja. Narzędzie, którego nie można jeszcze użyć, jest wyszarzone, a nie ukryte, a jego podpowiedź mówi, czego brakuje. Strzałka u góry zwija panel, gdy mapa potrzebuje miejsca."
       },
       "search": {
         "title": "Zacznij od wyszukiwania",
@@ -694,7 +694,7 @@
       },
       "print": {
         "title": "Karta terenu",
-        "body": "Podgląd po lewej można przesuwać, przybliżać i obracać; kolumna po prawej ustawia wielkość podpisów, kolor i grubość obramowania, wymazuje odcinki granicy biegnące przez dom oraz przyjmuje miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się zielone i dostają znacznik — od razu widać, co zostało."
+        "body": "Podgląd można przesuwać, przybliżać i obracać; ustawienia obok określają wielkość podpisów, kolor i grubość obramowania, wymazuje odcinki granicy biegnące przez dom oraz przyjmuje miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się zielone i dostają znacznik — od razu widać, co zostało."
       },
       "clearPrinted": {
         "title": "Następna runda",
