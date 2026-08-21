@@ -69,9 +69,72 @@
       rel="stylesheet"
       href="{{ url_for('static', filename='vendor/cdnjs.cloudflare.com/ajax/libs/font-awesome/css/all.min.css') }}"
     />
+    <noscript>
+      <style>
+        /* With scripting off there is no app to wait for, and the splash
+           would be the whole page. The map below it does not work either, but
+           an empty map says so; a spinner claims something is still coming. */
+        #boot-splash {
+          display: none;
+        }
+      </style>
+    </noscript>
   </head>
 
   <body>
+    <!-- ═══════════════════════════════════════════════════════════════════
+         BOOT SPLASH — the page while there is not an app on it yet.
+
+         What it covers reads as broken rather than as pending: the toolbar is
+         built from JS, so it is absent for a moment and then present with
+         blank squares where its icons go, because Font Awesome ships
+         `font-display: block` and draws nothing until its file lands. main.js
+         takes the splash down once those icons will draw.
+
+         Tiles are deliberately not part of that. They arrive over the network
+         in their own time and again on every pan, so a map that cannot be
+         dragged until they land is worse than one drawn over grey squares.
+
+         The text is rendered server-side from the same dictionary the app
+         uses, because it has to be readable before the client-side i18n pass
+         runs — which is the whole span this element is on screen for.
+         ═══════════════════════════════════════════════════════════════ -->
+    <div id="boot-splash">
+      <div class="boot-splash__box" role="status" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="boot-splash__text">
+          {{ i18n_bundle.messages.get("loading", {}).get("starting", "Starting…") }}
+        </p>
+      </div>
+    </div>
+    <script>
+      // The splash is markup rather than something JS puts up, because the
+      // load it covers is the one that might not bring the app in. Which is
+      // also why its way down cannot be the app's alone: where main.js never
+      // runs — dropped from the load order below, a parse error, a bundle the
+      // browser refuses — the spinner is the whole page for as long as the tab
+      // is open. main.js catches its own start-up failures and reveals past
+      // them; this covers the loads with no main.js left to do it.
+      //
+      // So the reveal is armed here, ahead of every other script, and main.js
+      // only ever gets to make it happen sooner.
+      (function () {
+        var splash = document.getElementById("boot-splash");
+        var done = false;
+
+        window.hideBootSplash = function () {
+          if (done || !splash) return;
+          done = true;
+          splash.classList.add("is-done");
+        };
+
+        // Long enough that reaching it means something actually went wrong,
+        // short enough that a page which is not coming still hands itself over
+        // rather than spinning indefinitely.
+        window.setTimeout(window.hideBootSplash, 10000);
+      })();
+    </script>
+
     <!-- SVG filters applied to basemap tiles in the print preview (see
          ctx.filter in print.js). They must live inside an <svg> root: a bare
          <filter> in HTML is parsed as an unknown element, and url(#id) will

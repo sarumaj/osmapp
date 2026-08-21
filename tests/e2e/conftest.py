@@ -295,9 +295,16 @@ def app_page(page: Page, console_errors: list[str], broken_assets: list[str]) ->
     Boot finishes asynchronously (a `setTimeout`, then the dictionary fetch),
     so waiting for the toolbar is what makes the rest of a test deterministic:
     controls.init() is the last thing to mount before the app is idle.
+
+    The splash is waited on as well, and after the toolbar rather than instead
+    of it: it comes down later still, once the icon font has landed, and until
+    then it covers the whole viewport. Playwright retries a click until the
+    overlay clears, so this is not what keeps the tests passing — it is what
+    keeps a stuck splash legible instead of surfacing as a click timeout.
     """
     _ = (console_errors, broken_assets)
 
     page.goto("/?tour=0")
     expect(page.locator(".tb-panel")).to_be_visible()
+    expect(page.locator("#boot-splash")).to_be_hidden()
     return page

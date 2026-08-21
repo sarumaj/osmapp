@@ -120,6 +120,7 @@
     "clustersWarn": "Something needs a second look — open the list"
   },
   "loading": {
+    "starting": "Starting…",
     "cancel": "Cancel",
     "streets": "Downloading streets…",
     "streetsStatus": "Querying Overpass for the street network",

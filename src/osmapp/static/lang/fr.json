@@ -120,6 +120,7 @@
     "clustersWarn": "Quelque chose mérite un second regard — ouvrir la liste"
   },
   "loading": {
+    "starting": "Démarrage…",
     "cancel": "Annuler",
     "streets": "Téléchargement des rues…",
     "streetsStatus": "Interrogation d'Overpass pour le réseau routier",

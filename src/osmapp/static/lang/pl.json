@@ -120,6 +120,7 @@
     "clustersWarn": "Coś wymaga uwagi — otwórz listę"
   },
   "loading": {
+    "starting": "Uruchamianie…",
     "cancel": "Anuluj",
     "streets": "Pobieranie ulic…",
     "streetsStatus": "Zapytanie do Overpass o sieć ulic",

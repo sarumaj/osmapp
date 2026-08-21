@@ -80,6 +80,76 @@ def test_the_toolbar_knows_what_is_not_possible_yet(app_page: Page):
         )
 
 
+def test_the_boot_splash_hands_the_page_over(app_page: Page):
+    """The splash is in the markup and starts visible, so something must clear it.
+
+    The failure guarded against is a page that boots perfectly and is then
+    unusable behind a spinner. `app_page` waits for the same thing, so this is
+    not the only place it would surface — but it is the one that says what
+    broke rather than timing out in a fixture every other test shares.
+
+    The count assertion is half the point: the element stays in the document
+    and is retired by `visibility`, so a reveal that removed it instead would
+    be a different mechanism passing the same visibility check.
+    """
+    splash = app_page.locator("#boot-splash")
+    expect(splash).to_have_count(1)
+    expect(splash).to_be_hidden()
+
+
+def test_the_splash_does_not_wait_for_tiles(page: Page):
+    """Tiles are excluded from readiness, and that is the point of the design.
+
+    They arrive over the network in their own time and again on every pan, so
+    gating the page on them would make the map undraggable for exactly as long
+    as the slowest tile server felt like taking. Here none of them ever answer
+    at all, and the app still has to hand the page over.
+
+    The timeout is the assertion. `index.html.j2` arms a 10 s fail-safe that
+    clears the splash whatever happens, so a deadline comfortably under that
+    is what distinguishes "the app decided it was ready" from "the fail-safe
+    fired". The bare `page` fixture rather than `app_page`, because the route
+    has to be in place before the navigation, and `app_page` navigates itself.
+
+    The page-level route overrides the context-level one in `hermetic`, which
+    would otherwise answer every tile with a blank PNG.
+    """
+    page.route(re.compile(r"/tiles/"), lambda route: None)
+
+    page.goto("/?tour=0")
+    expect(page.locator(".tb-panel")).to_be_visible()
+    expect(page.locator("#boot-splash")).to_be_hidden(timeout=6000)
+
+
+def test_a_module_that_throws_still_hands_the_page_over(page: Page):
+    """The failure mode the splash introduced, and the one it must not have.
+
+    `_startTranslated()` wires two dozen modules in a straight line with
+    nothing guarding it, so the first init() to throw takes the rest of the
+    sequence with it. A half-built page is the accepted outcome of that; a
+    half-built page with a spinner parked over it, unreachable until the
+    fail-safe expires ten seconds later, is not.
+
+    demo.js is replaced with a module that throws from init(), which lands
+    after controls.init() — so the toolbar exists and the page is genuinely
+    usable, which is the whole argument for revealing it.
+    """
+    page.route(
+        re.compile(r"/js/demo\.js$"),
+        lambda route: route.fulfill(
+            content_type="application/javascript",
+            body=(
+                "window.App = window.App || {};"
+                "App.demo = { init: function () { throw new Error('boom'); } };"
+            ),
+        ),
+    )
+
+    page.goto("/?tour=0")
+    expect(page.locator(".tb-panel")).to_be_visible()
+    expect(page.locator("#boot-splash")).to_be_hidden(timeout=6000)
+
+
 def test_the_info_panel_asks_for_a_polygon(app_page: Page):
     """The only instruction a first-time visitor gets once the tour is gone."""
     expect(app_page.locator("#info-panel [data-role='title']")).to_have_text(

@@ -7,6 +7,13 @@
 (function () {
   "use strict";
 
+  /**
+   * How long the boot splash waits on the icon font before handing the page
+   * over without it. Past this the blank squares are the better answer: they
+   * fill in by themselves the moment the file lands.
+   */
+  var ICON_FONT_WAIT_MS = 2500;
+
   document.addEventListener("DOMContentLoaded", function () {
     setTimeout(_setup, 100);
   });
@@ -14,11 +21,16 @@
   function _setup() {
     if (typeof L === "undefined") {
       console.error(">>> Leaflet did not load — the map is unavailable.");
+      // Nothing further runs on this path, so the splash comes down here.
+      // What is behind it is broken, which is still more use than a spinner
+      // for something that is not coming.
+      _reveal();
       return;
     }
     var node = document.getElementById("map");
     if (!node) {
       console.error(">>> No #map element in the page.");
+      _reveal();
       return;
     }
     // zoomControl: false — the two zoom buttons are tiles in the toolbar's
@@ -48,10 +60,21 @@
   function _start(map) {
     // Dictionaries must be in place before any module renders a template or
     // builds a string, so the whole start-up hangs off i18n.init().
-    App.i18n.init().then(function () {
-      App.i18n.apply(document.body);
-      _startTranslated(map);
-    });
+    App.i18n
+      .init()
+      .then(function () {
+        App.i18n.apply(document.body);
+        _startTranslated(map);
+      })
+      // Start-up is straight-line and unguarded: the first module whose init()
+      // throws takes every one after it with it, the hand-over at the end of
+      // _startTranslated included. Catching it here keeps the reveal out of
+      // that sequence, so a throw leaves the same half-built page it always
+      // did rather than a spinner parked over one until the fail-safe expires.
+      .catch(function (err) {
+        console.error(">>> Start-up did not finish:", err);
+      })
+      .then(_revealWhenIconsAreIn);
   }
 
   function _startTranslated(map) {
@@ -183,6 +206,73 @@
     console.log(">>> Ready. Draw an outer polygon to begin.");
 
     _restoreSession(s);
+  }
+
+  // ── Handing the page over ─────────────────────────────────────────────
+
+  /** Take the boot splash down. Defined in index.html.j2, so it may be absent. */
+  function _reveal() {
+    if (typeof window.hideBootSplash === "function") window.hideBootSplash();
+  }
+
+  /**
+   * Hand the page over, once its icons will actually draw.
+   *
+   * Reaching this point means start-up has run to its end, whether that end
+   * was a wired app or a module that threw; either way the page is as
+   * finished as it is going to get. What it may still not be is legible: Font
+   * Awesome ships `font-display: block`, so until its file arrives every icon
+   * in the toolbar is drawn as nothing at all.
+   *
+   * Neither the tiles nor the session restore are waited on — see the splash
+   * markup in index.html.j2 for the tiles, and note that the restore puts up
+   * the loading overlay itself, which a second spinner would only delay.
+   */
+  function _revealWhenIconsAreIn() {
+    var capped = new Promise(function (resolve) {
+      window.setTimeout(resolve, ICON_FONT_WAIT_MS);
+    });
+    Promise.race([_iconFontsReady(), capped]).then(_reveal, _reveal);
+  }
+
+  /**
+   * Settles once the fonts behind the icons on the page have loaded, or
+   * straight away where the browser cannot resolve one.
+   *
+   * The families are read off those icons rather than named here: Font
+   * Awesome's family string carries its major version ("Font Awesome 7 Free")
+   * and the vendor tree is regenerated from package.json by a CI job, so a
+   * literal would go stale one dependency bump later — resolving instantly, on
+   * a page whose icons are still blank.
+   *
+   * fonts.load() is also what starts the fetch. An @font-face is a
+   * declaration, and the file is only requested once something using it has
+   * been laid out; for a toolbar built in JS that is later than the stylesheet
+   * in the head suggests.
+   */
+  function _iconFontsReady() {
+    var fonts = document.fonts;
+    if (!fonts || typeof fonts.load !== "function") return Promise.resolve();
+
+    var specs = {};
+    var icons = document.querySelectorAll(".fa-solid, .fa-regular, .fa-brands");
+    Array.prototype.forEach.call(icons, function (icon) {
+      var style = window.getComputedStyle(icon);
+      specs[style.fontWeight + " 1em " + style.fontFamily] = true;
+    });
+
+    return Promise.all(
+      Object.keys(specs).map(function (spec) {
+        // A family the browser cannot resolve rejects, and a spec it cannot
+        // parse throws outright. Both are a reveal rather than a failure:
+        // those icons are not coming, and waiting will not bring them.
+        try {
+          return fonts.load(spec).catch(function () {});
+        } catch (e) {
+          return Promise.resolve();
+        }
+      }),
+    );
   }
 
   /**
