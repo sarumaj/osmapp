@@ -71,6 +71,10 @@
      walkthrough that can be covered by the thing it is describing is worse
      than no walkthrough. */
   --z-tour: 12000;
+  /* The boot splash, which is a lid on the scale rather than a member of it:
+     every level above covers part of the app, and this covers the fact that
+     there is no app yet. Above all of them by definition. */
+  --z-boot: 20000;
 }
 
 /* `hidden` must beat every display rule below it */
@@ -148,6 +152,61 @@ body {
 .polygon-context-menu-item:focus-visible {
   outline: 2px solid var(--c-accent);
   outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Boot splash
+
+   The loading overlay below is the app saying it is busy; this is the page
+   saying there is no app yet. It is up before any of the components in this
+   stylesheet exist, and main.js takes it down once they do.
+   ═══════════════════════════════════════════════════════════ */
+
+/* Opaque rather than a scrim. What it covers is a page mid-assembly: a
+   toolbar of blank boxes while Font Awesome is still in flight, an info panel
+   in its untranslated fallback wording, a map with nothing drawn on it. A
+   translucent veil over that shows exactly what it was put up to hide. */
+#boot-splash {
+  display: flex;
+  position: fixed;
+  cursor: progress;
+  inset: 0;
+  background: var(--c-surface);
+  z-index: var(--z-boot);
+  justify-content: center;
+  align-items: center;
+}
+
+.boot-splash__box {
+  text-align: center;
+  font-family: var(--ui-font);
+}
+
+.boot-splash__text {
+  margin: 0;
+  font-size: var(--ui-fs-lg);
+  color: var(--c-text-dim);
+}
+
+/* The hand-over, driven by a class rather than by `hidden`, so that it can
+   fade: both sides of the cut are a finished picture.
+
+   `visibility` is what retires the element, and its delay matches the fade so
+   the splash stops taking clicks the moment it is fully transparent.
+   `display` cannot be transitioned, and opacity alone would leave an
+   invisible sheet swallowing every click on the map underneath. */
+#boot-splash.is-done {
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 220ms ease,
+    visibility 0s linear 220ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #boot-splash.is-done {
+    transition: none;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

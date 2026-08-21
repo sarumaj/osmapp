@@ -120,6 +120,7 @@
     "clustersWarn": "Etwas braucht einen zweiten Blick — Liste öffnen"
   },
   "loading": {
+    "starting": "Wird gestartet…",
     "cancel": "Abbrechen",
     "streets": "Straßen werden geladen…",
     "streetsStatus": "Overpass-Abfrage für das Straßennetz",

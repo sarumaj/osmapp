@@ -137,6 +137,7 @@ test("readouts, bars, menus and dialogs are ordered", () => {
     "z-dialog",
     "z-overlay",
     "z-tour",
+    "z-boot",
   ];
   const levels = order.map(level);
 
