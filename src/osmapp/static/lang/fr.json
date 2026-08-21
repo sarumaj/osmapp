@@ -597,7 +597,7 @@
       },
       "toolbar": {
         "title": "Un panneau pour tous les outils",
-        "body": "Tout ce que fait l'application se trouve ici, regroupé par usage : la zone, les territoires, ce qui est affiché, annuler et rétablir, les fichiers, l'application elle-même. Un outil non disponible est grisé plutôt que masqué, et son infobulle indique ce qui manque. La flèche en haut masque les étiquettes quand la carte a besoin de place."
+        "body": "Tout ce que fait l'application se trouve ici, regroupé par usage : la zone, les territoires, ce qui est affiché, annuler et rétablir, les fichiers, l'application elle-même. Un outil non disponible est grisé plutôt que masqué, et son infobulle indique ce qui manque. La flèche en haut replie le panneau quand la carte a besoin de place."
       },
       "search": {
         "title": "Commencez par une recherche",
@@ -653,7 +653,7 @@
       },
       "print": {
         "title": "La fiche",
-        "body": "L'aperçu à gauche peut être déplacé, zoomé et pivoté ; la colonne à droite définit la taille des étiquettes, la couleur et l'épaisseur de la bordure, efface les portions de bordure qui traversent une maison, et prend la localité et le numéro de territoire. Chargez votre propre formulaire PDF et la carte y est insérée. Les territoires dont la fiche a été créée passent au vert et portent une coche, ce qui rend visibles d'un coup d'œil ceux qui restent."
+        "body": "L'aperçu peut être déplacé, zoomé et pivoté ; les réglages à côté définissent la taille des étiquettes, la couleur et l'épaisseur de la bordure, efface les portions de bordure qui traversent une maison, et prend la localité et le numéro de territoire. Chargez votre propre formulaire PDF et la carte y est insérée. Les territoires dont la fiche a été créée passent au vert et portent une coche, ce qui rend visibles d'un coup d'œil ceux qui restent."
       },
       "clearPrinted": {
         "title": "Le prochain cycle",

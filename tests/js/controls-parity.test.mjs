@@ -645,7 +645,7 @@ test("every layer the old switcher offered still has a switch", () => {
   // exist is a server decision and the choice is exclusive.
   assert.match(SOURCE.controls, /custom:\s*_mountBasemapPicker/);
   assert.match(SOURCE.controls, /App\.basemap\.entries\(\)/);
-  assert.match(SOURCE.controls, /App\.basemap\.select\(select\.value\)/);
+  assert.match(SOURCE.controls, /App\.basemap\.select\(entry\.id\)/);
   assert.ok(
     INDEX.includes('id="tpl-basemap-control"'),
     "the basemap drop-down has no template",
@@ -704,10 +704,10 @@ test("the language list keeps its flags, which are text", () => {
   // A flag with no language name cannot be read by anyone who does not know the
   // flags, and a language name with no flag cannot be scanned by anyone who
   // cannot read that language — which is the only reader this control has.
-  // Both halves are plain characters, so an <option> can paint them.
+  // Both halves are plain characters, so the row's own label can paint them.
   assert.match(
     SOURCE.controls,
-    /textContent = lang\.flag \+ " " \+ lang\.name/,
+    /label: lang\.flag \+ " " \+ lang\.name/,
     "the language list drops one half",
   );
 });
@@ -720,7 +720,7 @@ test("the basemap tile's glyph comes from the icon font, not from an emoji", () 
   assert.match(SOURCE.controls, /var BASEMAP_ICONS = \{/);
   assert.match(
     SOURCE.controls,
-    /glyph\.className = "tb-item__icon fa-solid " \+ _icon\(id\)/,
+    /glyph\.className = "tb-item__icon fa-solid " \+ _icon\(App\.basemap\.current\(\)\)/,
     "the tile does not paint the current basemap's icon",
   );
   assert.doesNotMatch(
@@ -729,13 +729,18 @@ test("the basemap tile's glyph comes from the icon font, not from an emoji", () 
     "the emoji table is back, so the tile has two sources of truth",
   );
 
-  // The price, and the reason the list is not checked for a pictogram the way
-  // the language list is: an <option> paints text, and a webfont glyph is not
-  // text. So the options carry the name alone.
+  // And the rows below it carry the same icons: the menu paints an <i> per
+  // row, so there is no reason for a layer to be named one way on the tile and
+  // another in the list.
   assert.match(
     SOURCE.controls,
-    /textContent = T\(entry\.labelKey\)/,
+    /labelKey: entry\.labelKey/,
     "the basemap list lost its names",
+  );
+  assert.match(
+    SOURCE.controls,
+    /icon: entry\.id === current \? "fa-check" : _icon\(entry\.id\)/,
+    "the basemap list lost its icons",
   );
 });
 

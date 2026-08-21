@@ -2,7 +2,10 @@
 <html lang="{{ lang }}">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>OSM Territory Mapper</title>
     <meta name="theme-color" content="#3388ff" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -254,11 +257,17 @@
         <span class="tb-item__label" data-i18n="toolbar.labelBasemap">
           Background
         </span>
-        <select
+        <!-- A button rather than a <select>: the list it opens is the app's
+             own menu, drawn where the tile is and at the size a finger needs.
+             A native pop-up is the browser's to place and to size, and it
+             takes both from this control, which is 80 px wide and invisible. -->
+        <button
+          type="button"
           class="basemap-select"
           data-role="basemap"
+          aria-haspopup="menu"
           data-i18n-attrs="aria-label=toolbar.basemap;title=toolbar.basemap"
-        ></select>
+        ></button>
       </div>
     </template>
 
@@ -268,11 +277,13 @@
         <span class="tb-item__label" data-i18n="toolbar.labelLanguage">
           Language
         </span>
-        <select
+        <button
+          type="button"
           class="lang-select"
           data-role="lang"
+          aria-haspopup="menu"
           data-i18n-attrs="aria-label=toolbar.language;title=toolbar.language"
-        ></select>
+        ></button>
       </div>
     </template>
 

@@ -27,6 +27,28 @@
   --shadow-md: 0 2px 10px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.3);
 
+  /* ── Phone layout ─────────────────────────────────────────────────────
+     On a phone the two top-corner controls do not fit beside each other: the
+     search field is 260 px and the toolbar panel is 334, on a screen that is
+     360. Left in their corners they simply overlap, and the panel loses its
+     whole first row to a search box drawn on top of it.
+
+     So on a narrow screen they stop being corners and become rows: the search
+     field takes the full top edge and the panel hangs directly below it. Both
+     halves of that arrangement are stated here rather than at the two rules
+     that need them, because they are one measurement — the panel's offset is
+     the field's height — and two literals that have to agree is how the panel
+     ends up 4 px under the field or 4 px into it.
+
+     The height is also the field's touch target, which is why it is 40 and
+     not the 34 the field measures on a desktop. */
+  --m-search-h: 40px;
+  --m-gap: 8px;
+  /* Leaflet's own margin on a control in a top corner. Restated rather than
+     inherited: the panel's offset replaces that margin rather than adding to
+     it, so the 10 has to be part of the sum. */
+  --m-edge: 10px;
+
   --z-map-ui: 1000;
   /* Readouts — the hint banner, the info panel — sit below anything that can be
      clicked, because that is what they are: text about the thing rather than the
@@ -63,9 +85,18 @@ body {
   height: 100%;
 }
 
+/* 100dvh, with 100vh underneath it for anything that does not know the unit.
+
+   A phone's address bar is part of the viewport 100vh is measured against and
+   is not part of what you can see, so a map sized in vh hangs its bottom strip
+   — the attribution, the mode bars, the info panel — behind the browser's own
+   chrome until the bar is scrolled away. Which cannot happen here: there is
+   nothing to scroll. dvh is the visible height and it changes as the chrome
+   comes and goes, which is exactly what a full-screen map wants. */
 #map {
   width: 100%;
   height: 100vh;
+  height: 100dvh;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -248,6 +279,7 @@ body {
    either. Same for a mode bar on a narrow window, below. */
 #info-panel {
   position: fixed;
+  box-sizing: border-box;
   bottom: 30px;
   right: 20px;
   z-index: var(--z-status);
@@ -328,7 +360,25 @@ body {
   z-index: var(--z-dialog);
   box-shadow: var(--shadow-lg);
   font: 14px/1.45 var(--ui-font);
-  min-width: 340px;
+  /* border-box, so every width below is the width you can measure against the
+     viewport rather than that plus 40 px of padding and 4 of border. Stated
+     here rather than per dialog because every one of them was out by the same
+     44 px: the shortcut sheet asks for `min(460px, 100vw - 32px)` and drew
+     itself 12 px wider than a 360 px phone. */
+  box-sizing: border-box;
+  /* A floor on a desktop and a ceiling on a phone. 340 is what keeps a
+     two-button dialog from collapsing to the width of its title; below that
+     the screen is the constraint and the dialog takes what there is. */
+  min-width: min(340px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  /* Centred by a transform, so a dialog taller than the screen loses its top
+     edge — the title and, in the confirm dialogs, the sentence that says what
+     is about to be lost. The ones that are tall by nature scroll their own
+     body and override this; for the rest, scrolling the box beats cropping
+     it. */
+  max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
 }
 
 .app-dialog__title {
@@ -555,6 +605,17 @@ body {
   padding: 8px 12px;
   box-shadow: var(--shadow-lg);
   font: var(--ui-fs-md) / 1.4 var(--ui-font);
+  /* Both of these are about the same 28 px, and without them a bar drawn to
+     "the viewport minus 24" hangs 2 px off each side of a 390 px phone.
+
+     border-box, because the 24 is the margin the bar is supposed to leave and
+     the padding and border are inside the bar, not beside it. And min-width,
+     because these are flex items in the bottom stack, where `min-width: auto`
+     means "never narrower than my longest word plus every fixed-width thing
+     in me" — a floor that quietly outranks the max-width above it. Trim has
+     four slider rows and is the one that hits it. */
+  box-sizing: border-box;
+  min-width: 0;
   max-width: min(420px, calc(100vw - 24px));
   animation: mode-bar-in 0.18s ease-out;
 }
@@ -582,6 +643,10 @@ body {
 .merge-toolbar {
   border-top-color: var(--c-warn);
   display: flex;
+  /* The count and the three verbs are one line until they are not: on a phone,
+     with buttons grown to a tap target, they are about 14 px wider than the
+     bar. The count keeps the first line and the actions drop to the second. */
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
 }
@@ -596,6 +661,7 @@ body {
    between languages. */
 .merge-toolbar__actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
 }
@@ -685,6 +751,22 @@ body {
 .trim-toolbar {
   border-top-color: var(--c-accent);
   width: min(420px, calc(100vw - 24px));
+}
+
+/* Phone: the label, the slider and the readout do not fit on one line, and a
+   flex row that cannot fit its contents does not wrap — it overflows. The
+   label takes a line of its own and the slider keeps the one below it with
+   the value it produces, which is also the pair that has to stay together. */
+@media (max-width: 560px) {
+  .trim-toolbar__row {
+    flex-wrap: wrap;
+    row-gap: 2px;
+    margin-bottom: 10px;
+  }
+
+  .trim-toolbar__row > label {
+    flex: 1 0 100%;
+  }
 }
 
 .trim-toolbar__head {
@@ -951,6 +1033,7 @@ body {
    the source order — which of the two is mounted first depends on the mode,
    and did decide the answer back when they overlapped. */
 .draw-hint {
+  box-sizing: border-box;
   order: 1;
   background: rgba(0, 0, 0, 0.72);
   color: #fff;
@@ -1430,6 +1513,11 @@ body {
   pointer-events: none;
 }
 
+/* The hit area, stretched over the whole tile: a transparent button whose
+   click opens the app's own menu. Invisible rather than absent because it is
+   what carries the accessible name and the focus, and covering the tile is
+   what makes the glyph, the label and the padding one target rather than only
+   the strip a control would occupy. */
 .lang-select,
 .basemap-select {
   position: absolute;
@@ -1439,6 +1527,7 @@ body {
   margin: 0;
   padding: 0;
   border: 0;
+  background: none;
   opacity: 0;
   cursor: pointer;
   appearance: none;
@@ -1453,6 +1542,155 @@ body {
 .tb-item--select:focus-within {
   outline: 2px solid var(--c-accent);
   outline-offset: -2px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Phone layout
+
+   Two top corners is a desktop idea. It is stated as one in the search field's
+   own comment — "the toolbar panel is top-left, so the search does not have to
+   compete with it for width" — and it stops being true at about 600 px, where
+   the 334 px panel and the 260 px field no longer both fit on a line. Below
+   that they do not compete; they simply overlap, and since the top-right corner
+   is painted after the top-left one, the search box is drawn on top of the
+   panel's first row. On a 390 px phone that is 228 px of the Area group —
+   Draw, Locate, Reload, Trim — under a search field, along with the chevron
+   that collapses the panel again.
+
+   So on a narrow screen the corners become rows. The field takes the whole top
+   edge, which is what it wants anyway — it is the fastest way into the
+   workflow and the one control here that is typed into rather than tapped —
+   and the panel hangs directly below it. The offset is the field's height plus
+   a gap, both from --m-search-h and --m-gap, so the two cannot drift apart.
+
+   Collapsing means something else here too. On a desktop it drops the labels
+   and leaves a 42 px column of icons, which is compact against an 800 px
+   height and is a wall down the left edge of a phone — 750 px of it, scrolling,
+   with every icon reachable and none of them visible. Wrapping the same icons
+   into a grid only moves that cost to the top of the screen. So on a phone the
+   panel closes to the button that reopens it: a toolbar that is not in use
+   costs one tap target instead of a third of the map.
+
+   720 px is where controls.js starts a first visit collapsed (NARROW_PX), so
+   the width that decides "this is a phone" is decided once for both files.
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 720px) {
+  /* ── The search field owns the top edge ───────────────────────── */
+  /* Over-qualified for the same reason the rules above it are: the vendored
+     stylesheet is linked after this file, so an override of merely equal
+     specificity loses and the field snaps back to 246 px. */
+  .leaflet-control-geocoder.leaflet-bar.leaflet-control {
+    width: calc(100vw - 2 * var(--m-edge));
+    min-height: var(--m-search-h);
+  }
+
+  /* The magnifier is decoration here too, but it is what makes the field read
+     as a search box rather than as an empty white bar, so it grows with it. */
+  .leaflet-control-geocoder.leaflet-control .leaflet-control-geocoder-icon {
+    flex: 0 0 var(--m-search-h);
+    width: var(--m-search-h);
+    height: var(--m-search-h);
+  }
+
+  .leaflet-control-geocoder.leaflet-control
+    .leaflet-control-geocoder-form
+    input {
+    /* 16 px exactly, and not because 16 reads better than 13. Mobile Safari
+       zooms the page in on any input it focuses whose text is smaller than
+       that, and a zoomed page on a full-screen map means a map at a scale
+       nothing else on the page agreed to — which the user then has to pinch
+       back out of, having only wanted to type a place name. */
+    font-size: 16px;
+    line-height: var(--m-search-h);
+  }
+
+  /* ── The toolbar panel hangs below it ──────────────────────── */
+  /* Three classes deep to outrank leaflet.css's own `.leaflet-top
+     .leaflet-control { margin-top: 10px }`, which is linked after this file
+     and would otherwise put the panel straight back under the field. The
+     margin replaces that 10 rather than adding to it, which is why --m-edge
+     is part of the sum. */
+  .leaflet-top .tb-panel.leaflet-control {
+    margin-top: calc(var(--m-edge) + var(--m-search-h) + var(--m-gap));
+    /* 58 px of that is above the panel; the rest is the bottom edge, where a
+       mode bar, the hint banner and the attribution live. A panel that runs
+       the full height is a panel with no map under it. */
+    max-height: calc(100vh - 150px);
+    max-height: calc(100dvh - 150px);
+  }
+
+  /* ── Collapsed is closed, not "icons only" ──────────────────── */
+  /* Twenty-seven icons cost the same screen whether they are stacked in a
+     column or wrapped into a grid: a 42x750 strip down the left edge and a
+     370x400 block under the search field are both about a third of a phone,
+     permanently, for a toolbar nobody is using at that moment. Trading one
+     shape for the other is rearranging the cost rather than paying less of it.
+
+     So on a phone the collapsed panel closes instead. What is left is the one
+     control that reopens it — a 44 px button under the search field, which is
+     the size a tap target has to be anyway — and the map has everything
+     else.
+
+     The button is not a new control and the state is not a new state: the
+     chevron already toggles .is-collapsed, and every rule here is about what
+     that class means at this width. Nothing in controls.js knows the
+     difference, and neither does the stored preference. */
+  .tb-panel.is-collapsed {
+    /* 48 rather than 44, because the panel's 2 px border is outside the
+       button: 44 is the target, and this is what leaves one. */
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    /* The panel's own scroll, from a max-height meant for a list of groups.
+       There is no list now, and a 44 px box has nothing to scroll. */
+    overflow: visible;
+  }
+
+  .tb-panel.is-collapsed .tb-panel__groups {
+    display: none;
+  }
+
+  /* Positioned in the corner of a panel it no longer has one of: the button is
+     the panel now, so it fills it rather than floating in it. */
+  .tb-panel.is-collapsed .tb-panel__collapse {
+    position: static;
+    width: 100%;
+    height: 100%;
+    font-size: 16px;
+  }
+
+  /* A chevron says "there is more of this, off to the right", which is what
+     collapsing means on a desktop, where the icons stay. Here it means closed,
+     and the glyph that says a closed menu is the three bars.
+
+     Font Awesome 7 draws its glyph from a custom property — `content:
+     var(--fa)` on the ::before, with the codepoint set by the .fa-* class — so
+     the icon can be changed by the media query that changes its meaning.
+     controls.js sets the class from the state alone and would need a resize
+     listener to do the same, and would still be wrong for the frame after a
+     rotation. */
+  .tb-panel.is-collapsed .tb-panel__collapse i {
+    --fa: "\f0c9"; /* fa-bars */
+  }
+
+  /* ── While a mode is running ────────────────────────────── */
+  /* Trim's bar is 250 px tall and the banner under it another 90. With the
+     expanded panel above them there is no map left between the two — on the
+     one screen where the map is the thing being judged, since every mode bar
+     is a live preview of a change to it.
+
+     So the panel steps aside for the duration, on the same reasoning and the
+     same flag that already retires the info panel here: below this width the
+     mode is the task. Nothing is lost with it — every bar carries its own
+     Apply and Cancel, and the panel comes back when the mode ends. */
+  body.has-map-bar .tb-panel {
+    display: none;
+  }
+
+  /* ── The readouts ─────────────────────────────────────────── */
+  #info-panel {
+    padding: 8px 12px;
+  }
 }
 
 /* ── Outline editor bar ────────────────────────────────────────────────── */
@@ -2379,27 +2617,39 @@ body {
   .print-dialog__actions,
   .place-dialog__actions {
     flex-wrap: wrap;
+    gap: 6px;
   }
 
+  /* The footer's buttons come back to the size every other dialog's are.
+     They were a size up — 15 px on 18 px of padding, against 13 on 14 — to
+     say that they finish the job rather than adjust it, which is worth a
+     wide dialog's floor and is not worth a third of a phone: at that size
+     three of them are two rows, and one of the two is a full-width Cancel,
+     which is a lot of screen for the button nobody is aiming at.
+
+     `1 0 auto` rather than a basis apiece: no shrink, so a button is never
+     narrower than its own label, and grow, so whatever does share a line
+     fills it. Three short verbs fit one row in English and in German; a
+     longer translation wraps by itself instead of being wrapped in advance
+     by a rule that had to guess which language it was reading. */
   .print-dialog__actions .btn,
   .place-dialog__actions .btn {
-    flex: 1 1 auto;
+    flex: 1 0 auto;
+    padding: 6px 10px;
+    font-size: var(--ui-fs-md);
   }
 
-  .print-dialog__open {
-    flex-basis: 100%;
-  }
-
-  /* Three buttons on one phone line leaves each of them a word wide in
-     German, so the pair that finishes the job takes a line of its own and
-     Cancel keeps the one below it. */
+  /* Sized for a wide floor, and the same 132 px on a 330 px one is most of
+     the row before the other two have asked for anything. */
   .print-dialog__save,
-  .print-dialog__go {
-    flex-basis: 40%;
+  .print-dialog__go,
+  .place-dialog__go {
+    min-width: 0;
   }
 
-  .print-dialog__actions [data-role="cancel"] {
-    order: 1;
+  /* Hidden until a card has been generated, and a line of its own when it
+     appears: it is a link to the result rather than one of the three verbs. */
+  .print-dialog__open {
     flex-basis: 100%;
   }
 }
@@ -2418,6 +2668,24 @@ body {
 @media (max-width: 900px) {
   .print-dialog {
     overflow: auto;
+    /* The floor belongs to the action bar here.
+
+       The bar is `position: sticky; bottom: 0`, which pins it to the bottom of
+       the *content* box — the dialog's own 16 px of bottom padding is below
+       that, and it is padding of a box that scrolls, so the settings go on
+       running through it under the bar. What that looks like is three buttons
+       floating in a gap with the dialog's content above them and a strip of
+       another fieldset showing below.
+
+       The bar's -16 px bottom margin was meant to cancel that padding and does
+       so only in the two-column layout, where the bar is laid out rather than
+       stuck. So the padding goes instead, and the margin that was cancelling
+       it goes with it. */
+    padding-bottom: 0;
+  }
+
+  .print-dialog__actions {
+    margin-bottom: 0;
   }
 
   .print-dialog__body {
@@ -2904,6 +3172,11 @@ body {
 
 .tour__bubble {
   position: fixed;
+  /* border-box: the width is the room the card is allowed on the screen, and
+     on a phone the 30 px of padding and border would otherwise be added to
+     it — a card asking for "the viewport minus 24" and drawing itself 10 px
+     wider than the viewport. */
+  box-sizing: border-box;
   width: min(360px, calc(100vw - 24px));
   padding: 14px 16px 12px;
   border: 1px solid var(--c-border-strong);
@@ -2921,6 +3194,9 @@ body {
 .tour__bubble:focus {
   outline: none;
 }
+
+
+
 
 .tour__head {
   display: flex;
@@ -3040,6 +3316,95 @@ body {
   accent-color: var(--c-accent);
 }
 
+/* The card is capped to the screen, and its body scrolls if it has to.
+
+   Keyed on the height of the viewport rather than on its width, which is the
+   only thing that was ever relevant and is not what a phone breakpoint asks.
+   A phone held sideways is 844x390: wide enough to miss every `max-width: 720`
+   rule in this file, and 390 px tall against a card that is 429 for the step
+   about repairing a list. Uncapped, that card ran 51 px off the bottom of the
+   screen and took Back and Next with it — the walkthrough could be read and
+   not continued.
+
+   A fraction of the viewport rather than a pixel count, and a generous one.
+   The two things the cap trades do not trade evenly: _placeBubble already puts
+   the card on the edge that covers least of the spotlight, so a taller card
+   mostly changes which edge it picks rather than how much it hides, while
+   every pixel of cap comes straight out of the paragraph. Tightening it to
+   320 px leaves the worst-covered step 10 points better off and puts 555 px of
+   prose behind a scroll most readers will not think to try. At 70% nothing
+   scrolls on a phone held upright; a 568 px screen scrolls a few steps,
+   because there the card and its subject do not both fit. */
+.tour__bubble {
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  max-height: 70dvh;
+}
+
+
+/* A short viewport — a phone held sideways is 844x390 — where the cap above
+   leaves the card 273 px and most of the steps have more paragraph than that.
+
+   The height is bought from the typography rather than from the width. Widening
+   the card is the obvious move and the wrong one: 844 px of width is what lets
+   _placeBubble put a 360 px card *beside* the toolbar instead of on top of it,
+   and a 460 px card gives that up — four of the thirty-seven steps then show
+   less than half their subject, where at 360 none do. One point of type and
+   about 20 px of padding and margin buys as much height as 100 px of width,
+   and costs nothing on the other axis. */
+@media (max-height: 520px) {
+  .tour__bubble {
+    padding: 10px 12px 8px;
+    font-size: 12px;
+  }
+
+  .tour__title {
+    margin-bottom: 3px;
+    font-size: 13px;
+  }
+
+  .tour__body {
+    margin-bottom: 6px;
+  }
+
+  .tour__dots {
+    margin-bottom: 4px;
+  }
+
+  .tour__mute {
+    margin-top: 6px;
+    padding-top: 5px;
+  }
+}
+
+.tour__body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* A flex item's floor is its content, so without this the paragraph refuses
+     to shrink and the cap moves the overflow to the card instead — cutting off
+     the buttons rather than scrolling the prose. */
+  min-height: 0;
+  /* And a sign that it scrolls. Touch draws no permanent scrollbar, so a
+     paragraph clipped mid-sentence reads as one that was cut rather than one
+     there is more of — and the reader stops at what they can see.
+
+     The two `local` layers are painted with the text and slide out of the way
+     as it scrolls; the two `scroll` layers stay put. Where the text has
+     scrolled away from an edge, the white one has moved and the shadow it was
+     covering shows through. Nothing to wire up, and no shadow at either end
+     when the paragraph fits. */
+  background:
+    linear-gradient(var(--c-surface) 30%, rgba(255, 255, 255, 0)) top / 100%
+      14px no-repeat local,
+    linear-gradient(rgba(255, 255, 255, 0), var(--c-surface) 70%) bottom / 100%
+      14px no-repeat local,
+    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.16), transparent)
+      top / 100% 6px no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.16), transparent)
+      bottom / 100% 6px no-repeat scroll;
+}
+
 /* ── PWA: update prompt and offline state ─────────────────────────────────── */
 
 .pwa-update {
@@ -3102,4 +3467,236 @@ body {
   pointer-events: none;
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Touch targets
+
+   Everything above is sized for a cursor, which is a one-pixel pointer with a
+   hover state to tell you what it is over. A fingertip is neither: it covers
+   about 8 mm, it hides what it is aiming at, and it gets no second chance to
+   read a tooltip. Both published minimums for a tap target land near the same
+   number — 44 px for Apple, 48 dp for Android — and a good deal of this file
+   is under it: 20 px chevrons, 30 px buttons, 13 px checkboxes, a 16 px
+   slider track.
+
+   Sized by input rather than by width, because the two are not the same
+   question. A tablet in landscape is 1024 px wide and still has no cursor; a
+   narrow desktop window is 500 px and still has one. `pointer: coarse` asks
+   about the pointer itself, which is what the sizes here are about.
+
+   Only the controls that were actually under the line are touched, and each is
+   raised to the smallest size that clears it rather than to a uniform one:
+   these are dense bars over a map, and 44 px everywhere would push the bottom
+   two off the screen it was supposed to fit them on.
+
+   Declared near the end of the file, after everything they override. Every
+   rule here has the same specificity as the one it replaces, so its position
+   is the only thing that makes it apply.
+   ═══════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  /* The dialog and mode-bar verbs. The padding stays, so a button with a long
+     German label keeps its shape; the height is a floor under the short ones,
+     which the shared padding alone leaves at 30 px. */
+  .btn {
+    min-height: 38px;
+    padding: 6px 14px;
+  }
+
+  /* Icon-only buttons are square rather than wide: Back and Forward in the cut
+     and outline bars share their row with two text buttons and a `flex: 0 0
+     auto` that keeps them out of the way of it. The three qualified selectors
+     are the three places that pin these to 34 px, and a bare `.btn--icon`
+     loses to every one of them on specificity rather than on order. */
+  .btn--icon,
+  .cut-toolbar__actions .btn--icon,
+  .outline-toolbar__actions .btn--icon,
+  .print-controls__row .btn--icon {
+    min-width: 38px;
+  }
+
+  /* The panel's own chevron, at 20 px the smallest thing on the map and the
+     one control every phone user has to find first — it is what trades the
+     labels for the icon grid and back. */
+  .tb-panel__collapse {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+
+  /* Both of these are room for that chevron, measured against the 20 px one:
+     the first group's title runs under it in the expanded panel, and the first
+     icon does in the collapsed one. Below 720 px the collapsed panel has no
+     groups to make room in — it is the button — so the second is a desktop
+     rule that a phone never reaches. */
+  .tb-group:first-child .tb-group__title {
+    padding-right: 34px;
+  }
+
+  .tb-panel.is-collapsed .tb-panel__groups {
+    padding-top: 30px;
+  }
+
+  /* A tile is the width of its own label and cannot grow sideways without
+     changing how many fit a row, so the height is where the target comes
+     from. */
+  .tb-item {
+    min-height: 44px;
+  }
+
+  /* The trim and cut options, the print filters, the tour's mute. A 13 px box
+     is the browser's default and it is half the size of the word beside it —
+     which does work as a target, being inside the <label>, but only for
+     anyone who guesses that it is. */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* And the row it sits in, which is what the finger actually lands on: every
+     one of these is `<label><input><span>text</span></label>` and the whole
+     row toggles. Written as a shape rather than as a list of the eight class
+     names that happen to have one today, so a ninth is covered when it is
+     added rather than when it is noticed. */
+  label:has(> input[type="checkbox"]),
+  label:has(> input[type="radio"]) {
+    min-height: 32px;
+  }
+
+  /* Four sliders drive trim's live preview and two more the boundary dialog,
+     and a 16 px track is a 16 px window on the drag that starts them. The
+     height is the grabbable band; the thumb keeps its own size. */
+  input[type="range"] {
+    height: 32px;
+  }
+
+  /* The counts in the info panel, the filter chips in the territory list and
+     the "?" that opens a dialog's help — all of them buttons drawn as text,
+     and all of them under 28 px tall. */
+  .info-panel__count,
+  .territory-list__chip,
+  .app-dialog__help {
+    min-height: 32px;
+  }
+
+  .app-dialog__help {
+    padding: 3px 10px;
+  }
+
+  /* The typed-into fields: the partition dialog's target size, the print
+     dialog's numbers. A 21 px box is the browser's default for an input with
+     no height of its own, and it is the shortest thing in any of them. */
+  .app-dialog input[type="number"],
+  .app-dialog input[type="text"],
+  .app-dialog select {
+    min-height: 32px;
+  }
+
+  /* The tour's own close button, which is the way out of a walkthrough that
+     covers the screen it is describing. */
+  .tour__close {
+    min-width: 34px;
+    min-height: 34px;
+  }
+
+  /* Every row of every menu: the one a long press opens on a territory, and
+     the two the toolbar's drop-down tiles open. 30 px rows in a list you aim
+     at with a finger is how you delete the territory below the one you meant.
+     Padding rather than a height, so a row that wraps grows instead of
+     centring its second line outside itself. */
+  .polygon-context-menu-item {
+    padding: 11px 16px;
+  }
+
+  /* Not a size — a sentence that is wrong here. The line under the counts names
+     a right-click and a keyboard shortcut, and this is the query that says
+     there is no mouse: the menu it points at is reachable, because Leaflet
+     turns a long press into a contextmenu, but not by the gesture named, and
+     there is no Ctrl+Z at all. It is also two wrapped lines, which made it the
+     tallest thing in a panel sharing the bottom corner with the attribution.
+     Undo is in the toolbar, which is where a finger was going anyway.
+
+     Keyed on the pointer rather than on the width, because that is what the
+     sentence is about — and because a phone held sideways is 844 px wide and
+     misses every width rule in this file. */
+  .info-panel__hint {
+    display: none;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Safe areas
+
+   index.html.j2 asks for `viewport-fit=cover`, which is what lets the map fill
+   a rounded screen edge to edge instead of being letterboxed between two grey
+   bars. The map wants that; nothing drawn on top of it does. A phone with a
+   notch, a camera cutout or a home indicator has strips of its display that
+   are covered or reserved by the system, and the browser reports each of them
+   as an env() inset.
+
+   Everything positioned against an edge takes the inset for that edge. The
+   four Leaflet corners cover most of it in one place — the search field, the
+   toolbar panel and the attribution are all controls in a corner — and what
+   is left are the few things that position themselves against the viewport
+   rather than through Leaflet.
+
+   env() is 0 on every screen without a cutout, which is every desktop and most
+   phones, so these rules change nothing there. The fallback argument is for
+   browsers that do not know env() at all: without it the whole declaration is
+   dropped, which for the calc()s below would take the 30 px with it.
+   ═══════════════════════════════════════════════════════════ */
+.leaflet-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.leaflet-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.leaflet-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.leaflet-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* The mode bars and the hint banner, as one stack — the only thing on that
+   edge that is anchored to it, which is why one rule covers all five. */
+.map-bottom-stack {
+  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+}
+
+#info-panel {
+  bottom: calc(30px + env(safe-area-inset-bottom, 0px));
+  right: calc(20px + env(safe-area-inset-right, 0px));
+}
+
+.pwa-update {
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+}
+
+.pwa-offline {
+  top: calc(8px + env(safe-area-inset-top, 0px));
+}
+
+/* Phone: the top edge is the search field's — see Phone layout above — and a
+   pill centred on it is a pill in the way of typing. Bottom-left is the one
+   corner of a phone with nothing in it: the mode bars are centred, the
+   attribution and the info panel are right.
+
+   This lives here rather than with the rest of the phone layout because both
+   rules it has to beat — the pill's own, and the inset one above — are
+   declared at the end of the file, and at equal specificity the later
+   declaration is the only thing that decides. */
+@media (max-width: 720px) {
+  .pwa-offline {
+    top: auto;
+    bottom: calc(26px + env(safe-area-inset-bottom, 0px));
+    left: calc(var(--m-edge) + env(safe-area-inset-left, 0px));
+    /* The pill is centred by a translate, which at left: 10px would take half
+       of it off the side of the screen. */
+    transform: none;
+  }
 }

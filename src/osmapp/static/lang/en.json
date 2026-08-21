@@ -597,7 +597,7 @@
       },
       "toolbar": {
         "title": "One panel for the tools",
-        "body": "Everything the app does is in here, grouped by what it is for: the area, the territories, what is shown, undo and redo, files, the app itself. A tool you cannot use yet is greyed out rather than hidden, and its tooltip says what is missing. The arrow at the top hides the labels when the map needs the room."
+        "body": "Everything the app does is in here, grouped by what it is for: the area, the territories, what is shown, undo and redo, files, the app itself. A tool you cannot use yet is greyed out rather than hidden, and its tooltip says what is missing. The arrow at the top folds the panel away when the map needs the room."
       },
       "search": {
         "title": "Start with a search",
@@ -653,7 +653,7 @@
       },
       "print": {
         "title": "The card",
-        "body": "The preview on the left can be panned, zoomed and rotated; the column on the right sets the label size, the border color and thickness, erases the stretches of border that run through a house, and takes the locality and territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and carry a tick, so what is left is visible at a glance."
+        "body": "The preview can be panned, zoomed and rotated; the settings beside it set the label size, the border color and thickness, erases the stretches of border that run through a house, and takes the locality and territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and carry a tick, so what is left is visible at a glance."
       },
       "clearPrinted": {
         "title": "The next round",

@@ -597,7 +597,7 @@
       },
       "toolbar": {
         "title": "Alle Werkzeuge in einer Leiste",
-        "body": "Alles, was die App kann, steht hier, gruppiert nach Zweck: Fläche, Gebiete, Ansicht, Verlauf, Datei und die App selbst. Was noch nicht benutzbar ist, wird ausgegraut statt versteckt, und der Tooltip sagt, was dafür fehlt. Der Pfeil oben blendet die Beschriftungen aus, wenn die Karte den Platz braucht."
+        "body": "Alles, was die App kann, steht hier, gruppiert nach Zweck: Fläche, Gebiete, Ansicht, Verlauf, Datei und die App selbst. Was noch nicht benutzbar ist, wird ausgegraut statt versteckt, und der Tooltip sagt, was dafür fehlt. Der Pfeil oben klappt das Panel zusammen, wenn die Karte den Platz braucht."
       },
       "search": {
         "title": "Mit der Suche anfangen",
@@ -653,7 +653,7 @@
       },
       "print": {
         "title": "Die Karte",
-        "body": "Die Vorschau links lässt sich verschieben, zoomen und drehen; in der Spalte rechts werden Schriftgröße, Randfarbe und Randstärke eingestellt, Randstücke wegradiert, die mitten durch ein Haus laufen, und Ort und Gebietsnummer eingetragen. Ein eigenes PDF-Formular kann geladen werden, dann wird die Karte dort hineingesetzt. Gebiete, deren Karte fertig ist, werden grün und bekommen ein Häkchen — so ist auf einen Blick zu sehen, was noch offen ist."
+        "body": "Die Vorschau lässt sich verschieben, zoomen und drehen; in den Einstellungen daneben werden Schriftgröße, Randfarbe und Randstärke eingestellt, Randstücke wegradiert, die mitten durch ein Haus laufen, und Ort und Gebietsnummer eingetragen. Ein eigenes PDF-Formular kann geladen werden, dann wird die Karte dort hineingesetzt. Gebiete, deren Karte fertig ist, werden grün und bekommen ein Häkchen — so ist auf einen Blick zu sehen, was noch offen ist."
       },
       "clearPrinted": {
         "title": "Die nächste Runde",

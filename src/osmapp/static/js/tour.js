@@ -62,6 +62,10 @@ App.tour = (function () {
   var GAP = 14; // bubble-to-spotlight distance
   var EDGE = 12; // smallest gap to the viewport edge
   var PAD = 6; // how far the spotlight is inflated past its target
+  // How far inside the screen a clamped edge is pulled: PAD, which the
+  // spotlight adds back, plus the 3 px of ring it then draws there. Less than
+  // this and the ring for an oversized target is drawn where the screen is not.
+  var RIM = 9;
 
   var _root = null;
   var _bubble = null;
@@ -72,6 +76,10 @@ App.tour = (function () {
   var _steps = [];
   var _keyBound = false;
   var _restoreCollapsed = null;
+  // The target's box as the current step was last drawn against it, and the
+  // frame handle of the watcher that compares the two. See _watchTarget.
+  var _drawnAt = null;
+  var _watching = 0;
 
   // ══════════════════════════════════════════════════════════════════════
   // CONTENT
@@ -373,7 +381,11 @@ App.tour = (function () {
     {
       id: "print",
       demo: true,
-      target: ".print-controls",
+      // The dialog rather than the settings column inside it: the body
+      // describes both halves of the card view, and below 900 px the column
+      // is three screens tall inside a dialog that scrolls, so no frame drawn
+      // round it is a frame round anything visible.
+      target: ".print-dialog",
       dock: "bottom-left",
       highlight: "ring",
       enter: function () {
@@ -600,6 +612,7 @@ App.tour = (function () {
       document.removeEventListener("keydown", _onKeyDown, true);
       _keyBound = false;
     }
+    _unwatchTarget();
     window.removeEventListener("resize", _reposition);
     window.removeEventListener("scroll", _reposition, true);
 
@@ -723,6 +736,9 @@ App.tour = (function () {
     requestAnimationFrame(function () {
       if (_root) _reposition();
     });
+    // And everything slower than one frame — a bar sliding in, a bar growing
+    // a line — is the watcher's.
+    _watchTarget();
   }
 
   function _exitStep() {
@@ -806,6 +822,45 @@ App.tour = (function () {
     return rect.width > 0 && rect.height > 0 ? node : null;
   }
 
+  /**
+   * Is this node the thing you would see at its own coordinates?
+   *
+   * A box is not the same as a view of one. The Print button in the toolbar
+   * has a box throughout the steps that describe the territory list, and on a
+   * wide window it is visible beside the dialog — but on a phone the dialog is
+   * the width of the screen and the button is behind it. Pointing at it there
+   * draws a dashed rectangle around a paragraph of the dialog: a ring with
+   * nothing in it, next to a step that says "this is the button that opened
+   * this".
+   *
+   * Answered by asking the browser what it would hit rather than by comparing
+   * rectangles, because "in front" is a question about the whole stacking
+   * order and the tour has no way to reason about that from the outside.
+   *
+   * Two layers are excused. The tour's own veil is over everything by design,
+   * and the dialog veil is 18% black — you can see straight through both, so
+   * neither of them is what hides a control.
+   */
+  function _onTop(node) {
+    var rect = node.getBoundingClientRect();
+    // The middle of what is on screen, not of the node: a target three screens
+    // tall has its centre well below the fold, and asking about a point that
+    // is not in the viewport answers nothing.
+    var left = Math.max(rect.left, 0);
+    var top = Math.max(rect.top, 0);
+    var right = Math.min(rect.right, window.innerWidth);
+    var bottom = Math.min(rect.bottom, window.innerHeight);
+    if (right <= left || bottom <= top) return false;
+
+    var stack = document.elementsFromPoint((left + right) / 2, (top + bottom) / 2);
+    for (var i = 0; i < stack.length; i++) {
+      var over = stack[i];
+      if (over.closest(".tour") || over.classList.contains("dialog-veil")) continue;
+      return over === node || node.contains(over) || over.contains(node);
+    }
+    return false;
+  }
+
   function _render() {
     if (!_root) return;
     var step = _steps[_index];
@@ -884,24 +939,161 @@ App.tour = (function () {
   function _reposition() {
     if (!_root) return;
     var step = _steps[_index];
-    var node = _resolve(step);
 
     // Something closed the thing this step is pointing at — the context menu
     // dismissing itself on a click at the veil is the case this exists for.
     // One retry, so a target that genuinely cannot open does not spin.
-    if (!node && step.reopenIfGone && step.enter) {
+    if (!_resolve(step) && step.reopenIfGone && step.enter) {
       try {
         step.enter();
       } catch (e) {
-        /* the fallback below already handles a missing target */
+        /* _redraw below already handles a missing target */
       }
-      node = _resolve(step);
     }
 
-    var rect = node ? node.getBoundingClientRect() : null;
+    _redraw();
+  }
+
+  /**
+   * Draw the step against wherever its target is now.
+   *
+   * Separate from _reposition because the watcher below calls this many times
+   * a second, and _reposition's retry re-runs the step's enter(): once a frame
+   * is not "one retry".
+   */
+  function _redraw() {
+    if (!_root) return;
+    var step = _steps[_index];
+    var node = _resolve(step);
+    _drawnAt = node ? node.getBoundingClientRect() : null;
+    var rect = node ? _onScreen(node) : null;
     _placeSpot(rect, step);
     _placeOrigin(step);
     _placeBubble(rect, step);
+  }
+
+  /**
+   * Follow the target for as long as the step is up.
+   *
+   * Half of what a step can point at is still moving on the frame it opens:
+   *
+   *   • The four mode bars arrive with `mode-bar-in`, which starts them 10 px
+   *     low and slides them up over 0.18 s. getBoundingClientRect() reports
+   *     the transformed box, so a frame drawn on that first frame lands 10 px
+   *     below the bar.
+   *
+   *   • The trim bar then grows. Its status line arrives with the first
+   *     proposal, a debounce later, and the bar is anchored to the bottom of
+   *     the map, so its top edge moves up another 16 px.
+   *
+   *   • And anything the map owns moves when the map does.
+   *
+   * The single rAF after _show reaches a dialog that has not been laid out yet
+   * and nothing slower than one frame, and a longer fixed delay only moves the
+   * cutoff. So the step redraws itself whenever its target's box stops
+   * matching the one it was drawn against. Comparing rather than redrawing
+   * unconditionally holds this to two rect reads a frame while nothing moves.
+   */
+  function _watchTarget() {
+    _unwatchTarget();
+    var tick = function () {
+      if (!_root) return;
+      _watching = window.requestAnimationFrame(tick);
+      var node = _resolve(_steps[_index]);
+      // Only while the target is there. A target that has gone is the retry's
+      // business, and it is reached from resize, scroll and the step itself.
+      if (!node) return;
+      if (!_sameBox(node.getBoundingClientRect(), _drawnAt)) _redraw();
+    };
+    _watching = window.requestAnimationFrame(tick);
+  }
+
+  function _unwatchTarget() {
+    if (_watching) window.cancelAnimationFrame(_watching);
+    _watching = 0;
+    _drawnAt = null;
+  }
+
+  /** Within half a pixel on every edge — sub-pixel layout is not movement. */
+  function _sameBox(a, b) {
+    if (!a || !b) return false;
+    return (
+      Math.abs(a.left - b.left) < 0.5 &&
+      Math.abs(a.top - b.top) < 0.5 &&
+      Math.abs(a.width - b.width) < 0.5 &&
+      Math.abs(a.height - b.height) < 0.5
+    );
+  }
+
+  /**
+   * The part of a target you can actually see, or null if none of it is.
+   *
+   * The print view's settings column is three screens tall on a phone, and a
+   * spotlight drawn round all of it puts its top edge above the fold and its
+   * bottom two screens below: what is left is a blue line down each side and
+   * nothing joining them, which reads as decoration rather than as "this".
+   *
+   * What bounds it is not only the screen. That column is three screens tall
+   * *inside a dialog that scrolls*, so the part you can see ends at the
+   * dialog's edge, and a frame clamped to the viewport instead runs 31 px past
+   * the bottom of the dialog and finishes on the map — a box whose sides are
+   * inside one thing and whose floor is inside another. So every ancestor that
+   * clips its content clips the frame too, and the screen is merely the last
+   * of them.
+   *
+   * It is also the rectangle the card should be placed against. A side that is
+   * off the bottom of the screen is not a side to put a card beside, and an
+   * overlap measured against a target two thirds of which is not visible is an
+   * overlap measured against nothing.
+   *
+   * Only edges that have actually been cut move, so a control that fits inside
+   * everything containing it is framed exactly as before.
+   */
+  function _onScreen(node) {
+    var rect = node.getBoundingClientRect();
+    var clip = _clipOf(node);
+    var box = {
+      left: rect.left < clip.left ? clip.left + RIM : rect.left,
+      top: rect.top < clip.top ? clip.top + RIM : rect.top,
+      right: rect.right > clip.right ? clip.right - RIM : rect.right,
+      bottom: rect.bottom > clip.bottom ? clip.bottom - RIM : rect.bottom,
+    };
+    if (box.right <= box.left || box.bottom <= box.top) return null;
+    box.width = box.right - box.left;
+    box.height = box.bottom - box.top;
+    return box;
+  }
+
+  /**
+   * The rectangle everything above this node cuts it down to.
+   *
+   * The viewport to begin with, then every ancestor whose overflow is not
+   * `visible` on both axes — which on this page means the map container, a
+   * dialog that scrolls and the toolbar panel.
+   *
+   * An ancestor's border box, which overstates the clip by that ancestor's
+   * border: 2 px for a dialog and for the toolbar panel, none for the map.
+   * The frame is drawn RIM inside whatever comes back, so the overstatement
+   * is absorbed.
+   */
+  function _clipOf(node) {
+    var clip = {
+      left: 0,
+      top: 0,
+      right: window.innerWidth,
+      bottom: window.innerHeight,
+    };
+    for (var el = node.parentElement; el; el = el.parentElement) {
+      var style = window.getComputedStyle(el);
+      if (style.overflowX === "visible" && style.overflowY === "visible")
+        continue;
+      var box = el.getBoundingClientRect();
+      clip.left = Math.max(clip.left, box.left);
+      clip.top = Math.max(clip.top, box.top);
+      clip.right = Math.min(clip.right, box.right);
+      clip.bottom = Math.min(clip.bottom, box.bottom);
+    }
+    return clip;
   }
 
   /**
@@ -910,12 +1102,13 @@ App.tour = (function () {
    * Deliberately quieter than the spotlight — it is context, not the subject,
    * and two rings of equal weight would just be two things to look at. Absent
    * when the step names no origin, and absent when it names one that is not on
-   * screen, which is the case for a toolbar hidden behind the print view.
+   * screen — which on a phone means behind a dialog as often as it means gone,
+   * and a ring around a control you cannot see is a ring around nothing.
    */
   function _placeOrigin(step) {
     if (!_origin) return;
     var node = step.origin ? _find(step.origin) : null;
-    if (!node) {
+    if (!node || !_onTop(node)) {
       D.toggle(_origin, false);
       return;
     }
@@ -964,12 +1157,28 @@ App.tour = (function () {
   }
 
   /**
-   * Preferred side first, then the other three, then the middle of the screen.
+   * Preferred side first, then the other three, then wherever covers least.
    *
    * Sides are tried rather than computed because the bubble's height depends
    * on how long the translated body turned out to be — German runs a third
    * longer than English, and a layout that fits in one language and overflows
    * in another is the usual way this kind of thing breaks.
+   *
+   * What decides between the candidates is how much of the spotlight each one
+   * covers, and the first that covers none of it wins — so the order above is
+   * still the preference, and the arithmetic only settles the cases where the
+   * preference cannot be had. Those are the cases a phone is made of: a step
+   * whose target is the toolbar panel, the trim bar or a dialog has a target
+   * as wide as the screen and often half as tall, no side of it has room for a
+   * 360 px card, and every side therefore fails. Centring the card there puts
+   * it exactly on top of the one thing the step exists to point at.
+   *
+   * The four edge bands are the fallbacks, because a target that fills the
+   * middle of the screen almost always leaves one edge of it clear: the trim
+   * bar owns the bottom two thirds and the top band is free, the toolbar owns
+   * the top half and the bottom band is free. Only a target bigger than the
+   * viewport leaves nothing, and there the smallest overlap is still the best
+   * answer available.
    */
   function _placeBubble(rect, step) {
     if (!_bubble) return;
@@ -978,35 +1187,85 @@ App.tour = (function () {
     var vw = window.innerWidth;
     var vh = window.innerHeight;
 
-    // A target the size of the print dialog has no free side to sit beside,
-    // so the step names a corner instead and the bubble floats over it.
-    if (step.dock) {
-      var at = _dock(step.dock, box, vw, vh);
-      _bubble.style.left = Math.round(at.left) + "px";
-      _bubble.style.top = Math.round(at.top) + "px";
+    if (!rect) {
+      // Nothing to point at, and so nothing to keep clear of.
+      _moveBubble(_dock(step.dock || "centre", box, vw, vh));
       return;
     }
 
-    if (!rect) {
-      _bubble.style.left = Math.round((vw - box.width) / 2) + "px";
-      _bubble.style.top = Math.round((vh - box.height) / 2) + "px";
-      return;
-    }
+    var tries = [];
+    // A target the size of the print dialog has no free side to sit beside, so
+    // the step names a corner instead. Still only a preference: on a wide
+    // window the named corner is clear, and on a phone the same corner can be
+    // the middle of the target.
+    if (step.dock) tries.push(_dock(step.dock, box, vw, vh));
 
     var order = ["bottom", "top", "right", "left"];
     if (step.placement) order = [step.placement].concat(order);
-
     for (var i = 0; i < order.length; i++) {
-      var spot = _trySide(order[i], rect, box, vw, vh);
-      if (spot) {
-        _bubble.style.left = Math.round(spot.left) + "px";
-        _bubble.style.top = Math.round(spot.top) + "px";
-        return;
-      }
+      var beside = _trySide(order[i], rect, box, vw, vh);
+      if (beside) tries.push(beside);
     }
 
-    _bubble.style.left = Math.round((vw - box.width) / 2) + "px";
-    _bubble.style.top = Math.round((vh - box.height) / 2) + "px";
+    tries = tries.concat(_bands(box, vw, vh));
+
+    // The spotlight rather than the target: it is drawn PAD wider on every
+    // side, and it is what the user is being asked to look at.
+    var spot = {
+      left: rect.left - PAD,
+      top: rect.top - PAD,
+      right: rect.right + PAD,
+      bottom: rect.bottom + PAD,
+    };
+
+    var best = tries[0];
+    var least = Infinity;
+    for (var j = 0; j < tries.length; j++) {
+      var hidden = _covered(tries[j], box, spot);
+      if (hidden === 0) {
+        best = tries[j];
+        break;
+      }
+      if (hidden < least) {
+        least = hidden;
+        best = tries[j];
+      }
+    }
+    _moveBubble(best);
+  }
+
+  function _moveBubble(at) {
+    _bubble.style.left = Math.round(at.left) + "px";
+    _bubble.style.top = Math.round(at.top) + "px";
+  }
+
+  /**
+   * The bubble pinned to each edge of the viewport in turn, then the middle.
+   *
+   * Last resorts, in the order a card is least in the way: against an edge it
+   * leaves the rest of the screen in one piece, and the middle cuts whatever
+   * is behind it in two. Every one of them is a legal position, so the search
+   * above always has something to return.
+   */
+  function _bands(box, vw, vh) {
+    var midX = _clamp((vw - box.width) / 2, EDGE, Math.max(EDGE, vw - EDGE - box.width));
+    var midY = _clamp((vh - box.height) / 2, EDGE, Math.max(EDGE, vh - EDGE - box.height));
+    return [
+      { left: midX, top: EDGE },
+      { left: midX, top: Math.max(EDGE, vh - EDGE - box.height) },
+      { left: EDGE, top: midY },
+      { left: Math.max(EDGE, vw - EDGE - box.width), top: midY },
+      { left: midX, top: midY },
+    ];
+  }
+
+  /** How much of `spot` a bubble of size `box` placed at `at` would hide. */
+  function _covered(at, box, spot) {
+    var wide =
+      Math.min(at.left + box.width, spot.right) - Math.max(at.left, spot.left);
+    var tall =
+      Math.min(at.top + box.height, spot.bottom) - Math.max(at.top, spot.top);
+    return wide > 0 && tall > 0 ? wide * tall : 0;
   }
 
   function _trySide(side, rect, box, vw, vh) {

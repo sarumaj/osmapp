@@ -67,10 +67,9 @@ App.controls = (function () {
   // the one place the current basemap is named, so it is the one place that
   // difference is on screen the whole time.
   //
-  // The cost is the list: an <option> renders as plain text, and a webfont
-  // glyph is not text the browser will paint there. So the options carry the
-  // layer's full name and nothing else — which is the half a list has room for
-  // anyway, where a 52 px tile does not.
+  // The list below the tile carries the same icons: it is the app's own menu,
+  // which paints an <i> per row, so a layer is named the same way in both
+  // places.
   //
   // Keyed by id rather than derived from it, because the choice is editorial. An
   // id absent from this table falls back to a globe, so an aid layer added
@@ -746,22 +745,8 @@ App.controls = (function () {
    */
   function _mountBasemapPicker(host) {
     var node = D.mount("tpl-basemap-control", host);
-    var select = D.role(node, "basemap");
+    var button = D.role(node, "basemap");
     var glyph = D.role(node, "glyph");
-    var entries = App.basemap.entries();
-
-    entries.forEach(function (entry) {
-      var option = document.createElement("option");
-      option.value = entry.id;
-      select.appendChild(option);
-    });
-
-    /** Option text is built by t(), so it has to be rebuilt on a language change. */
-    function name() {
-      entries.forEach(function (entry, i) {
-        select.options[i].textContent = T(entry.labelKey);
-      });
-    }
 
     /**
      * The glyph is the only thing on the tile that says which basemap is on,
@@ -773,18 +758,34 @@ App.controls = (function () {
      * the new one arrives; the tile class is restated for the same reason.
      */
     function show() {
-      var id = App.basemap.current();
-      select.value = id;
-      glyph.className = "tb-item__icon fa-solid " + _icon(id);
+      glyph.className = "tb-item__icon fa-solid " + _icon(App.basemap.current());
     }
 
-    name();
     show();
     App.basemap.onChange(show);
-    App.i18n.onChange(name);
 
-    select.addEventListener("change", function () {
-      App.basemap.select(select.value);
+    // Built on the click, which is what keeps the names in the current
+    // language and the tick on the current layer without a listener for
+    // either. Which layers exist is a server decision, so the list comes from
+    // App.basemap rather than from anything written here.
+    button.addEventListener("click", function () {
+      var current = App.basemap.current();
+      _openTileMenu(
+        node,
+        App.basemap.entries().map(function (entry) {
+          return {
+            labelKey: entry.labelKey,
+            // Its own icon, so the row says which layer it is — replaced by
+            // the tick on the one that is on, which is the more useful of the
+            // two things an icon column can say here.
+            icon: entry.id === current ? "fa-check" : _icon(entry.id),
+            checked: entry.id === current,
+            onClick: function () {
+              App.basemap.select(entry.id);
+            },
+          };
+        }),
+      );
     });
 
     return node;
@@ -1213,24 +1214,35 @@ App.controls = (function () {
   /**
    * @returns {HTMLElement} the tile, which _makePanel names with data-action.
    */
+  /**
+   * Open a tile's list as the app's own menu, under the tile.
+   *
+   * Drawn rather than delegated to a <select>, because a native pop-up's size
+   * and position are the browser's and it takes both from the control it
+   * belongs to — which for these two tiles is 80 px wide and `opacity: 0`.
+   * showContextMenu is the menu a right-click on a territory opens: its width
+   * is its content's, its rows are the size every other row in the app is, and
+   * _placeMenu keeps it on screen.
+   *
+   * @param {HTMLElement} tile - Positions the menu; the point below is in the
+   *   map container's coordinates, which is what _placeMenu measures against.
+   * @param {Array<Object>} items - As showContextMenu takes them.
+   */
+  function _openTileMenu(tile, items) {
+    var container = s.leafletMap.getContainer().getBoundingClientRect();
+    var box = tile.getBoundingClientRect();
+    App.ui.showContextMenu(
+      { x: box.left - container.left, y: box.bottom - container.top + 4 },
+      items,
+    );
+  }
+
   function _mountLanguagePicker(host) {
     var node = D.mount("tpl-language-control", host);
-    var select = D.role(node, "lang");
+    var button = D.role(node, "lang");
     var flag = D.role(node, "flag");
 
-    // Flag and endonym, so the list is scannable by shape and readable by
-    // anyone who has landed in a language they cannot read. Neither part goes
-    // through t(): both are the same string in every language, which is what
-    // makes this the one control in the panel a language change leaves alone.
-    App.i18n.languages().forEach(function (lang) {
-      var option = document.createElement("option");
-      option.value = lang.code;
-      option.textContent = lang.flag + " " + lang.name;
-      select.appendChild(option);
-    });
-    select.value = App.i18n.current();
-
-    /** The select is transparent, so the current flag is drawn separately. */
+    /** The button is transparent, so the current flag is drawn separately. */
     function showFlag() {
       var current = App.i18n.current();
       App.i18n.languages().forEach(function (lang) {
@@ -1240,12 +1252,35 @@ App.controls = (function () {
     showFlag();
     App.i18n.onChange(showFlag);
 
+    // Flag and endonym, so the list is scannable by shape and readable by
+    // anyone who has landed in a language they cannot read. Neither part goes
+    // through t(): both are the same string in every language, which is what
+    // makes this the one control in the panel a language change leaves alone.
+    //
+    // Built on the click rather than once, because which one is current
+    // changes and the tick has to move with it.
+    //
     // setLanguage navigates to that language's URL (/ , /pl, /de, /fr) so the
     // choice is shareable and bookmarkable. Pass { navigate: false } for an
     // in-place swap instead — which is why the flag is kept in sync above
     // rather than left to the page load.
-    select.addEventListener("change", function () {
-      App.i18n.setLanguage(select.value);
+    button.addEventListener("click", function () {
+      var current = App.i18n.current();
+      _openTileMenu(
+        node,
+        App.i18n.languages().map(function (lang) {
+          return {
+            label: lang.flag + " " + lang.name,
+            // The flag is the mark that says which language a row is, so the
+            // icon column is left to say which one is on.
+            icon: lang.code === current ? "fa-check" : "",
+            checked: lang.code === current,
+            onClick: function () {
+              App.i18n.setLanguage(lang.code);
+            },
+          };
+        }),
+      );
     });
 
     return node;
