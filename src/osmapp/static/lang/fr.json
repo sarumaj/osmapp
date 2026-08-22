@@ -224,7 +224,6 @@
     "groupSingle": "bâtiments isolés seulement",
     "follow": "Suivre les rues",
     "adjust": "Ajuster les angles à la main",
-    "adjustHint": "Glissez un angle pour le déplacer, un point d’arête pour en ajouter un, cliquez un angle pour le retirer. Les curseurs sont verrouillés pendant ce temps.",
     "apply": "Appliquer",
     "outliers": "Isolés",
     "clear": "Effacer",
@@ -706,7 +705,11 @@
       },
       "trim": {
         "title": "Excluez ce dont vous n’avez pas besoin",
-        "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Deux curseurs façonnent la nouvelle limite — la distance derrière les maisons et le lissage de son contour — et deux autres règlent ce que la passe automatique écarte pour vous : à quelle distance un bâtiment est tenu pour isolé, et le plus grand groupe qu’elle peut abandonner d’un coup. Avec « Suivre les rues », la limite s’accroche au réseau routier au lieu de couper à travers les jardins. Le vert reste, le rouge disparaît."
+        "body": "Cliquez des bâtiments pour les exclure, ou tracez un cadre avec Maj sur tout un bord de la carte. Chacun reçoit une marque cliquable, à n’importe quel zoom, pour le rétablir. Le vert reste, le rouge disparaît."
+      },
+      "trimSliders": {
+        "title": "Ce que règlent les curseurs",
+        "body": "Deux curseurs façonnent la nouvelle limite — la distance derrière les maisons et le lissage de son contour — et deux autres règlent ce que la passe automatique écarte pour vous : à quelle distance un bâtiment est tenu pour isolé, et le plus grand groupe qu’elle peut abandonner d’un coup. Avec « Suivre les rues », la limite s’accroche au réseau routier au lieu de couper à travers les jardins."
       },
       "trimMarks": {
         "title": "Les marques montrent ce qui disparaît",
@@ -742,7 +745,11 @@
       },
       "autoheal": {
         "title": "Réparer toute la liste",
-        "body": "Trois défauts sont assez mécaniques pour être réparés sans rien demander, et ce bouton les traite tous d'un coup : un territoire dessiné en morceaux séparés devient un territoire par morceau, un territoire sans bâtiment est absorbé par le voisin avec lequel il partage la plus longue limite, et une zone qui n'appartient à personne est d'abord reprise puis jugée selon ces deux mêmes règles — c'est ainsi que le champ vide à l'est du village finit dans le territoire d'à côté. Toute la réparation ne fait qu'une annulation, et la baguette sur une ligne fait la même chose pour cette ligne seule. Pour revenir à cette liste à tout moment : le bouton « Imprimer » de la barre d'outils, ou le nombre de territoires dans le panneau en bas à droite."
+        "body": "Trois défauts sont assez mécaniques pour être réparés sans rien demander, et ce bouton les traite tous d'un coup : un territoire dessiné en morceaux séparés devient un territoire par morceau, un territoire sans bâtiment est absorbé par le voisin avec lequel il partage la plus longue limite, et une zone qui n'appartient à personne est d'abord reprise puis jugée selon ces deux mêmes règles — c'est ainsi que le champ vide à l'est du village finit dans le territoire d'à côté."
+      },
+      "autohealScope": {
+        "title": "Une annulation, ou une ligne",
+        "body": "Toute la réparation ne fait qu'une annulation, et la baguette sur une ligne fait la même chose pour cette ligne seule. Pour revenir à cette liste à tout moment : le bouton « Imprimer » de la barre d'outils, ou le nombre de territoires dans le panneau en bas à droite."
       }
     }
   },

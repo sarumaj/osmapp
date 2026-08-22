@@ -1,8 +1,8 @@
 /**
  * main.js — entry point.
  *
- * Waits for the DOM, finds the initializes Leaflet.Editable,
- * sets up layer groups, then wires the modules.
+ * Waits for the DOM, creates the Leaflet map with Leaflet.Editable, sets up
+ * the layer groups, then initializes every other module in dependency order.
  */
 (function () {
   "use strict";

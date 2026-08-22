@@ -688,10 +688,9 @@ App.ui = (function () {
   }
 
   /**
-   * role="menu" is a promise about the arrow keys, and the old menu did not
-   * keep it: it was mouse-only, which on a touch device with a keyboard and
-   * for anyone driving the app from the keyboard meant the entries reachable
-   * by right-click were reachable no other way.
+   * role="menu" is a promise about the arrow keys, and a mouse-only menu
+   * breaks it: for anyone driving the app from the keyboard, entries reachable
+   * by right-click would be reachable no other way.
    */
   function _wireMenuKeys(menu) {
     var items = [].slice.call(
@@ -936,10 +935,6 @@ App.ui = (function () {
     document.removeEventListener("click", closeContextMenu);
   }
 
-  function isContextMenuOpen() {
-    return !!(s && s.contextMenu);
-  }
-
   return {
     init: init,
 
@@ -973,7 +968,6 @@ App.ui = (function () {
     showOuterContextMenu: showOuterContextMenu,
     showMapContextMenu: showMapContextMenu,
     closeContextMenu: closeContextMenu,
-    isContextMenuOpen: isContextMenuOpen,
   };
 })();
 

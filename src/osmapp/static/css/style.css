@@ -618,19 +618,15 @@ body {
 
    ── The stack ────────────────────────────────────────────────────────────
 
-   Anchoring each bar itself — bottom: 76px on the bar, bottom: 30px on the
-   banner, 76 chosen because a one-line banner is 46px tall — fails in two ways.
-   An offset repeated on four bars is an offset missed on one of them, which puts
-   that bar under the banner. And the constant is only right while the banner is
-   one line: cut's names six gestures and wraps to two or three on a narrow
-   window, growing straight
-   up through the gap and into the bar above it.
+   Neither the bar nor the banner positions itself. The stack is the only
+   thing anchored to the bottom edge; the two are flex items in it, in that
+   order, separated by a gap property.
 
-   So neither one positions itself now. The stack is the only thing anchored
-   to the bottom edge; the bar and the banner are flex items in it, in that
-   order, and the gap between them is a gap property rather than a subtraction
-   somebody has to redo whenever a string gets longer. Nothing to keep in sync
-   and nothing that assumes a line count.
+   Anchoring each one instead — an offset on the bar clearing the banner's
+   height — fails twice over. An offset repeated on four bars is an offset
+   missed on one of them, which puts that bar under the banner; and the
+   constant only holds while the banner is one line, where cut's names six
+   gestures and wraps to three on a narrow window.
    ═══════════════════════════════════════════════════════════ */
 .map-bottom-stack {
   position: absolute;
@@ -1700,8 +1696,8 @@ body {
     width: 48px;
     height: 48px;
     padding: 0;
-    /* The panel's own scroll, from a max-height meant for a list of groups.
-       There is no list now, and a 44 px box has nothing to scroll. */
+    /* The panel's max-height is meant for a list of groups; collapsed there
+       is no list, and a 44 px box has nothing to scroll. */
     overflow: visible;
   }
 
@@ -1709,8 +1705,8 @@ body {
     display: none;
   }
 
-  /* Positioned in the corner of a panel it no longer has one of: the button is
-     the panel now, so it fills it rather than floating in it. */
+  /* Collapsed, the button *is* the panel, so it fills it rather than
+     floating in a corner of it. */
   .tb-panel.is-collapsed .tb-panel__collapse {
     position: static;
     width: 100%;
@@ -2786,14 +2782,11 @@ body {
   cursor: none;
 }
 
-/* `_setBusy` has been toggling this class since the PDF path landed, and
-   nothing was listening: composing a card takes seconds — awaiting tiles,
-   encoding a PNG, a round trip to /compose_pdf — and the preview stayed fully
-   lit and fully interactive the whole time. Panning during it does nothing to
-   the output, so it reads as the app ignoring you.
-
-   Dimmed and inert says wait, and the status pill stays at full strength on
-   top because it is the part that explains why. */
+/* Composing a card takes seconds — awaiting tiles, encoding a PNG — and
+   panning during it does nothing to the output, so a preview left fully lit
+   and interactive reads as the app ignoring the pointer. Dimmed and inert
+   says wait; the status pill stays at full strength on top, because it is the
+   part that explains why. */
 .print-preview.is-busy canvas {
   opacity: 0.55;
   filter: saturate(0.6);
@@ -3237,7 +3230,10 @@ body {
      wider than the viewport. */
   box-sizing: border-box;
   width: min(360px, calc(100vw - 24px));
-  padding: 14px 16px 12px;
+  /* Sideways only. A sticky row is pinned inside the padding box, so padding
+     the card kept above or below one would be a strip the prose scrolls
+     through in the open; the head and the action row carry it instead. */
+  padding: 0 16px;
   border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-lg);
   background: var(--c-surface);
@@ -3261,6 +3257,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 14px 0 4px;
   margin-bottom: 2px;
 }
 
@@ -3298,59 +3295,11 @@ body {
   color: #444;
 }
 
-/* Progress as dots rather than a bar: the point is "a handful of steps, you
-   are here", and a bar at step 3 of 18 mostly communicates "this is long". */
-.tour__dots {
-  display: flex;
-  flex-wrap: wrap;
-  /* No gap: each dot carries 4 px of padding on every side as its touch
-     target, which already spaces the row. */
-  gap: 0;
-  margin-bottom: 8px;
-  margin-left: -4px;
-}
-
-/* Buttons, but drawn as dots: the padding gives a 14 px touch target around a
-   6 px mark, which is the smallest thing worth aiming at on a phone without
-   making the row look like a row of buttons. */
-.tour__dot {
-  width: 6px;
-  height: 6px;
-  padding: 4px;
-  border: 0;
-  border-radius: 50%;
-  /* Painted in the content box only, so the dot stays 6 px while the button
-     around it is 14 — the smallest thing worth aiming at on a phone. */
-  background: var(--c-border);
-  background-clip: content-box;
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-
-.tour__dot:hover {
-  background-color: var(--c-accent);
-}
-
-.tour__dot:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 3px;
-}
-
-/* background-color, not the shorthand: `background` would reset
-   background-clip and paint the whole 14 px touch target. */
-.tour__dot.is-done {
-  background-color: var(--c-text-dim);
-}
-
-.tour__dot.is-current {
-  background-color: var(--c-accent);
-  transform: scale(1.4);
-}
-
 .tour__actions {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  padding: 6px 0 12px;
 }
 
 .tour__actions .btn {
@@ -3363,8 +3312,9 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
   padding-top: 9px;
+  /* The last row in the card, so the foot of the scroll is its business. */
+  padding-bottom: 12px;
   border-top: 1px solid var(--c-border);
   font-size: var(--ui-fs-sm);
   color: var(--c-text-dim);
@@ -3375,47 +3325,73 @@ body {
   accent-color: var(--c-accent);
 }
 
-/* The card is capped to the screen, and its body scrolls if it has to.
+/* The card is capped well below the screen, and everything inside it — prose,
+   buttons, the checkbox — scrolls together within that cap.
 
    Keyed on the height of the viewport rather than on its width, which is the
-   only thing that was ever relevant and is not what a phone breakpoint asks.
-   A phone held sideways is 844x390: wide enough to miss every `max-width: 720`
-   rule in this file, and 390 px tall against a card that is 429 for the step
-   about repairing a list. Uncapped, that card ran 51 px off the bottom of the
-   screen and took Back and Next with it — the walkthrough could be read and
-   not continued.
+   only thing that was ever relevant and is not what a phone breakpoint asks: a
+   phone held sideways is 844x390, wide enough to miss every `max-width: 720`
+   rule in this file and short enough that an uncapped card runs off the bottom
+   of the screen, taking Back and Next with it.
 
-   A fraction of the viewport rather than a pixel count, and a generous one.
-   The two things the cap trades do not trade evenly: _placeBubble already puts
-   the card on the edge that covers least of the spotlight, so a taller card
-   mostly changes which edge it picks rather than how much it hides, while
-   every pixel of cap comes straight out of the paragraph. Tightening it to
-   320 px leaves the worst-covered step 10 points better off and puts 555 px of
-   prose behind a scroll most readers will not think to try. At 70% nothing
-   scrolls on a phone held upright; a 568 px screen scrolls a few steps,
-   because there the card and its subject do not both fit. */
+   The pixel ceiling is the half of the cap that does the work on a phone held
+   upright, where 70% of an 844 px screen is a 590 px card: it fits, and it
+   leaves the map it is describing as a border around itself. 350 is where the
+   number of steps that have to be scrolled at all stops falling — seven of the
+   forty, across four languages, and none of them by more than two lines — so
+   the pixels past it buy nothing but a bigger card.
+
+   Scrolled or not, the card ends where the cap says. What is past the fold is
+   reached by scrolling rather than cut off, and the two sticky rules below keep
+   the controls out of the fold altogether. */
 .tour__bubble {
-  display: flex;
-  flex-direction: column;
-  max-height: 70vh;
-  max-height: 70dvh;
+  max-height: min(70vh, 350px);
+  max-height: min(70dvh, 350px);
+  overflow-y: auto;
+  /* A card that has reached its end does not hand the scroll to the map
+     underneath, which would pan away from the thing being pointed at. */
+  overscroll-behavior: contain;
+}
+
+/* Which step this is and the way out of the tour, both reachable from anywhere
+   in a scrolled card. Opaque, because the prose passes behind them. */
+.tour__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface);
+}
+
+/* Next is the one control the walkthrough cannot continue without, and a
+   reader who has to go looking for it first stops instead. Pinned to the foot
+   of the card, it is where it always was on a card short enough not to
+   scroll. */
+.tour__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--c-surface);
 }
 
 
 /* A short viewport — a phone held sideways is 844x390 — where the cap above
-   leaves the card 273 px and most of the steps have more paragraph than that.
+   leaves the card 273 px and the longer steps have more paragraph than that.
 
    The height is bought from the typography rather than from the width. Widening
    the card is the obvious move and the wrong one: 844 px of width is what lets
    _placeBubble put a 360 px card *beside* the toolbar instead of on top of it,
-   and a 460 px card gives that up — four of the thirty-seven steps then show
-   less than half their subject, where at 360 none do. One point of type and
+   and a 460 px card gives that up — four of the forty steps then show less
+   than half their subject, where at 360 none do. One point of type and
    about 20 px of padding and margin buys as much height as 100 px of width,
    and costs nothing on the other axis. */
 @media (max-height: 520px) {
   .tour__bubble {
-    padding: 10px 12px 8px;
+    padding: 0 12px;
     font-size: 12px;
+  }
+
+  .tour__head {
+    padding: 10px 0 3px;
   }
 
   .tour__title {
@@ -3427,41 +3403,14 @@ body {
     margin-bottom: 6px;
   }
 
-  .tour__dots {
-    margin-bottom: 4px;
+  .tour__actions {
+    padding: 4px 0 8px;
   }
 
   .tour__mute {
-    margin-top: 6px;
     padding-top: 5px;
+    padding-bottom: 8px;
   }
-}
-
-.tour__body {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* A flex item's floor is its content, so without this the paragraph refuses
-     to shrink and the cap moves the overflow to the card instead — cutting off
-     the buttons rather than scrolling the prose. */
-  min-height: 0;
-  /* And a sign that it scrolls. Touch draws no permanent scrollbar, so a
-     paragraph clipped mid-sentence reads as one that was cut rather than one
-     there is more of — and the reader stops at what they can see.
-
-     The two `local` layers are painted with the text and slide out of the way
-     as it scrolls; the two `scroll` layers stay put. Where the text has
-     scrolled away from an edge, the white one has moved and the shadow it was
-     covering shows through. Nothing to wire up, and no shadow at either end
-     when the paragraph fits. */
-  background:
-    linear-gradient(var(--c-surface) 30%, rgba(255, 255, 255, 0)) top / 100%
-      14px no-repeat local,
-    linear-gradient(rgba(255, 255, 255, 0), var(--c-surface) 70%) bottom / 100%
-      14px no-repeat local,
-    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.16), transparent)
-      top / 100% 6px no-repeat scroll,
-    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.16), transparent)
-      bottom / 100% 6px no-repeat scroll;
 }
 
 /* ── PWA: update prompt and offline state ─────────────────────────────────── */

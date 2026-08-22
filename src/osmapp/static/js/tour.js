@@ -1,43 +1,41 @@
 /**
  * tour.js — the first-run walkthrough.
  *
- * The app is a workflow, not a set of buttons: search a place, take its
- * boundary, download the data, split it into territories, correct the split by
- * hand, print a card. Every one of those steps is discoverable on its own, and
- * none of them explains the order. This module says the order out loud, once,
- * and then gets out of the way.
+ * The app is a workflow — search a place, take its boundary, download the
+ * data, split it, correct the split, print a card — and every step is
+ * discoverable on its own while none of them implies the order. This module
+ * states the order once and then gets out of the way.
  *
- * Design decisions worth keeping:
+ * Constraints the implementation rests on:
  *
  *   • The user watches; the tour drives. Asking someone to perform each step
- *     needs the app to be in a particular state to continue, and there is no
- *     such state on a first visit — no boundary, no data, no territories. So
- *     the veil swallows clicks throughout, and where a step is about a screen
- *     that only exists once there is work loaded, the tour loads a sample area
- *     (see demo.js) and opens the real dialog on it. Nothing the user does can
- *     leave the app half-edited, because the user does nothing.
+ *     needs the app in a particular state to continue, and there is no such
+ *     state on a first visit. The veil swallows clicks throughout, and a step
+ *     about a screen that only exists once work is loaded gets the sample
+ *     area (see demo.js) with the real dialog opened on it.
  *
- *   • Every side effect is declared, and undone by the same machinery in both
+ *   • Every side effect is declared and undone by the same machinery in both
  *     directions. A step's enter() runs on arrival and its exit() on leaving,
- *     forwards or backwards; `demo: true` says "this step needs the sample
- *     loaded" and the sample is swapped in and out by comparing that flag
- *     between the step being left and the step being entered. Nothing has to
- *     remember to clean up after itself, which is the only way a walkthrough
- *     that can be abandoned at any point with Escape stays safe.
+ *     forwards or backwards; `demo: true` marks a step as needing the sample,
+ *     which is swapped in and out by comparing that flag between the step
+ *     being left and the step being entered. Nothing has to remember to clean
+ *     up after itself, which is what keeps a walkthrough abandonable with
+ *     Escape at any point.
  *
- *   • A step whose target is missing still runs. The geocoder is skipped when
- *     the plugin failed to load, but everything else falls back to a centred
- *     card, because a walkthrough that silently loses four steps on a narrow
- *     screen teaches a wrong mental model of what the app has.
+ *   • A step whose target is missing still runs. The geocoder step is skipped
+ *     when the plugin failed to load; everything else falls back to a centred
+ *     card, so a narrow screen does not silently lose four steps.
  *
- *   • Every screen that the app opens for you is introduced by the control
- *     that opens it. A step that shows the partition dialog without ever
- *     pointing at the Split button has explained what the dialog does and
- *     left out the only part the user has to reproduce afterwards — and
- *     "where was that again?" is the question a walkthrough exists to
- *     prevent. So the modal features come in pairs: one step spotlights the
- *     button, the next shows what it opened, and that second step keeps a
- *     quieter ring on the button (`origin`) so the two stay visibly joined.
+ *   • Every screen the app opens is introduced by the control that opens it,
+ *     so the modal features come in pairs: one step spotlights the button,
+ *     the next shows what it opened and keeps a quieter ring on the button
+ *     (`origin`) so the two stay visibly joined.
+ *
+ *   • A screen with more to say than one card holds is two steps rather than
+ *     a longer card. The card is capped so that what it describes stays
+ *     visible around it, and the second step on a screen is placed on the
+ *     side the first one was not — what one card hid, the other one shows.
+ *     See _placeBubble and _sameSubject.
  *
  *   • The steps are data. STEPS below is the only place the sequence exists;
  *     tests read it to check that every key it names is in the dictionary.
@@ -80,6 +78,12 @@ App.tour = (function () {
   // frame handle of the watcher that compares the two. See _watchTarget.
   var _drawnAt = null;
   var _watching = 0;
+  // Where the card is sitting, and where it sat for the step before this one.
+  // The second is what lets two steps on one screen take opposite sides of it;
+  // it is captured on the way out of a step rather than on every placement, so
+  // that a card repositioned inside its own step has nothing to run from.
+  var _placed = null;
+  var _before = null;
 
   // ══════════════════════════════════════════════════════════════════════
   // CONTENT
@@ -149,6 +153,24 @@ App.tour = (function () {
     },
     {
       id: "trim",
+      demo: true,
+      target: ".trim-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="trim"]',
+      enter: function () {
+        if (!App.state.trimMode) App.trim.toggle();
+      },
+      exit: function () {
+        if (App.state.trimMode) App.trim.toggle();
+      },
+    },
+    {
+      // The bar is two tools on one strip: the buildings you exclude by hand,
+      // and the sliders that decide what is excluded for you. Both in one step
+      // is more than a phone shows at once, and the half that lands past the
+      // fold is the automatic one — the half nobody knows to go looking for.
+      id: "trimSliders",
       demo: true,
       target: ".trim-toolbar",
       placement: "top",
@@ -340,6 +362,22 @@ App.tour = (function () {
       // Docked rather than placed: the bubble is a long one and every side of
       // a button at the foot of a centred dialog lands on the dialog, over the
       // very rows the text is about. The corner is clear of both.
+      dock: "bottom-right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
+    },
+    {
+      // The same button from the other side: what the repair costs to undo,
+      // and the wand that does one row instead of all of them. Naming the
+      // three faults takes a card of its own, and a reader who has just been
+      // handed three rules is not also reading a fourth sentence about undo.
+      id: "autohealScope",
+      demo: true,
+      target: '.territory-list [data-role="fix-all"]',
       dock: "bottom-right",
       highlight: "ring",
       origin: '[data-action="print"]',
@@ -628,6 +666,8 @@ App.tour = (function () {
     _steps = [];
     _index = 0;
     _entered = -1;
+    _placed = null;
+    _before = null;
   }
 
   /**
@@ -708,6 +748,7 @@ App.tour = (function () {
    * direction we were already travelling, rather than stalling there.
    */
   function _show(index, dir) {
+    if (_entered >= 0 && _placed) _before = { step: _steps[_entered], at: _placed };
     _exitStep();
     dir = dir || 1;
 
@@ -886,54 +927,12 @@ App.tour = (function () {
       next.textContent = T(last ? "tour.finish" : "tour.next");
     }
 
-    _renderDots();
+    // The card is the scroller and it outlives the step inside it: without
+    // this, a step read to the end hands the next one to the reader halfway
+    // down its first paragraph.
+    if (_bubble) _bubble.scrollTop = 0;
+
     _reposition();
-  }
-
-  /**
-   * Progress, and a way back to a step that went past too fast.
-   *
-   * The dots were decoration until the walkthrough grew a step for every
-   * button; at this length "wait, what was the one before the dialog?" is a
-   * fair question, and answering it with six presses of Back is not an
-   * answer. Each dot carries its step's title as a tooltip, so the row also
-   * doubles as a table of contents. Jumping goes through _show() like
-   * everything else, so the sample is loaded or dropped and the dialogs are
-   * opened or closed on the way, however far the jump reaches.
-   */
-  function _renderDots() {
-    var host = D.role(_root, "dots");
-    if (!host) return;
-
-    // Every dot is replaced on each render, so a jump made from the keyboard
-    // would otherwise drop focus onto <body> and leave Tab starting over.
-    var wasFocused = host.contains(document.activeElement);
-
-    host.textContent = "";
-    for (var i = 0; i < _steps.length; i++) {
-      host.appendChild(_makeDot(i));
-    }
-    if (wasFocused && host.children[_index]) host.children[_index].focus();
-  }
-
-  function _makeDot(index) {
-    var dot = document.createElement("button");
-    dot.type = "button";
-    dot.className =
-      "tour__dot" +
-      (index === _index ? " is-current" : index < _index ? " is-done" : "");
-
-    var title = T(_titleKey(_steps[index]));
-    dot.title = title;
-    dot.setAttribute("aria-label", title);
-    if (index === _index) dot.setAttribute("aria-current", "step");
-
-    dot.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (index !== _index) _show(index, index > _index ? 1 : -1);
-    });
-    return dot;
   }
 
   function _reposition() {
@@ -1167,10 +1166,14 @@ App.tour = (function () {
    * What decides between the candidates is how much of the spotlight each one
    * covers, and the first that covers none of it wins — so the order above is
    * still the preference, and the arithmetic only settles the cases where the
-   * preference cannot be had. Those are the cases a phone is made of: a step
-   * whose target is the toolbar panel, the trim bar or a dialog has a target
-   * as wide as the screen and often half as tall, no side of it has room for a
-   * 360 px card, and every side therefore fails. Centring the card there puts
+   * preference cannot be had. Where the step before this one was about the
+   * same screen, distance from that card sorts the candidates the spotlight
+   * cannot tell apart; see _choose.
+   *
+   * The cases where no side works are the ones a phone is made of: a step whose
+   * target is the toolbar panel, the trim bar or a dialog has a target as wide
+   * as the screen and often half as tall, no side of it has room for a 360 px
+   * card, and every side therefore fails. Centring the card there puts
    * it exactly on top of the one thing the step exists to point at.
    *
    * The four edge bands are the fallbacks, because a target that fills the
@@ -1189,7 +1192,7 @@ App.tour = (function () {
 
     if (!rect) {
       // Nothing to point at, and so nothing to keep clear of.
-      _moveBubble(_dock(step.dock || "centre", box, vw, vh));
+      _moveBubble(_dock(step.dock || "centre", box, vw, vh), box);
       return;
     }
 
@@ -1218,25 +1221,81 @@ App.tour = (function () {
       bottom: rect.bottom + PAD,
     };
 
-    var best = tries[0];
-    var least = Infinity;
-    for (var j = 0; j < tries.length; j++) {
-      var hidden = _covered(tries[j], box, spot);
-      if (hidden === 0) {
-        best = tries[j];
-        break;
-      }
-      if (hidden < least) {
-        least = hidden;
-        best = tries[j];
-      }
-    }
-    _moveBubble(best);
+    // `was` is the card the step before this one was read from, when that step
+    // was about the same screen. See _sameSubject.
+    _moveBubble(
+      _choose(
+        tries,
+        box,
+        spot,
+        _sameSubject(step, _before && _before.step) ? _before.at : null,
+      ),
+      box,
+    );
   }
 
-  function _moveBubble(at) {
+  /**
+   * The candidate that hides least of the spotlight, and then least of `was`.
+   *
+   * Covering the subject is what decides: it is the thing the step exists to
+   * point at, and it is never traded for anything. `was` only sorts the
+   * positions that hide it equally — usually the several that hide none of it
+   * at all, where the placer would otherwise take the same one twice running
+   * and cover the same half of a screen both times.
+   *
+   * @param {Array<{left:number, top:number}>} tries in order of preference
+   * @param {{width:number, height:number}} box the card
+   * @param {{left:number, top:number, right:number, bottom:number}} spot
+   * @param {?{left:number, top:number, right:number, bottom:number}} was
+   */
+  function _choose(tries, box, spot, was) {
+    var best = tries[0];
+    var least = Infinity;
+    var again = Infinity;
+    for (var i = 0; i < tries.length; i++) {
+      var hidden = _covered(tries[i], box, spot);
+      var repeated = was ? _covered(tries[i], box, was) : 0;
+      // Strictly less, so the order the candidates were built in still breaks
+      // a tie: the step's own preferred side before the fallbacks.
+      if (hidden < least || (hidden === least && repeated < again)) {
+        best = tries[i];
+        least = hidden;
+        again = repeated;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Two steps in a row about one screen.
+   *
+   * A screen with more in it than a card can hold is two steps, and both of
+   * them describe things the reader has to be able to see. Left to itself the
+   * placer answers both the same way — the inputs are the same — so the half
+   * of the screen the first card covered is the half the second one covers,
+   * and that half is never read. The pair is worth detecting because the
+   * remedy is free: the second card takes the side the first one did not, and
+   * between them the whole screen has been visible.
+   *
+   * Same target is the split step. Same origin is the looser case of one
+   * dialog explained by several steps, where the ring moves from the screen to
+   * a control inside it but the screen behind the card has not changed.
+   */
+  function _sameSubject(step, before) {
+    if (!step || !before) return false;
+    if (step.target && step.target === before.target) return true;
+    return !!(step.origin && step.origin === before.origin);
+  }
+
+  function _moveBubble(at, box) {
     _bubble.style.left = Math.round(at.left) + "px";
     _bubble.style.top = Math.round(at.top) + "px";
+    _placed = {
+      left: at.left,
+      top: at.top,
+      right: at.left + box.width,
+      bottom: at.top + box.height,
+    };
   }
 
   /**
@@ -1323,7 +1382,6 @@ App.tour = (function () {
   return {
     init: init,
     start: start,
-    stop: stop,
     isOpen: isOpen,
     maybeAutoStart: maybeAutoStart,
     shouldAutoStart: shouldAutoStart,
@@ -1337,6 +1395,8 @@ App.tour = (function () {
     },
     titleKey: _titleKey,
     bodyKey: _bodyKey,
+    chooseSpot: _choose,
+    sameSubject: _sameSubject,
   };
 })();
 

@@ -1,98 +1,69 @@
 /**
  * autoheal.js — repairing the faults the territory list can already name.
  *
- * The list dialog has spent its whole life describing problems it could not
- * fix. A row carries a puzzle-piece flag when its territory is drawn in
- * separate pieces, and the notes line counts them; what to do about it was
- * left as an exercise — zoom to the territory, find the piece that does not
- * belong, cut it off by hand, then merge it into whichever neighbor it
- * touches. That is four gestures per fault, and the faults arrive in batches:
- * one boundary dragged across a corner leaves half a dozen.
- *
  * Four faults are mechanical enough to repair without asking, and this module
  * is those four:
  *
  *   • **Split** — a territory whose geometry is more than one polygon. The
- *     pieces are not adjacent, so nobody can walk it as one assignment, and
- *     the number chip has to be drawn twice to say so. Each piece becomes a
- *     territory of its own. Nothing is invented and no ground moves: the same
- *     footprint, counted the way the map already draws it.
+ *     pieces are not adjacent, so nobody can walk it as one assignment. Each
+ *     piece becomes a territory of its own: the same footprint, counted the
+ *     way the map already draws it.
  *
- *   • **Empty** — a territory with no buildings in it. This is the fault the
- *     list had no flag for, and it is the one that actually wastes somebody's
- *     afternoon: a card printed for a strip of embankment between two streets,
- *     handed out, walked, and empty. It is absorbed into the neighbor it
- *     shares the most boundary with, which is the same repair a person would
- *     make and the same one clustering.js already makes to its own leftovers.
+ *   • **Empty** — a territory with no buildings in it, which prints a card
+ *     for a strip of embankment. It is absorbed into the neighbor it shares
+ *     the most boundary with, the same repair clustering.js already makes to
+ *     its own leftovers.
  *
- *   • **Crossed** — a boundary drawn straight through a building, so that one
- *     house belongs to two territories. Two cards get printed showing the same
- *     roof, and each of the two people holding one assumes the other half is
- *     somebody else's. The footprint goes whole to whichever territory already
- *     holds most of it, which puts the boundary onto the building's own wall —
- *     a line you can stand next to instead of one that runs through a kitchen.
- *     See footprints.js, which does the geometry and which clustering.js runs
- *     on its own output for the same reason.
+ *   • **Crossed** — a boundary drawn straight through a building, so one
+ *     house belongs to two territories and two cards show the same roof. The
+ *     footprint goes whole to whichever territory already holds most of it,
+ *     which puts the boundary onto the building's own wall. See footprints.js
+ *     for the geometry; clustering.js runs it on its own output.
  *
  *   • **Uncovered** — ground inside the boundary that is in no territory at
- *     all (see gaps.js). It is not a territory, so it cannot be repaired the
- *     way the others are; it is *made* one first, and then judged by the
- *     same rules as everything else. That order is the whole trick: a
- *     strip left by dragging the boundary outward becomes a territory, is
- *     found to hold no buildings, and is handed to the neighbor it abuts most
- *     — which is what should have happened to it in the first place. An
+ *     all (see gaps.js). It is made a territory first and then judged by the
+ *     same rules as everything else, and that order carries the work: a strip
+ *     left by dragging the boundary outward becomes a territory, is found to
+ *     hold no buildings, and is handed to the neighbor it abuts most. An
  *     uncovered piece with houses on it stays a territory of its own, and one
- *     lying in two separate lobes becomes two. Nothing here decides which of
- *     those outcomes applies; the split, footprint and merge passes already do.
+ *     lying in two separate lobes becomes two. Nothing here decides which
+ *     outcome applies; the split, footprint and merge passes do.
  *
  * Deliberately *not* healed:
  *
  *   • The `tiny` flag. It means "smaller than the number chip drawn on it at
- *     this zoom", which is a statement about the viewport rather than about
- *     the territory — zoom in and the fault is gone. Repairing on it would
- *     mean the same button does different things depending on how far the map
- *     happens to be zoomed out.
+ *     this zoom", a statement about the viewport rather than the territory, so
+ *     repairing on it would make one button do different things depending on
+ *     how far the map is zoomed out.
  *   • An empty territory whose neighbors are all empty too. In a download with
- *     no buildings anywhere — forest, allotments, a boundary drawn before the
- *     data arrived — "merge every empty one into a neighbor" collapses the
- *     whole partition into a single territory. So a host has to have buildings
- *     to be a host, and an empty territory with nothing populated beside it is
- *     left alone, flag and all. Chains resolve anyway: the loop runs until a
- *     pass changes nothing, and a merge that gives a neighbor its first
- *     buildings makes it a host for the next pass.
+ *     no buildings anywhere, "merge every empty one into a neighbor" collapses
+ *     the whole partition into a single territory. A host therefore has to
+ *     have buildings, and an empty territory with nothing populated beside it
+ *     is left alone. Chains still resolve: the loop runs until a pass changes
+ *     nothing, and a merge that gives a neighbor its first buildings makes it
+ *     a host for the next pass.
  *
- * Order matters, and it is split first. A split territory's pieces are judged
- * for buildings individually, so the sliver that was welded onto the far side
- * of a neighborhood becomes its own piece, is found to be empty, and is handed
- * to whoever it actually touches — one pass, no second look. The reverse order
- * would merge the whole two-piece thing into a neighbor and produce a
- * territory in three pieces.
- *
- * The buildings come between the two, and that is not arbitrary either. A
- * strip that gives up the one house standing on its edge becomes empty, and
- * the merge that follows hands it to a neighbor — which is the right end for
- * it, and one it only reaches if the footprints are settled first. Running the
- * two the other way round merges the strip while it still counts a house, and
- * then moves a boundary inside the territory that just swallowed it.
- *
- * Those last two then take turns until a round changes nothing, because the
- * merge does not leave an outline as it found it — see the loop in _plan.
+ * Order is split, then footprints, then merge, and neither position is
+ * arbitrary. A split territory's pieces are judged for buildings
+ * individually, so the sliver welded onto the far side of a neighborhood
+ * becomes its own piece, is found empty, and is handed to whoever it touches
+ * in one pass; merging first would produce a territory in three pieces.
+ * Settling the footprints before the merge lets a strip give up the one house
+ * on its edge and leave as empty, rather than being merged while it still
+ * counts that house and then having a boundary moved inside its new owner.
+ * Those last two take turns until a round changes nothing, because a merge
+ * does not leave an outline as it found it — see the loop in _plan.
  *
  * The repair is computed against plain features and applied in one
- * setClusters() call, behind one history entry, so the whole thing is a single
- * Ctrl+Z. Nothing on the map moves until the plan is complete, which is what
- * makes a partial failure — one shape turf refuses to union — cost that one
- * merge rather than the map.
+ * setClusters() call behind one history entry, so the whole thing is a single
+ * Ctrl+Z and a shape turf refuses to union costs that one merge rather than
+ * the map.
  *
- * That separation is also what keeps the offer honest. The list shows a repair
- * button on a row, and the only way to be sure the button does something is to
- * do it: _plan() computes the whole repair and hands it back, heal() writes it
- * to the map, and _canFix() runs the same plan and throws it away. A cheaper
- * test that resembles the repair is how this module first shipped, and the two
- * disagreed exactly where it mattered — on a territory whose neighbor touched
- * it but could not take it, which is a question about arithmetic rather than
- * about geography. A button that runs and changes nothing is worse than no
- * button, because it teaches people to distrust the one that works.
+ * _canFix() runs the same _plan() the button runs and throws the result away,
+ * rather than testing something cheaper that resembles the repair. The two
+ * disagree exactly where it matters — on a territory whose neighbor touches
+ * it but cannot take it — and a button that runs and changes nothing teaches
+ * people to distrust the one that works.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -364,24 +335,6 @@ App.autoheal = (function () {
   // COUNTING BUILDINGS AS THE PLAN CHANGES
   // ══════════════════════════════════════════════════════════════════════
 
-  /** turf.bbox, or null for geometry it refuses. */
-  function _bbox(feature) {
-    try {
-      return turf.bbox(feature);
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /** The same shape on a one-centimeter grid. See _absorb. */
-  function _quantize(feature) {
-    try {
-      return turf.truncate(feature, { precision: 7, mutate: false });
-    } catch (e) {
-      return feature;
-    }
-  }
-
   /**
    * One point per building, centroids cached on the feature.
    *
@@ -435,7 +388,7 @@ App.autoheal = (function () {
   function _countBuildings(feature, points) {
     if (!points || points.length === 0) return 0;
 
-    var box = _bbox(feature);
+    var box = G.bbox(feature);
     if (!box) return 0;
 
     var count = 0;
@@ -463,18 +416,6 @@ App.autoheal = (function () {
   // NEIGHBORS
   // ══════════════════════════════════════════════════════════════════════
 
-  /** How much ground two features already have in common, in square meters. */
-  function _sharedArea(a, b) {
-    try {
-      var shared = G.intersect(a, b);
-      return shared ? G.area(shared) : 0;
-    } catch (e) {
-      // Unmeasurable, so assume none: the merge is then held to the stricter
-      // of the two thresholds, which refuses rather than loses ground.
-      return 0;
-    }
-  }
-
   /**
    * Slots touching `victim`, most shared boundary first.
    *
@@ -499,12 +440,12 @@ App.autoheal = (function () {
     // list dialog asks for it on open. An intersection is orders of magnitude
     // dearer than four number comparisons, and two territories whose boxes
     // miss cannot possibly touch.
-    var box = _bbox(probe);
+    var box = G.bbox(probe);
 
     var hits = [];
     slots.forEach(function (slot) {
       if (slot === victim || slot.removed) return;
-      var other = _bbox(slot.feature);
+      var other = G.bbox(slot.feature);
       if (box && other && !G.bboxOverlap(box, other)) return;
       try {
         var shared = G.intersect(probe, slot.feature);
@@ -650,7 +591,7 @@ App.autoheal = (function () {
     // already covering. Zero is a legitimate answer — a sliver wholly inside
     // its neighbor is absorbed by ceasing to be a territory of its own, and
     // no ground moves at all.
-    var gain = Math.max(0, G.area(victim) - _sharedArea(host, victim));
+    var gain = Math.max(0, G.area(victim) - G.sharedArea(host, victim));
     // A square meter of slack, because the healed union rounds the outline by
     // a few centimeters in each direction and the app treats nothing below
     // CUT_MIN_PIECE_M2 as a piece of anything.
@@ -674,7 +615,7 @@ App.autoheal = (function () {
       // makes them exactly the same point and the arithmetic becomes easy.
       // A centimeter is far below anything this app measures — the touch
       // slack is fifty times it — so nothing that matters moves.
-      candidates.push(G.union(_quantize(host), _quantize(victim)));
+      candidates.push(G.union(G.quantize(host), G.quantize(victim)));
     } catch (e) {
       /* out of ideas; the victim keeps its ground and its flag */
     }

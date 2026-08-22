@@ -45,21 +45,15 @@ App.polygons = (function () {
   /**
    * Territories whose card has already been produced.
    *
-   * The first attempt at this made them *quieter* than the rest — pale fill,
-   * dashed outline — on the theory that the interesting part of the map is
-   * what is left. That was wrong in the way that matters: a thin dashed
-   * outline around a barely-there fill is what a deleted or provisional shape
-   * looks like, so marking a territory read as losing it.
+   * More emphatic than the rest rather than quieter: a heavier solid outline
+   * and a stronger fill, in green, because a pale fill under a dashed outline
+   * is what a deleted or provisional shape looks like.
    *
-   * So printed territories are now the more emphatic of the two: a heavier
-   * solid outline and a stronger fill, in green because that is already the
-   * app's "done" color. Done is a state worth seeing, not worth hiding.
-   *
-   * color cannot carry it alone — a green wash and a purple one are close for
-   * a red-green color blind reader and identical in a greyscale screenshot —
-   * so every printed territory also carries a check, on its number chip. See
-   * labels.js. Shape beats a dash pattern at this: it survives being small,
-   * being overlapped, and being printed.
+   * Color cannot carry the state alone — a green wash and a purple one are
+   * close for a red-green color blind reader and identical in a greyscale
+   * screenshot — so every printed territory also carries a check on its
+   * number chip. See labels.js. Shape survives being small, being overlapped,
+   * and being printed; a dash pattern does not.
    */
   var CLUSTER_STYLE_PRINTED = {
     color: "#1e8449",
@@ -1674,8 +1668,6 @@ App.polygons = (function () {
 
     clusterFeatures: clusterFeatures,
     clusterLayers: clusterLayers,
-    findCluster: findCluster,
-    isAuto: isAuto,
     printedAt: printedAt,
     isPrinted: isPrinted,
     printedCount: printedCount,
@@ -1689,12 +1681,10 @@ App.polygons = (function () {
 
     attachClusterEvents: attachClusterEvents,
     attachProxyEvents: attachProxyEvents,
-    attachOuterEvents: attachOuterEvents,
     setOuterLayer: setOuterLayer,
     replaceOuter: replaceOuter,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
-    clusterAt: clusterAt,
     selectCluster: selectCluster,
     refreshStyle: refreshStyle,
     refreshFilteredData: refreshFilteredData,
@@ -1703,19 +1693,13 @@ App.polygons = (function () {
     renderBuildings: renderBuildings,
     restyleBuildings: restyleBuildings,
     buildingInfo: buildingInfo,
-    buildingState: buildingState,
 
     OUTER_STYLE: OUTER_STYLE,
-    CLUSTER_STYLE_DIM: CLUSTER_STYLE_DIM,
-    CLUSTER_STYLE_HOVER: CLUSTER_STYLE_HOVER,
     CLUSTER_STYLE_SELECTED: CLUSTER_STYLE_SELECTED,
     CLUSTER_STYLE_PRINTED: CLUSTER_STYLE_PRINTED,
     CLUSTER_STYLE_PRINTED_HOVER: CLUSTER_STYLE_PRINTED_HOVER,
     STREET_STYLE: STREET_STYLE,
     BUILDING_STYLE: BUILDING_STYLE,
-    BUILDING_STYLE_IGNORED: BUILDING_STYLE_IGNORED,
-    BUILDING_STYLE_FLAGGED: BUILDING_STYLE_FLAGGED,
-    PANE: PANE,
   };
 })();
 

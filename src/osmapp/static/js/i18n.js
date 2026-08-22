@@ -412,7 +412,6 @@ App.i18n = (function () {
     apply: apply,
     languages: languages,
     current: current,
-    pathFor: pathFor,
     setLanguage: setLanguage,
     onChange: onChange,
   };

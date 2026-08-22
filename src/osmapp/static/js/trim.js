@@ -1,110 +1,82 @@
 /**
  * trim.js — shrink the outer boundary onto the buildings that matter.
  *
- * ── The problem ────────────────────────────────────────────────────────────
- *
- * A boundary is drawn by hand or adopted from Nominatim, and both are far
- * larger than the thing being partitioned. An administrative outline includes
- * the fields, the forest, the gravel pit and the four farms on the far side of
- * the river; a hand-drawn one includes whatever was convenient to trace. The
- * partitioner then divides all of it, so a territory that is nine-tenths
- * meadow gets the same slice of the k-means budget as a street of terraced
- * houses, and somebody eventually walks out to a card with two addresses on it.
- *
- * Trimming before partitioning is the fix, and it is the one step of the
- * workflow that was missing. What the boundary should actually enclose is
- * "everywhere within walking reach of a building that matters" — which is a
- * shape nobody wants to trace by hand.
+ * A hand-drawn or Nominatim-derived boundary encloses far more than the thing
+ * being partitioned: the fields, the forest and the farms on the far side of
+ * the river all take a share of the k-means budget, so a territory can come
+ * out nine-tenths meadow with two addresses on it. Trimming runs before
+ * partitioning and reduces the boundary to everywhere within walking reach of
+ * a building that matters.
  *
  * ── How the shape is found ─────────────────────────────────────────────────
  *
- *   1. Buildings the user has marked as ignored are dropped, and so is
- *      anything already outside the boundary.
+ *   1. Buildings marked as ignored are dropped, and so is anything already
+ *      outside the boundary.
  *   2. Every remaining building stamps a disc of radius `reach` into a raster
  *      (coverage.js). The marked cells are the union of those discs without
  *      ever computing a union: a few thousand turf.buffer + turf.union calls
  *      would take tens of seconds, and this runs on every drag of the slider.
  *   3. The raster's connected components are the settlements. The one holding
- *      the most buildings seeds the shape, and any other group of kept
- *      buildings is joined to it by a corridor stamped along the streets that
- *      lead there — the outer boundary is a single polygon everywhere else in
- *      the app, and quietly returning a MultiPolygon would lose parts.
+ *      the most buildings seeds the shape; any other group of kept buildings
+ *      is joined to it by a corridor stamped along the streets that lead
+ *      there, because the outer boundary is a single polygon everywhere else
+ *      in the app and returning a MultiPolygon would lose parts.
  *
- *      Joining rather than dropping is the rule that makes the tool
- *      predictable: what you keep, you keep. Dropping was the older behavior
- *      and it meant un-excluding an outlying building did nothing visible —
- *      the count went up and the boundary did not move. It is also honest
- *      about the ground: a territory that includes the farm at the end of the
- *      lane includes the lane, because that is what the person walking it
- *      does. Excluding the sparse edges is therefore a decision, which is why
- *      the outlier pass now runs the moment the tool opens.
+ *      Joining rather than dropping is what makes the tool predictable: what
+ *      you keep, you keep, so un-excluding an outlying building moves the
+ *      boundary rather than only the count. Excluding the sparse edges is
+ *      therefore a decision, which is why the outlier pass runs on open.
  *
- *      A corridor goes straight, and is only routed around the working
- *      boundary when a straight line would leave it — which is checked over
- *      the whole segment, since a concave boundary can cut through the middle
- *      of a line whose ends are both comfortably inside. The way round is
- *      found on the grid and then pulled straight, so it comes back as a
- *      couple of legs rather than as a staircase. And it is a wedge: full
- *      width where it leaves the settlement, tapering to a tip at the building
- *      it reaches, because a constant-width strip meeting a settlement at
- *      right angles reads as plumbing.
- *   3a. Holes are closed. An empty field ringed by houses, a courtyard the
- *      reach did not quite reach, a sliver left by the street snapping: none
- *      of them is a place to tell somebody to skip, and on a printed card
- *      there is no way to tell an intentional exclusion from an artefact. A
- *      hole in the *working* boundary is different — the user chose that one —
- *      so the result is re-clipped when the outer polygon has any.
- *   4. Its boundary ring is traced, collapsed, and straightened by the amount
- *      the edge-detail slider asks for. A boundary that hugs every bay between
- *      two houses is accurate and unusable: somebody holding the card has to
- *      be able to tell which side of the line they are standing on.
- *   5. If "follow streets" is on, each ring vertex is pulled onto the nearest
+ *      A corridor goes straight, and is routed around the working boundary
+ *      only when a straight line would leave it — tested over the whole
+ *      segment, since a concave boundary can cut through the middle of a line
+ *      whose ends are both inside. The way round is found on the grid and
+ *      then pulled straight, so it comes back as a couple of legs rather than
+ *      a staircase. It tapers from full width at the settlement to a tip at
+ *      the building it reaches.
+ *   3a. Holes are closed. On a printed card there is no way to tell an
+ *      intentional exclusion from an artefact of the reach or the snapping. A
+ *      hole in the *working* boundary is the user's own, so the result is
+ *      re-clipped when the outer polygon has any.
+ *   4. The boundary ring is traced, collapsed, and straightened by the amount
+ *      the edge-detail slider asks for. A ring that hugs every bay between
+ *      two houses is accurate and unusable: the person holding the card has
+ *      to be able to tell which side of the line they are standing on.
+ *   5. With "follow streets" on, each ring vertex is pulled onto the nearest
  *      street center-line within `snap` meters, and consecutive vertices that
- *      both landed on the network are joined by the actual street between them
- *      (App.network). That is what turns a staircase around the backs of the
- *      houses into an edge that runs along a road.
+ *      both landed on the network are joined by the actual street between
+ *      them (App.network).
  *   6. The result is clipped to the existing boundary. Trimming only ever
- *      removes area — a tool that can also grow the working area is a
- *      different tool, and a surprising one.
+ *      removes area; growing the working area is a different tool.
  *
  * ── Why the moves in step 5 are safe ───────────────────────────────────────
  *
- * The raster contains the whole disc of radius `reach` around every kept
- * building, so every kept building is at least `reach` from the ring. Snapping
- * moves a vertex by at most `snap`, and a routed replacement is rejected
- * unless it stays within `slack` of the ring, and both are configured below
- * `reach`. So the boundary can be dragged onto the street network without any
- * risk of it walking over a house.
+ * The raster holds the whole disc of radius `reach` around every kept
+ * building, so every kept building is at least `reach` from the ring.
+ * Snapping moves a vertex by at most `snap`; a routed replacement is rejected
+ * unless it stays within `slack` of the ring; both are configured below
+ * `reach`. Straightening moves the edge inward by up to its own tolerance,
+ * which is why the detail slider is capped at `reach` minus a held-back
+ * clearance rather than left free.
  *
- * Straightening moves the edge inward by up to its own tolerance, so the detail
- * slider is capped at `reach` minus a held-back clearance rather than left
- * free. That coupling is worth seeing rather than hiding: asking for a wider
- * berth around the houses is exactly what buys the room to draw a simpler line
- * around them.
+ * That is an argument and not a guarantee, so nothing is applied on the
+ * strength of it: the status line reports how many buildings the proposed
+ * shape actually contains, measured on the shape itself, and the confirmation
+ * repeats the count.
  *
- * That is the argument, not the guarantee. The guarantee is that the tool
- * counts: the status line says how many buildings the proposed shape actually
- * contains, measured on the shape itself, and the confirmation repeats it.
- * Nothing is applied on the strength of the reasoning above.
+ * ── Adjusting the proposal ─────────────────────────────────────────────────
  *
- * ── Taking it over ─────────────────────────────────────────────────────────
- *
- * Everything above works from what the buildings are, and the answer is
- * usually right. "Usually" is the problem: the one corner that should follow
- * the ditch rather than the hedge is not a thing any of these settings can
- * express. So the proposal can be adjusted by hand — Leaflet.Editable, already
- * in the app for drawing the boundary in the first place, puts a handle on
- * every corner. While that is on, the sliders and the selection are locked,
- * because a recompute would silently throw the adjustment away and the honest
- * way to prevent that is to make it impossible rather than to warn about it.
+ * The one corner that should follow the ditch rather than the hedge is not
+ * something these settings can express, so the proposal takes handles from
+ * Leaflet.Editable. While that is on the sliders and the selection are
+ * locked, because a recompute would discard the adjustment.
  *
  * ── Seeing the selection ───────────────────────────────────────────────────
  *
- * Excluded buildings are painted red, which says nothing at all at the zoom
- * where you want to check what a shift-drag just did — a house is two pixels
- * across there. So each one also carries a mark measured in pixels, the same
- * size at every zoom, and clicking a mark puts that one building back. Being
- * able to see a mistake is not much use without being able to undo exactly it.
+ * Excluded buildings are painted red, which says nothing at the zoom where a
+ * shift-drag needs checking: a house is two pixels across there. Each also
+ * carries a mark measured in pixels, the same size at every zoom, and
+ * clicking a mark puts that one building back.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -645,33 +617,12 @@ App.trim = (function () {
    * Mark the buildings that are isolated *for this place*.
    *
    * A single farm at the end of a track drags the boundary out to meet it, and
-   * finding those by eye on a map of four thousand buildings is the tedious
-   * half of the job. This runs by default when the tool opens: since a kept
-   * building is now always enclosed, something has to propose the exclusions,
-   * and arriving at the answer people want beats asking them to find the one
-   * button that produces it.
+   * a kept building is always enclosed, so something has to propose the
+   * exclusions rather than leaving four thousand buildings to be scanned by
+   * eye. This therefore runs when the tool opens.
    *
-   * Two rules have been wrong here before, and both were wrong in the same
-   * direction — they answered a question about one building when the thing
-   * being decided is about a place.
-   *
-   * The first counted neighbors inside a fixed radius: "fewer than three
-   * within 60 m" describes an ordinary house in a village where the plots are
-   * 80 m apart, so on exactly the rural areas these cards are printed for it
-   * marked almost everything. It also excluded buildings as it went and let
-   * later ones see the thinned-out result, so marks cascaded and pressing the
-   * button twice marked a larger set than pressing it once.
-   *
-   * The second measured every building against the median spacing for the
-   * area, which fixed both of those and still could not see a hamlet: four
-   * houses sitting together two kilometers out are not isolated from each
-   * other, so none of them ever qualified and the boundary went on reaching
-   * for them.
-   *
-   * So the buildings are grouped first and the groups are judged. See
-   * outliersIn below; the short version is that a place is an outlier when it
-   * is both small and far, both measured against the area's own spacing, and
-   * that every building in such a place goes together.
+   * The judgement is made per group of buildings, never per building: see
+   * outliersIn below.
    */
   function markOutliers(opts) {
     if (!_pool || !_ignored) return 0;
@@ -680,11 +631,9 @@ App.trim = (function () {
       next.add(entry.key);
     });
 
-    // Re-asserting the pass over the decisions taken by hand is what the
-    // button means and what a slider must never do. A slider that dropped
-    // every keep-this-one on every drag would be a control that punishes
-    // being touched twice; a button that left them in place would be a
-    // button that visibly does nothing once you have overruled it.
+    // Re-asserting the pass over decisions taken by hand is what the button
+    // means and what a slider must never do: a slider that dropped every
+    // keep-this-one on every drag would punish being touched twice.
     if (opts && opts.reassert) {
       var stale = [];
       _manual.forEach(function (excluded, key) {
@@ -704,43 +653,30 @@ App.trim = (function () {
   /**
    * Which of `entries` are unusually isolated.
    *
-   * Judged by group, not by building — which is the fix for the thing this
-   * rule kept getting wrong. Measuring each building's distance to its k-th
-   * nearest neighbor asks "is this house on its own?", and four houses sitting
-   * together two kilometers from anywhere answer *no*: they have each other.
-   * So a lone farm was found and a hamlet never was, however far out it sat,
-   * and the boundary went on reaching for it.
+   * The question is whether a *place* is on its own, not whether a building
+   * is: four houses two kilometers from anywhere have each other, and a rule
+   * measuring each building's distance to its k-th nearest neighbor never
+   * reaches them. So the buildings are clustered by single linkage — anything
+   * within a short hop of anything else is the same place — and each place is
+   * measured against the main one. Every building in an outlying place goes
+   * together, because half a hamlet is not a thing to draw a boundary around.
    *
-   * The question the tool actually needs answered is "is this *place* on its
-   * own?". So the buildings are first clustered by single linkage — anything
-   * within a short hop of anything else is the same place — and then each
-   * place is measured against the main one. A place that is small and far is
-   * an outlier, and every building in it goes together, because half a hamlet
-   * is not a thing anybody wants a boundary drawn around.
+   * Both halves of "small and far" are relative to the area: far is several
+   * times the median plot spacing, and small is a share of everything
+   * downloaded with a floor under it, so a genuine second village of fifty
+   * houses is left for somebody to exclude by dragging a box.
    *
-   * Both halves of "small and far" stay relative to the area. Far is still
-   * several times the median plot spacing, the same as before. Small is a
-   * share of everything downloaded, with a floor — a genuine second village
-   * of fifty houses is not an accident to be swept up automatically, and it
-   * is a decision somebody should make by dragging a box.
+   * Pure, and takes the whole set rather than the un-excluded remainder,
+   * which is what makes pressing the button twice a no-op.
    *
-   * Pure, and takes the whole set rather than the un-excluded remainder, which
-   * is what makes pressing the button twice a no-op.
-   *
-   * ── The two numbers that are now sliders ──────────────────────────────
-   *
-   * `factor` and `groupMax` arrive as arguments with the live settings as
-   * their default, rather than being read from state here. That keeps this
-   * function a function — the tests ask it about made-up villages at settings
-   * no toolbar is showing — and it is also what lets the toolbar re-run it on
-   * every drag without a mode having to be open.
-   *
-   * Neither is a distance or a count that means anything on its own, which is
-   * the whole reason they can be offered at all: `factor` multiplies the
-   * area's own median plot spacing and `groupMax` is compared against a floor
-   * that scales with how much was downloaded. Somebody sliding them is
-   * sliding "how far out is far" and "how small is a hamlet", and both
-   * answers keep meaning the same thing in a terrace and in farmland.
+   * `factor` and `groupMax` are arguments defaulting to the live settings
+   * rather than being read from state, so tests can ask about made-up
+   * villages at settings no toolbar is showing and the toolbar can re-run
+   * this on every slider drag without a mode being open. Neither is a
+   * distance or a count on its own: `factor` multiplies the area's own median
+   * plot spacing and `groupMax` is compared against a floor that scales with
+   * the download, so both keep meaning the same thing in a terrace and in
+   * farmland.
    *
    * @param {Array} entries objects carrying a `centroid`
    * @param {{factor?: number, groupMax?: number}} [opts]
@@ -1712,10 +1648,6 @@ App.trim = (function () {
   // back to the computed shape — which is a discard, but an explicit one, done
   // by the same control that started the editing.
 
-  function isEditing() {
-    return !!s.trimEdit;
-  }
-
   /**
    * @param {boolean} on
    * @param {{silent?: boolean}} [opts] silent skips the recompute on the way
@@ -2385,7 +2317,6 @@ App.trim = (function () {
   /**
    * The trim toolbar's actions, under the cursor — and, when the pointer is
    * over a building, that building named as something to keep or exclude.
-   * Right-click did nothing at all here before.
    */
   function _showTrimMenu(point, key) {
     var excluded = key ? isIgnored(key) : false;
@@ -2457,18 +2388,12 @@ App.trim = (function () {
     isActive: isActive,
     isIgnored: isIgnored,
     isFlagged: isFlagged,
-    ignoredCount: ignoredCount,
-    flaggedCount: flaggedCount,
     isolationUnit: isolationUnit,
     detailM: detailM,
     handleBuildingClick: handleBuildingClick,
-    markOutliers: markOutliers,
     outliersIn: outliersIn,
     clearSelection: clearSelection,
     handleContextMenu: handleContextMenu,
-    setEdit: setEdit,
-    isEditing: isEditing,
-    compute: compute,
     propose: propose,
     apply: apply,
   };

@@ -19,7 +19,6 @@ App._loaded = App._loaded || [];
 App.pwa = (function () {
   "use strict";
 
-  var _registration = null;
   var _waiting = null;
   var _reloading = false;
 
@@ -61,8 +60,6 @@ App.pwa = (function () {
   }
 
   function _watch(registration) {
-    _registration = registration;
-
     if (registration.waiting && navigator.serviceWorker.controller) {
       _offerUpdate(registration.waiting);
     }
@@ -184,62 +181,7 @@ App.pwa = (function () {
     document.body.appendChild(badge);
   }
 
-  /**
-   * `navigator.onLine` only reports whether an interface is up, so it says yes
-   * on a captive portal or a dead uplink. Callers that are about to spend a
-   * long request on Overpass can ask the server instead.
-   */
-  function reachable() {
-    return fetch("/service/health", { method: "GET", cache: "no-store" })
-      .then(function (response) {
-        return response.ok;
-      })
-      .catch(function () {
-        return false;
-      });
-  }
-
-  function isOnline() {
-    return navigator.onLine !== false;
-  }
-
-  /** Drop cached tiles — exposed for a settings action, not called on its own. */
-  function clearTiles() {
-    if (!navigator.serviceWorker || !navigator.serviceWorker.controller) {
-      return Promise.resolve(false);
-    }
-    navigator.serviceWorker.controller.postMessage({ type: "CLEAR_TILES" });
-    return Promise.resolve(true);
-  }
-
-  /**
-   * Ask the browser to make storage persistent.
-   *
-   * Without this the origin's data is "best effort" and the browser may evict
-   * the whole quota — including the IndexedDB session — when the device runs
-   * low. Chrome grants it silently for installed apps; elsewhere it is a no-op
-   * or a prompt, so the result is advisory.
-   */
-  function persist() {
-    if (!navigator.storage || !navigator.storage.persist) {
-      return Promise.resolve(false);
-    }
-    return navigator.storage.persisted().then(function (already) {
-      return already || navigator.storage.persist();
-    });
-  }
-
-  return {
-    init: init,
-    isOnline: isOnline,
-    reachable: reachable,
-    applyUpdate: applyUpdate,
-    clearTiles: clearTiles,
-    persist: persist,
-    registration: function () {
-      return _registration;
-    },
-  };
+  return { init: init };
 })();
 
 window.App = App;

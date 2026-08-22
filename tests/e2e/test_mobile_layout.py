@@ -362,10 +362,6 @@ TARGETS = """(floor) => {
     document.querySelectorAll(
         "button, .tb-item, input[type=checkbox], input[type=range]"
     ).forEach((node) => {
-        // The tour's dots are 6 px marks inside a 14 px button, and say so:
-        // they are a progress readout you can also click, not a control anyone
-        // has to hit.
-        if (node.classList.contains("tour__dot")) return;
         // A checkbox is an 18 px box inside a label whose whole row toggles it,
         // so the box is not what a finger has to land on. Measure what is.
         const target = node.closest("label") || node;

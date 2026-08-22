@@ -1,43 +1,36 @@
 /**
  * demo.js — the sample territory the guided tour works on.
  *
- * Half of what this app does only exists as a dialog: the partitioner, the cut
- * tool, the merge bar, the context menu, the print view. None of them can be
- * opened without a boundary, downloaded streets and at least one territory —
- * which is exactly what a first-time visitor does not have. A tour that can
- * only describe those screens in prose is describing the half that is hardest
- * to imagine.
- *
- * So the tour borrows the app for a minute: it loads a small sample area,
- * opens the real dialogs on it, and then puts back whatever was there before.
+ * The partitioner, the cut tool, the merge bar, the context menu and the print
+ * view cannot be opened without a boundary, downloaded streets and at least
+ * one territory — which is what a first-time visitor does not have. So the
+ * tour borrows the app for a minute: it loads a small sample area, opens the
+ * real dialogs on it, and puts back whatever was there before.
  *
  * ── Why the data is invented rather than downloaded ────────────────────────
  *
- * A bundled extract of a real place would look better on the basemap, and it
- * would also be several hundred kilobytes of OpenStreetMap data shipped in the
- * app, stale from the day it was cut, and a licensing footnote nobody reads.
- * Fetching a real area instead would make the tour need Overpass, a working
- * connection and ten seconds of patience before it could say anything.
+ * A bundled extract of a real place would be several hundred kilobytes of
+ * OpenStreetMap data shipped in the app, stale from the day it was cut, and a
+ * licensing footnote. Fetching one instead would make the tour need Overpass,
+ * a connection and ten seconds of patience before it could say anything.
  *
- * The sample is therefore generated: a small grid village, laid out in meters
- * around a fixed point and projected to WGS84. Its streets are named "Sample
- * street 1" and so on, in the user's language, which is the honest way to
- * signal that none of this is real — better than a plausible-looking fake that
- * leaves someone wondering why their town has moved.
+ * The sample is generated: a small grid village laid out in meters around a
+ * fixed point and projected to WGS84. Its streets are named "Sample street 1"
+ * and so on, in the user's language, so nothing here can be mistaken for the
+ * user's own data.
  *
- * ── Why leaving is the interesting part ────────────────────────────────────
+ * ── Leaving ────────────────────────────────────────────────────────────────
  *
- * enter() is easy. leave() has to be right every single time, including when
- * the tour is abandoned with Escape halfway through, because the alternative
- * is a user whose afternoon of territory work was replaced by a demo village.
- * Two things protect it:
+ * leave() has to be right every time, including when the tour is abandoned
+ * with Escape halfway through; the alternative is an afternoon of territory
+ * work replaced by a demo village. Two things protect it:
  *
  *   • The snapshot is the app's own export payload, taken before anything is
- *     touched, and restored through the same applyPayload() that a file import
- *     uses. Nothing bespoke, nothing that can drift from the real code path.
+ *     touched, and restored through the same applyPayload() a file import
+ *     uses — nothing bespoke that could drift from the real code path.
  *   • The session store is suspended for the whole visit, so the sample never
- *     reaches IndexedDB. Even a browser crash mid-tour loses nothing: the last
- *     saved session is still the user's own.
+ *     reaches IndexedDB and a crash mid-tour still leaves the user's own last
+ *     saved session in place.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];

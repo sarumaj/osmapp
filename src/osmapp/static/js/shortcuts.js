@@ -2,17 +2,15 @@
  * shortcuts.js — the keyboard dispatcher, and the sheet that lists it.
  *
  * One registry answers every key in the app, and the help sheet is rendered
- * *from* that registry rather than written alongside it. That is the point of
- * the module: a list and a set of handlers maintained separately disagree about
- * which keys exist, and a shortcut nobody can enumerate is a shortcut nobody
- * knows.
+ * *from* that registry rather than written alongside it: a list and a set of
+ * handlers maintained separately disagree about which keys exist.
  *
  * ── Contexts ──────────────────────────────────────────────────────────────
  *
- * Deliberately shaped like App.history's scope stack, because it is the same
- * problem: what a key means depends on what you are doing. A mode pushes a
- * context when it starts and pops it when it ends, innermost wins, and the
- * global context is always at the bottom.
+ * Shaped like App.history's scope stack, because it is the same problem: what
+ * a key means depends on what you are doing. A mode pushes a context when it
+ * starts and pops it when it ends, innermost wins, and the global context is
+ * always at the bottom.
  *
  *   App.shortcuts.push({
  *     id: "cut",
@@ -24,52 +22,46 @@
  *   });
  *
  * An entry with `run` is a binding. An entry with `note: true` is a line on
- * the sheet and nothing else — for gestures (right-drag to pan) and for
- * modifier holds (Alt suspends snapping) that are not discrete keystrokes and
- * are handled where the pointer state lives. Both kinds are listed; only the
- * first kind fires.
+ * the sheet and nothing else — for gestures (right-drag to pan) and modifier
+ * holds (Alt suspends snapping) that are not discrete keystrokes and are
+ * handled where the pointer state lives. Both kinds are listed; only the
+ * first fires.
  *
  * An entry with `hold: true` is the third kind: `run` on the way down and
- * `release` on the way up, for a gesture that is only live while the key is
- * held. The vertex eraser is the case that asked for it — a pointer that
- * destroys what it touches must not be something you can leave switched on.
- * Such a gesture belongs here rather than in a private keydown listener, which
- * the context stack cannot order and the sheet cannot show.
+ * `release` on the way up, for a gesture that is live only while the key is
+ * held. It belongs here rather than in a private keydown listener, which the
+ * context stack cannot order and the sheet cannot show.
  *
- * Two guarantees the holders rely on. Auto-repeat does not re-fire `run`,
- * because a key held down is one press however many times the platform says
- * so. And `release` is called if the window loses focus with the key down —
- * Alt+Tab away mid-sweep and the keyup is delivered to somebody else, which
- * without this would leave the gesture running with nothing to end it.
+ * Two guarantees holders rely on. Auto-repeat does not re-fire `run`, because
+ * a key held down is one press however many times the platform says so. And
+ * `release` is called if the window loses focus with the key down — Alt+Tab
+ * away mid-sweep and the keyup is delivered to somebody else, which would
+ * otherwise leave the gesture running with nothing to end it.
  *
  * `when()` gates an entry that exists only some of the time — the trim tool's
- * F is locked while corners are being dragged by hand, and an entry that
- * cannot fire is greyed on the sheet rather than hidden, so the reason it is
- * unavailable is a thing you can see.
+ * F is locked while corners are being dragged by hand. An entry that cannot
+ * fire is greyed on the sheet rather than hidden, so the reason it is
+ * unavailable stays visible.
  *
  * ── Dialogs ───────────────────────────────────────────────────────────────
  *
  * A context marked `exclusive: true` is a barrier: nothing beneath it answers
- * the keyboard, and the tool the dialog opened on top of keeps its keys without
- * having to pop its own context. That is what a modal *is*, and every screen
- * that takes over should push one.
- *
- * A dialog with no context of its own falls back to the blanket rule in
- * _reach(): the tools underneath are blocked, which is right, but the dialog
- * itself has no way to register keys, which is why the barrier is preferred.
+ * the keyboard, and the tool the dialog opened on top of keeps its keys
+ * without having to pop its own context. Every screen that takes over should
+ * push one. A dialog with no context of its own falls back to the blanket
+ * rule in _reach(), which blocks the tools underneath but leaves the dialog
+ * itself no way to register keys.
  *
  * `whileTyping: true` is the exception to the exception. Nothing fires while a
  * text field has focus, which is right for every single-letter shortcut and
  * wrong for the one gesture people expect from a form: type a number, press
- * Enter. Entries that mean something *while* you are typing say so.
+ * Enter. Entries that mean something *while* typing say so.
  *
  * ── What this does not take over ──────────────────────────────────────────
  *
- * The tour and the PDF placement frame bind on the capture phase and are
- * modal in the strong sense: while either is up it owns the keyboard
- * completely, including Escape. Routing them through a registry that other
- * things can also answer would be a downgrade, so they stay where they are.
- * Text fields likewise: nothing here fires while one has focus.
+ * The tour and the PDF placement frame bind on the capture phase and own the
+ * keyboard completely while they are up, including Escape. Text fields
+ * likewise: nothing here fires while one has focus.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -543,26 +535,6 @@ App.shortcuts = (function () {
     );
   }
 
-  /** Fire a combo as though it had been typed — for tests and for the sheet. */
-  function trigger(combo) {
-    var spec = parse(combo);
-    var fake = {
-      key: spec.key,
-      ctrlKey: spec.ctrl || spec.mod,
-      metaKey: false,
-      shiftKey: spec.shift,
-      altKey: spec.alt,
-      target: null,
-      preventDefault: function () {},
-    };
-    _onKeyDown(fake);
-  }
-
-  /** The other half of a hold, for the same audience as trigger(). */
-  function triggerUp(combo) {
-    _onKeyUp({ key: parse(combo).key });
-  }
-
   // ══════════════════════════════════════════════════════════════════════
   // THE SHEET
   // ══════════════════════════════════════════════════════════════════════
@@ -733,8 +705,6 @@ App.shortcuts = (function () {
     keyCaps: keyCaps,
     hint: hint,
     snapshot: snapshot,
-    trigger: trigger,
-    triggerUp: triggerUp,
     releaseAll: releaseAll,
     isHeld: isHeld,
     openSheet: openSheet,

@@ -126,7 +126,7 @@ def _serve(template: str, z: int, x: int, y: int, max_zoom: int) -> Response:
     try:
         resp = requests.get(
             url,
-            headers=get_headers(False),
+            headers=get_headers(),
             timeout=10,
         )
         resp.raise_for_status()

@@ -224,7 +224,6 @@
     "groupSingle": "nur einzelne Gebäude",
     "follow": "Straßen folgen",
     "adjust": "Ecken von Hand anpassen",
-    "adjustHint": "Ecke ziehen zum Verschieben, Punkt auf einer Kante fügt eine hinzu, Klick auf eine Ecke entfernt sie. Die Regler sind so lange gesperrt.",
     "apply": "Übernehmen",
     "outliers": "Ausreißer",
     "clear": "Zurücksetzen",
@@ -706,7 +705,11 @@
       },
       "trim": {
         "title": "Ausnehmen, was nicht gebraucht wird",
-        "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Zwei Regler formen die neue Grenze — wie weit sie hinter den Häusern verläuft und wie stark ihre Kante begradigt wird —, zwei weitere bestimmen, was der automatische Durchgang für Sie ausnimmt: ab welcher Entfernung ein Gebäude als abgelegen gilt und wie groß die Gruppe höchstens sein darf, die er auf einmal fallen lässt. Mit „Straßen folgen“ rastet die Grenze am Straßennetz ein, statt durch Gärten zu schneiden. Grün bleibt, Rot fällt weg."
+        "body": "Klicken Sie Gebäude an, um sie auszunehmen, oder ziehen Sie mit Umschalt einen Rahmen über einen ganzen Kartenrand. Jedes bekommt eine Markierung, die Sie bei jedem Zoom anklicken können, um es zurückzuholen. Grün bleibt, Rot fällt weg."
+      },
+      "trimSliders": {
+        "title": "Was die Regler einstellen",
+        "body": "Zwei Regler formen die neue Grenze — wie weit sie hinter den Häusern verläuft und wie stark ihre Kante begradigt wird —, zwei weitere bestimmen, was der automatische Durchgang für Sie ausnimmt: ab welcher Entfernung ein Gebäude als abgelegen gilt und wie groß die Gruppe höchstens sein darf, die er auf einmal fallen lässt. Mit „Straßen folgen“ rastet die Grenze am Straßennetz ein, statt durch Gärten zu schneiden."
       },
       "trimMarks": {
         "title": "Die Markierungen zeigen, was wegfällt",
@@ -742,7 +745,11 @@
       },
       "autoheal": {
         "title": "Die ganze Liste reparieren",
-        "body": "Drei Fehler sind mechanisch genug, um sie ohne Rückfrage zu beheben, und diese Schaltfläche behebt alle auf einmal: Ein in getrennten Teilen gezeichnetes Gebiet wird zu einem Gebiet pro Teil, ein Gebiet ohne Gebäude geht in den Nachbarn über, mit dem es die längste Grenze teilt, und eine Fläche, die niemandem gehört, wird zuerst übernommen und dann nach denselben zwei Regeln beurteilt — so landet das leere Feld östlich des Dorfes im Gebiet daneben. Die ganze Reparatur ist ein einziges Rückgängig, und der Zauberstab an einer Zeile tut dasselbe nur für diese Zeile. Zurück zu dieser Liste kommt man jederzeit über die Schaltfläche „Drucken“ in der Leiste oder über die Gebietszahl im Feld unten rechts."
+        "body": "Drei Fehler sind mechanisch genug, um sie ohne Rückfrage zu beheben, und diese Schaltfläche behebt alle auf einmal: Ein in getrennten Teilen gezeichnetes Gebiet wird zu einem Gebiet pro Teil, ein Gebiet ohne Gebäude geht in den Nachbarn über, mit dem es die längste Grenze teilt, und eine Fläche, die niemandem gehört, wird zuerst übernommen und dann nach denselben zwei Regeln beurteilt — so landet das leere Feld östlich des Dorfes im Gebiet daneben."
+      },
+      "autohealScope": {
+        "title": "Ein Rückgängig, oder eine Zeile",
+        "body": "Die ganze Reparatur ist ein einziges Rückgängig, und der Zauberstab an einer Zeile tut dasselbe nur für diese Zeile. Zurück zu dieser Liste kommt man jederzeit über die Schaltfläche „Drucken“ in der Leiste oder über die Gebietszahl im Feld unten rechts."
       }
     }
   },

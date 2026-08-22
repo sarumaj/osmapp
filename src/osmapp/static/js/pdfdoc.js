@@ -881,7 +881,6 @@ App.pdfdoc = (function () {
   }
 
   return {
-    ensure: ensure,
     inspectTemplate: inspectTemplate,
     renderPage: renderPage,
     compose: compose,
