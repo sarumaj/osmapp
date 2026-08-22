@@ -39,6 +39,12 @@
  *     button, the next shows what it opened, and that second step keeps a
  *     quieter ring on the button (`origin`) so the two stay visibly joined.
  *
+ *   • A screen with more to say than one card holds is two steps rather than
+ *     a longer card. The card is capped so that what it describes stays
+ *     visible around it, and the second step on a screen is placed on the
+ *     side the first one was not — what one card hid, the other one shows.
+ *     See _placeBubble and _sameSubject.
+ *
  *   • The steps are data. STEPS below is the only place the sequence exists;
  *     tests read it to check that every key it names is in the dictionary.
  *
@@ -80,6 +86,12 @@ App.tour = (function () {
   // frame handle of the watcher that compares the two. See _watchTarget.
   var _drawnAt = null;
   var _watching = 0;
+  // Where the card is sitting, and where it sat for the step before this one.
+  // The second is what lets two steps on one screen take opposite sides of it;
+  // it is captured on the way out of a step rather than on every placement, so
+  // that a card repositioned inside its own step has nothing to run from.
+  var _placed = null;
+  var _before = null;
 
   // ══════════════════════════════════════════════════════════════════════
   // CONTENT
@@ -662,6 +674,8 @@ App.tour = (function () {
     _steps = [];
     _index = 0;
     _entered = -1;
+    _placed = null;
+    _before = null;
   }
 
   /**
@@ -742,6 +756,7 @@ App.tour = (function () {
    * direction we were already travelling, rather than stalling there.
    */
   function _show(index, dir) {
+    if (_entered >= 0 && _placed) _before = { step: _steps[_entered], at: _placed };
     _exitStep();
     dir = dir || 1;
 
@@ -1159,10 +1174,14 @@ App.tour = (function () {
    * What decides between the candidates is how much of the spotlight each one
    * covers, and the first that covers none of it wins — so the order above is
    * still the preference, and the arithmetic only settles the cases where the
-   * preference cannot be had. Those are the cases a phone is made of: a step
-   * whose target is the toolbar panel, the trim bar or a dialog has a target
-   * as wide as the screen and often half as tall, no side of it has room for a
-   * 360 px card, and every side therefore fails. Centring the card there puts
+   * preference cannot be had. Where the step before this one was about the
+   * same screen, distance from that card sorts the candidates the spotlight
+   * cannot tell apart; see _choose.
+   *
+   * The cases where no side works are the ones a phone is made of: a step whose
+   * target is the toolbar panel, the trim bar or a dialog has a target as wide
+   * as the screen and often half as tall, no side of it has room for a 360 px
+   * card, and every side therefore fails. Centring the card there puts
    * it exactly on top of the one thing the step exists to point at.
    *
    * The four edge bands are the fallbacks, because a target that fills the
@@ -1181,7 +1200,7 @@ App.tour = (function () {
 
     if (!rect) {
       // Nothing to point at, and so nothing to keep clear of.
-      _moveBubble(_dock(step.dock || "centre", box, vw, vh));
+      _moveBubble(_dock(step.dock || "centre", box, vw, vh), box);
       return;
     }
 
@@ -1210,25 +1229,81 @@ App.tour = (function () {
       bottom: rect.bottom + PAD,
     };
 
-    var best = tries[0];
-    var least = Infinity;
-    for (var j = 0; j < tries.length; j++) {
-      var hidden = _covered(tries[j], box, spot);
-      if (hidden === 0) {
-        best = tries[j];
-        break;
-      }
-      if (hidden < least) {
-        least = hidden;
-        best = tries[j];
-      }
-    }
-    _moveBubble(best);
+    // `was` is the card the step before this one was read from, when that step
+    // was about the same screen. See _sameSubject.
+    _moveBubble(
+      _choose(
+        tries,
+        box,
+        spot,
+        _sameSubject(step, _before && _before.step) ? _before.at : null,
+      ),
+      box,
+    );
   }
 
-  function _moveBubble(at) {
+  /**
+   * The candidate that hides least of the spotlight, and then least of `was`.
+   *
+   * Covering the subject is what decides: it is the thing the step exists to
+   * point at, and it is never traded for anything. `was` only sorts the
+   * positions that hide it equally — usually the several that hide none of it
+   * at all, where the placer would otherwise take the same one twice running
+   * and cover the same half of a screen both times.
+   *
+   * @param {Array<{left:number, top:number}>} tries in order of preference
+   * @param {{width:number, height:number}} box the card
+   * @param {{left:number, top:number, right:number, bottom:number}} spot
+   * @param {?{left:number, top:number, right:number, bottom:number}} was
+   */
+  function _choose(tries, box, spot, was) {
+    var best = tries[0];
+    var least = Infinity;
+    var again = Infinity;
+    for (var i = 0; i < tries.length; i++) {
+      var hidden = _covered(tries[i], box, spot);
+      var repeated = was ? _covered(tries[i], box, was) : 0;
+      // Strictly less, so the order the candidates were built in still breaks
+      // a tie: the step's own preferred side before the fallbacks.
+      if (hidden < least || (hidden === least && repeated < again)) {
+        best = tries[i];
+        least = hidden;
+        again = repeated;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Two steps in a row about one screen.
+   *
+   * A screen with more in it than a card can hold is two steps, and both of
+   * them describe things the reader has to be able to see. Left to itself the
+   * placer answers both the same way — the inputs are the same — so the half
+   * of the screen the first card covered is the half the second one covers,
+   * and that half is never read. The pair is worth detecting because the
+   * remedy is free: the second card takes the side the first one did not, and
+   * between them the whole screen has been visible.
+   *
+   * Same target is the split step. Same origin is the looser case of one
+   * dialog explained by several steps, where the ring moves from the screen to
+   * a control inside it but the screen behind the card has not changed.
+   */
+  function _sameSubject(step, before) {
+    if (!step || !before) return false;
+    if (step.target && step.target === before.target) return true;
+    return !!(step.origin && step.origin === before.origin);
+  }
+
+  function _moveBubble(at, box) {
     _bubble.style.left = Math.round(at.left) + "px";
     _bubble.style.top = Math.round(at.top) + "px";
+    _placed = {
+      left: at.left,
+      top: at.top,
+      right: at.left + box.width,
+      bottom: at.top + box.height,
+    };
   }
 
   /**
@@ -1329,6 +1404,8 @@ App.tour = (function () {
     },
     titleKey: _titleKey,
     bodyKey: _bodyKey,
+    chooseSpot: _choose,
+    sameSubject: _sameSubject,
   };
 })();
 

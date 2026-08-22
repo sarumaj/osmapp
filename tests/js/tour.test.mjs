@@ -278,6 +278,78 @@ test("offline drops no step, the print chain included", () => {
   assert.deepStrictEqual(unavailable, []);
 });
 
+// ── Placement ────────────────────────────────────────────────────────────────
+
+test("a screen too big for one card is described by two adjacent steps", () => {
+  // The pair only works while it is a pair. Reordering either half, or
+  // dropping the target they share, costs nothing that any other test notices
+  // — the tour still runs, and the second card simply lands where the first
+  // one did, over the half of the screen it had already hidden.
+  const tour = load();
+  const steps = tour.steps();
+  for (const [first, second] of [
+    ["trim", "trimSliders"],
+    ["autoheal", "autohealScope"],
+  ]) {
+    const at = steps.findIndex((step) => step.id === first);
+    assert.notEqual(at, -1, `${first} is gone`);
+    assert.equal(steps[at + 1] && steps[at + 1].id, second, `${second} moved`);
+    assert.ok(
+      tour.sameSubject(steps[at + 1], steps[at]),
+      `${second} no longer continues ${first}`,
+    );
+  }
+});
+
+test("a step continues the one before it when the screen has not changed", () => {
+  const tour = load();
+  assert.equal(tour.sameSubject({ target: ".a" }, { target: ".a" }), true);
+  // The ring moved to a control inside the dialog; the dialog behind the card
+  // is the same one.
+  assert.equal(
+    tour.sameSubject({ target: ".b", origin: ".x" }, { target: ".a", origin: ".x" }),
+    true,
+  );
+  assert.equal(tour.sameSubject({ target: ".a" }, { target: ".b" }), false);
+  assert.equal(tour.sameSubject({ target: ".a" }, null), false);
+});
+
+test("the second card on one screen takes the side the first did not", () => {
+  const tour = load();
+  const box = { width: 300, height: 200 };
+  const spot = { left: 0, top: 300, right: 400, bottom: 360 };
+  const above = { left: 20, top: 40 };
+  const below = { left: 20, top: 400 };
+  const asDrawn = (at) => ({
+    left: at.left,
+    top: at.top,
+    right: at.left + box.width,
+    bottom: at.top + box.height,
+  });
+
+  // Neither hides the spotlight, so with nothing to run from the preferred
+  // candidate wins — which is the behavior every step that stands alone has.
+  assert.deepStrictEqual(tour.chooseSpot([above, below], box, spot, null), above);
+  assert.deepStrictEqual(
+    tour.chooseSpot([above, below], box, spot, asDrawn(above)),
+    below,
+  );
+});
+
+test("moving off the last card never puts one over the subject", () => {
+  // The whole point of the placer is that the thing being pointed at stays
+  // visible. Showing the reader the other half of a dialog is worth having,
+  // and it is not worth that.
+  const tour = load();
+  const box = { width: 300, height: 200 };
+  const spot = { left: 0, top: 300, right: 400, bottom: 360 };
+  const clear = { left: 20, top: 40 };
+  const across = { left: 20, top: 250 };
+  const asDrawn = { left: 20, top: 40, right: 320, bottom: 240 };
+
+  assert.deepStrictEqual(tour.chooseSpot([clear, across], box, spot, asDrawn), clear);
+});
+
 // ── Suppression ──────────────────────────────────────────────────────────────
 
 test("the tour opens by itself until it has been seen", () => {
