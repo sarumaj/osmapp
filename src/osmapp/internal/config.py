@@ -7,7 +7,7 @@ from typing import TypedDict
 
 # ── Paths ──────────────────────────────────────────────────────────────────────
 
-SCRIPT_DIR = Path(__file__).resolve().parent.parent  # project root
+SCRIPT_DIR = Path(__file__).resolve().parent.parent  # the osmapp package
 TEMPLATE_DIR = SCRIPT_DIR / "templates"
 STATIC_DIR = SCRIPT_DIR / "static"
 I18N_DIR = STATIC_DIR / "lang"
@@ -126,8 +126,7 @@ BOUNDARY_MAX_THRESHOLD = 0.01
 
 # ── Request body limit ─────────────────────────────────────────────────────────
 #
-# Nothing is uploaded any more — template PDFs stopped crossing the wire when
-# composition moved into the browser. What is left are the GeoJSON polygons the
-# fetch routes take, and this is the ceiling on those.
+# The only bodies the app accepts are the GeoJSON polygons the fetch routes
+# take; template PDFs are composed in the browser and never cross the wire.
 
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024

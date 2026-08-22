@@ -636,7 +636,6 @@ App.coverage = (function () {
     collapse: collapse,
     lngScale: lngScale,
     M_PER_DEG_LAT: M_PER_DEG_LAT,
-    M_PER_DEG_LNG: M_PER_DEG_LNG,
   };
 })();
 

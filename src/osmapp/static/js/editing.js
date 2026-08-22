@@ -1770,17 +1770,9 @@ App.editing = (function () {
     toggleEditMode: toggleEditMode,
     toggleMergeMode: toggleMergeMode,
     startMergeWith: startMergeWith,
-    canMerge: canMerge,
-    undoPoint: undoPoint,
-    redoPoint: redoPoint,
-    deselectLast: deselectLast,
-    reselectLast: reselectLast,
     handleClusterSelectClick: handleClusterSelectClick,
     handleModeContextMenu: handleModeContextMenu,
-    mergeSelectedClusters: mergeSelectedClusters,
     selectClusters: selectClusters,
-    deleteSelectedClusters: deleteSelectedClusters,
-    rebuildSnapIndex: rebuildSnapIndex,
   };
 })();
 

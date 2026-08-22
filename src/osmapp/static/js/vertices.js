@@ -1,58 +1,49 @@
 /**
  * vertices.js — the corner handles, and the one gesture that removes them fast.
  *
- * ── Why this is its own module ────────────────────────────────────────────
- *
- * Three places in the app hand a ring to Leaflet.Editable and let somebody
- * drag it about: the boundary drawer in main.js, the outline editor, and the
- * trim tool's hand-adjust latch. All three inherit the library's defaults, and
- * the defaults are the same two problems in each of them — so the fix belongs
- * once, here, rather than three times in modules that are otherwise about
- * quite different things.
+ * Three places hand a ring to Leaflet.Editable and let it be dragged about:
+ * the boundary drawer in main.js, the outline editor, and the trim tool's
+ * hand-adjust latch. All three inherit the library's defaults, and the
+ * defaults carry the same two problems in each, so the fix lives here once.
  *
  * ── Problem one: an eight-pixel target ────────────────────────────────────
  *
- * L.Editable.VertexIcon is 8 × 8 CSS pixels on a pointer device, which is
- * well below what is comfortable on a trackpad, where the last two pixels of a
- * movement are not really under anybody's control. Missing it does not do
- * nothing, either: the click lands on the polygon underneath, which in the
- * outline editor is the boundary and in trim mode is a building that then
- * toggles.
+ * L.Editable.VertexIcon is 8 × 8 CSS pixels, well below what is comfortable on
+ * a trackpad. Missing it is not harmless either: the click lands on the
+ * polygon underneath, which is the boundary in the outline editor and a
+ * building that then toggles in trim mode.
  *
- * So the handle is drawn bigger — state.VERTEX_SIZE_PX, applied to the
- * library's prototype by install() below — and made bigger still than it is
- * drawn. The extra reach is a transparent pseudo-element in the stylesheet
- * rather than more icon, because the icon size is also what the eye sees: a
- * 26-pixel dot on every corner of a hand-traced boundary is a shape you can no
- * longer see for the handles.
+ * The handle is drawn at state.VERTEX_SIZE_PX, applied to the library's
+ * prototype by install() below, and given more reach still through a
+ * transparent pseudo-element in the stylesheet. The reach is separate from
+ * the icon because icon size is also what the eye sees: a 26-pixel dot on
+ * every corner of a hand-traced boundary hides the shape being traced.
  *
- * Middle markers — the half-handles that add a corner — get the same box and
- * a smaller dot inside it. They are the ones that sit *on* the line, so a big
- * opaque circle there hides the very edge being adjusted.
+ * Middle markers — the half-handles that add a corner — get the same box with
+ * a smaller dot inside it. They sit *on* the line, where an opaque circle
+ * would hide the edge being adjusted.
  *
  * ── Problem two: deleting corners one at a time ───────────────────────────
  *
- * A traced boundary arrives with a lot of corners. Straightening a stretch of
- * it by hand means removing a run of twenty, and the library's gesture for
- * that is a click per corner, each of which is a separate aim at the small
- * target above and each of which reflows the middle markers underneath the
+ * Straightening a stretch of a traced boundary means removing a run of twenty
+ * corners, and the library's gesture is a click per corner — each a separate
+ * aim at the small target above, each reflowing the middle markers under the
  * cursor before the next one.
  *
- * The eraser is the bulk answer: hold the key and sweep. Anything the ring
- * passes over goes. Held rather than latched on purpose — a mode where the
- * pointer destroys what it touches is not a mode anybody should be able to
- * leave switched on by accident, and a key that has to stay down cannot be.
+ * The eraser is the bulk answer: hold the key and sweep, and anything the ring
+ * passes over goes. Held rather than latched, because a mode where the pointer
+ * destroys what it touches must not be one that can be left switched on by
+ * accident, and a key that has to stay down cannot be.
  *
  * Two rules keep it honest:
  *
  *   • It never takes the last three corners. That is PolygonEditor's own
  *     MIN_VERTEX of 3, asked through `vertexCanBeDeleted` rather than
- *     reimplemented here, so a sweep across a triangle stops rather than
- *     leaving a line.
+ *     reimplemented, so a sweep across a triangle stops rather than leaving
+ *     a line.
  *   • A stroke is one undo step. The host suspends its per-vertex bookkeeping
- *     while the key is down and records once on release — twenty separate
- *     steps to take back one gesture is an undo stack that describes the
- *     implementation instead of the work.
+ *     while the key is down and records once on release, so the undo stack
+ *     describes the gesture rather than the implementation.
  *
  * While the key is down the map does not pan and the handles stop taking
  * pointer events, so the sweep cannot turn into a drag of the corner it was

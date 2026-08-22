@@ -1,42 +1,35 @@
 /**
  * controls.js — the toolbar, the language picker and resetAll().
  *
- * The toolbar used to be a dozen separate L.Control instances, each rendering
- * its own one-button leaflet-bar. That is where the "which icon does what?"
- * problem came from: twelve identical grey squares in a column, distinguished
- * only by a glyph and a tooltip nobody hovers long enough to read. It is now a
- * single panel built from GROUPS below, where each group is a titled section
- * with labelled buttons, and the collapse toggle trades the labels back for
- * screen space when the map matters more than the chrome.
- *
- * Availability is declarative. Every button may carry:
+ * The toolbar is one panel built from GROUPS below, each group a titled
+ * section with labelled buttons; the collapse toggle trades the labels back
+ * for screen space. Availability is declarative — every button may carry:
  *
  *   enabled()   — false disables the button rather than hiding it, so the
  *                 action stays discoverable and the tooltip explains what is
- *                 missing. This is why Export is always on screen: a button
- *                 that vanishes teaches nothing, a greyed one with
- *                 "Draw or search for an outer boundary first" does.
+ *                 missing. Export is always on screen for this reason: a
+ *                 greyed button reading "Draw or search for an outer boundary
+ *                 first" teaches what a vanished one does not.
  *   active()    — toggle state, for the modal cut and merge tools.
  *   titleFn()   — a tooltip that has to be recomputed (undo/redo depth).
- *   shortcut    — the key that does the same thing, drawn into the tooltip
- *                 the way undo and redo have always carried theirs. Named
- *                 `shortcut` rather than `key` because a group already has a
- *                 `key` and the two would read as the same field. The binding
- *                 itself is registered in _registerKeys() below, and a test
- *                 pins the two lists to each other.
+ *   shortcut    — the key that does the same thing, drawn into the tooltip.
+ *                 Named `shortcut` rather than `key` because a group already
+ *                 has a `key`. The binding itself is registered in
+ *                 _registerKeys() below, and a test pins the two lists to
+ *                 each other.
  *
- * refresh() re-evaluates all three for every button and is called from the few
- * places that change the answers: a fetch, a cluster change, a history push, a
- * mode toggle, a reset. Modules no longer reach into the DOM for a button —
- * setActive() and refresh() are the seam.
+ * refresh() re-evaluates all three for every button, and is called from the
+ * few places that change the answers: a fetch, a cluster change, a history
+ * push, a mode toggle, a reset. setActive() and refresh() are the seam other
+ * modules use; none of them reaches into the DOM for a button.
  *
- * Translation notes:
+ * Translation:
  *   • Labels and static tooltips carry data-i18n / data-i18n-attrs, so
  *     App.i18n.apply(document.body) refreshes them on a language change.
  *   • Computed titles — an undo depth, a disabled reason, "Show or hide
  *     Streets" — do not survive an App.i18n.apply() pass, so refresh() is
  *     registered as an i18n listener and rebuilds them. With URL routing a
- *     language change is a page load, so this only matters for an in-place
+ *     language change is a page load, so this matters only for an in-place
  *     switch.
  */
 var App = window.App || {};
@@ -310,9 +303,9 @@ App.controls = (function () {
       buttons: [
         // The zoom pair heads the line: it is the switch used most often and
         // the only one here that is a plain action rather than a state. It
-        // replaces Leaflet's own zoom control, which main.js no longer adds —
-        // two unlabelled squares in this same corner, styled by leaflet.css
-        // and by nothing in this app.
+        // stands in for Leaflet's own zoom control, which main.js suppresses
+        // with zoomControl: false — two unlabelled squares in this same
+        // corner, styled by leaflet.css and by nothing in this app.
         //
         // Disabled at the ends of the scale rather than silently doing
         // nothing, which is the whole reason a button gets an enabled()
@@ -1100,8 +1093,8 @@ App.controls = (function () {
     _confirmReplaceOuter().then(function (answer) {
       if (answer === "alt") {
         // "I clicked the polygon tool because I want to change the polygon"
-        // is at least as likely a reading as "…because I want a new one", and
-        // the old dialog offered only the destructive half of it.
+        // is at least as likely a reading as "…because I want a new one", so
+        // the dialog offers both rather than only the destructive half.
         App.outline.toggle();
         return;
       }
@@ -1368,7 +1361,6 @@ App.controls = (function () {
     clearAll: clearAll,
     setCollapsed: setCollapsed,
     isCollapsed: isCollapsed,
-    resetAll: resetAll,
   };
 })();
 

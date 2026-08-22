@@ -618,19 +618,15 @@ body {
 
    ── The stack ────────────────────────────────────────────────────────────
 
-   Anchoring each bar itself — bottom: 76px on the bar, bottom: 30px on the
-   banner, 76 chosen because a one-line banner is 46px tall — fails in two ways.
-   An offset repeated on four bars is an offset missed on one of them, which puts
-   that bar under the banner. And the constant is only right while the banner is
-   one line: cut's names six gestures and wraps to two or three on a narrow
-   window, growing straight
-   up through the gap and into the bar above it.
+   Neither the bar nor the banner positions itself. The stack is the only
+   thing anchored to the bottom edge; the two are flex items in it, in that
+   order, separated by a gap property.
 
-   So neither one positions itself now. The stack is the only thing anchored
-   to the bottom edge; the bar and the banner are flex items in it, in that
-   order, and the gap between them is a gap property rather than a subtraction
-   somebody has to redo whenever a string gets longer. Nothing to keep in sync
-   and nothing that assumes a line count.
+   Anchoring each one instead — an offset on the bar clearing the banner's
+   height — fails twice over. An offset repeated on four bars is an offset
+   missed on one of them, which puts that bar under the banner; and the
+   constant only holds while the banner is one line, where cut's names six
+   gestures and wraps to three on a narrow window.
    ═══════════════════════════════════════════════════════════ */
 .map-bottom-stack {
   position: absolute;
@@ -1700,8 +1696,8 @@ body {
     width: 48px;
     height: 48px;
     padding: 0;
-    /* The panel's own scroll, from a max-height meant for a list of groups.
-       There is no list now, and a 44 px box has nothing to scroll. */
+    /* The panel's max-height is meant for a list of groups; collapsed there
+       is no list, and a 44 px box has nothing to scroll. */
     overflow: visible;
   }
 
@@ -1709,8 +1705,8 @@ body {
     display: none;
   }
 
-  /* Positioned in the corner of a panel it no longer has one of: the button is
-     the panel now, so it fills it rather than floating in it. */
+  /* Collapsed, the button *is* the panel, so it fills it rather than
+     floating in a corner of it. */
   .tb-panel.is-collapsed .tb-panel__collapse {
     position: static;
     width: 100%;
@@ -2786,14 +2782,11 @@ body {
   cursor: none;
 }
 
-/* `_setBusy` has been toggling this class since the PDF path landed, and
-   nothing was listening: composing a card takes seconds — awaiting tiles,
-   encoding a PNG, a round trip to /compose_pdf — and the preview stayed fully
-   lit and fully interactive the whole time. Panning during it does nothing to
-   the output, so it reads as the app ignoring you.
-
-   Dimmed and inert says wait, and the status pill stays at full strength on
-   top because it is the part that explains why. */
+/* Composing a card takes seconds — awaiting tiles, encoding a PNG — and
+   panning during it does nothing to the output, so a preview left fully lit
+   and interactive reads as the app ignoring the pointer. Dimmed and inert
+   says wait; the status pill stays at full strength on top, because it is the
+   part that explains why. */
 .print-preview.is-busy canvas {
   opacity: 0.55;
   filter: saturate(0.6);

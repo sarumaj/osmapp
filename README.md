@@ -2,25 +2,11 @@
 
 [Deutsch](#deutsch) · [Polski](#polski) · [Français](#français)
 
-|                                       |
-|:-------------------------------------:|
-| ![Screenshot 1](img/screenshot_1.png) |
-|          Territory clusters           |
-
-|                                       |
-|:-------------------------------------:|
-| ![Screenshot 2](img/screenshot_2.png) |
-|        Printing territory card        |
-
-|                                       |
-|:-------------------------------------:|
-| ![Screenshot 3](img/screenshot_3.png) |
-|          Using card template          |
-
-|                                       |
-|:-------------------------------------:|
-| ![Screenshot 4](img/screenshot_4.png) |
-|  Using search to draw territory area  |
+|               Territory clusters               |                   Printing a territory card                   |
+|:----------------------------------------------:|:-------------------------------------------------------------:|
+|  ![Territory clusters](img/screenshot_1.png)   |      ![Printing a territory card](img/screenshot_2.png)       |
+|           **Using a card template**            |           **Searching to draw the territory area**            |
+| ![Using a card template](img/screenshot_3.png) | ![Searching to draw the territory area](img/screenshot_4.png) |
 
 **Split a map area into walkable territories, then print each one as a PDF card.**
 
@@ -92,7 +78,7 @@ this is only needed for a bump made by hand. The script wipes `static/vendor/`
 before it writes, so a package dropped from `vendorConfig` leaves nothing
 behind. Paths under `static/vendor/` deliberately omit the version segment the
 CDN URLs carry, which is why a bump does not touch the `<script>` tags or
-`window.VENDOR` in `templates/index.html`.
+`window.VENDOR` in `templates/index.html.j2`.
 
 Each `src` in `vendorConfig` is one exact path with no fallback, and the run
 ends by reading every `vendor/...` URL out of `templates/` and requiring it to
@@ -175,14 +161,11 @@ reason, when `pytest-playwright` or the browser is missing**, so a plain
 `pytest` still runs everything else. `--browser firefox` and `--browser webkit`
 work the same way if a bug looks engine-shaped.
 
-`.github/workflows/ci.yml` runs all three suites on every push/PR; the Heroku
-deploy job requires all three to pass. Each emits JUnit XML in CI —
-`--junitxml` for pytest, Node's built-in `junit` reporter alongside `spec` so
-the log stays readable — and a check run turns that into a summary and inline
-annotations on the failing test. Publishing is best-effort: a fork PR has a
-read-only token and gets the log instead. A failed browser run also uploads its
-Playwright traces, which replay the DOM, console and network of the run that
-failed.
+`.github/workflows/ci.yml` runs all three suites on every push/PR, and the
+Heroku deploy job requires all three to pass. Each emits JUnit XML that a check
+run turns into a summary with inline annotations; a fork PR has a read-only
+token and gets the log instead. A failed browser run uploads its Playwright
+traces, which replay the DOM, console and network of the run that failed.
 
 ### Releasing
 
@@ -252,8 +235,8 @@ reasonable — the cache infrastructure is already there.
 
 ```text
 src/osmapp/internal/*.py    Flask: Overpass proxy, geocoding, tiles, PWA manifest
-templates/index.html        Page shell + UI markup as <template> elements
-templates/sw.js             Service worker, rendered by internal/pwa.py
+templates/index.html.j2     Page shell + UI markup as <template> elements
+templates/sw.js.j2          Service worker, rendered by internal/pwa.py
 static/css/style.css        All styling; design tokens at top
 static/lang/{en,pl,de,fr}.json
 static/js/                  One IIFE module per file, namespaced under window.App
@@ -261,7 +244,6 @@ static/fonts/               DejaVuSans, embedded into cards by pdfdoc.js
 static/icons/               PWA icons (SVG + generated PNGs)
 static/vendor/              Leaflet, Turf, pdf-lib, pdf.js — no CDN at runtime
 scripts/copy-vendor.js      Populates static/vendor/ from node_modules
-scripts/comment_gate.py     Proves an edit touched only comments
 tests/                      pytest (server), node --test (client)
 tests/e2e/                  pytest + Playwright (the page in a browser)
 ```
@@ -269,7 +251,7 @@ tests/e2e/                  pytest + Playwright (the page in a browser)
 ### Modules
 
 No bundler, no imports — just `<script>` tags and a shared `window.App`. Load
-order is fixed in `index.html` and asserted by a test (a file in `static/js/`
+order is fixed in `index.html.j2` and asserted by a test (a file in `static/js/`
 not in the list is precached, shipped, and never runs).
 
 | Module          | Responsibility                                                 |
@@ -298,6 +280,8 @@ not in the list is precached, shipped, and never runs).
 | `trim`          | Shrink outer boundary onto buildings that matter               |
 | `outline`       | Reshape outer boundary after it's been set                     |
 | `gaps`          | Parts of the area belonging to no territory                    |
+| `footprints`    | Boundaries drawn through buildings, moved onto the wall        |
+| `autoheal`      | Repairing the faults the territory list can name               |
 | `print-filters` | Basemap filters for the print preview                          |
 | `print`         | Canvas map rendering, framing, eraser, card layout             |
 | `boundary`      | Turn a geocoder hit into the outer polygon                     |
@@ -371,8 +355,8 @@ to used glyphs — the standard 14 fonts lack `ł ą ę ś ż ź ć ń`).
    printed sheet is a restore point. This is why `.pdf` is in the import dialog's
    accept list.
 
-No server needed for any of this. The old `/compose_pdf` endpoints are gone — a
-template file never leaves the machine it was opened on.
+No server needed for any of this: a template file never leaves the machine it
+was opened on.
 
 ---
 

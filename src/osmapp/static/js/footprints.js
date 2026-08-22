@@ -2,61 +2,53 @@
  * footprints.js — boundaries drawn through buildings, and putting them back
  * on the wall.
  *
- * A territory boundary is meant to be something you can stand on: a street, a
- * railway, a river, the edge of a block. clustering.js routes every Voronoi
- * edge along the street network for exactly that reason. But the routing does
- * not always find a street — no way is snapped within ROUTE_SNAP_MAX_M, A*
- * gives up on the iteration cap, the two endpoints are on different components
- * of the graph — and when it does not, the edge stays the straight line the
- * Voronoi diagram drew. A straight line across a block goes through whatever
- * is standing there, and what is standing there is houses.
+ * clustering.js routes every Voronoi edge along the street network so that a
+ * territory boundary is something you can stand on. The routing does not
+ * always find one — no way snapped within ROUTE_SNAP_MAX_M, A* stopped on the
+ * iteration cap, the endpoints on different components of the graph — and the
+ * edge then stays the straight line the Voronoi diagram drew, across whatever
+ * is standing there.
  *
- * The result is a house that belongs to two territories. Nobody can walk it:
- * two cards are printed, both show the same building, and the two people
- * holding them each assume the other half is somebody else's. It survives
- * every check the app already makes — the territories are connected, they
- * cover everything, they have buildings in them — because none of those
- * questions is about the building.
+ * A house split between two territories survives every check the app already
+ * makes: the territories are connected, they cover everything, they have
+ * buildings in them. None of those questions is about the building. Two cards
+ * get printed showing the same roof, and each of the two people holding one
+ * assumes the other half is somebody else's.
  *
- * This module asks that question, and answers it the only way that keeps the
- * ground where it is: the building goes, whole, to one of the territories
- * already holding a piece of it, and the boundary moves onto the building's
- * own outline. Not near it, not a fixed distance from it — *on* it, which is
- * why the plain union is tried before the healed one below. Where the line
- * used to cut across a kitchen it now runs along the wall, and the wall is a
- * thing you can stand next to and point at.
+ * The repair gives the building whole to one of the territories already
+ * holding a piece of it and moves the boundary onto the building's own
+ * outline — on it rather than near it, which is why the plain union is tried
+ * before the healed one below. Which territory is a preference rather than a
+ * rule: the one holding most of it, unless that would break the territory on
+ * the other side. See _resolve.
  *
- * Which territory is a preference rather than a rule — the one holding most of
- * it, unless that would break the territory on the other side. See _resolve.
- *
- * A footprint here means the building's outline, courtyards filled in: a
- * boundary through a light well is no more walkable than one through a wall.
- * See _filled.
+ * A footprint here means the building's outline with courtyards filled in,
+ * since a boundary through a light well is no more walkable than one through
+ * a wall. See _filled.
  *
  * ── What counts as crossed ────────────────────────────────────────────────
  *
- * Two territories claiming a piece of the same footprint. Both pieces have to
- * be worth arguing about: a boundary that clips a corner by a hand's breadth
- * is a rounding artefact of the unions that built the territory, not a
- * decision anybody made, and repairing it would rewrite half the map to no
- * visible effect. So a slice counts only when it is at least MIN_SLICE_M2 and
- * at least MIN_SLICE_FRACTION of the building — a metre of a garage and a
- * fiftieth of a warehouse both qualify, a graze does neither.
+ * Two territories claiming a piece of the same footprint, where both pieces
+ * are worth arguing about. A boundary that clips a corner by a hand's breadth
+ * is a rounding artefact of the unions that built the territory, and repairing
+ * it would rewrite half the map to no visible effect. A slice therefore counts
+ * only at MIN_SLICE_M2 or more *and* MIN_SLICE_FRACTION or more of the
+ * building: a metre of a garage and a fiftieth of a warehouse both qualify, a
+ * graze does neither.
  *
  * ── Finding them without testing everything ───────────────────────────────
  *
- * The honest test is an intersection per building per territory, and on a
- * city download that is five thousand buildings against fifty territories.
- * turf's clipper is not fast enough for that to happen while somebody waits.
+ * The direct test is an intersection per building per territory, which on a
+ * city download is five thousand buildings against fifty territories — more
+ * than turf's clipper can do while somebody waits.
  *
- * But a boundary can only cut a building by crossing one of its walls, and
- * that is a question about two line segments. So the buildings are binned by
- * cell, every territory ring is walked once, and each of its segments is
- * tested against the walls of the buildings in the cells it passes through.
- * What comes out is the handful of footprints a line actually goes through,
- * and only those are worth an intersection. The join is exact — a segment is
- * stamped into every cell its own bounding box spans — so nothing is missed
- * by making the cells bigger or smaller, only made slower.
+ * A boundary can only cut a building by crossing one of its walls, which is a
+ * question about two line segments. So the buildings are binned by cell,
+ * every territory ring is walked once, and each of its segments is tested
+ * against the walls of the buildings in the cells it passes through. Only the
+ * handful of footprints a line actually goes through are worth an
+ * intersection. The join is exact — a segment is stamped into every cell its
+ * own bounding box spans — so cell size trades speed only, never correctness.
  *
  * The intersections that remain are cut down before they are made: a whole
  * territory clipped against one house costs the territory's whole ring, and
@@ -121,15 +113,6 @@ App.footprints = (function () {
   // ══════════════════════════════════════════════════════════════════════
   // THE BUILDINGS
   // ══════════════════════════════════════════════════════════════════════
-
-  /** turf.bbox, or null for geometry it refuses. */
-  function _bbox(feature) {
-    try {
-      return turf.bbox(feature);
-    } catch (e) {
-      return null;
-    }
-  }
 
   /**
    * A footprint with its courtyards filled in.
@@ -215,7 +198,7 @@ App.footprints = (function () {
       var solid = _filled(G.feat(f));
       var rings = _rings(solid);
       if (rings.length === 0) return;
-      var box = _bbox(solid);
+      var box = G.bbox(solid);
       if (!box) return;
       var area = G.area(solid);
       if (area <= 0) return;
@@ -539,7 +522,7 @@ App.footprints = (function () {
     if (prepared.records.length === 0) return [];
 
     var boxes = features.map(function (f) {
-      return f ? _bbox(f) : null;
+      return f ? G.bbox(f) : null;
     });
 
     // Only the named territories' rings are walked. A crossing is a boundary
@@ -683,27 +666,6 @@ App.footprints = (function () {
       : null;
   }
 
-  /** How much ground two shapes already have in common, in square meters. */
-  function _sharedArea(a, b) {
-    try {
-      var shared = G.intersect(a, b);
-      return shared ? G.area(shared) : 0;
-    } catch (e) {
-      // Unmeasurable, so assume none: the union is then held to the stricter
-      // of the two thresholds, which refuses rather than loses ground.
-      return 0;
-    }
-  }
-
-  /** The same shape on a one-centimeter grid. See _onto. */
-  function _quantize(feature) {
-    try {
-      return turf.truncate(feature, { precision: 7, mutate: false });
-    } catch (e) {
-      return feature;
-    }
-  }
-
   /**
    * The owner with the footprint folded into it, or null.
    *
@@ -752,7 +714,7 @@ App.footprints = (function () {
       return G.union(host, building);
     });
     _fold(candidates, function () {
-      return G.union(_quantize(host), _quantize(building));
+      return G.union(G.quantize(host), G.quantize(building));
     });
     _fold(candidates, function () {
       return G.unionHealed([host, building], TOUCH_SLACK_M);
@@ -893,7 +855,7 @@ App.footprints = (function () {
         // overlap each other and the sum needs no union to be honest.
         gain += Math.max(
           0,
-          G.area(loss) - _sharedArea(features[owner.index], loss),
+          G.area(loss) - G.sharedArea(features[owner.index], loss),
         );
       }
     }

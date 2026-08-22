@@ -1,43 +1,35 @@
 /**
  * tour.js — the first-run walkthrough.
  *
- * The app is a workflow, not a set of buttons: search a place, take its
- * boundary, download the data, split it into territories, correct the split by
- * hand, print a card. Every one of those steps is discoverable on its own, and
- * none of them explains the order. This module says the order out loud, once,
- * and then gets out of the way.
+ * The app is a workflow — search a place, take its boundary, download the
+ * data, split it, correct the split, print a card — and every step is
+ * discoverable on its own while none of them implies the order. This module
+ * states the order once and then gets out of the way.
  *
- * Design decisions worth keeping:
+ * Constraints the implementation rests on:
  *
  *   • The user watches; the tour drives. Asking someone to perform each step
- *     needs the app to be in a particular state to continue, and there is no
- *     such state on a first visit — no boundary, no data, no territories. So
- *     the veil swallows clicks throughout, and where a step is about a screen
- *     that only exists once there is work loaded, the tour loads a sample area
- *     (see demo.js) and opens the real dialog on it. Nothing the user does can
- *     leave the app half-edited, because the user does nothing.
+ *     needs the app in a particular state to continue, and there is no such
+ *     state on a first visit. The veil swallows clicks throughout, and a step
+ *     about a screen that only exists once work is loaded gets the sample
+ *     area (see demo.js) with the real dialog opened on it.
  *
- *   • Every side effect is declared, and undone by the same machinery in both
+ *   • Every side effect is declared and undone by the same machinery in both
  *     directions. A step's enter() runs on arrival and its exit() on leaving,
- *     forwards or backwards; `demo: true` says "this step needs the sample
- *     loaded" and the sample is swapped in and out by comparing that flag
- *     between the step being left and the step being entered. Nothing has to
- *     remember to clean up after itself, which is the only way a walkthrough
- *     that can be abandoned at any point with Escape stays safe.
+ *     forwards or backwards; `demo: true` marks a step as needing the sample,
+ *     which is swapped in and out by comparing that flag between the step
+ *     being left and the step being entered. Nothing has to remember to clean
+ *     up after itself, which is what keeps a walkthrough abandonable with
+ *     Escape at any point.
  *
- *   • A step whose target is missing still runs. The geocoder is skipped when
- *     the plugin failed to load, but everything else falls back to a centred
- *     card, because a walkthrough that silently loses four steps on a narrow
- *     screen teaches a wrong mental model of what the app has.
+ *   • A step whose target is missing still runs. The geocoder step is skipped
+ *     when the plugin failed to load; everything else falls back to a centred
+ *     card, so a narrow screen does not silently lose four steps.
  *
- *   • Every screen that the app opens for you is introduced by the control
- *     that opens it. A step that shows the partition dialog without ever
- *     pointing at the Split button has explained what the dialog does and
- *     left out the only part the user has to reproduce afterwards — and
- *     "where was that again?" is the question a walkthrough exists to
- *     prevent. So the modal features come in pairs: one step spotlights the
- *     button, the next shows what it opened, and that second step keeps a
- *     quieter ring on the button (`origin`) so the two stay visibly joined.
+ *   • Every screen the app opens is introduced by the control that opens it,
+ *     so the modal features come in pairs: one step spotlights the button,
+ *     the next shows what it opened and keeps a quieter ring on the button
+ *     (`origin`) so the two stay visibly joined.
  *
  *   • The steps are data. STEPS below is the only place the sequence exists;
  *     tests read it to check that every key it names is in the dictionary.
@@ -1323,7 +1315,6 @@ App.tour = (function () {
   return {
     init: init,
     start: start,
-    stop: stop,
     isOpen: isOpen,
     maybeAutoStart: maybeAutoStart,
     shouldAutoStart: shouldAutoStart,

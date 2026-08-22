@@ -224,7 +224,6 @@
     "groupSingle": "bâtiments isolés seulement",
     "follow": "Suivre les rues",
     "adjust": "Ajuster les angles à la main",
-    "adjustHint": "Glissez un angle pour le déplacer, un point d’arête pour en ajouter un, cliquez un angle pour le retirer. Les curseurs sont verrouillés pendant ce temps.",
     "apply": "Appliquer",
     "outliers": "Isolés",
     "clear": "Effacer",
