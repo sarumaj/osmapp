@@ -3237,7 +3237,10 @@ body {
      wider than the viewport. */
   box-sizing: border-box;
   width: min(360px, calc(100vw - 24px));
-  padding: 14px 16px 12px;
+  /* Sideways only. A sticky row is pinned inside the padding box, so padding
+     the card kept above or below one would be a strip the prose scrolls
+     through in the open; the head and the action row carry it instead. */
+  padding: 0 16px;
   border: 1px solid var(--c-border-strong);
   border-radius: var(--radius-lg);
   background: var(--c-surface);
@@ -3261,6 +3264,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 14px 0 4px;
   margin-bottom: 2px;
 }
 
@@ -3302,6 +3306,7 @@ body {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  padding: 6px 0 12px;
 }
 
 .tour__actions .btn {
@@ -3314,8 +3319,9 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
   padding-top: 9px;
+  /* The last row in the card, so the foot of the scroll is its business. */
+  padding-bottom: 12px;
   border-top: 1px solid var(--c-border);
   font-size: var(--ui-fs-sm);
   color: var(--c-text-dim);
@@ -3326,47 +3332,73 @@ body {
   accent-color: var(--c-accent);
 }
 
-/* The card is capped to the screen, and its body scrolls if it has to.
+/* The card is capped well below the screen, and everything inside it — prose,
+   buttons, the checkbox — scrolls together within that cap.
 
    Keyed on the height of the viewport rather than on its width, which is the
-   only thing that was ever relevant and is not what a phone breakpoint asks.
-   A phone held sideways is 844x390: wide enough to miss every `max-width: 720`
-   rule in this file, and 390 px tall against a card that is 429 for the step
-   about repairing a list. Uncapped, that card ran 51 px off the bottom of the
-   screen and took Back and Next with it — the walkthrough could be read and
-   not continued.
+   only thing that was ever relevant and is not what a phone breakpoint asks: a
+   phone held sideways is 844x390, wide enough to miss every `max-width: 720`
+   rule in this file and short enough that an uncapped card runs off the bottom
+   of the screen, taking Back and Next with it.
 
-   A fraction of the viewport rather than a pixel count, and a generous one.
-   The two things the cap trades do not trade evenly: _placeBubble already puts
-   the card on the edge that covers least of the spotlight, so a taller card
-   mostly changes which edge it picks rather than how much it hides, while
-   every pixel of cap comes straight out of the paragraph. Tightening it to
-   320 px leaves the worst-covered step 10 points better off and puts 555 px of
-   prose behind a scroll most readers will not think to try. At 70% nothing
-   scrolls on a phone held upright; a 568 px screen scrolls a few steps,
-   because there the card and its subject do not both fit. */
+   The pixel ceiling is the half of the cap that does the work on a phone held
+   upright, where 70% of an 844 px screen is a 590 px card: it fits, and it
+   leaves the map it is describing as a border around itself. 350 is where the
+   number of steps that have to be scrolled at all stops falling — seven of the
+   forty, across four languages, and none of them by more than two lines — so
+   the pixels past it buy nothing but a bigger card.
+
+   Scrolled or not, the card ends where the cap says. What is past the fold is
+   reached by scrolling rather than cut off, and the two sticky rules below keep
+   the controls out of the fold altogether. */
 .tour__bubble {
-  display: flex;
-  flex-direction: column;
-  max-height: 70vh;
-  max-height: 70dvh;
+  max-height: min(70vh, 350px);
+  max-height: min(70dvh, 350px);
+  overflow-y: auto;
+  /* A card that has reached its end does not hand the scroll to the map
+     underneath, which would pan away from the thing being pointed at. */
+  overscroll-behavior: contain;
+}
+
+/* Which step this is and the way out of the tour, both reachable from anywhere
+   in a scrolled card. Opaque, because the prose passes behind them. */
+.tour__head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--c-surface);
+}
+
+/* Next is the one control the walkthrough cannot continue without, and a
+   reader who has to go looking for it first stops instead. Pinned to the foot
+   of the card, it is where it always was on a card short enough not to
+   scroll. */
+.tour__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  background: var(--c-surface);
 }
 
 
 /* A short viewport — a phone held sideways is 844x390 — where the cap above
-   leaves the card 273 px and most of the steps have more paragraph than that.
+   leaves the card 273 px and the longer steps have more paragraph than that.
 
    The height is bought from the typography rather than from the width. Widening
    the card is the obvious move and the wrong one: 844 px of width is what lets
    _placeBubble put a 360 px card *beside* the toolbar instead of on top of it,
-   and a 460 px card gives that up — four of the thirty-seven steps then show
-   less than half their subject, where at 360 none do. One point of type and
+   and a 460 px card gives that up — four of the forty steps then show less
+   than half their subject, where at 360 none do. One point of type and
    about 20 px of padding and margin buys as much height as 100 px of width,
    and costs nothing on the other axis. */
 @media (max-height: 520px) {
   .tour__bubble {
-    padding: 10px 12px 8px;
+    padding: 0 12px;
     font-size: 12px;
+  }
+
+  .tour__head {
+    padding: 10px 0 3px;
   }
 
   .tour__title {
@@ -3378,37 +3410,14 @@ body {
     margin-bottom: 6px;
   }
 
-  .tour__mute {
-    margin-top: 6px;
-    padding-top: 5px;
+  .tour__actions {
+    padding: 4px 0 8px;
   }
-}
 
-.tour__body {
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  /* A flex item's floor is its content, so without this the paragraph refuses
-     to shrink and the cap moves the overflow to the card instead — cutting off
-     the buttons rather than scrolling the prose. */
-  min-height: 0;
-  /* And a sign that it scrolls. Touch draws no permanent scrollbar, so a
-     paragraph clipped mid-sentence reads as one that was cut rather than one
-     there is more of — and the reader stops at what they can see.
-
-     The two `local` layers are painted with the text and slide out of the way
-     as it scrolls; the two `scroll` layers stay put. Where the text has
-     scrolled away from an edge, the white one has moved and the shadow it was
-     covering shows through. Nothing to wire up, and no shadow at either end
-     when the paragraph fits. */
-  background:
-    linear-gradient(var(--c-surface) 30%, rgba(255, 255, 255, 0)) top / 100%
-      14px no-repeat local,
-    linear-gradient(rgba(255, 255, 255, 0), var(--c-surface) 70%) bottom / 100%
-      14px no-repeat local,
-    radial-gradient(farthest-side at 50% 0, rgba(0, 0, 0, 0.16), transparent)
-      top / 100% 6px no-repeat scroll,
-    radial-gradient(farthest-side at 50% 100%, rgba(0, 0, 0, 0.16), transparent)
-      bottom / 100% 6px no-repeat scroll;
+  .tour__mute {
+    padding-top: 5px;
+    padding-bottom: 8px;
+  }
 }
 
 /* ── PWA: update prompt and offline state ─────────────────────────────────── */

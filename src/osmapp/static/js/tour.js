@@ -162,6 +162,24 @@ App.tour = (function () {
       },
     },
     {
+      // The bar is two tools on one strip: the buildings you exclude by hand,
+      // and the sliders that decide what is excluded for you. Both in one step
+      // is more than a phone shows at once, and the half that lands past the
+      // fold is the automatic one — the half nobody knows to go looking for.
+      id: "trimSliders",
+      demo: true,
+      target: ".trim-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="trim"]',
+      enter: function () {
+        if (!App.state.trimMode) App.trim.toggle();
+      },
+      exit: function () {
+        if (App.state.trimMode) App.trim.toggle();
+      },
+    },
+    {
       // The marks are the half of the tool that is a conversation rather than
       // a setting, and they only exist once something has been excluded — so
       // this step comes after the bar has opened and the automatic pass has
@@ -340,6 +358,22 @@ App.tour = (function () {
       // Docked rather than placed: the bubble is a long one and every side of
       // a button at the foot of a centred dialog lands on the dialog, over the
       // very rows the text is about. The corner is clear of both.
+      dock: "bottom-right",
+      highlight: "ring",
+      origin: '[data-action="print"]',
+      enter: _openSampleList,
+      exit: function () {
+        App.ui.closeDialog();
+      },
+    },
+    {
+      // The same button from the other side: what the repair costs to undo,
+      // and the wand that does one row instead of all of them. Naming the
+      // three faults takes a card of its own, and a reader who has just been
+      // handed three rules is not also reading a fourth sentence about undo.
+      id: "autohealScope",
+      demo: true,
+      target: '.territory-list [data-role="fix-all"]',
       dock: "bottom-right",
       highlight: "ring",
       origin: '[data-action="print"]',
@@ -885,6 +919,11 @@ App.tour = (function () {
       next.setAttribute("data-i18n", last ? "tour.finish" : "tour.next");
       next.textContent = T(last ? "tour.finish" : "tour.next");
     }
+
+    // The card is the scroller and it outlives the step inside it: without
+    // this, a step read to the end hands the next one to the reader halfway
+    // down its first paragraph.
+    if (_bubble) _bubble.scrollTop = 0;
 
     _reposition();
   }

@@ -706,7 +706,11 @@
       },
       "trim": {
         "title": "Ignore what you do not need",
-        "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. Two sliders shape the new boundary — how far behind the houses it runs, and how much its edge is straightened — and two more set what the automatic pass excludes for you: how far out a building has to stand to count as isolated, and the largest group it may drop in one go. With \"Follow streets\" on, the boundary snaps onto the road network instead of cutting through gardens. Green is what you keep, red is what you give up."
+        "body": "Click buildings to exclude them, or shift-drag a box over a whole edge of the map. Each one gets a mark you can click to put it back, whatever the zoom. Green is what you keep, red is what you give up."
+      },
+      "trimSliders": {
+        "title": "What the sliders set",
+        "body": "Two sliders shape the new boundary — how far behind the houses it runs, and how much its edge is straightened — and two more set what the automatic pass excludes for you: how far out a building has to stand to count as isolated, and the largest group it may drop in one go. With \"Follow streets\" on, the boundary snaps onto the road network instead of cutting through gardens."
       },
       "trimMarks": {
         "title": "The marks show what is being dropped",
@@ -742,7 +746,11 @@
       },
       "autoheal": {
         "title": "Repairing the whole list",
-        "body": "Three faults are mechanical enough to repair without asking, and this button does all of them at once: a territory drawn in separate pieces becomes one territory per piece, a territory with no buildings is absorbed into the neighbor it shares the most boundary with, and a patch that belongs to nobody is adopted first and then judged by those same two rules — which is how the empty field east of the village ends up part of the territory beside it. The whole repair is a single undo, and the wand on one row does the same for that row alone. To get back to this list at any time: the Print button in the toolbar, or the territory count in the panel at the bottom right."
+        "body": "Three faults are mechanical enough to repair without asking, and this button does all of them at once: a territory drawn in separate pieces becomes one territory per piece, a territory with no buildings is absorbed into the neighbor it shares the most boundary with, and a patch that belongs to nobody is adopted first and then judged by those same two rules — which is how the empty field east of the village ends up part of the territory beside it."
+      },
+      "autohealScope": {
+        "title": "One undo, or one row",
+        "body": "The whole repair is a single undo, and the wand on one row does the same for that row alone. To get back to this list at any time: the Print button in the toolbar, or the territory count in the panel at the bottom right."
       }
     }
   },

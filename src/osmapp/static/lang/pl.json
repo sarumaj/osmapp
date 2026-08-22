@@ -747,7 +747,11 @@
       },
       "trim": {
         "title": "Pomiń to, czego nie potrzebujesz",
-        "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Dwa suwaki kształtują nową granicę — jak daleko za domami biegnie i jak mocno wygładzana jest jej krawędź — a dwa kolejne ustalają, co automat odrzuca za Ciebie: jak daleko musi stać budynek, aby uchodzić za odosobniony, i jak dużą grupę wolno odrzucić naraz. Przy włączonym „Podążaj za ulicami” granica przyciąga się do sieci dróg zamiast ciąć przez ogrody. Zielone zostaje, czerwone odpada."
+        "body": "Kliknij budynki, aby je pominąć, albo z Shiftem przeciągnij ramkę nad całym skrajem mapy. Każdy dostaje znacznik, który przy dowolnym powiększeniu można kliknąć, aby budynek przywrócić. Zielone zostaje, czerwone odpada."
+      },
+      "trimSliders": {
+        "title": "Co ustawiają suwaki",
+        "body": "Dwa suwaki kształtują nową granicę — jak daleko za domami biegnie i jak mocno wygładzana jest jej krawędź — a dwa kolejne ustalają, co automat odrzuca za Ciebie: jak daleko musi stać budynek, aby uchodzić za odosobniony, i jak dużą grupę wolno odrzucić naraz. Przy włączonym „Podążaj za ulicami” granica przyciąga się do sieci dróg zamiast ciąć przez ogrody."
       },
       "trimMarks": {
         "title": "Znaczniki pokazują, co odpada",
@@ -783,7 +787,11 @@
       },
       "autoheal": {
         "title": "Naprawa całej listy",
-        "body": "Trzy usterki są dość mechaniczne, by naprawić je bez pytania, a ten przycisk robi wszystkie naraz: teren narysowany w osobnych częściach staje się jednym terenem na każdą część, teren bez budynków zostaje wchłonięty przez sąsiada, z którym dzieli najdłuższą granicę, a obszar, który nie należy do nikogo, jest najpierw przejmowany, a potem oceniany według tych samych dwóch zasad — tak puste pole na wschód od wsi trafia do terenu obok. Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego. Do tej listy wraca się w każdej chwili przyciskiem „Drukuj” w panelu narzędzi albo liczbą terenów w polu na dole po prawej."
+        "body": "Trzy usterki są dość mechaniczne, by naprawić je bez pytania, a ten przycisk robi wszystkie naraz: teren narysowany w osobnych częściach staje się jednym terenem na każdą część, teren bez budynków zostaje wchłonięty przez sąsiada, z którym dzieli najdłuższą granicę, a obszar, który nie należy do nikogo, jest najpierw przejmowany, a potem oceniany według tych samych dwóch zasad — tak puste pole na wschód od wsi trafia do terenu obok."
+      },
+      "autohealScope": {
+        "title": "Jedno cofnięcie albo jeden wiersz",
+        "body": "Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego. Do tej listy wraca się w każdej chwili przyciskiem „Drukuj” w panelu narzędzi albo liczbą terenów w polu na dole po prawej."
       }
     }
   },
