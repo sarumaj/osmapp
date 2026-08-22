@@ -3298,55 +3298,6 @@ body {
   color: #444;
 }
 
-/* Progress as dots rather than a bar: the point is "a handful of steps, you
-   are here", and a bar at step 3 of 18 mostly communicates "this is long". */
-.tour__dots {
-  display: flex;
-  flex-wrap: wrap;
-  /* No gap: each dot carries 4 px of padding on every side as its touch
-     target, which already spaces the row. */
-  gap: 0;
-  margin-bottom: 8px;
-  margin-left: -4px;
-}
-
-/* Buttons, but drawn as dots: the padding gives a 14 px touch target around a
-   6 px mark, which is the smallest thing worth aiming at on a phone without
-   making the row look like a row of buttons. */
-.tour__dot {
-  width: 6px;
-  height: 6px;
-  padding: 4px;
-  border: 0;
-  border-radius: 50%;
-  /* Painted in the content box only, so the dot stays 6 px while the button
-     around it is 14 — the smallest thing worth aiming at on a phone. */
-  background: var(--c-border);
-  background-clip: content-box;
-  cursor: pointer;
-  transition: transform 0.15s ease;
-}
-
-.tour__dot:hover {
-  background-color: var(--c-accent);
-}
-
-.tour__dot:focus-visible {
-  outline: 2px solid var(--c-accent);
-  outline-offset: 3px;
-}
-
-/* background-color, not the shorthand: `background` would reset
-   background-clip and paint the whole 14 px touch target. */
-.tour__dot.is-done {
-  background-color: var(--c-text-dim);
-}
-
-.tour__dot.is-current {
-  background-color: var(--c-accent);
-  transform: scale(1.4);
-}
-
 .tour__actions {
   display: flex;
   gap: 8px;
@@ -3425,10 +3376,6 @@ body {
 
   .tour__body {
     margin-bottom: 6px;
-  }
-
-  .tour__dots {
-    margin-bottom: 4px;
   }
 
   .tour__mute {

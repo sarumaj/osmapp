@@ -886,54 +886,7 @@ App.tour = (function () {
       next.textContent = T(last ? "tour.finish" : "tour.next");
     }
 
-    _renderDots();
     _reposition();
-  }
-
-  /**
-   * Progress, and a way back to a step that went past too fast.
-   *
-   * The dots were decoration until the walkthrough grew a step for every
-   * button; at this length "wait, what was the one before the dialog?" is a
-   * fair question, and answering it with six presses of Back is not an
-   * answer. Each dot carries its step's title as a tooltip, so the row also
-   * doubles as a table of contents. Jumping goes through _show() like
-   * everything else, so the sample is loaded or dropped and the dialogs are
-   * opened or closed on the way, however far the jump reaches.
-   */
-  function _renderDots() {
-    var host = D.role(_root, "dots");
-    if (!host) return;
-
-    // Every dot is replaced on each render, so a jump made from the keyboard
-    // would otherwise drop focus onto <body> and leave Tab starting over.
-    var wasFocused = host.contains(document.activeElement);
-
-    host.textContent = "";
-    for (var i = 0; i < _steps.length; i++) {
-      host.appendChild(_makeDot(i));
-    }
-    if (wasFocused && host.children[_index]) host.children[_index].focus();
-  }
-
-  function _makeDot(index) {
-    var dot = document.createElement("button");
-    dot.type = "button";
-    dot.className =
-      "tour__dot" +
-      (index === _index ? " is-current" : index < _index ? " is-done" : "");
-
-    var title = T(_titleKey(_steps[index]));
-    dot.title = title;
-    dot.setAttribute("aria-label", title);
-    if (index === _index) dot.setAttribute("aria-current", "step");
-
-    dot.addEventListener("click", function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (index !== _index) _show(index, index > _index ? 1 : -1);
-    });
-    return dot;
   }
 
   function _reposition() {
