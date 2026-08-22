@@ -1589,10 +1589,6 @@ App.print = (function () {
     if (_dialog) _schedulePaint();
   }
 
-  function basemapOverlay() {
-    return _overlay;
-  }
-
   /**
    * Walk a FeatureCollection down to individual rings and lines.
    *
@@ -2330,8 +2326,8 @@ App.print = (function () {
 
     App.shortcuts.push(PRINT_KEYS);
     // Bound directly rather than through D.onRole: that helper calls
-    // preventDefault() on every click, which is right for the <button>s but
-    // cancels an <a>'s navigation — the Open link did nothing at all.
+    // preventDefault() on every click, which is right for the <button>s and
+    // would cancel this <a>'s navigation.
     // The dialog container already has disableClickPropagation, so the map
     // never sees this click either way.
     var openFile = D.role(_dialog, "open-file");
@@ -3189,7 +3185,6 @@ App.print = (function () {
     init: init,
     isOpen: isOpen,
     setBasemapOverlay: setBasemapOverlay,
-    basemapOverlay: basemapOverlay,
     printCluster: printCluster,
     close: close,
     undo: undo,

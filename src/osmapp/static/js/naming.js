@@ -1,40 +1,34 @@
 /**
  * naming.js — what to call a territory, read off the OSM data already on the map.
  *
- * The print dialog has two text fields and they fail in different ways. The
- * number is on screen already, so labels.numberOf answers it exactly and the
- * only thing that field ever cost was retyping. The locality is not on screen
- * anywhere: it lives in the address tags of the buildings inside the shape,
- * which the app downloads, draws, tallies and puts in a tooltip — and then
- * makes the user type out by hand, once per card, for a whole round.
- *
- * So the source is the data that is already here:
+ * The print dialog's number field is answered exactly by labels.numberOf. The
+ * locality is not on screen anywhere: it lives in the address tags of the
+ * buildings inside the shape, which the app has already downloaded, drawn and
+ * tallied. Three sources, in order:
  *
  *   1. addr:city / addr:place / addr:suburb on the buildings whose centroid
  *      falls inside this territory. Whichever name most of them agree on is
  *      the answer, because a territory that straddles a boundary really does
- *      contain two localities and a majority is the honest way to pick one.
- *      addr:place carries the same weight as addr:city on purpose: rural
- *      Poland numbers houses against the settlement rather than a street, and
- *      there the village name is only ever in addr:place. addr:suburb is
- *      weighted down rather than dropped — it is a real name for a real
- *      place, just a smaller one than the field usually wants.
+ *      contain two localities. addr:place carries the same weight as
+ *      addr:city on purpose: rural Poland numbers houses against the
+ *      settlement rather than a street, and there the village name is only
+ *      ever in addr:place. addr:suburb is weighted down rather than dropped —
+ *      a real name for a real place, just a smaller one than the field
+ *      usually wants.
  *   2. The same tally over every downloaded building, so a territory whose own
  *      buildings are untagged still offers the names in use next door.
- *   3. Nominatim reverse geocoding of an interior point, asked for over the
- *      network and folded in when it arrives. This is the one that works in
- *      the places the first two do not: a territory of unaddressed buildings
- *      in a village that OSM knows perfectly well by name.
+ *   3. Nominatim reverse geocoding of an interior point, folded in when it
+ *      arrives. This is the one that works where the first two do not: a
+ *      territory of unaddressed buildings in a village OSM knows by name.
  *
  * Everything here is a *candidate*, never an answer. The caller decides which
- * one becomes a placeholder and which ones become autocomplete entries, and
- * the user overrides both by typing — a congregation's locality wording is its
- * own convention and no address tag knows about it.
+ * becomes a placeholder and which become autocomplete entries, and the user
+ * overrides both by typing — a congregation's locality wording is its own
+ * convention and no address tag knows about it.
  *
  * Nothing is cached across calls except the network lookup. The tally is one
  * pass over the building list per print dialog, and a cache would have to be
- * invalidated on every cut, merge, undo and refetch to stay honest — which is
- * a lot of coupling to buy back a few milliseconds that nobody is waiting on.
+ * invalidated on every cut, merge, undo and refetch to stay honest.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -349,7 +343,6 @@ App.naming = (function () {
     reverse: reverse,
 
     // Exposed so the ranking can be asserted rather than inferred.
-    LOCALITY_KEYS: LOCALITY_KEYS,
   };
 })();
 

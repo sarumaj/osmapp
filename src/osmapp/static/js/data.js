@@ -25,14 +25,12 @@ App.data = (function () {
   //
   // Overpass is a shared, free, frequently overloaded service. A download that
   // fails is far more often "come back in ten seconds" than "this will never
-  // work", and the old behavior — one attempt, then an alert — turned a
-  // transient 504 into lost work and a user who has to find the re-download
-  // button and guess how long to wait.
+  // work", so a single attempt followed by an alert turns a transient 504 into
+  // lost work and a user guessing how long to wait.
   //
-  // So a failure that looks temporary is retried with exponential backoff and
-  // jitter, the overlay says what is happening and counts down, and the whole
-  // thing can be abandoned from the Cancel button. Waiting is the user's only
-  // job; the app should be the one that knows how long to wait.
+  // A failure that looks temporary is therefore retried with exponential
+  // backoff and jitter, the overlay says what is happening and counts down,
+  // and the whole thing can be abandoned from the Cancel button.
   //
   // What is not retried: 400 (a malformed or oversized polygon), 404 (the area
   // genuinely has no streets), and anything else the server marks
@@ -631,8 +629,6 @@ App.data = (function () {
     PAYLOAD_VERSION: PAYLOAD_VERSION,
     fetchData: fetchData,
     confirmAndFetch: confirmAndFetch,
-    cancelFetch: cancelFetch,
-    displayResults: displayResults,
     exportData: exportData,
     buildAttachmentPayload: buildAttachmentPayload,
     importData: importData,

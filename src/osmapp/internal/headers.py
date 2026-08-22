@@ -36,15 +36,6 @@ def init_osmnx(overpass_url: str, timeout: int = 180):
         ox.settings.http_referer = referer
 
 
-def get_headers(random: bool) -> dict[str, str]:
-    """Thread-safe snapshot of the current headers."""
-    if random:
-        generator = HeaderGenerator()
-        headers = generator(
-            country="us",
-            device="desktop",
-            httpVersion=1,
-        )
-        return {"User-Agent": headers["User-Agent"], "Referer": headers["Referer"]}
-    else:
-        return {"User-Agent": user_agent, "Referer": referer}
+def get_headers() -> dict[str, str]:
+    """The identifying headers this app sends to third-party services."""
+    return {"User-Agent": user_agent, "Referer": referer}

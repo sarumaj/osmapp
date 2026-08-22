@@ -433,7 +433,6 @@ App.spatial = (function () {
     lngScale: lngScale,
     closestOnSegment: closestOnSegment,
     M_PER_DEG_LAT: M_PER_DEG_LAT,
-    M_PER_DEG_LNG: M_PER_DEG_LNG,
   };
 })();
 

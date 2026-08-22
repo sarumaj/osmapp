@@ -224,7 +224,6 @@
     "groupSingle": "single buildings only",
     "follow": "Follow streets",
     "adjust": "Adjust corners by hand",
-    "adjustHint": "Drag a corner to move it, an edge dot to add one, click a corner to remove it. The sliders are locked while this is on.",
     "apply": "Apply",
     "outliers": "Outliers",
     "clear": "Clear",

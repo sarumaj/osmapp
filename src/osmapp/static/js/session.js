@@ -107,10 +107,6 @@ App.session = (function () {
     clearTimeout(_viewTimer);
   }
 
-  function isSuspended() {
-    return _suspended;
-  }
-
   /** @param {{data?: boolean}} [opts] data marks streets/buildings as changed */
   function markDirty(opts) {
     if (_restoring || _suspended) return; // neither is a user edit
@@ -213,7 +209,6 @@ App.session = (function () {
     init: init,
     markDirty: markDirty,
     setSuspended: setSuspended,
-    isSuspended: isSuspended,
     restore: restore,
     restoreView: restoreView,
     clear: clear,

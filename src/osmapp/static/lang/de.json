@@ -224,7 +224,6 @@
     "groupSingle": "nur einzelne Gebäude",
     "follow": "Straßen folgen",
     "adjust": "Ecken von Hand anpassen",
-    "adjustHint": "Ecke ziehen zum Verschieben, Punkt auf einer Kante fügt eine hinzu, Klick auf eine Ecke entfernt sie. Die Regler sind so lange gesperrt.",
     "apply": "Übernehmen",
     "outliers": "Ausreißer",
     "clear": "Zurücksetzen",

@@ -1,43 +1,35 @@
 /**
  * gaps.js — the parts of the area that belong to no territory.
  *
- * ── Why ───────────────────────────────────────────────────────────────────
+ * The partitioner tessellates, so uncovered ground can only arrive one of
+ * four ways, and all four leave holes nothing on screen points at:
  *
- * The partitioner tessellates: every square meter inside the boundary ends up
- * in exactly one territory, so for a long time "uncovered" was not a state the
- * app could be in. Four things changed that, and all four leave holes that
- * nothing on screen points at:
- *
- *   • Growing the boundary. Reshaping the outline outward adds ground that no
- *     territory has ever covered, and the map looks finished — the new area is
- *     inside the blue outline, it just is not in any card.
- *   • Deleting a territory. The hole is exactly the shape that was deleted.
+ *   • Growing the boundary. Reshaping the outline outward adds ground no
+ *     territory has ever covered, and the map still looks finished.
+ *   • Deleting a territory. The hole is the shape that was deleted.
  *   • Cutting. A split that shaves a piece below CUT_MIN_PIECE_M2 discards it.
  *   • Drawing a territory by hand inside the whole-area cluster, where the
  *     remainder falls below MIN_REMAINDER_M2 and belongs to nobody.
  *
- * The failure mode they share is the quiet one: nothing is wrong on screen,
- * and you find out when a street is on no card. So the gaps are drawn, they
- * say what they are on hover, and clicking one turns it into a territory.
- *
- * They are also rows in the territory list, which is where the rest of the
- * map's faults are named and repaired — see labels.js for the row and
- * autoheal.js for what its wand does. That is the answer to a gap you cannot
- * find by looking: the list counts them, the jump button walks to them, and
- * "fix all" adopts them and then repairs what adopting them made.
+ * The failure mode they share is quiet: nothing looks wrong, and it surfaces
+ * when a street turns out to be on no card. So gaps are drawn, they name
+ * themselves on hover, and clicking one turns it into a territory. They are
+ * also rows in the territory list, where the rest of the map's faults are
+ * named and repaired — see labels.js for the row and autoheal.js for its
+ * wand, which adopts a gap and then repairs what adopting it made.
  *
  * ── Why the seams are not gaps ────────────────────────────────────────────
  *
  * A tessellation's internal edges coincide only to floating-point precision,
  * so subtracting the union of the territories from the boundary returns a
- * hairline sliver along every shared edge — hundreds of them, each a few
- * centimeters wide and none of them a gap in any sense that matters.
+ * hairline sliver along every shared edge — hundreds of them, centimeters
+ * wide, none of them a gap in any useful sense.
  *
  * Each remaining piece is therefore *opened*: shrunk by half a meter and, if
- * anything survives, grown back. A seam does not survive. A strip left by
- * dragging the boundary outward is meters wide and does. See _open below for
- * why this is done per piece rather than by subtracting a healed union, which
- * is the obvious move and produces a self-touching ring.
+ * anything survives, grown back. A seam does not survive; a strip left by
+ * dragging the boundary outward is meters wide and does. See _open for why
+ * this runs per piece rather than on a subtracted healed union, which is the
+ * obvious move and produces a self-touching ring.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -898,10 +890,8 @@ App.gaps = (function () {
     adopt: adopt,
     adoptAll: adoptAll,
     dissolve: dissolve,
-    dissolveAll: dissolveAll,
     isVisible: isVisible,
     setVisible: setVisible,
-    PANE: PANE,
   };
 })();
 

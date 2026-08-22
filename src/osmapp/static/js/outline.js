@@ -1,40 +1,28 @@
 /**
  * outline.js — reshape the outer boundary after it has been set.
  *
- * ── Why ───────────────────────────────────────────────────────────────────
- *
- * The boundary was write-once. Drawing one was a gesture with no correction
- * step: the only way to move a single corner was to draw the whole thing
- * again and then re-download the OSM data for it, which is a minute of
- * waiting to fix a mistake that took a second to make. Everything else on the
- * map could be corrected — territories can be cut, merged, deleted, and the
- * trim tool reshapes the boundary itself, but only inward and only towards
- * the buildings. Nobody could move a corner because they had put it in the
- * wrong place.
+ * Moving one corner of a boundary otherwise means redrawing the whole thing
+ * and re-downloading the OSM data behind it.
  *
  * ── Vertices are Leaflet.Editable's job ───────────────────────────────────
  *
- * The library is already loaded and already draws the boundary in the first
- * place, and its PathEditor gives all three gestures for free: drag a vertex
- * to move it, click a vertex to delete it, drag a middle marker to add one.
- * The trim tool has its own hand-editing implementation, and it is tempting
- * to reuse that — but it exists because trim edits a *proposal* that has to
- * stay inside the working boundary and be recomputed against a raster. Here
- * the layer is an ordinary Leaflet polygon and the editor that ships with it
- * is the right tool.
+ * The library already draws the boundary in the first place, and its
+ * PathEditor gives all three gestures: drag a vertex to move it, click a
+ * vertex to delete it, drag a middle marker to add one. The trim tool's own
+ * hand-editing is not reused here because it edits a *proposal* that has to
+ * stay inside the working boundary and be recomputed against a raster; here
+ * the layer is an ordinary Leaflet polygon.
  *
  * MIN_VERTEX is 3 for a polygon editor, so the library declines to delete the
- * vertex that would leave a line rather than a shape. That is the one rule
- * worth not having to write.
+ * vertex that would leave a line rather than a shape.
  *
  * ── What makes this different from trim ───────────────────────────────────
  *
  * Trimming can only shrink, so it never invalidates the download. This can
  * grow, which means the streets and buildings inside the new outline may
- * never have been fetched — the map would look correct and be missing data,
- * which is the worst combination. So growing past what was downloaded offers
- * a refetch on the way out rather than leaving somebody to notice that a
- * whole street is absent from a printed card.
+ * never have been fetched — the map would look correct and be missing data.
+ * So growing past what was downloaded offers a refetch on the way out, rather
+ * than leaving a whole street to turn up absent from a printed card.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];

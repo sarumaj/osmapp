@@ -75,6 +75,31 @@ App.geometry = (function () {
     return turf.difference(pair(a, b));
   }
 
+  /** turf.bbox, or null for geometry it refuses. */
+  function bbox(feature) {
+    try {
+      return turf.bbox(feature);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
+   * The same shape on a one-centimeter grid.
+   *
+   * Two polygons dissolve on union only if the edge they share is the same
+   * coordinates in both, and a ring that has been through a clip carries
+   * fifteen decimals of noise that says otherwise. Quantizing both sides
+   * first is what turns an abutting pair into a single shape.
+   */
+  function quantize(feature) {
+    try {
+      return turf.truncate(feature, { precision: 7, mutate: false });
+    } catch (e) {
+      return feature;
+    }
+  }
+
   /**
    * Union a list of features into one, skipping any step that throws.
    *
@@ -549,6 +574,21 @@ App.geometry = (function () {
     }
   }
 
+  /**
+   * How much ground two features already have in common, in square meters.
+   *
+   * Unmeasurable counts as none, so a caller weighing this against a
+   * threshold refuses rather than acting on a number it could not compute.
+   */
+  function sharedArea(a, b) {
+    try {
+      var shared = intersect(a, b);
+      return shared ? area(shared) : 0;
+    } catch (e) {
+      return 0;
+    }
+  }
+
   function getOuterFeature(layer) {
     if (!layer) throw new Error("No outer polygon");
     var poly = largestPolygon(layer.toGeoJSON());
@@ -979,7 +1019,10 @@ App.geometry = (function () {
     intersect: intersect,
     difference: difference,
     unionHealed: unionHealed,
+    bbox: bbox,
+    quantize: quantize,
     area: area,
+    sharedArea: sharedArea,
     dropSmallHoles: dropSmallHoles,
 
     // polygon normalization
@@ -993,7 +1036,6 @@ App.geometry = (function () {
     // math
     angleDiff: angleDiff,
     coordsEqual: coordsEqual,
-    roundCoord: roundCoord,
     roundCoords: roundCoords,
     dedupCoords: dedupCoords,
     despike: despike,

@@ -1188,8 +1188,6 @@ App.clustering = (function () {
   return {
     init: init,
     showClusterDialog: showClusterDialog,
-    runKMeansPartition: runKMeansPartition,
-    cancelPartition: cancelPartition,
   };
 })();
 

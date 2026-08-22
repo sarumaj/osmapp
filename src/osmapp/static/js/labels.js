@@ -1,64 +1,46 @@
 /**
- * labels.js — adding countable numbers to the info panel.
+ * labels.js — numbered chips on each polygon part, and the territory list.
  *
- * The info panel reports `s.clusters.length`, which is correct but often
- * does not match what you can count on screen. There are three reasons for
- * this, all of them legitimate:
+ * The info panel reports `s.clusters.length`, which is correct but often does
+ * not match what can be counted on screen, for three legitimate reasons:
  *
  *   • A territory can be too small to see. The partitioner drops orphan
  *     fragments below 5% of an average territory but keeps everything above
- *     that threshold. The knife keeps pieces down to CUT_MIN_PIECE_M2, and
- *     carving the auto cluster leaves behind whatever is left over. At a
- *     village zoom level, a 400 m² leftover is just a few pixels of purple
- *     against a purple neighbor — it is counted and printable, but it is
- *     effectively invisible.
+ *     that; the knife keeps pieces down to CUT_MIN_PIECE_M2. At a village
+ *     zoom a 400 m² leftover is a few pixels of purple against a purple
+ *     neighbor — counted and printable, effectively invisible.
+ *   • Adjacent territories share an outline. Fifteen tiling a village read as
+ *     one purple mass with lines through it, and the eye undercounts lines.
+ *   • A territory can be in more than one piece. `_enforceConnectivity` makes
+ *     this rare rather than impossible, and merge can produce it outright by
+ *     unioning two shapes that do not touch — the same confusion in the
+ *     opposite direction, with more shapes on the map than in the count.
  *
- *   • Adjacent territories share an outline. When fifteen of them tile a
- *     village, they can read as one purple mass with some lines drawn
- *     through it, and the human eye tends to undercount those lines.
+ * So there is one numbered chip per polygon *part*, with all parts of a
+ * territory carrying the same number. Distinct numbers match the panel's
+ * count, chips match the shapes on screen, and a repeated number explains the
+ * difference. The numbering is the one the hover tooltip uses ("Territory 7").
  *
- *   • A territory can be in more than one piece. The `_enforceConnectivity`
- *     function makes this rare but does not make it impossible, and merge
- *     can produce it outright by unioning two shapes that do not touch. In
- *     that case the map shows *more* shapes than the panel counts, which is
- *     the same confusion in the opposite direction.
+ * A chip is a handle on its territory rather than decoration, and two things
+ * follow:
  *
- * The solution is to show one numbered chip per polygon *part*, where all
- * parts of a territory carry the same number. Distinct numbers match the
- * panel's count, chips on screen match the shapes on screen, and a repeated
- * number explains the difference rather than leaving it as a puzzle. The
- * numbering also matches the hover tooltip ("Territory 7"), because having
- * two separate numbering schemes would be more confusing than having none.
- *
- * Two things follow from treating a chip as a handle on its territory
- * rather than as mere decoration:
- *
- *   • The chip is clickable, hoverable, right-clickable, and selectable. It
- *     gets all of this behavior from `polygons.attachProxyEvents` instead of
- *     from a duplicate copy of the handlers. On a territory that is only a
- *     few pixels wide, the chip is the only thing you can realistically
- *     click — which is exactly the situation the chips were added for. The
- *     chip goes inert in cut mode, where the pointer acts as a drawing
- *     instrument and anything clickable on the map is just one more thing
- *     for the knife to catch on.
- *
- *   • The chip lives in `innerPolygonsLayerGroup` alongside the territories
- *     themselves, rather than in a separate layer group of its own. This
- *     way the View group's Shapes switch covers it, nothing can outlive a
- *     rebuild, and that group lists one switch per kind of thing on the map
- *     instead of one per implementation detail. Drawing the numbers is its own
- *     switch in the same group, because the chips can be wanted without the
+ *   • It is clickable, hoverable, right-clickable and selectable, taking all
+ *     of that from `polygons.attachProxyEvents` rather than a second copy of
+ *     the handlers. On a territory a few pixels wide the chip is the only
+ *     thing that can realistically be clicked. It goes inert in cut mode,
+ *     where the pointer is a drawing instrument and anything clickable on the
+ *     map is one more thing for the knife to catch on.
+ *   • It lives in `innerPolygonsLayerGroup` with the territories rather than
+ *     in a layer group of its own, so the View group's Shapes switch covers
+ *     it and nothing can outlive a rebuild. Drawing the numbers is its own
+ *     switch in that group, because the chips can be wanted without the
  *     shapes and not the other way round.
  *
- * The chip also carries the printed check, which used to be a separate
- * marker in `polygons.js`. Both were anchored at the same interior point,
- * so by construction the two would collide and the badge had to be nudged
- * out of the number's way. Merging them removes a marker that had to be
- * created, anchored, tracked on the cluster entry, and torn down in three
- * different places. It also preserves the non-color channel that the badge
- * existed for: on a territory too small to see, the chip turns red rather
- * than green, and the check becomes the only thing on screen indicating
- * that the card is done.
+ * The chip also carries the printed check, anchored at the same interior
+ * point the number is. Keeping the check on the chip preserves the non-color
+ * channel it exists for: on a territory too small to see, the chip turns red
+ * rather than green and the check is the only thing on screen saying the card
+ * is done.
  */
 
 var App = window.App || {};
@@ -1672,7 +1654,6 @@ App.labels = (function () {
     numberOf: numberOf,
     warnings: warnings,
     focus: focus,
-    focusGap: focusGap,
     setSelected: setSelected,
     openList: openList,
     refreshList: refreshList,

@@ -8,23 +8,22 @@
  * "Undo" is not one thing. Halfway through drawing a split line it means
  * "take back that vertex"; with the print dialog open it means "take back that
  * eraser stroke"; the rest of the time it means "take back that edit to the
- * territories". Undoing a merge because someone hit Ctrl+Z while placing a
- * vertex is not a smaller version of the right answer, it is the wrong one.
+ * territories".
  *
- * The routing therefore belongs in the stack rather than in the keyboard
- * handler, for two reasons that are exactly what a scope stack is for:
+ * The routing belongs in the stack rather than in the keyboard handler, for
+ * two reasons:
  *
  *   • The toolbar Undo button goes through the same routing. A button meaning
- *     Ctrl+Z that calls history.undo() directly does something else than the key
- *     it stands for.
- *   • A mode that intercepts undo but not redo lets Ctrl+Y mid-draw fall through
- *     to the cluster stack and restore old geometry underneath a split line
- *     that was still being drawn.
+ *     Ctrl+Z that calls history.undo() directly does something else than the
+ *     key it stands for.
+ *   • A mode that intercepts undo but not redo lets Ctrl+Y mid-draw fall
+ *     through to the cluster stack and restore old geometry underneath a
+ *     split line that is still being drawn.
  *
- * Now a mode pushes a scope when it starts and pops it when it ends, and every
- * entry point — keyboard, toolbar, the cut toolbar's Back button — goes through
- * the same delegation. The base scope, the one that is always at the bottom of
- * the stack, is the cluster geometry stack that push() writes to.
+ * A mode pushes a scope when it starts and pops it when it ends, and every
+ * entry point — keyboard, toolbar, the cut toolbar's Back button — goes
+ * through the same delegation. The base scope, always at the bottom of the
+ * stack, is the cluster geometry stack that push() writes to.
  *
  * A scope is:
  *

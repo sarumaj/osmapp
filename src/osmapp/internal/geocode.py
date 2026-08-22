@@ -89,7 +89,7 @@ def _nominatim(url: str, params: dict[str, Any]) -> requests.Response:
     if wait > 0:
         time.sleep(wait)
 
-    resp = requests.get(url, params=params, headers=get_headers(False), timeout=10)
+    resp = requests.get(url, params=params, headers=get_headers(), timeout=10)
     resp.raise_for_status()
     return resp
 
