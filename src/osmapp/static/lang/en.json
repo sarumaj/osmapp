@@ -369,7 +369,7 @@
     "compassW": "W",
     "notesGroup": "Notes",
     "notes": "Include the notes",
-    "notesHint": "A PDF card carries them as real annotations - a sticky note per note and pin, an ink stroke per mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead."
+    "notesHint": "A PDF card carries them as real annotations - one ink drawing per note, pin and mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead."
   },
   "place": {
     "title": "Position the map",
@@ -682,6 +682,14 @@
         "title": "Undo anything",
         "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool, the outline editor and the eraser they take back points, corners and strokes instead, so undo always means whatever you last did."
       },
+      "notesButton": {
+        "title": "Notes on the map",
+        "body": "Not everything worth knowing about a round is a boundary. A gate round the back, a block with no letterbox, the side of a street somebody else is walking — this is where those go. Notes lie over the territories rather than inside them, so splitting, cutting and merging leave every one of them exactly where it was put. This sample carries three."
+      },
+      "notes": {
+        "title": "Three pens",
+        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, and the pencil draws along the ground: drag it for a freehand line, or click point by point. With “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it — turn it off to draw wherever you like. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
+      },
       "layers": {
         "title": "What is shown",
         "body": "This group is the picture rather than the work. The pair at the top steps the map in and out, and the drop-down beside them chooses what is under it — the map itself, aerial imagery, terrain — since only one thing can be under it at a time. The aid layers are for the screen only: a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
@@ -769,7 +777,10 @@
     }
   },
   "demo": {
-    "street": "Sample street {n}"
+    "street": "Sample street {n}",
+    "notePin": "Blue gate at the back",
+    "noteText": "Track is unpaved past the second farm",
+    "noteLine": "Odd numbers only"
   },
   "shortcuts": {
     "title": "Keyboard and mouse",
@@ -882,15 +893,16 @@
     "goNotes": "Take notes",
     "noteToolNote": "Write a note",
     "noteToolPin": "Drop a pin",
-    "noteToolFree": "Draw freehand",
-    "noteToolStreet": "Mark along a street",
     "noteFinish": "Finish the line",
     "noteBack": "Take back the last point",
     "noteCancel": "Leave the notes tool",
     "noteDrag": "Draw freehand",
     "groupNoteText": "This note",
     "noteTextSave": "Save the note",
-    "noteTextCancel": "Leave the note as it was"
+    "noteTextCancel": "Leave the note as it was",
+    "noteToolDraw": "Draw a mark",
+    "noteSnap": "Snap points to the streets",
+    "noteClick": "Place one point"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
@@ -947,8 +959,6 @@
     "widthValue": "{value} pt",
     "toolNote": "Note",
     "toolPin": "Pin",
-    "toolFree": "Freehand",
-    "toolStreet": "Street",
     "color": "Color",
     "width": "Thickness",
     "finish": "Finish line",
@@ -957,8 +967,6 @@
     "redo": "Redo a change to the notes",
     "hintNote": "Click where the note belongs · Right-click for the tools · Esc leaves · ? for all keys",
     "hintPin": "Click the place or building to mark · Right-click for the tools · Esc leaves · ? for all keys",
-    "hintFree": "Drag to draw · The map stays put while this tool is on · Right-click for the tools · Esc leaves",
-    "hintStreet": "Click along the street · Points snap to the network and the line follows it · Enter or double-click finishes · Backspace steps back",
     "titleNote": "Note",
     "titlePin": "Pin label",
     "titleLine": "Mark label",
@@ -972,6 +980,9 @@
     "untitledLine": "Mark",
     "clearTitle": "Delete every note?",
     "clearMessage": "Every note, pin and mark goes. This cannot be undone.",
-    "clearOk": "Delete them"
+    "clearOk": "Delete them",
+    "toolDraw": "Draw",
+    "snap": "Snap to streets",
+    "hintDraw": "Drag to draw · Click to place points · Enter or double-click finishes · Right-drag pans"
   }
 }

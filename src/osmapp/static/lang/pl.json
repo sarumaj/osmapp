@@ -394,7 +394,7 @@
     "compassW": "W",
     "notesGroup": "Notatki",
     "notes": "Dołącz notatki",
-    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — notatka i pinezka stają się żółtą karteczką, zaznaczenie odręczną kreską — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie."
+    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — po jednym rysunku na notatkę, pinezkę i zaznaczenie — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie."
   },
   "place": {
     "title": "Umieść mapę",
@@ -723,6 +723,14 @@
         "title": "Cofnij cokolwiek",
         "body": "Cofnij i ponów przechodzą wstecz przez zmiany granicy, cięcia i łączenia, Ctrl+Z też działa. W narzędziu cięcia, edytorze granicy i gumce cofają zamiast tego punkty, narożniki i pociągnięcia — cofnięcie zawsze dotyczy tego, co zrobiłeś ostatnio."
       },
+      "notesButton": {
+        "title": "Notatki na mapie",
+        "body": "Nie wszystko, co warto wiedzieć o terenie, jest granicą. Brama od podwórza, blok bez skrzynek, strona ulicy, którą chodzi ktoś inny — to trafia właśnie tutaj. Notatki leżą na terenach, a nie w nich, więc dzielenie, cięcie i łączenie zostawiają każdą dokładnie tam, gdzie ją postawiono. Ta przykładowa okolica ma trzy."
+      },
+      "notes": {
+        "title": "Trzy pióra",
+        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, a ołówek rysuje po terenie: przeciągnij, aby rysować odręcznie, albo klikaj punkt po punkcie. Przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej — wyłącz to, aby rysować dowolnie. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
+      },
       "layers": {
         "title": "Co jest widoczne",
         "body": "Ta grupa dotyczy obrazu, nie pracy. Para przycisków u góry przybliża i oddala mapę, a lista rozwijana obok nich wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
@@ -810,7 +818,10 @@
     }
   },
   "demo": {
-    "street": "Ulica Przykładowa {n}"
+    "street": "Ulica Przykładowa {n}",
+    "notePin": "Niebieska brama z tyłu",
+    "noteText": "Droga za drugim gospodarstwem nieutwardzona",
+    "noteLine": "Tylko numery nieparzyste"
   },
   "shortcuts": {
     "title": "Klawiatura i mysz",
@@ -923,15 +934,16 @@
     "goNotes": "Rób notatki",
     "noteToolNote": "Napisz notatkę",
     "noteToolPin": "Wstaw pinezkę",
-    "noteToolFree": "Rysuj odręcznie",
-    "noteToolStreet": "Zaznacz wzdłuż ulicy",
     "noteFinish": "Zakończ linię",
     "noteBack": "Cofnij ostatni punkt",
     "noteCancel": "Wyjdź z narzędzia notatek",
     "noteDrag": "Rysuj odręcznie",
     "groupNoteText": "Ta notatka",
     "noteTextSave": "Zapisz notatkę",
-    "noteTextCancel": "Zostaw notatkę bez zmian"
+    "noteTextCancel": "Zostaw notatkę bez zmian",
+    "noteToolDraw": "Narysuj zaznaczenie",
+    "noteSnap": "Przyciągaj punkty do ulic",
+    "noteClick": "Postaw jeden punkt"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -996,8 +1008,6 @@
     "widthValue": "{value} pt",
     "toolNote": "Notatka",
     "toolPin": "Pinezka",
-    "toolFree": "Odręcznie",
-    "toolStreet": "Ulica",
     "color": "Kolor",
     "width": "Grubość",
     "finish": "Zakończ linię",
@@ -1006,8 +1016,6 @@
     "redo": "Ponów zmianę w notatkach",
     "hintNote": "Kliknij tam, gdzie ma być notatka · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
     "hintPin": "Kliknij miejsce lub budynek do oznaczenia · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
-    "hintFree": "Przeciągnij, aby rysować · Mapa nie przesuwa się w tym trybie · Prawy przycisk otwiera narzędzia · Esc kończy",
-    "hintStreet": "Klikaj wzdłuż ulicy · Punkty przyciągają się do sieci, a linia biegła będzie po niej · Enter lub dwuklik kończy · Backspace cofa",
     "titleNote": "Notatka",
     "titlePin": "Podpis pinezki",
     "titleLine": "Podpis zaznaczenia",
@@ -1021,6 +1029,9 @@
     "untitledLine": "Zaznaczenie",
     "clearTitle": "Usunąć wszystkie notatki?",
     "clearMessage": "Znikną wszystkie notatki, pinezki i zaznaczenia. Tego nie da się cofnąć.",
-    "clearOk": "Usuń je"
+    "clearOk": "Usuń je",
+    "toolDraw": "Rysuj",
+    "snap": "Przyciągaj do ulic",
+    "hintDraw": "Przeciągnij, aby rysować · Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Prawy przycisk przesuwa mapę"
   }
 }

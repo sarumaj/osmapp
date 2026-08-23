@@ -369,7 +369,7 @@
     "compassW": "W",
     "notesGroup": "Notizen",
     "notes": "Notizen mitdrucken",
-    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz und Nadel ein Klebezettel, je Markierung ein Freihandstrich — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet."
+    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz, Nadel und Markierung eine Zeichnung — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet."
   },
   "place": {
     "title": "Karte positionieren",
@@ -682,6 +682,14 @@
         "title": "Alles rückgängig machen",
         "body": "Rückgängig und Wiederherstellen gehen durch Grenzänderungen, Schnitte und Zusammenführungen zurück, Strg+Z ebenso. Im Schneidewerkzeug, im Grenz-Editor und im Radierer nehmen sie stattdessen Punkte, Ecken und Striche zurück — rückgängig heißt also immer das, was Sie zuletzt getan haben."
       },
+      "notesButton": {
+        "title": "Notizen auf der Karte",
+        "body": "Nicht alles, was ein Gebiet ausmacht, ist eine Grenze. Ein Tor auf der Rückseite, ein Block ohne Briefkästen, die Straßenseite, die jemand anderes geht — dafür ist das hier. Notizen liegen über den Gebieten und nicht in ihnen, also lassen Aufteilen, Schneiden und Zusammenfügen jede einzelne genau dort, wo sie gesetzt wurde. Dieses Beispiel trägt drei davon."
+      },
+      "notes": {
+        "title": "Drei Stifte",
+        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, und der Stift zeichnet auf dem Gelände: ziehen für eine Freihandlinie, oder Punkt für Punkt klicken. Mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben — ausgeschaltet zeichnest du frei. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
+      },
       "layers": {
         "title": "Was angezeigt wird",
         "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Das Paar oben zoomt die Karte hinein und heraus, und das Auswahlfeld daneben entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände —, denn darunter liegt immer nur eines. Die Hilfsebenen gelten nur für den Bildschirm: gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
@@ -769,7 +777,10 @@
     }
   },
   "demo": {
-    "street": "Musterstraße {n}"
+    "street": "Musterstraße {n}",
+    "notePin": "Blaues Tor auf der Rückseite",
+    "noteText": "Weg ab dem zweiten Hof unbefestigt",
+    "noteLine": "Nur ungerade Nummern"
   },
   "shortcuts": {
     "title": "Tastatur und Maus",
@@ -882,15 +893,16 @@
     "goNotes": "Notizen machen",
     "noteToolNote": "Eine Notiz schreiben",
     "noteToolPin": "Eine Nadel setzen",
-    "noteToolFree": "Freihand zeichnen",
-    "noteToolStreet": "Entlang einer Straße markieren",
     "noteFinish": "Die Linie beenden",
     "noteBack": "Letzten Punkt zurücknehmen",
     "noteCancel": "Notizwerkzeug verlassen",
     "noteDrag": "Freihand zeichnen",
     "groupNoteText": "Diese Notiz",
     "noteTextSave": "Notiz speichern",
-    "noteTextCancel": "Notiz unverändert lassen"
+    "noteTextCancel": "Notiz unverändert lassen",
+    "noteToolDraw": "Eine Markierung zeichnen",
+    "noteSnap": "Punkte an den Straßen einrasten",
+    "noteClick": "Einen Punkt setzen"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -947,8 +959,6 @@
     "widthValue": "{value} pt",
     "toolNote": "Notiz",
     "toolPin": "Nadel",
-    "toolFree": "Freihand",
-    "toolStreet": "Straße",
     "color": "Farbe",
     "width": "Stärke",
     "finish": "Linie beenden",
@@ -957,8 +967,6 @@
     "redo": "Änderung an den Notizen wiederherstellen",
     "hintNote": "Klicke dorthin, wo die Notiz hingehört · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
     "hintPin": "Klicke den Ort oder das Gebäude an · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
-    "hintFree": "Zum Zeichnen ziehen · Die Karte bleibt in diesem Werkzeug stehen · Rechtsklick für die Werkzeuge · Esc beendet",
-    "hintStreet": "Entlang der Straße klicken · Punkte rasten am Netz ein, die Linie folgt ihm · Enter oder Doppelklick beendet · Backspace geht zurück",
     "titleNote": "Notiz",
     "titlePin": "Beschriftung der Nadel",
     "titleLine": "Beschriftung der Markierung",
@@ -972,6 +980,9 @@
     "untitledLine": "Markierung",
     "clearTitle": "Alle Notizen löschen?",
     "clearMessage": "Alle Notizen, Nadeln und Markierungen verschwinden. Das lässt sich nicht rückgängig machen.",
-    "clearOk": "Löschen"
+    "clearOk": "Löschen",
+    "toolDraw": "Zeichnen",
+    "snap": "An Straßen einrasten",
+    "hintDraw": "Zum Zeichnen ziehen · Klicken setzt Punkte · Enter oder Doppelklick beendet · Rechte Taste verschiebt die Karte"
   }
 }

@@ -25,9 +25,8 @@
  * On the card
  *
  * A PNG card is a picture, so notes are drawn into it. A PDF card is a
- * document, so they become real PDF annotations - a sticky note per note and
- * pin, an ink stroke per line - which a reader can open, reply to, move or
- * delete in any viewer. See print.js for the handover and pdfdoc.js for the
+ * document, so they become real PDF annotations a reader can open, reply to,
+ * move or delete. See print.js for the handover and pdfdoc.js for the
  * dictionaries. Nothing here knows about either; this module owns the records
  * and what they look like on screen.
  */
@@ -43,13 +42,17 @@ App.notes = (function () {
   var N = null;
 
   /**
-   * Which tool the next click makes something with. "free" and "street" both
-   * produce a line and differ only in how its points are chosen, which is why
-   * they are two tools rather than a checkbox on one: a freehand sweep and a
-   * click-per-corner are different gestures, and a mode that changed gesture
-   * under a toggle would be a mode nobody could predict.
+   * Which tool the next gesture makes something with.
+   *
+   * Drawing is one tool rather than two, and the gesture decides which kind of
+   * line comes out: a drag is a freehand sweep, a click places a vertex. That
+   * is a distinction the hand already makes, so it needs no control. What does
+   * need one is whether a clicked vertex is pulled onto the street network,
+   * which is a question about the result rather than about the gesture - hence
+   * the snap switch on the bar, in the same place the cut and trim tools keep
+   * theirs.
    */
-  var TOOLS = ["note", "pin", "free", "street"];
+  var TOOLS = ["note", "pin", "draw"];
 
   /**
    * The Font Awesome glyph each tool is drawn with - on the bar, in the menu,
@@ -59,11 +62,10 @@ App.notes = (function () {
   var TOOL_ICONS = {
     note: "fa-note-sticky",
     pin: "fa-location-dot",
-    free: "fa-pencil",
-    street: "fa-road",
+    draw: "fa-pencil",
   };
 
-  /** What a stored record may call itself; "free" and "street" both make one. */
+  /** What a stored record may call itself. The draw tool makes the last one. */
   var KINDS = ["note", "pin", "line"];
 
   var PEN_KEY = "osmapp.notes.pen";
@@ -92,12 +94,20 @@ App.notes = (function () {
   var _hint = null;
   var _visible = true;
 
-  // The line being drawn, in either tool. `points` are committed lng/lat
-  // coordinates; `preview` is the polyline showing them, including the routed
-  // geometry the street tool inserts between clicks.
+  // The line being drawn. `points` are committed lng/lat coordinates;
+  // `_preview` is the polyline showing them, including the routed geometry
+  // inserted between snapped clicks.
   var _draft = null;
   var _preview = null;
   var _snapDot = null;
+
+  // The left button, from press to release: `moved` once it has travelled far
+  // enough to be a sweep rather than a click, and `opened` when there was no
+  // line in progress when it went down.
+  var _press = null;
+
+  // The right button, which pans the map while the draw tool has the left one.
+  var _rightPan = null;
 
   function init() {
     s = App.state;
@@ -420,7 +430,8 @@ App.notes = (function () {
     L.DomEvent.on(map.getContainer(), "pointerdown", _onPointerDown);
     L.DomEvent.on(map.getContainer(), "pointermove", _onPointerMove);
     L.DomEvent.on(map.getContainer(), "pointerup", _onPointerUp);
-    L.DomEvent.on(map.getContainer(), "pointercancel", _onPointerUp);
+    L.DomEvent.on(map.getContainer(), "pointercancel", _onPointerCancel);
+    L.DomEvent.on(map.getContainer(), "mousedown", _onRightPanDown);
     L.DomUtil.addClass(map.getContainer(), "is-annotating");
 
     // The pointer is a pen now: a territory tooltip chasing it covers the
@@ -456,7 +467,9 @@ App.notes = (function () {
     L.DomEvent.off(map.getContainer(), "pointerdown", _onPointerDown);
     L.DomEvent.off(map.getContainer(), "pointermove", _onPointerMove);
     L.DomEvent.off(map.getContainer(), "pointerup", _onPointerUp);
-    L.DomEvent.off(map.getContainer(), "pointercancel", _onPointerUp);
+    L.DomEvent.off(map.getContainer(), "pointercancel", _onPointerCancel);
+    L.DomEvent.off(map.getContainer(), "mousedown", _onRightPanDown);
+    _endRightPan();
     L.DomUtil.removeClass(map.getContainer(), "is-annotating");
     if (map.dragging) map.dragging.enable();
 
@@ -467,6 +480,7 @@ App.notes = (function () {
     App.ui.closeContextMenu();
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
     _snapDot = null;
+    _press = null;
     _undo = [];
     _redo = [];
   }
@@ -474,10 +488,12 @@ App.notes = (function () {
   /**
    * Choose the tool the next gesture uses.
    *
-   * Map dragging is the one thing that has to move with it: the freehand tool
-   * is a drag, so for as long as it is selected the map cannot also be. Every
-   * other tool leaves panning alone, which is what makes a note on the far
-   * side of town two gestures rather than a mode change.
+   * Map dragging is the one thing that has to move with it: a freehand stroke
+   * is a drag, so while the draw tool is selected the left button belongs to
+   * the pen and the map is panned with the right one instead - the same
+   * bargain the cut tool makes, for the same reason. The other two tools leave
+   * panning alone, which is what makes a note on the far side of town two
+   * gestures rather than a mode change.
    */
   function _setTool(tool) {
     if (TOOLS.indexOf(tool) < 0) return;
@@ -486,7 +502,7 @@ App.notes = (function () {
 
     var map = s.leafletMap;
     if (map && map.dragging) {
-      if (tool === "free") map.dragging.disable();
+      if (tool === "draw") map.dragging.disable();
       else map.dragging.enable();
     }
     if (_hint) {
@@ -500,29 +516,36 @@ App.notes = (function () {
     return "notes.hint" + _tool.charAt(0).toUpperCase() + _tool.slice(1);
   }
 
+  /** The snap switch, which only the draw tool consults. */
+  function _setSnap(on) {
+    s.noteSnap = !!on;
+    if (!s.noteSnap) _hideSnapDot();
+    // A vertex already placed keeps whether it snapped, so the routing of the
+    // hops between the ones that did is what changes under this switch.
+    _syncDraft();
+    _sync();
+  }
+
   // DRAWING
 
   /**
-   * A click means something different in each tool, and in the freehand one it
-   * means nothing: that stroke is driven by the pointer handlers below.
+   * Where a note or a pin goes.
+   *
+   * The draw tool is not served from here: a click and a drag begin
+   * identically, so which of the two happened is only known on release, and
+   * the pointer handlers below are what know it.
    *
    * A click that landed on an existing note never arrives here at all - the
    * layer stops it and opens that note's editor instead.
    */
   function _onMapClick(e) {
-    if (!s.noteMode) return;
-    if (_tool === "note" || _tool === "pin") {
-      _createPoint(e.latlng);
-      return;
-    }
-    if (_tool !== "street") return;
-    _startDraft();
-    _addVertex(e.latlng);
+    if (!s.noteMode || _tool === "draw") return;
+    _createPoint(e.latlng);
   }
 
-  /** Close a street line on the double-click that ended it. */
+  /** Close a line on the double-click that ended it. */
   function _onMapDblClick(e) {
-    if (!s.noteMode || _tool !== "street" || !_draft) return;
+    if (!s.noteMode || _tool !== "draw" || !_draft) return;
     L.DomEvent.stopPropagation(e);
     L.DomEvent.preventDefault(e);
 
@@ -543,7 +566,7 @@ App.notes = (function () {
     finishLine();
   }
 
-  /** One clicked vertex of a street line, pulled onto the network first. */
+  /** One clicked vertex, pulled onto the street network if snapping is on. */
   function _addVertex(latlng) {
     var hit = _snap(latlng);
     _pushPoint(hit, hit.snapped);
@@ -568,7 +591,7 @@ App.notes = (function () {
   }
 
   /**
-   * Freehand: the stroke is the drag.
+   * The left button goes down, and it is not yet known what for.
    *
    * Bound on the container rather than on the map, because Leaflet's own mouse
    * events are click-shaped - it reports a drag as a move of the map, which is
@@ -576,39 +599,141 @@ App.notes = (function () {
    * covers a finger and a stylus with the same code.
    */
   function _onPointerDown(e) {
-    if (!s.noteMode || _tool !== "free") return;
+    if (!s.noteMode || _tool !== "draw") return;
     if (e.button !== undefined && e.button !== 0) return;
     // A press that starts on a note is that note's click, not a new stroke
     // beginning underneath it.
     if (_overOwnLayer(e.target)) return;
     e.preventDefault();
-    _startDraft();
-    _draft.drawing = true;
-    _pushPoint(s.leafletMap.mouseEventToLatLng(e), false);
+    _press = { x: e.clientX, y: e.clientY, moved: false, opened: !_draft };
   }
 
   function _onPointerMove(e) {
-    if (!s.noteMode) return;
-    if (_tool === "free") {
-      if (!_draft || !_draft.drawing) return;
+    if (!s.noteMode || _tool !== "draw") return;
+
+    if (_press) {
+      // Below the threshold the press is still a click waiting to happen: a
+      // pointer travels a pixel or two under any finger, and treating that as
+      // a sweep would leave a two-point scribble everywhere somebody clicked.
+      if (!_press.moved && !_travelled(e)) return;
+      _press.moved = true;
+      _startDraft();
       var at = s.leafletMap.mouseEventToLatLng(e);
       if (_farEnough(at)) _pushPoint(at, false);
       return;
     }
-    // The street tool has no live stroke, but it does have a magnet, and a dot
+
+    // With no button down there is no stroke, but there is a magnet, and a dot
     // under the cursor is the only thing that says where the next click will
     // actually land.
-    if (_tool === "street" && _snapDot) {
-      var hit = _snap(s.leafletMap.mouseEventToLatLng(e));
-      _snapDot.setLatLng([hit.lat, hit.lng]);
-      if (!s.leafletMap.hasLayer(_snapDot)) _snapDot.addTo(s.leafletMap);
-    }
+    _moveSnapDot(e);
   }
 
-  function _onPointerUp() {
-    if (!s.noteMode || _tool !== "free" || !_draft || !_draft.drawing) return;
-    _draft.drawing = false;
-    finishLine();
+  function _onPointerUp(e) {
+    if (!_press) return;
+    var press = _press;
+    _press = null;
+    if (!s.noteMode || _tool !== "draw") return;
+
+    if (!press.moved) {
+      _startDraft();
+      _addVertex(s.leafletMap.mouseEventToLatLng(e));
+      return;
+    }
+
+    // A sweep that began on empty ground is one whole mark, and letting go
+    // ends it. A sweep added to a line that was already being clicked out only
+    // extends it, so that line stays open for the next point.
+    if (press.opened) finishLine();
+  }
+
+  /**
+   * The gesture was taken away rather than finished - a touch the browser
+   * decided was a scroll, a window that lost the pointer.
+   *
+   * Not routed through _onPointerUp, which would read the abandoned press as a
+   * click and place a vertex wherever the pointer happened to be. A stroke
+   * already begun is kept: it is a line somebody drew, and Escape is how a
+   * line is thrown away.
+   */
+  function _onPointerCancel() {
+    _press = null;
+  }
+
+  /** Whether the press has travelled far enough to be a sweep. */
+  function _travelled(e) {
+    return (
+      Math.abs(e.clientX - _press.x) > DRAG_PX ||
+      Math.abs(e.clientY - _press.y) > DRAG_PX
+    );
+  }
+
+  /** Show where the next click would land, or nothing when nothing is pulling. */
+  function _moveSnapDot(e) {
+    if (!_snapDot || !s.noteSnap) return;
+    var hit = _snap(s.leafletMap.mouseEventToLatLng(e));
+    if (!hit.snapped) {
+      _hideSnapDot();
+      return;
+    }
+    _snapDot.setLatLng([hit.lat, hit.lng]);
+    if (!s.leafletMap.hasLayer(_snapDot)) _snapDot.addTo(s.leafletMap);
+  }
+
+  function _hideSnapDot() {
+    if (_snapDot && s.leafletMap.hasLayer(_snapDot))
+      s.leafletMap.removeLayer(_snapDot);
+  }
+
+  // THE RIGHT BUTTON
+  //
+  // The draw tool has the left one, so the map is panned with the right, and a
+  // right button that was pressed and released without travelling still means
+  // "menu" the way it does everywhere else in the app. The same arrangement
+  // the cut tool makes, and for the same reason.
+
+  function _onRightPanDown(e) {
+    if (!s.noteMode || _tool !== "draw" || e.button !== 2) return;
+    // Without this the browser starts a selection drag, and on the platforms
+    // that raise the context menu on mousedown, raises it mid-pan. It also
+    // suppresses Leaflet's own contextmenu event, which is what would
+    // otherwise open the menu on top of the pan.
+    L.DomEvent.preventDefault(e);
+    _rightPan = { x: e.clientX, y: e.clientY, moved: false };
+    L.DomUtil.addClass(s.leafletMap.getContainer(), "is-right-panning");
+    // The button may well be released outside the map, so the rest of the
+    // gesture is followed on the document.
+    L.DomEvent.on(document, "mousemove", _onRightPanMove);
+    L.DomEvent.on(document, "mouseup", _onRightPanUp);
+  }
+
+  function _onRightPanMove(e) {
+    if (!_rightPan) return;
+    // The ground follows the pointer, so the view moves the opposite way.
+    var dx = _rightPan.x - e.clientX;
+    var dy = _rightPan.y - e.clientY;
+    if (!dx && !dy) return;
+    _rightPan.x = e.clientX;
+    _rightPan.y = e.clientY;
+    _rightPan.moved = true;
+    s.leafletMap.panBy([dx, dy], { animate: false });
+  }
+
+  function _onRightPanUp(e) {
+    if (!_rightPan || e.button !== 2) return;
+    var moved = _rightPan.moved;
+    _endRightPan();
+    if (!s.noteMode) return;
+    if (moved) _moveSnapDot(e);
+    else handleContextMenu(s.leafletMap.mouseEventToContainerPoint(e));
+  }
+
+  function _endRightPan() {
+    if (!_rightPan) return;
+    _rightPan = null;
+    L.DomEvent.off(document, "mousemove", _onRightPanMove);
+    L.DomEvent.off(document, "mouseup", _onRightPanUp);
+    L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-right-panning");
   }
 
   /**
@@ -631,6 +756,9 @@ App.notes = (function () {
   /** Points closer together than this are the same point at this zoom. */
   var FREEHAND_MIN_PX = 3;
 
+  /** Travel below this leaves a press a click rather than a sweep. */
+  var DRAG_PX = 4;
+
   function _farEnough(latlng) {
     var points = _draft.points;
     if (!points.length) return true;
@@ -645,21 +773,20 @@ App.notes = (function () {
 
   function _startDraft() {
     if (_draft) return;
-    _draft = { points: [], snapped: [], times: [], drawing: false };
+    _draft = { points: [], snapped: [], times: [] };
     _preview = L.polyline([], {
       pane: "notesPane",
       color: _pen.color,
       weight: Math.max(2, _pen.width * 1.5),
       opacity: 0.75,
-      dashArray: _tool === "free" ? null : "6 4",
+      dashArray: "6 4",
       interactive: false,
     }).addTo(s.leafletMap);
   }
 
   function _discardDraft() {
     if (_preview) s.leafletMap.removeLayer(_preview);
-    if (_snapDot && s.leafletMap.hasLayer(_snapDot))
-      s.leafletMap.removeLayer(_snapDot);
+    _hideSnapDot();
     _preview = null;
     _draft = null;
     _sync();
@@ -682,7 +809,6 @@ App.notes = (function () {
    */
   function _geometry() {
     if (!_draft) return [];
-    if (_tool !== "street") return _draft.points;
 
     var out = [_draft.points[0]];
     for (var i = 0; i + 1 < _draft.points.length; i++) {
@@ -741,6 +867,8 @@ App.notes = (function () {
    * @returns {{lat:number, lng:number, snapped:boolean}}
    */
   function _snap(latlng) {
+    if (!s.noteSnap) return { lat: latlng.lat, lng: latlng.lng, snapped: false };
+
     var radius = _snapRadius();
     var coord = [latlng.lng, latlng.lat];
     var node = N.nearestNode(coord, radius);
@@ -960,6 +1088,14 @@ App.notes = (function () {
     });
 
     items.push({ separator: true });
+    items.push({
+      labelKey: "notes.snap",
+      icon: s.noteSnap ? "fa-square-check" : "fa-square",
+      checked: !!s.noteSnap,
+      onClick: function () {
+        _setSnap(!s.noteSnap);
+      },
+    });
     if (_draft) {
       items.push({
         labelKey: "notes.finish",
@@ -998,16 +1134,16 @@ App.notes = (function () {
       },
       {
         combos: ["3"],
-        labelKey: "shortcuts.noteToolFree",
+        labelKey: "shortcuts.noteToolDraw",
         run: function () {
-          _setTool("free");
+          _setTool("draw");
         },
       },
       {
-        combos: ["4"],
-        labelKey: "shortcuts.noteToolStreet",
+        combos: ["S"],
+        labelKey: "shortcuts.noteSnap",
         run: function () {
-          _setTool("street");
+          _setSnap(!s.noteSnap);
         },
       },
       {
@@ -1038,6 +1174,8 @@ App.notes = (function () {
         },
       },
       { combos: ["Drag"], labelKey: "shortcuts.noteDrag", note: true },
+      { combos: ["Click"], labelKey: "shortcuts.noteClick", note: true },
+      { combos: ["Right-drag"], labelKey: "shortcuts.panRight", note: true },
     ],
   };
 
@@ -1071,6 +1209,12 @@ App.notes = (function () {
       _sync();
     });
 
+    var snap = D.role(_toolbar, "snap");
+    snap.checked = !!s.noteSnap;
+    snap.addEventListener("change", function () {
+      _setSnap(snap.checked);
+    });
+
     D.onRole(_toolbar, "finish", finishLine);
     D.onRole(_toolbar, "undo", NOTES_SCOPE.undo);
     D.onRole(_toolbar, "redo", NOTES_SCOPE.redo);
@@ -1092,6 +1236,16 @@ App.notes = (function () {
         tool === _tool,
       );
     });
+
+    // Greyed rather than hidden while a pen that ignores it is selected. The
+    // switch is the draw tool's alone, but a row that comes and goes changes
+    // the height of a bar somebody is aiming at, and a control that vanishes
+    // teaches nothing about what it was for - which is the same trade every
+    // disabled tile in the toolbar makes.
+    D.toggleClass(D.role(_toolbar, "snap-row"), "is-disabled", _tool !== "draw");
+    var snap = D.role(_toolbar, "snap");
+    snap.checked = !!s.noteSnap;
+    snap.disabled = _tool !== "draw";
 
     D.text(_toolbar, "count", T("notes.count", { count: s.notes.length }));
     D.text(

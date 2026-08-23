@@ -1823,12 +1823,12 @@ body {
   text-align: right;
 }
 
-/* Four equal columns rather than a flex row: the labels are one word in
-   English and three in French, and a row that reflowed between languages
-   would put the street tool on a second line in one of them. */
+/* Equal columns rather than a flex row: the labels are one word in English
+   and two or three in French, and a row that reflowed between languages would
+   put the last tool on a second line in one of them. */
 .notes-toolbar__tools {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
   margin-bottom: 8px;
 }
@@ -1880,6 +1880,37 @@ body {
   display: grid;
   gap: 4px;
   margin-bottom: 8px;
+}
+
+/* Same shape as the cut toolbar's option rows, which is where a switch over a
+   map already looks like a switch in this app. */
+.notes-toolbar__opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ui-fs-sm);
+  cursor: pointer;
+}
+
+.notes-toolbar__opt span {
+  flex: 1;
+}
+
+/* The switch is the draw tool's; the other two pens leave it where it is and
+   pay no attention to it. */
+.notes-toolbar__opt.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.notes-toolbar__opt kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
 }
 
 .notes-toolbar__field {

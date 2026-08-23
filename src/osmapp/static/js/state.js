@@ -94,6 +94,13 @@ App.state = {
   trimOutlierFactor: 3, // far: this many times the median spacing
   trimOutlierGroupMax: 8, // small: at most this many buildings in the group
 
+  // Notes tool toggle (live, flipped from the notes toolbar)
+  //
+  // Whether a clicked vertex of a mark is pulled onto the street network and
+  // the hop before it routed along one. A freehand sweep ignores it: a sweep
+  // is a statement about where the hand went.
+  noteSnap: true,
+
   // Cut tool toggles (live, flipped from the cut toolbar)
   cutSnap: true, // snap vertices to the street network
   cutSnapEdges: true, // ...and to existing territory outlines

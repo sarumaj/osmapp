@@ -369,7 +369,7 @@
     "compassW": "O",
     "notesGroup": "Notes",
     "notes": "Inclure les notes",
-    "notesHint": "Une carte PDF les porte comme de vraies annotations — un pense-bête par note et par épingle, un trait d'encre par marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte."
+    "notesHint": "Une carte PDF les porte comme de vraies annotations — un dessin par note, épingle et marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte."
   },
   "place": {
     "title": "Positionner la carte",
@@ -682,6 +682,14 @@
         "title": "Annuler n'importe quoi",
         "body": "Annuler et rétablir remontent les modifications de limite, les découpes et les fusions, et Ctrl+Z fonctionne aussi. Dans l’outil de découpe, l’éditeur de limite et la gomme, ils reprennent plutôt des sommets, des coins et des traits : annuler désigne toujours votre dernière action."
       },
+      "notesButton": {
+        "title": "Des notes sur la carte",
+        "body": "Tout ce qui compte dans un territoire n'est pas une limite. Un portail à l'arrière, un immeuble sans boîte aux lettres, le côté de rue que quelqu'un d'autre parcourt — c'est ici que cela se note. Les notes reposent sur les territoires plutôt qu'à l'intérieur, si bien que diviser, découper et fusionner les laissent exactement là où elles ont été posées. Cet exemple en porte trois."
+      },
+      "notes": {
+        "title": "Trois stylos",
+        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, et le crayon dessine sur le terrain : faites-le glisser pour une ligne à main levée, ou cliquez point par point. Avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté — désactivez-le pour dessiner librement. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
+      },
       "layers": {
         "title": "Ce qui est affiché",
         "body": "Ce groupe concerne l'image, pas le travail. La paire en haut rapproche et éloigne la carte, et la liste déroulante à côté choisit ce qui se trouve sous la carte — la carte elle-même, l'imagerie aérienne, le terrain — puisqu'un seul fond à la fois est possible. Les couches d'aide sont uniquement pour l'écran : une fiche est toujours imprimée sur le fond OpenStreetMap. Sous la ligne, chaque interrupteur retire une chose de la carte sans la retirer du projet : la limite, les rues, les maisons, les formes des territoires."
@@ -769,7 +777,10 @@
     }
   },
   "demo": {
-    "street": "Rue exemple {n}"
+    "street": "Rue exemple {n}",
+    "notePin": "Portail bleu à l'arrière",
+    "noteText": "Chemin non revêtu après la deuxième ferme",
+    "noteLine": "Numéros impairs seulement"
   },
   "shortcuts": {
     "title": "Clavier et souris",
@@ -882,15 +893,16 @@
     "goNotes": "Prendre des notes",
     "noteToolNote": "Écrire une note",
     "noteToolPin": "Poser une épingle",
-    "noteToolFree": "Dessiner à main levée",
-    "noteToolStreet": "Marquer le long d'une rue",
     "noteFinish": "Terminer la ligne",
     "noteBack": "Reprendre le dernier point",
     "noteCancel": "Quitter l'outil notes",
     "noteDrag": "Dessiner à main levée",
     "groupNoteText": "Cette note",
     "noteTextSave": "Enregistrer la note",
-    "noteTextCancel": "Laisser la note telle quelle"
+    "noteTextCancel": "Laisser la note telle quelle",
+    "noteToolDraw": "Dessiner une marque",
+    "noteSnap": "Aimanter les points aux rues",
+    "noteClick": "Poser un point"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -947,8 +959,6 @@
     "widthValue": "{value} pt",
     "toolNote": "Note",
     "toolPin": "Épingle",
-    "toolFree": "Main levée",
-    "toolStreet": "Rue",
     "color": "Couleur",
     "width": "Épaisseur",
     "finish": "Terminer la ligne",
@@ -957,8 +967,6 @@
     "redo": "Rétablir une modification des notes",
     "hintNote": "Cliquez où la note doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
     "hintPin": "Cliquez le lieu ou le bâtiment à marquer · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
-    "hintFree": "Faites glisser pour dessiner · La carte ne bouge pas dans cet outil · Clic droit pour les outils · Échap termine",
-    "hintStreet": "Cliquez le long de la rue · Les points s'aimantent au réseau et la ligne le suit · Entrée ou double-clic termine · Retour arrière recule",
     "titleNote": "Note",
     "titlePin": "Étiquette de l'épingle",
     "titleLine": "Étiquette de la marque",
@@ -972,6 +980,9 @@
     "untitledLine": "Marque",
     "clearTitle": "Supprimer toutes les notes ?",
     "clearMessage": "Toutes les notes, épingles et marques disparaîtront. C'est irréversible.",
-    "clearOk": "Les supprimer"
+    "clearOk": "Les supprimer",
+    "toolDraw": "Dessiner",
+    "snap": "Aimanter aux rues",
+    "hintDraw": "Faites glisser pour dessiner · Cliquez pour poser des points · Entrée ou double-clic termine · Le clic droit déplace la carte"
   }
 }

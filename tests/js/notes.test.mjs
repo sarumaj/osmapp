@@ -17,7 +17,9 @@
  * The third is the annotation geometry. A canvas measures y downward and a PDF
  * measures it upward, so getting the flip backwards mirrors every comment
  * about the middle of the card - which still looks like a perfectly good card
- * until it is compared with the preview it came from.
+ * until it is compared with the preview it came from. Pinned with it: that a
+ * glyph is filled with the even-odd rule, which is what makes the second ring
+ * of a pin the hole in it rather than a second blob over it.
  */
 
 import test from "node:test";
@@ -210,6 +212,31 @@ test("a stroke's rectangle clears its own thickness", () => {
 
 // ── The annotations themselves ───────────────────────────────────────────────
 
+/** A square glyph a fifth of the frame wide, centred where asked. */
+function glyph(kind, u, v) {
+  const r = 0.1;
+  return {
+    kind,
+    closed: true,
+    text: kind === "note" ? "Zażółć gęślą jaźń" : "",
+    color: "#d40000",
+    width: 2,
+    paths: [
+      [
+        [u - r, v - r],
+        [u + r, v - r],
+        [u + r, v + r],
+        [u - r, v + r],
+      ],
+      [
+        [u - r / 2, v - r / 2],
+        [u + r / 2, v - r / 2],
+        [u, v + r / 2],
+      ],
+    ],
+  };
+}
+
 test("notes reach the page as annotations a reader can open", async () => {
   const PDFLib = pdfLib();
   const P = pdfdoc();
@@ -217,10 +244,11 @@ test("notes reach the page as annotations a reader can open", async () => {
   const doc = await PDFLib.PDFDocument.create();
   const page = doc.addPage([595, 842]);
   P._annotate(PDFLib, doc, page, AREA, [
-    { kind: "note", at: [0.5, 0.5], text: "Zażółć gęślą jaźń", color: "#d40000" },
-    { kind: "pin", at: [0, 1], text: "", color: "#00aa00" },
+    glyph("note", 0.5, 0.5),
+    glyph("pin", 0.2, 0.8),
     {
       kind: "line",
+      closed: false,
       paths: [
         [
           [0, 0],
@@ -241,9 +269,13 @@ test("notes reach the page as annotations a reader can open", async () => {
   const value = (dict, key) => dict.get(PDFLib.PDFName.of(key));
 
   assert.equal(annots.size(), 3);
+
+  // All three are ink, glyphs included. A reader that lets one be selected and
+  // deleted lets all of them be, which is the whole reason a pin is not filed
+  // as the popup note it more closely resembles.
   assert.deepEqual(
     [0, 1, 2].map((i) => String(value(at(i), "Subtype"))),
-    ["/Text", "/Text", "/Ink"],
+    ["/Ink", "/Ink", "/Ink"],
   );
 
   // The text is the whole point of a comment, and Polish is the language this
@@ -272,6 +304,53 @@ test("notes reach the page as annotations a reader can open", async () => {
     .asRectangle();
   assert.equal(rect.x + rect.width / 2, 280);
   assert.equal(rect.y + rect.height / 2, 550);
+});
+
+test("a glyph is filled through its holes and a mark is only stroked", () => {
+  const PDFLib = pdfLib();
+  const P = pdfdoc();
+
+  return PDFLib.PDFDocument.create().then(async (doc) => {
+    const page = doc.addPage([595, 842]);
+    P._annotate(PDFLib, doc, page, AREA, [
+      glyph("pin", 0.5, 0.5),
+      {
+        kind: "line",
+        closed: false,
+        paths: [
+          [
+            [0.1, 0.1],
+            [0.9, 0.9],
+          ],
+        ],
+        text: "",
+        color: "#123456",
+        width: 2,
+      },
+    ]);
+
+    const streams = [0, 1].map((index) => {
+      const form = page.node
+        .Annots()
+        .lookup(index, PDFLib.PDFDict)
+        .lookup(PDFLib.PDFName.of("AP"), PDFLib.PDFDict)
+        .lookup(PDFLib.PDFName.of("N"));
+      return new TextDecoder().decode(
+        PDFLib.decodePDFRawStream(form).decode(),
+      );
+    });
+
+    // B* is fill-even-odd-and-stroke. Without the star the pin's inner ring is
+    // painted over rather than punched out, and the glyph is a blob; without
+    // the fill at all it is an outline of one.
+    assert.match(streams[0], /\bB\*$/);
+    // Both rings closed, or the fill runs between them.
+    assert.equal((streams[0].match(/ h$/gm) || []).length, 2);
+    // A mark has no fill to give it: an open stroke filled would join its own
+    // ends across whatever it was drawn around.
+    assert.match(streams[1], /\bS$/);
+    assert.doesNotMatch(streams[1], /\bB/);
+  });
 });
 
 test("an appearance box is its annotation's rectangle", () => {

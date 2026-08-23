@@ -369,25 +369,33 @@ re-partition, may sit outside the boundary, and is switched on and off without
 touching any geometry. Three kinds, one record — `{ id, kind, points, text,
 color, width }` — where a note and a pin have one point and a mark has many.
 
-Marks are drawn either freehand or with the street tool, which snaps each click
-onto the network and routes between clicks along it, under the same detour
-limits the cut tool uses. They ride along in the session, the GeoJSON export and
-the card attachment.
+Marks come from one pen, and the gesture picks the kind: a drag is a freehand
+sweep, a click places a vertex. With **Snap to streets** on, a clicked vertex is
+pulled onto the network and the hop before it is routed along the road, under
+the same detour limits the cut tool uses — so "this street, not the next one" is
+a mark that lies on the street. Notes ride along in the session, the GeoJSON
+export and the card attachment.
 
 **On a card they change form, deliberately:**
 
-| Output | What a note becomes                                                       |
-|--------|---------------------------------------------------------------------------|
-| PNG    | Drawn onto the map — a dot, and the text in a callout box beside it       |
-| PDF    | A real annotation: `/Text` for a note or a pin, `/Ink` for a mark          |
+| Output | What a note becomes                                                     |
+|--------|-------------------------------------------------------------------------|
+| PNG    | Drawn onto the map — the same pin or note glyph, with the text beside it |
+| PDF    | An `/Ink` annotation: a filled glyph, or a stroke for a mark             |
 
 A PDF card is a document, and the person holding one is the person most likely
 to want to answer a remark on it. As an annotation it can be opened, moved,
 replied to and deleted in any reader; pressed into the map image it is a picture
-of a remark. Each carries its own appearance stream and the print flag, so it
+of a remark. Ink rather than the sticky-note `/Text` a pin more closely
+resembles, because a popup note is not among the types a reader will let you
+select and delete, and a pin nobody can rub out is worse than one filed under
+the wrong subtype.
+
+Each annotation carries its own appearance stream and the print flag, so a card
 looks the same in every viewer instead of however that viewer chooses to draw a
-comment — and `print.js` hands `pdfdoc.js` positions as fractions of the map
-image, so only one place in the app knows where the map sits on the page.
+comment. `print.js` builds the glyph outlines and hands `pdfdoc.js` every kind
+as paths in fractions of the map image — so one place in the app knows what a
+pin looks like, and one knows where the map sits on the page.
 
 ---
 
@@ -445,7 +453,7 @@ multi-worker deployment) handed users each other's areas.
 | `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
 | `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
-| `A`                                     | Notes tool; `1`–`4` pick note, pin, freehand, street        |
+| `A`                                     | Notes tool; `1`–`3` pick note, pin, draw; `S` toggles snap  |
 | Right-click                             | Context menu — on a territory, empty ground, or boundary    |
 
 All bindings live in one registry in `shortcuts.js`, which is both the

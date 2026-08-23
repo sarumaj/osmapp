@@ -1945,11 +1945,11 @@ App.print = (function () {
    * which is a share of the card's width.
    *
    * A card is read at arm's length in daylight, so these are larger than the
-   * same marks are on screen: the dot has to be findable without looking for
+   * same marks are on screen: a glyph has to be findable without looking for
    * it, and the callout has to be readable without being brought closer.
    */
   var NOTE_FONT_PT = 9;
-  var NOTE_DOT_PT = 3.5;
+  var NOTE_MARK_PT = 12; // the height of a pin or a note glyph
   var NOTE_PAD_PT = 3;
   var NOTE_GAP_PT = 5; // between a mark and the text beside it
   var NOTE_MAX_WIDTH = 0.34; // of the card, before the text wraps
@@ -2008,23 +2008,129 @@ App.print = (function () {
     if (_trace(ctx, note.points, false)) ctx.stroke();
   }
 
+  /**
+   * A pin or a note, drawn as the glyph it is on the map.
+   *
+   * The card and the screen show the same two shapes on purpose: a card is
+   * checked against the map it was made from, and a teardrop that arrives as a
+   * dot is one more thing to reconcile. What the shapes are is in
+   * _markerRings; this only paints them.
+   */
   function _drawNoteMark(ctx, note) {
-    var at = _toCanvas(note.points[0][0], note.points[0][1], _view);
-    var radius = NOTE_DOT_PT * PX_PER_PT;
+    var rings = _markerRings(note);
 
-    // The same dot for a note and for a pin. The two differ in what is
-    // attached to them - a pin is a place, a note is a sentence about one --
-    // and on paper that difference is the text beside the mark rather than the
-    // shape of the mark itself.
     ctx.beginPath();
-    ctx.arc(at[0], at[1], radius, 0, Math.PI * 2);
+    rings.forEach(function (ring) {
+      ctx.moveTo(ring[0][0], ring[0][1]);
+      for (var i = 1; i < ring.length; i++) ctx.lineTo(ring[i][0], ring[i][1]);
+      ctx.closePath();
+    });
     ctx.fillStyle = note.color;
-    ctx.fill();
-    ctx.lineWidth = Math.max(1, radius * 0.45);
+    // Even-odd, so the second ring of each glyph is a hole rather than a
+    // second body: the pin's centre and the note's folded corner are both
+    // holes in the icon font this copies.
+    ctx.fill("evenodd");
+    ctx.lineWidth = Math.max(1, PX_PER_PT * 0.7);
     ctx.strokeStyle = "#ffffff";
     ctx.stroke();
 
-    if (note.text) _drawNoteText(ctx, note, at[0] + radius, at[1]);
+    if (!note.text) return;
+    var box = _ringBounds(rings);
+    _drawNoteText(ctx, note, box[2], (box[1] + box[3]) / 2);
+  }
+
+  /**
+   * The glyph for a note or a pin, as closed rings in canvas pixels.
+   *
+   * Two rings each, and the second is a hole. The pin hangs above its
+   * coordinate the way a map pin does - the tip is the place - and the note
+   * sits centred on it, because a sticky note has no point to it.
+   *
+   * @returns {Array<Array<number[]>>}
+   */
+  function _markerRings(note) {
+    var at = _toCanvas(note.points[0][0], note.points[0][1], _view);
+    var size = NOTE_MARK_PT * PX_PER_PT;
+    return note.kind === "pin"
+      ? _pinRings(at[0], at[1], size)
+      : _noteRings(at[0], at[1], size);
+  }
+
+  /** How finely a curved edge of a glyph is cut into straight lines. */
+  var MARKER_ARC_STEPS = 20;
+
+  /**
+   * A teardrop whose tip is (cx, cy): a circular head with two straight
+   * flanks running down to the point.
+   *
+   * The flanks are the tangents from the tip to the head, so the join is
+   * smooth rather than a visible corner. Where they touch is an angle of
+   * acos(r / h) either side of the line from the head's centre to the tip,
+   * which is the right-angle triangle the tangent makes with the radius.
+   */
+  function _pinRings(cx, cy, size) {
+    var r = size * 0.32;
+    var h = size * 0.68; // the head's centre, above the tip
+    var spread = Math.acos(Math.min(1, r / h));
+    var start = Math.PI / 2 + spread; // measured with y downward
+    var sweep = 2 * Math.PI - 2 * spread;
+
+    var body = [[cx, cy]];
+    for (var i = 0; i <= MARKER_ARC_STEPS; i++) {
+      var a = start + (sweep * i) / MARKER_ARC_STEPS;
+      body.push([cx + Math.cos(a) * r, cy - h + Math.sin(a) * r]);
+    }
+
+    var hole = [];
+    var inner = r * 0.42;
+    for (var j = 0; j < MARKER_ARC_STEPS; j++) {
+      var b = (2 * Math.PI * j) / MARKER_ARC_STEPS;
+      hole.push([cx + Math.cos(b) * inner, cy - h + Math.sin(b) * inner]);
+    }
+
+    return [body, hole];
+  }
+
+  /** A square with a folded corner, centred on (cx, cy). */
+  function _noteRings(cx, cy, size) {
+    var half = size * 0.42;
+    var fold = size * 0.34;
+    var left = cx - half;
+    var right = cx + half;
+    var top = cy - half;
+    var bottom = cy + half;
+
+    return [
+      [
+        [left, top],
+        [right, top],
+        [right, bottom - fold],
+        [right - fold, bottom],
+        [left, bottom],
+      ],
+      // The fold itself, as a hole: the icon font draws it as a corner turned
+      // back rather than as a corner cut off, and a triangle of map showing
+      // through reads as the same thing at this size.
+      [
+        [right - fold, bottom],
+        [right - fold, bottom - fold],
+        [right, bottom - fold],
+      ],
+    ];
+  }
+
+  /** @returns {number[]} [x0, y0, x1, y1] around every ring. */
+  function _ringBounds(rings) {
+    var box = [Infinity, Infinity, -Infinity, -Infinity];
+    rings.forEach(function (ring) {
+      ring.forEach(function (point) {
+        box[0] = Math.min(box[0], point[0]);
+        box[1] = Math.min(box[1], point[1]);
+        box[2] = Math.max(box[2], point[0]);
+        box[3] = Math.max(box[3], point[1]);
+      });
+    });
+    return box;
   }
 
   /**
@@ -2093,7 +2199,7 @@ App.print = (function () {
   }
 
   /**
-   * The notes as pdfdoc.js wants them: fractions of the map image.
+   * The notes as pdfdoc.js wants them: paths in fractions of the map image.
    *
    * Fractions rather than points on the page, because which points those are
    * depends on where the placeholder sits on the template and how the image
@@ -2101,51 +2207,72 @@ App.print = (function () {
    * This module knows where a note is on the map; that one knows where the map
    * is on the page.
    *
-   * @returns {Array<{kind:string, at?:number[], paths?:Array<Array<number[]>>,
-   *                  text:string, color:string, width:number}>}
+   * Every kind arrives as paths, glyphs included, so that pdfdoc.js writes one
+   * kind of annotation and knows nothing about what a pin looks like. `closed`
+   * is what separates the two: a glyph is a filled outline, a mark is a
+   * stroke.
+   *
+   * @returns {Array<{kind:string, paths:Array<Array<number[]>>, closed:boolean,
+   *                  text:string, color:string, width?:number}>}
+   *   width is the stroke of a mark; a glyph is filled and carries none.
    */
   function _noteSpecs() {
     var out = [];
     _notes().forEach(function (note) {
-      var points = note.points.map(function (coord) {
-        var at = _toCanvas(coord[0], coord[1], _view);
-        return [at[0] / RENDER_W, at[1] / RENDER_H];
-      });
-
-      if (note.kind !== "line") {
-        // A mark outside the frame is a mark on ground this card does not
-        // show. Kept, it would be an annotation floating on the form beside
-        // the map.
-        if (!_inFrame(points[0])) return;
-        out.push({
-          kind: note.kind,
-          at: points[0],
-          text: note.text,
-          color: note.color,
-          width: note.width,
-        });
-        return;
-      }
-
-      var paths = clipToFrame(points);
-      if (!paths.length) return;
-      // One annotation with several paths rather than one per path: a stroke
-      // that leaves the frame and comes back is still one mark somebody made,
-      // and splitting it would put the same remark in the reader's comment
-      // list twice.
-      out.push({
-        kind: "line",
-        paths: paths,
-        text: note.text,
-        color: note.color,
-        width: note.width,
-      });
+      var spec = note.kind === "line" ? _lineSpec(note) : _markerSpec(note);
+      if (spec) out.push(spec);
     });
     return out;
   }
 
-  function _inFrame(point) {
-    return point[0] >= 0 && point[0] <= 1 && point[1] >= 0 && point[1] <= 1;
+  function _lineSpec(note) {
+    var paths = clipToFrame(note.points.map(_toFrame));
+    if (!paths.length) return null;
+    // One annotation with several paths rather than one per path: a stroke
+    // that leaves the frame and comes back is still one mark somebody made,
+    // and splitting it would put the same remark in the reader's comment list
+    // twice.
+    return {
+      kind: "line",
+      paths: paths,
+      closed: false,
+      text: note.text,
+      color: note.color,
+      width: note.width,
+    };
+  }
+
+  /**
+   * A pin or a note, as the rings of its glyph.
+   *
+   * Dropped whole where the glyph does not fit inside the frame, rather than
+   * clipped the way a mark is: a clipped ring is an open run, which fills into
+   * a shape that is no longer a pin. The preview still draws what fits on the
+   * canvas, so a glyph overlapping the very edge of the card is on screen and
+   * not in the PDF - which is the same answer as "pan it into the frame".
+   */
+  function _markerSpec(note) {
+    var paths = _markerRings(note).map(function (ring) {
+      return ring.map(function (point) {
+        return [point[0] / RENDER_W, point[1] / RENDER_H];
+      });
+    });
+    var box = _ringBounds(paths);
+    if (box[0] < 0 || box[1] < 0 || box[2] > 1 || box[3] > 1) return null;
+
+    return {
+      kind: note.kind,
+      paths: paths,
+      closed: true,
+      text: note.text,
+      color: note.color,
+    };
+  }
+
+  /** One lng/lat coordinate as a fraction of the frame, y downward. */
+  function _toFrame(coord) {
+    var at = _toCanvas(coord[0], coord[1], _view);
+    return [at[0] / RENDER_W, at[1] / RENDER_H];
   }
 
   /**

@@ -1101,19 +1101,19 @@
             <span data-i18n="notes.toolPin">Pin</span>
             <kbd>2</kbd>
           </button>
-          <button type="button" class="notes-tool" data-role="tool-free">
+          <button type="button" class="notes-tool" data-role="tool-draw">
             <i class="fa-solid fa-pencil" aria-hidden="true"></i>
-            <span data-i18n="notes.toolFree">Freehand</span>
+            <span data-i18n="notes.toolDraw">Draw</span>
             <kbd>3</kbd>
-          </button>
-          <button type="button" class="notes-tool" data-role="tool-street">
-            <i class="fa-solid fa-road" aria-hidden="true"></i>
-            <span data-i18n="notes.toolStreet">Street</span>
-            <kbd>4</kbd>
           </button>
         </div>
 
         <div class="notes-toolbar__pen">
+          <label class="notes-toolbar__opt" data-role="snap-row">
+            <input type="checkbox" data-role="snap" />
+            <span data-i18n="notes.snap">Snap to streets</span>
+            <kbd>S</kbd>
+          </label>
           <label class="notes-toolbar__field">
             <span data-i18n="notes.color">Color</span>
             <input type="color" data-role="color" value="#d40000" />
@@ -1446,10 +1446,10 @@
                 <span data-i18n="print.notes">Include the notes</span>
               </label>
               <p class="print-controls__hint" data-i18n="print.notesHint">
-                A PDF card carries them as real annotations - a sticky note per
-                note and pin, an ink stroke per mark - which any reader can
-                open, move or delete. A PNG has nowhere to put those, so they
-                are drawn onto the map instead.
+                A PDF card carries them as real annotations - one ink drawing
+                per note, pin and mark - which any reader can open, move or
+                delete. A PNG has nowhere to put those, so they are drawn onto
+                the map instead.
               </p>
             </fieldset>
 
