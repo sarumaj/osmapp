@@ -769,13 +769,34 @@ App.pdfdoc = (function () {
    * make it into the file.
    */
   function _font(doc) {
+    return _faceBytes().then(function (bytes) {
+      // A copy per document: pdf-lib keeps the array it is handed until the
+      // file is saved, and two cards composed from one page load must not be
+      // subsetting the same buffer.
+      return doc.embedFont(bytes.slice(0), { subset: true });
+    });
+  }
+
+  /** The face itself, fetched once and kept for the life of the page. */
+  var _face = null;
+
+  /**
+   * Kept because the fetch is the one part of composing a card that reaches
+   * outside the page. The service worker precaches the file, so this is not
+   * what makes an installed app work offline -- it is what saves the card of
+   * somebody who loaded the app, lost the connection and printed afterwards,
+   * on a browser that never got a worker to precache anything.
+   */
+  function _faceBytes() {
+    if (_face) return Promise.resolve(_face);
     return fetch(_vendor().font)
       .then(function (response) {
         if (!response.ok) throw new Error("The card font is not available.");
         return response.arrayBuffer();
       })
       .then(function (buf) {
-        return doc.embedFont(new Uint8Array(buf), { subset: true });
+        _face = new Uint8Array(buf);
+        return _face;
       });
   }
 
@@ -905,6 +926,11 @@ App.pdfdoc = (function () {
         dict.Subj = PDFLib.PDFHexString.fromText(note.subject);
       }
       dict.C = _rgb(note.color);
+      // Except on a caption. /C is the color a reader paints *behind* a
+      // FreeText when it draws one itself; the pen's color there turns the
+      // words into a solid block of it. The lettering carries the color in
+      // /DA instead, which is where a FreeText's text color belongs.
+      if (dict.Subtype === "FreeText") dict.C = _rgb("#ffffff");
       // Bit 3, Print. Without it a reader is entitled to leave the annotation
       // off the paper, which for a card that exists to be carried around is
       // the same as not making it.
@@ -994,15 +1020,26 @@ App.pdfdoc = (function () {
     var label = _label(note, area, font);
     if (!label) return null;
 
+    // A reader that rebuilds the appearance after an edit resolves the font
+    // named in /DA against the document's form resources rather than against
+    // the annotation, so the face has to be published there as well.
+    _publishFont(PDFLib, doc, font);
+
     return {
       Type: "Annot",
       Subtype: "FreeText",
       Rect: label.rect,
       // The appearance below is what is actually drawn; /DA is what a reader
-      // falls back on when it rebuilds one after an edit, so the two name the
-      // same font at the same size.
-      DA: PDFLib.PDFString.of("/F1 " + _num(label.size) + " Tf 0 g"),
-      DR: { Font: { F1: font.ref } },
+      // falls back on when it rebuilds one, so the two name the same font at
+      // the same size and set the same color.
+      DA: PDFLib.PDFString.of(
+        "/" + FORM_FONT + " " + _num(label.size) + " Tf " + _captionInk(note),
+      ),
+      DR: { Font: _fontResource(font) },
+      // Plain lettering rather than a boxed callout: it is what the map draws
+      // and what a reader draws when it rebuilds this itself, so the caption
+      // does not gain a border on its way through somebody else's editor.
+      IT: "FreeTextTypeWriter",
       // Left, matching the box the preview drew.
       Q: 0,
       AP: { N: _appearance(PDFLib, doc, label.rect, label.content, font) },
@@ -1057,7 +1094,11 @@ App.pdfdoc = (function () {
       _num(Math.max(0.4, size * 0.08)) + " w",
       _rect(rect),
       "B Q",
-      "BT /F1 " + _num(size) + " Tf 0 g",
+      // A caption is lettering, so it is drawn in the pen's color the way the
+      // map draws it. A mark's label is words about something else, and black
+      // in a white box is what stays readable over a printed street map.
+      "BT /" + FORM_FONT + " " + _num(size) + " Tf " +
+        (note.kind === "text" ? _captionInk(note) : "0 g"),
     ];
     label.lines.forEach(function (line, index) {
       // Down from the top of the box rather than up from the bottom: the
@@ -1089,6 +1130,58 @@ App.pdfdoc = (function () {
    * outputs put the words in the same place.
    */
   var ASCENDER = 0.78;
+
+  /**
+   * What the card's face is called inside an appearance stream and inside the
+   * document's form resources.
+   *
+   * Not "F1": a template may carry a form of its own, and merging a font
+   * under a name its fields already use would redraw them in this one.
+   */
+  var FORM_FONT = "OsmappSans";
+
+  /** The one-entry font dictionary an appearance or a /DR needs. */
+  function _fontResource(font) {
+    var fonts = {};
+    fonts[FORM_FONT] = font.ref;
+    return fonts;
+  }
+
+  /** A caption's lettering, as the color operator /DA sets it with. */
+  function _captionInk(note) {
+    return _rgbOp(_rgb(note.color), "rg");
+  }
+
+  /**
+   * Name the card's face in the document's form resources.
+   *
+   * A FreeText's /DA is resolved against the AcroForm's /DR (PDF 32000-1,
+   * 12.7.3.3), not against the annotation's own, so a reader that rebuilds a
+   * caption after somebody retypes it finds nothing there and substitutes a
+   * face - which for Polish means the diacritics this file embeds a font for
+   * drop straight back out. An existing form is merged into rather than
+   * replaced: the template the card is printed on may have fields of its own.
+   */
+  function _publishFont(PDFLib, doc, font) {
+    // Indirect, which is how every reader expects to find the form, and how a
+    // template that already has one carries it.
+    var form = _branch(PDFLib, doc, doc.catalog, "AcroForm", { Fields: [] }, true);
+    var resources = _branch(PDFLib, doc, form, "DR", {});
+    var fonts = _branch(PDFLib, doc, resources, "Font", {});
+    fonts.set(PDFLib.PDFName.of(FORM_FONT), font.ref);
+  }
+
+  /** The dictionary under `key`, created from `seed` if there is none yet. */
+  function _branch(PDFLib, doc, parent, key, seed, indirect) {
+    var name = PDFLib.PDFName.of(key);
+    // Untyped, and checked here: the typed lookup throws on a key the
+    // dictionary does not have, which is the ordinary case on a fresh page.
+    var found = parent.lookup(name);
+    if (found instanceof PDFLib.PDFDict) return found;
+    var made = doc.context.obj(seed);
+    parent.set(name, indirect ? doc.context.register(made) : made);
+    return made;
+  }
 
   /** A rectangle as the operator that draws it. */
   function _rect(rect) {
@@ -1145,8 +1238,9 @@ App.pdfdoc = (function () {
   /**
    * A form XObject holding one annotation's drawing.
    *
-   * @param {Object} [font] named F1 in the form's resources where the content
-   *   sets type; a stream that says Tf with no font to resolve draws nothing
+   * @param {Object} [font] named FORM_FONT in the form's resources where the
+   *   content sets type; a stream that says Tf with no font to resolve draws
+   *   nothing
    * @returns {PDFRef}
    */
   function _appearance(PDFLib, doc, rect, content, font) {
@@ -1155,7 +1249,7 @@ App.pdfdoc = (function () {
         Type: "XObject",
         Subtype: "Form",
         BBox: rect,
-        Resources: font ? { Font: { F1: font.ref } } : {},
+        Resources: font ? { Font: _fontResource(font) } : {},
       }),
     );
   }

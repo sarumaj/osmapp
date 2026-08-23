@@ -32,23 +32,17 @@ App.pwa = (function () {
     }
 
     // Registration competes with the initial Overpass fetch for bandwidth on
-    // a phone, and nothing on screen depends on it, so it waits for load.
-    window.addEventListener("load", function () {
-      navigator.serviceWorker
-        .register("/sw.js", {
-          scope: "/",
-          // Without this the browser may serve sw.js from the HTTP cache and
-          // miss an update for as long as that entry lives.
-          updateViaCache: "none",
-        })
-        .then(_watch)
-        .catch(function (error) {
-          // A failed registration must never take the app down with it.
-          if (window.console && console.warn) {
-            console.warn("service worker registration failed", error);
-          }
-        });
-    });
+    // a phone, and nothing on screen depends on it, so it waits for load -
+    // unless load has already been and gone. Start-up runs from a timer after
+    // DOMContentLoaded and every module ahead of this one runs first, which is
+    // long enough for a page whose assets are all in the HTTP cache to have
+    // finished loading; a listener added after that never fires, and the app
+    // runs with no worker at all. Nothing on screen says so, because the only
+    // thing missing is the offline copy: the shell is not precached, and the
+    // first thing to notice is a card that cannot be composed with the
+    // connection down, since the face it embeds was never stored.
+    if (document.readyState === "complete") _register();
+    else window.addEventListener("load", _register);
 
     navigator.serviceWorker.addEventListener("controllerchange", function () {
       // Only ever reached after the user accepted the update.
@@ -57,6 +51,23 @@ App.pwa = (function () {
     });
 
     App._loaded.push("pwa");
+  }
+
+  function _register() {
+    navigator.serviceWorker
+      .register("/sw.js", {
+        scope: "/",
+        // Without this the browser may serve sw.js from the HTTP cache and
+        // miss an update for as long as that entry lives.
+        updateViaCache: "none",
+      })
+      .then(_watch)
+      .catch(function (error) {
+        // A failed registration must never take the app down with it.
+        if (window.console && console.warn) {
+          console.warn("service worker registration failed", error);
+        }
+      });
   }
 
   function _watch(registration) {

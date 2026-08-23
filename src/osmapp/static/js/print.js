@@ -305,6 +305,24 @@ App.print = (function () {
         input.selectedIndex = 0;
       }
     });
+    _syncNoteControls();
+  }
+
+  /**
+   * The words switch follows the notes switch.
+   *
+   * With the notes off there is nothing for it to draw, and a live control
+   * that changes nothing on the card reads as one that is broken.
+   */
+  function _syncNoteControls() {
+    var notes = D.role(_dialog, "notes");
+    var words = D.role(_dialog, "note-text");
+    if (!notes || !words) return;
+    words.disabled = !notes.checked;
+    var label = words.parentNode;
+    if (label && label.classList) {
+      label.classList.toggle("is-disabled", !notes.checked);
+    }
   }
 
   function _savePreferences() {
@@ -2840,6 +2858,7 @@ App.print = (function () {
       var box = D.role(_dialog, role);
       if (!box) return;
       box.addEventListener("change", function () {
+        _syncNoteControls();
         _savePreferences();
         _schedulePaint();
       });

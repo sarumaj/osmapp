@@ -225,6 +225,16 @@ on next navigation. No manual cache-busting needed.
 a reload. The undo stack lives in memory and isn't part of the IndexedDB session,
 so activating mid-edit would discard it.
 
+**Registration does not wait for an event already past.** It is held back to
+`load` so it does not compete with the first Overpass fetch, but start-up runs
+from a timer after `DOMContentLoaded` and reaches `pwa.js` last, by which time a
+page whose assets are all in the HTTP cache — every visit after the first — has
+finished loading. `pwa.js` checks `document.readyState` and registers straight
+away in that case. Nothing on screen reports a worker that never registered:
+the app is already in memory, and the first thing to go missing is a card
+composed with the connection down, because DejaVuSans is fetched when a PDF is
+built rather than when the page loads.
+
 ### Deliberately not done: bulk tile pre-fetch
 
 A "download this territory for offline use" button is the obvious next feature,
@@ -410,9 +420,20 @@ where the map sits on the page. The box is measured twice — Arial for the
 preview, DejaVu for the card — and kept at whichever is wider, since a box sized
 for the narrower face clips the last word off every label.
 
+A caption is drawn in the pen's color, the way the map draws it, while a
+mark's label stays black in its box, where black is what survives being printed
+over a street map. Both are written so that a reader which rebuilds the
+appearance itself lands in the same place: the color is in `/DA` — on a
+`/FreeText` that is where the lettering's color lives, while `/C` is what gets
+painted *behind* it — the intent is `/FreeTextTypeWriter`, which is words and
+no box, and the face is named in the document's form resources, because that is
+where `/DA` is resolved (PDF 32000-1, 12.7.3.3) and a caption re-typed without
+it comes back in a substituted font with the Polish diacritics gone.
+
 **"Draw the words on the card"** turns the boxes off for a crowded card: the
 glyphs and strokes stay and the words go only into the PDF's comments. A caption
-is nothing but words, so it is drawn either way.
+is nothing but words, so it is drawn either way. The switch is off-limits while
+the notes themselves are off, since there would be nothing for it to draw.
 
 ---
 
@@ -495,6 +516,11 @@ dispatcher and the source the `?` sheet renders from.
   mark and drawn where it lands, so two notes on the same corner overlap. The
   "Draw the words on the card" switch is the answer for a card where that
   matters.
+- **A PDF card's notes live in its annotation layer**, which is what makes them
+  openable and deletable — and what a reader set to hide or not print comments
+  hides. They carry the print flag, so printing takes them by default; a reader
+  told otherwise is being told otherwise. Flattening keeps them: `qpdf
+  --flatten-annotations=all` draws every note into the page.
 
 ---
 

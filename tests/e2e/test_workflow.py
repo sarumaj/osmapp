@@ -110,3 +110,29 @@ def test_a_card_is_two_clicks_from_a_loaded_territory(sample: Page):
 
     sample.keyboard.press("Escape")
     expect(dialog).to_have_count(0)
+
+
+def test_the_words_switch_follows_the_notes_switch(sample: Page):
+    """A control that cannot change the card is shown as one that cannot.
+
+    "Draw the words on the card" only says how the notes are drawn, so with
+    the notes themselves off it does nothing at all -- and a live checkbox
+    that changes nothing reads as a broken one.
+    """
+    sample.evaluate(
+        "() => window.App.print.printCluster(window.App.state.clusters[0].feature)"
+    )
+    dialog = sample.locator(".app-dialog.print-dialog")
+    expect(dialog).to_be_visible()
+
+    notes = dialog.locator("[data-role='notes']")
+    words = dialog.locator("[data-role='note-text']")
+    expect(notes).to_be_checked()
+    expect(words).to_be_enabled()
+
+    notes.uncheck()
+    expect(words).to_be_disabled()
+    notes.check()
+    expect(words).to_be_enabled()
+
+    sample.keyboard.press("Escape")

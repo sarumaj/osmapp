@@ -538,12 +538,64 @@ test("a caption is a FreeText, so a reader opens it for typing", async () => {
   const marks = annotations(PDFLib, page).filter(
     (d) => String(d.get(PDFLib.PDFName.of("Subtype"))) !== "/Popup",
   );
+  const name = (key) => PDFLib.PDFName.of(key);
   assert.equal(marks.length, 1);
-  assert.equal(String(marks[0].get(PDFLib.PDFName.of("Subtype"))), "/FreeText");
+  assert.equal(String(marks[0].get(name("Subtype"))), "/FreeText");
   // /DA is what a reader rebuilds an appearance from after somebody edits the
-  // text, so it has to name the same font at the same size the box was drawn
-  // with.
-  assert.match(String(marks[0].get(PDFLib.PDFName.of("DA"))), /\/F1 [\d.]+ Tf/);
+  // text, so it names the same font at the same size the box was drawn with,
+  // and sets the pen's color: on a FreeText the lettering takes its color
+  // from here, not from /C.
+  const appearance = String(marks[0].get(name("DA")));
+  assert.match(appearance, /\/OsmappSans [\d.]+ Tf/);
+  assert.match(appearance, /0\.56 0\.27 0\.68 rg/);
+  // And /C, which a reader paints *behind* a FreeText, stays white -- the
+  // pen's color there would turn the caption into a solid block of it.
+  assert.deepEqual(
+    marks[0].get(name("C")).asArray().map(Number),
+    [1, 1, 1],
+  );
+  assert.equal(String(marks[0].get(name("IT"))), "/FreeTextTypeWriter");
+});
+
+test("the caption's font is published where a reader looks it up", () => {
+  // A FreeText's /DA is resolved against the document's form resources (PDF
+  // 32000-1, 12.7.3.3). Without an entry there, a reader rebuilding the
+  // caption after an edit substitutes a face and the Polish diacritics this
+  // app embeds a font for drop out.
+  const PDFLib = pdfLib();
+  const P = pdfdoc();
+
+  return PDFLib.PDFDocument.create().then((doc) => {
+    const page = doc.addPage([595, 842]);
+    P._annotate(
+      PDFLib,
+      doc,
+      page,
+      AREA,
+      [
+        {
+          kind: "text",
+          paths: [],
+          closed: false,
+          text: "ODD SIDE",
+          subject: "Caption",
+          color: "#8e44ad",
+          label: label(["ODD SIDE"]),
+        },
+      ],
+      stubFont(),
+    );
+
+    const name = (key) => PDFLib.PDFName.of(key);
+    const form = doc.catalog.lookup(name("AcroForm"), PDFLib.PDFDict);
+    const fonts = form
+      .lookup(name("DR"), PDFLib.PDFDict)
+      .lookup(name("Font"), PDFLib.PDFDict);
+    assert.ok(fonts.get(name("OsmappSans")), "the face is not in /DR /Font");
+    // Named for this app rather than F1: the card is printed onto somebody
+    // else's template, which may carry a form whose fields use that name.
+    assert.equal(fonts.keys().length, 1);
+  });
 });
 
 test("an appearance box is its annotation's rectangle", () => {
