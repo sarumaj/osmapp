@@ -1,5 +1,5 @@
 /**
- * store.js — promise-based key/value storage backed by IndexedDB.
+ * store.js - promise-based key/value storage backed by IndexedDB.
  *
  * This holds the things localStorage cannot: the uploaded PDF template, which
  * is a File object rather than a string, and the working session, which is
@@ -10,8 +10,8 @@
  * exported here reduce it to get, set, remove and clear over a single object
  * store, each returning a promise.
  *
- * Opening the database can fail outright — some private browsing modes throw
- * from indexedDB.open() — and the app has to remain usable without
+ * Opening the database can fail outright - some private browsing modes throw
+ * from indexedDB.open() - and the app has to remain usable without
  * persistence. When that happens the promise still resolves, with `undefined`,
  * so callers do not need a fallback path for a browser that has no storage. A
  * failure of an individual read or write does reject, since that indicates a

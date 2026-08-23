@@ -18,13 +18,13 @@
 //     ]
 //   }
 //
-//   • The key is the package name, and the version comes from the package's
+//   - The key is the package name, and the version comes from the package's
 //     own package.json. Nothing about a version is written down twice.
-//   • "dest" is a path under destRoot, matching the CDN URL.
-//   • "src" is one exact path inside the package.
-//   • "out" defaults to the file name of "src", which is what most entries
+//   - "dest" is a path under destRoot, matching the CDN URL.
+//   - "src" is one exact path inside the package.
+//   - "out" defaults to the file name of "src", which is what most entries
 //     want. Give it only to rename, or to place the file in a subdirectory.
-//   • "mode" is inferred and rarely written: a directory is copied whole, an
+//   - "mode" is inferred and rarely written: a directory is copied whole, an
 //     already-minified source is copied verbatim, and any other .js/.mjs/.css
 //     is minified on the way through. Set it explicitly to override.
 import {

@@ -1,8 +1,8 @@
 """Progressive-web-app plumbing: the manifest and the service worker.
 
 The interesting problem here is freshness, not offline. Nothing in
-`static/js/` carries a fingerprint — `url_for('static', filename='js/main.js')`
-is a bare `/static/js/main.js` — so a service worker that cache-firsts those
+`static/js/` carries a fingerprint - `url_for('static', filename='js/main.js')`
+is a bare `/static/js/main.js` - so a service worker that cache-firsts those
 files has no way to notice a deploy, and the app would happily run last week's
 JavaScript against this week's HTML forever.
 

@@ -1,5 +1,30 @@
 /**
- * polygons.js — cluster lifecycle, hover styling, and the filtered view.
+ * polygons.js - what is on the map, and how it looks.
+ *
+ * Every territory reaches the map through setClusters(), which is what makes
+ * this the choke point the rest of the app hangs off: it is where the stored
+ * outline is cleaned, where the session is marked dirty, where the gap
+ * recount is scheduled, and where the toolbar and the number chips are told
+ * to catch up. A module that changes the territories calls it and nothing
+ * else.
+ *
+ * Four jobs live here:
+ *
+ *   - The cluster store. The `s.clusters` list of { feature, layer } pairs,
+ *     and the operations that add to, delete from and replace it, plus the
+ *     `properties.printed` mark that records which cards have been produced.
+ *   - Styling. Every path style in the app is defined here and resolved per
+ *     layer, because a territory's appearance depends on selection, hover,
+ *     the printed mark and whether the trim tool has excluded the building
+ *     under the pointer.
+ *   - Hover and the tooltips. One delegated handler per feature group rather
+ *     than a listener per shape, since a town is twelve thousand buildings.
+ *   - The filtered view. Which streets and buildings belong to each
+ *     territory, recomputed as the outlines move, and rendered by moving only
+ *     the difference.
+ *
+ * The number chips are not here: they belong to labels.js, which anchors them
+ * on the interior point and carries the non-color half of the printed mark.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -49,9 +74,9 @@ App.polygons = (function () {
    * and a stronger fill, in green, because a pale fill under a dashed outline
    * is what a deleted or provisional shape looks like.
    *
-   * Color cannot carry the state alone — a green wash and a purple one are
+   * Color cannot carry the state alone - a green wash and a purple one are
    * close for a red-green color blind reader and identical in a greyscale
-   * screenshot — so every printed territory also carries a check on its
+   * screenshot - so every printed territory also carries a check on its
    * number chip. See labels.js. Shape survives being small, being overlapped,
    * and being printed; a dash pattern does not.
    */
@@ -110,8 +135,8 @@ App.polygons = (function () {
    * Neither red nor grey, because it is neither: the automatic pass had an
    * opinion and the user overruled it, and both halves of that are worth
    * seeing. Without it, putting a building back makes it identical to the four
-   * thousand that were never in question, and finding it again — to check the
-   * decision, or to change it back — means hunting.
+   * thousand that were never in question, and finding it again - to check the
+   * decision, or to change it back - means hunting.
    */
   var BUILDING_STYLE_FLAGGED = {
     color: "#9a6a00",
@@ -168,14 +193,13 @@ App.polygons = (function () {
     App._loaded.push("polygons");
   }
 
-  // ── Building state ────────────────────────────────────────────────────
+  // Building state
   //
-  // A building's resting appearance stopped being a constant when the trim
-  // tool arrived: it now depends on whether that tool is running and whether
-  // this particular building has been excluded. The style is therefore
-  // resolved per layer rather than handed to _wireFeatureGroup once, so the
-  // hover handlers cannot repaint an ignored building back to grey on the way
-  // out — which is exactly what a fixed rest style did.
+  // A building's resting appearance is not a constant: it depends on whether
+  // the trim tool is running and whether this particular building has been
+  // excluded. The style is therefore resolved per layer rather than handed to
+  // _wireFeatureGroup once, since a fixed rest style would have the hover
+  // handlers repaint an ignored building back to grey on the way out.
 
   /** "excluded" | "flagged" | null, as far as the trim tool is concerned. */
   function buildingState(feature) {
@@ -210,9 +234,7 @@ App.polygons = (function () {
     })(s.buildingsLayerGroup);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // STYLE RESOLUTION
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Selected beats hover beats resting, so hovering a selection is stable. */
   function _styleFor(layer) {
@@ -231,14 +253,12 @@ App.polygons = (function () {
     layer._selected = !!selected;
     refreshStyle(layer);
     // The number chip is a second handle on the same territory, so it has to
-    // show the same state — a selected shape with an unselected number on it
+    // show the same state - a selected shape with an unselected number on it
     // reads as two different things.
     if (App.labels) App.labels.setSelected(layer, layer._selected);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CLUSTER STORE
-  // ══════════════════════════════════════════════════════════════════════
 
   function clusterFeatures() {
     return s.clusters.map(function (c) {
@@ -263,11 +283,9 @@ App.polygons = (function () {
     return !!(feature && feature.properties && feature.properties.auto);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PRINT STATE
-  // ══════════════════════════════════════════════════════════════════════
   //
-  // A territory carries properties.printed — the ISO timestamp of the card
+  // A territory carries properties.printed - the ISO timestamp of the card
   // that was last produced from it, or nothing at all.
   //
   // A timestamp rather than a boolean because the question people actually
@@ -278,7 +296,7 @@ App.polygons = (function () {
   // same payload. Nothing new had to learn about it.
   //
   // PAYLOAD_VERSION is deliberately *not* bumped. The field is optional in
-  // both directions — an old export simply has no marks, and an old build
+  // both directions - an old export simply has no marks, and an old build
   // reading a new export ignores a property it does not know. Bumping would
   // throw away every saved session on the planet to add a field nobody's
   // existing data was missing.
@@ -309,7 +327,7 @@ App.polygons = (function () {
   /**
    * Flag or unflag one territory and repaint it.
    *
-   * @param {Object} feature the cluster feature, not the layer — print.js
+   * @param {Object} feature the cluster feature, not the layer - print.js
    *   holds one of these across an async composition and has no layer.
    * @param {boolean} printed
    * @param {{at?: string}} [opts] override the timestamp, for an import that
@@ -335,7 +353,7 @@ App.polygons = (function () {
     if (next) entry.feature.properties.printed = next;
     else delete entry.feature.properties.printed;
 
-    // Cached on the layer so _styleFor stays O(1) — it runs on every hover.
+    // Cached on the layer so _styleFor stays O(1) - it runs on every hover.
     entry.layer._printed = !!next;
     refreshStyle(entry.layer);
     // Rebuilds this territory's chips in green, with the check on them.
@@ -347,7 +365,7 @@ App.polygons = (function () {
     return true;
   }
 
-  /** Wipe every mark — the start of a new round of the territory. */
+  /** Wipe every mark - the start of a new round of the territory. */
   function clearPrinted() {
     var cleared = 0;
     s.clusters.forEach(function (entry) {
@@ -370,10 +388,10 @@ App.polygons = (function () {
     if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
   }
 
-  // ── Where the check lives ─────────────────────────────────────────────
+  // Where the check lives
   //
   // Nothing here draws the printed check. It belongs to the number chip in
-  // labels.js, which is the app's non-color channel for "this one is done" — a
+  // labels.js, which is the app's non-color channel for "this one is done" - a
   // green wash and a purple one are the same wash to a red-green color blind
   // reader and identical in a greyscale screenshot.
   //
@@ -407,8 +425,8 @@ App.polygons = (function () {
       // place a defect can be kept out of the stored outlines rather than
       // worked around wherever it later shows up.
       //
-      // The defect is a zero-width tab — a ring going out along a line and
-      // straight back along it — which clipping and rounding leave behind, and
+      // The defect is a zero-width tab - a ring going out along a line and
+      // straight back along it - which clipping and rounding leave behind, and
       // which nothing on the map or in turf's validity checks reveals. It
       // costs nothing until jsts is asked to buffer the shape, and then it
       // costs the whole shape: see geometry.despike. Cleaning here means a
@@ -524,7 +542,7 @@ App.polygons = (function () {
       } catch (e) {
         remainder = null;
       }
-      // Not `> 1`: a square meter of leftover became a full territory —
+      // Not `> 1`: a square meter of leftover becomes a full territory --
       // counted in the info panel, printable as a card, and invisible at any
       // zoom anyone works at. Below the floor the scrap belongs to nobody,
       // which is the honest outcome for a scrap.
@@ -558,7 +576,7 @@ App.polygons = (function () {
    * Delete one territory.
    *
    * Behind a spinner on a big project, because removing a territory re-tests
-   * every building against all the others — a second of work on a town, and
+   * every building against all the others - a second of work on a town, and
    * this is reached from a context menu with nothing else on screen to say so.
    * The answer is still decided here and now: whether this layer *is* a
    * territory is known immediately, and only the work is deferred.
@@ -582,7 +600,7 @@ App.polygons = (function () {
     // rather than patched.
     if (App.labels) App.labels.refresh();
     refreshFilteredData();
-    // The one cluster mutation that does not go through setClusters() — so it
+    // The one cluster mutation that does not go through setClusters() - so it
     // is also the one that has to say so itself. A deleted territory leaves a
     // hole exactly its own shape, which is the clearest case there is.
     if (App.gaps) App.gaps.schedule();
@@ -623,20 +641,21 @@ App.polygons = (function () {
     return doomed.length;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // EVENTS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Tooltip presentation depends on what the pointer is currently for.
    *
-   *   full     — resting state. Sticky, so it tracks the cursor and reads like
+   *   full     - resting state. Sticky, so it tracks the cursor and reads like
    *              a label for whatever is under it.
-   *   anchored — merge mode. Same content, but pinned above the shape instead
+   *   anchored - merge mode. Same content, but pinned above the shape instead
    *              of following the pointer, so it never sits on top of the
    *              territory being clicked.
-   *   off      — cut mode. The pointer is a drawing instrument there; a panel
-   *              chasing it hides the street being snapped to.
+   *   off      - cut mode and the outline editor. The pointer is a drawing
+   *              instrument there; a panel chasing it hides the street being
+   *              snapped to.
+   *   features - trim mode. Territory tooltips are off, street and building
+   *              ones stay on. See the entry below for why.
    */
   var TOOLTIP_MODES = {
     full: {
@@ -652,11 +671,11 @@ App.polygons = (function () {
       opacity: 0.95,
     },
     off: null,
-    // Trim mode. Territory tooltips would be noise — the territories are not
-    // what is being decided — but the building ones are the decision: which
+    // Trim mode. Territory tooltips would be noise - the territories are not
+    // what is being decided - but the building ones are the decision: which
     // building this is, whether it has an address, whether it is a house or a
-    // shed. Excluding a building you cannot identify is guessing, and "off"
-    // made every one of these calls a guess.
+    // shed. Excluding a building you cannot identify is guessing, which is
+    // what "off" here would make of every one of these calls.
     features: null,
   };
 
@@ -670,7 +689,7 @@ App.polygons = (function () {
    * Rebind every cluster tooltip in a new presentation. Rebinding rather than
    * opening and closing on each hover avoids the flicker of a tooltip that
    * appears and is dismissed in the same frame.
-   * @param {"full"|"anchored"|"off"} mode
+   * @param {"full"|"anchored"|"off"|"features"} mode
    */
   function setTooltipMode(mode) {
     if (!(mode in TOOLTIP_MODES) || mode === _tooltipMode) return;
@@ -680,7 +699,7 @@ App.polygons = (function () {
       _bindTooltip(layer);
     });
     // Chips carry the same tooltip and, in cut mode, stop taking the pointer
-    // altogether — a clickable number sitting on the map is one more thing
+    // altogether - a clickable number sitting on the map is one more thing
     // for the knife to catch on.
     if (App.labels) App.labels.refresh();
   }
@@ -717,7 +736,7 @@ App.polygons = (function () {
   /**
    * @param {L.Layer} target what the pointer touches
    * @param {L.Layer} [source] the cluster layer the text describes, when the
-   *   two are not the same thing — a number chip is a target that stands for
+   *   two are not the same thing - a number chip is a target that stands for
    *   a territory it is not.
    */
   function _bindTooltip(target, source) {
@@ -751,11 +770,11 @@ App.polygons = (function () {
 
   /**
    * Tooltip body, resolved when the tooltip opens rather than when the layer is
-   * created — counts are filled in by refreshFilteredData(), which runs after
+   * created - counts are filled in by refreshFilteredData(), which runs after
    * setClusters() has already built the layers.
    *
    * Everything in it is either a translated string or a number this app
-   * computed, which is why — unlike the building and street tooltips below —
+   * computed, which is why - unlike the building and street tooltips below --
    * none of it needs escaping.
    */
   function _tooltipContent(layer) {
@@ -811,9 +830,7 @@ App.polygons = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // STREET AND BUILDING INFO
-  // ══════════════════════════════════════════════════════════════════════
 
   var FEATURE_TOOLTIP = {
     sticky: true,
@@ -847,7 +864,7 @@ App.polygons = (function () {
    * One property as trimmed text, or null when it carries nothing.
    *
    * The normalization itself lives in App.util.tagText, because naming.js has
-   * to make exactly the same three judgements about exactly the same values —
+   * to make exactly the same three judgements about exactly the same values --
    * and two copies of "is this tag empty?" that disagree would put a locality
    * on a card that the tooltip beside it says is unaddressed.
    */
@@ -962,10 +979,11 @@ App.polygons = (function () {
    * one of the feature groups.
    *
    * The forwarding is the subtle part. Streets and buildings paint above the
-   * territories, so a right-click on a building never reached the territory
-   * underneath and the context menu did not open — the browser's did. Now the
-   * event is re-fired on whichever territory contains that point, so clicking
-   * a building behaves exactly like clicking the territory around it.
+   * territories, so a right-click on a building never reaches the territory
+   * underneath and would open the browser's context menu rather than the
+   * app's. The event is therefore re-fired on whichever territory contains
+   * that point, so clicking a building behaves exactly like clicking the
+   * territory around it.
    */
   function _wireFeatureGroup(group, contentFn, hoverStyle, restStyle) {
     /** A style may be a constant or a function of the layer it paints. */
@@ -1004,7 +1022,7 @@ App.polygons = (function () {
           App.trim.handleBuildingClick(e.layer, e);
         // The trim toolbar is in the corner and the buildings being judged are
         // under the cursor, so this is the mode where a menu at the pointer
-        // saves the most travel — and it can name the building it opened over.
+        // saves the most travel - and it can name the building it opened over.
         else if (e.type === "contextmenu")
           App.trim.handleContextMenu(
             e.containerPoint,
@@ -1022,7 +1040,7 @@ App.polygons = (function () {
    * Close whatever is open when the pointer leaves the map.
    *
    * The last resort behind the slot in _openFeatureTooltip. A shape's mouseout
-   * is what normally closes its tooltip, and it does not always come — the
+   * is what normally closes its tooltip, and it does not always come - the
    * pointer moving off the map onto the info panel, onto a dialog, or out of
    * the window is the case people actually hit, and the one that leaves a
    * panel sitting over the map with nothing under the cursor at all.
@@ -1077,7 +1095,7 @@ App.polygons = (function () {
    *
    * The slot is the point. Leaflet closes a tooltip when the pointer leaves
    * the shape, and that is enough right up until the mouseout does not
-   * arrive — the shape is taken off the map, a mark is dropped on top of it,
+   * arrive - the shape is taken off the map, a mark is dropped on top of it,
    * the pointer leaves the window, the element is rebuilt under a cursor that
    * has not moved. Any of those leaves a panel on the map describing a
    * building nobody is pointing at, and nothing else ever closes it.
@@ -1117,7 +1135,7 @@ App.polygons = (function () {
    *
    * The focus listeners go with it. Leaflet 1.9's unbindTooltip leaves the
    * ones it put on the element, and they read `this._tooltip._source` with no
-   * guard — see _dropFocusListeners, which is here for the same reason on the
+   * guard - see _dropFocusListeners, which is here for the same reason on the
    * territory side.
    */
   function _forgetFeatureTooltip(layer) {
@@ -1132,7 +1150,7 @@ App.polygons = (function () {
   /** Take the tooltip off every street and building that has one. */
   function _forgetFeatureTooltips() {
     // First, because the layer holding the slot may not be in either group any
-    // more — which is one of the ways it came to be stale.
+    // more - which is one of the ways it came to be stale.
     _hoveredFeature = null;
     [s.streetsLayerGroup, s.buildingsLayerGroup].forEach(function (group) {
       if (!group) return;
@@ -1159,7 +1177,7 @@ App.polygons = (function () {
    *
    * The two are the same object for the polygon itself. They differ for the
    * number chip, which is a small, always-findable handle on a shape that may
-   * be a couple of pixels wide — the case the chips exist for in the first
+   * be a couple of pixels wide - the case the chips exist for in the first
    * place. Splitting target from layer rather than copying these four
    * handlers into labels.js is the point: two implementations of "click a
    * territory" would drift, and the one on the chip would be the one nobody
@@ -1220,9 +1238,9 @@ App.polygons = (function () {
 
       contextmenu: function (e) {
         L.DomEvent.stopPropagation(e);
-        // A mode owns the right button while it is running, but "owns" used
-        // to mean "discards". Merge has a menu of its own now, and it needs
-        // to know which territory was under the cursor — which is exactly
+        // A mode owns the right button while it is running, but owning it is
+        // not discarding it: merge has a menu of its own, and that menu needs
+        // to know which territory was under the cursor - which is exactly
         // what this handler has and the map's own contextmenu does not.
         //
         // Cut is not routed through here on purpose: it watches the right
@@ -1248,7 +1266,7 @@ App.polygons = (function () {
   }
 
   /**
-   * Make something that is not the territory behave like it — same tooltip,
+   * Make something that is not the territory behave like it - same tooltip,
    * same hover, same click, same context menu. Used by labels.js for the
    * number chips.
    */
@@ -1261,8 +1279,8 @@ App.polygons = (function () {
    * Sole write path for the outer boundary, the way setClusters() is for the
    * territories.
    *
-   * The five statements it performs — clear the group, add the layer, set both
-   * state fields, attach the events — belong together, because a caller that
+   * The five statements it performs - clear the group, add the layer, set both
+   * state fields, attach the events - belong together, because a caller that
    * remembers four of them produces a boundary that is subtly not like the
    * others. Skipping the click handler is the one that hides longest: the
    * boundary looks right and passes clicks through to the map underneath.
@@ -1301,14 +1319,14 @@ App.polygons = (function () {
       if (s.outlineMode) return;
       layer.setStyle(OUTER_STYLE);
     });
-    // The boundary was the one thing on the map with no menu of its own, so
-    // everything that acts on it — reshaping it, re-downloading for it,
-    // trimming it — could only be reached from the toolbar, and only by
-    // somebody who already knew which button meant the outline.
+    // The boundary gets a menu of its own like everything else on the map.
+    // Without one, reshaping it, re-downloading for it and trimming it are
+    // reachable only from the toolbar, and only by somebody who already knows
+    // which button means the outline.
     layer.on("contextmenu", function (e) {
       L.DomEvent.stopPropagation(e);
       // While the outline tool is running the boundary is the subject, so the
-      // menu is its own — the same rule the territories follow for cut and
+      // menu is its own - the same rule the territories follow for cut and
       // merge.
       if (s.outlineMode) {
         App.outline.handleContextMenu(e.containerPoint);
@@ -1322,7 +1340,7 @@ App.polygons = (function () {
   /**
    * Swap in a new outer boundary and bring the territories with it.
    *
-   * Two tools reshape the boundary — the trim tool and the outline editor —
+   * Two tools reshape the boundary - the trim tool and the outline editor --
    * and they need the same six things to happen afterwards, in the same
    * order. Written twice they would be two answers to "what happens to a
    * territory that is now half outside?", and the second one would be wrong
@@ -1333,7 +1351,7 @@ App.polygons = (function () {
    * step before partitioning, but nothing stops it happening afterwards, and
    * throwing away a hand-corrected partition to move one corner would be an
    * expensive surprise. A territory whose shape actually changed loses its
-   * printed mark, for the same reason a cut one does — the card in somebody's
+   * printed mark, for the same reason a cut one does - the card in somebody's
    * hand no longer matches the ground.
    *
    * The caller owns the history entry and the sanity of the ring. This does
@@ -1389,9 +1407,7 @@ App.polygons = (function () {
     return stats;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // FILTERED VIEW
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * What a refresh costs when nothing can be reused, in milliseconds.
@@ -1402,18 +1418,27 @@ App.polygons = (function () {
    * territories, and ui.busy() reads it to decide whether an operation is
    * worth putting a spinner in front of.
    *
-   * Deliberately not "how long the last refresh took" any more. Most refreshes
-   * now answer out of the caches in _streetsFor() and _syncLayers(), and a
+   * Deliberately not "how long the last refresh took". Most refreshes answer
+   * out of the caches in _streetsFor() and _syncLayers(), and a
    * forty-millisecond warm refresh says nothing about the second that the
    * *next* gap recount or boundary swap is going to spend. So the figure comes
-   * from the last refresh that really did the whole job — a load, a reset, a
-   * repair that rebuilt every territory — raised by anything more expensive
+   * from the last refresh that really did the whole job - a load, a reset, a
+   * repair that rebuilt every territory - raised by anything more expensive
    * that happens in between.
    */
   function refreshCostMs() {
     return _refreshCostMs;
   }
 
+  /**
+   * Re-decide which streets and buildings belong to which territory, and
+   * bring the map to the answer.
+   *
+   * Fills in each cluster entry's `counts`, renders only what changed, and
+   * repaints the info panel. With no territories at all, everything
+   * downloaded is shown. Timed on the way through, which is where
+   * refreshCostMs() gets its figure.
+   */
   function refreshFilteredData() {
     var started = _now();
     _fullRefresh = true;
@@ -1453,14 +1478,13 @@ App.polygons = (function () {
       return { streets: 0, buildings: 0 };
     });
 
-    // ── Streets: asked per territory, because that answer keeps ──────────
-    //
+    // Streets are asked per territory, because that is the answer that keeps.
     // Still a bbox reject and then a real intersection test, but turned
     // around: each territory is asked which streets it touches, rather than
     // each street being asked which territories it lies in. The same tests in
-    // the same number — what changes is that the per-territory answer survives
-    // into the next refresh, and the per-street one never could, because the
-    // thing that changed was never the street.
+    // the same number - what it buys is a cached answer, since a territory
+    // that did not change carries its list into the next refresh, whereas a
+    // per-street answer is invalidated by any territory moving.
     //
     // There is deliberately no early exit. Territory boundaries follow
     // streets, so a boundary street genuinely belongs to both neighbors and
@@ -1477,7 +1501,7 @@ App.polygons = (function () {
     for (var j = 0; j < allStreets.length; j++)
       if (streetHit[j]) filteredStreets.push(allStreets[j]);
 
-    // ── Buildings: one centroid per building, cached on the feature ──────
+    // Buildings: one centroid per building, cached on the feature
     var filteredBuildings = [];
     s.cachedBuildings.features.forEach(function (f) {
       if (!f.geometry) return;
@@ -1527,8 +1551,8 @@ App.polygons = (function () {
   /**
    * The streets a territory touches, as indices into cachedStreets.features.
    *
-   * turf.booleanIntersects is the whole cost of a refresh — on a real village
-   * it is 579 of the 587 milliseconds this loop spends — and the bounding-box
+   * turf.booleanIntersects is the whole cost of a refresh - on a real village
+   * it is 579 of the 587 milliseconds this loop spends - and the bounding-box
    * reject in front of it has already thrown out everything cheap to throw
    * out: what survives is 2.6 candidate territories per street, and those
    * calls genuinely need the exact test. There is no index left to add, so the
@@ -1538,8 +1562,8 @@ App.polygons = (function () {
    *
    * A territory's geometry object is the key. setClusters() wraps its input in
    * a fresh Feature but passes the geometry straight through, and nothing in
-   * the app rewrites a territory's coordinates in place — cut, merge, trim and
-   * autoheal all build new geometry — so a territory that changed always
+   * the app rewrites a territory's coordinates in place - cut, merge, trim and
+   * autoheal all build new geometry - so a territory that changed always
    * arrives as a new object and misses. A WeakMap lets the entry die with the
    * territory it describes. The street collection is remembered alongside,
    * because loading a different area replaces it wholesale and that
@@ -1586,12 +1610,13 @@ App.polygons = (function () {
   /**
    * Bring a feature group to `features` by moving only the difference.
    *
-   * The alternative — clear the group, rebuild it from one L.geoJSON — is a
-   * third of a second on twelve thousand buildings, and it was paid on every
-   * edit, including the many edits that leave all twelve thousand exactly
-   * where they were. Moving a boundary hands a building from one territory to
-   * another; it very rarely takes one off the map at all. So the shapes stay
-   * and only the arrivals and the departures are built and destroyed.
+   * The alternative - clear the group, rebuild it from one L.geoJSON - is a
+   * third of a second on twelve thousand buildings, and it would be paid on
+   * every edit, including the many edits that leave all twelve thousand
+   * exactly where they were. Moving a boundary hands a building from one
+   * territory to another; it very rarely takes one off the map at all. So the
+   * shapes stay, and only the arrivals and the departures are built and
+   * destroyed.
    *
    * Identity is the test. The cached collections are never rewritten in place,
    * so the same building is the same object from one refresh to the next, and

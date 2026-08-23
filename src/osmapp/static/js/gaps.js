@@ -1,28 +1,28 @@
 /**
- * gaps.js — the parts of the area that belong to no territory.
+ * gaps.js - the parts of the area that belong to no territory.
  *
  * The partitioner tessellates, so uncovered ground can only arrive one of
  * four ways, and all four leave holes nothing on screen points at:
  *
- *   • Growing the boundary. Reshaping the outline outward adds ground no
+ *   - Growing the boundary. Reshaping the outline outward adds ground no
  *     territory has ever covered, and the map still looks finished.
- *   • Deleting a territory. The hole is the shape that was deleted.
- *   • Cutting. A split that shaves a piece below CUT_MIN_PIECE_M2 discards it.
- *   • Drawing a territory by hand inside the whole-area cluster, where the
+ *   - Deleting a territory. The hole is the shape that was deleted.
+ *   - Cutting. A split that shaves a piece below CUT_MIN_PIECE_M2 discards it.
+ *   - Drawing a territory by hand inside the whole-area cluster, where the
  *     remainder falls below MIN_REMAINDER_M2 and belongs to nobody.
  *
  * The failure mode they share is quiet: nothing looks wrong, and it surfaces
  * when a street turns out to be on no card. So gaps are drawn, they name
  * themselves on hover, and clicking one turns it into a territory. They are
  * also rows in the territory list, where the rest of the map's faults are
- * named and repaired — see labels.js for the row and autoheal.js for its
+ * named and repaired - see labels.js for the row and autoheal.js for its
  * wand, which adopts a gap and then repairs what adopting it made.
  *
- * ── Why the seams are not gaps ────────────────────────────────────────────
+ * Why the seams are not gaps
  *
  * A tessellation's internal edges coincide only to floating-point precision,
  * so subtracting the union of the territories from the boundary returns a
- * hairline sliver along every shared edge — hundreds of them, centimeters
+ * hairline sliver along every shared edge - hundreds of them, centimeters
  * wide, none of them a gap in any useful sense.
  *
  * Each remaining piece is therefore *opened*: shrunk by half a meter and, if
@@ -51,7 +51,7 @@ App.gaps = (function () {
 
   // Above the outer boundary, below the territories. It cannot overlap a
   // territory by construction, so the only thing this ordering decides is
-  // that a gap wins over the boundary spanning it — which is the whole point,
+  // that a gap wins over the boundary spanning it - which is the whole point,
   // since the boundary would otherwise swallow the hover.
   var STYLE = {
     color: "#e67e22",
@@ -79,9 +79,7 @@ App.gaps = (function () {
     App._loaded.push("gaps");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // VISIBILITY
-  // ══════════════════════════════════════════════════════════════════════
 
   function isVisible() {
     return _visible;
@@ -120,15 +118,13 @@ App.gaps = (function () {
     return !!(s.editMode || s.mergeMode || s.trimMode || s.outlineMode);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // COMPUTE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Recompute soon, coalescing bursts.
    *
    * Everything that changes the answer goes through setClusters(), and a
-   * partition run calls it once — but a session restore, an import and an undo
+   * partition run calls it once - but a session restore, an import and an undo
    * can all land within a frame of each other, and the union underneath this
    * is the most expensive thing on the page after the partitioner itself.
    */
@@ -142,9 +138,9 @@ App.gaps = (function () {
    *
    * For whoever is about to take the busy overlay down. Subtracting a hundred
    * street-routed territories from the boundary they tile is around a second
-   * of arithmetic that cannot be broken up — turf unions the whole collection
+   * of arithmetic that cannot be broken up - turf unions the whole collection
    * in one call, and unioning it in halves or subtracting the territories one
-   * at a time are both measurably worse — so the only question is whether the
+   * at a time are both measurably worse - so the only question is whether the
    * page looks busy while it happens. On the timer it does not: the spinner
    * comes down, the page looks ready, and then it stops answering. Called
    * from ui.hideOverlay so that every operation with a spinner absorbs the
@@ -162,17 +158,17 @@ App.gaps = (function () {
     clearTimeout(_timer);
     _timer = null;
     // Both guards produce the same empty answer, and both mean "nobody can
-    // act on this right now" — so neither should pay for the subtraction.
+    // act on this right now" - so neither should pay for the subtraction.
     _features = _visible && !_suppressed() ? _find() : [];
     _render();
     if (App.controls) App.controls.refresh();
     // The panel's warning mark and the territory list are both written from
     // this count, and both are written only when they are otherwise redrawn.
-    // Every path that changes the coverage redraws them *before* this runs —
+    // Every path that changes the coverage redraws them *before* this runs --
     // setClusters refreshes them synchronously and schedules this two hundred
-    // milliseconds later — so without saying so here, adopting a gap left the
-    // panel marked and the list offering the gap that had just become a
-    // territory.
+    // milliseconds later - so without these two calls, adopting a gap leaves
+    // the panel still marked and the list still offering the gap that has just
+    // become a territory.
     if (App.ui && App.ui.refreshInfo) App.ui.refreshInfo();
     if (App.labels && App.labels.refreshList) App.labels.refreshList();
   }
@@ -190,7 +186,7 @@ App.gaps = (function () {
 
     var features = App.polygons.clusterFeatures();
 
-    // Nothing covered at all is not a gap, it is an empty area — and
+    // Nothing covered at all is not a gap, it is an empty area - and
     // ensureDefaultCluster already has an opinion about that case.
     if (!features.length) return [];
 
@@ -200,12 +196,12 @@ App.gaps = (function () {
     var minimum = s.GAP_MIN_M2 || 200;
     var out = [];
     G.polygonParts(rest).forEach(function (part) {
-      // Opening only ever takes area away — it erodes and grows back, and
-      // never past where it started — so a part already under the floor
-      // cannot come out of it above the floor. Asking anyway is what made
+      // Opening only ever takes area away - it erodes and grows back, and
+      // never past where it started - so a part already under the floor
+      // cannot come out of it above the floor. Asking anyway is what makes
       // this the slowest thing in the app: subtracting a hundred territories
       // from the boundary they tile leaves a hairline sliver along every
-      // shared edge, and a healthy partition spent seconds running three
+      // shared edge, and a healthy partition then spends seconds running three
       // buffers and an intersection over twelve hundred of them to keep one.
       if (G.area(part) < minimum) return;
       _open(part).forEach(function (piece) {
@@ -221,7 +217,7 @@ App.gaps = (function () {
    * The boundary minus the territories.
    *
    * Two ways of asking, because the fast one can fail quietly. G.unionAll
-   * folds the territories together and swallows a failure per feature —
+   * folds the territories together and swallows a failure per feature --
    * `acc = union(acc, f) || acc` keeps the accumulator and drops `f`. That is
    * the right call for merging, where losing a shape is visible immediately;
    * here it means a territory silently vanishes from the covered set and the
@@ -230,7 +226,7 @@ App.gaps = (function () {
    *
    * So the union is done here, counting what it could not fold in, and any
    * failure at all falls through to subtracting the territories one at a time.
-   * That path cannot lose a territory — a cluster that will not subtract
+   * That path cannot lose a territory - a cluster that will not subtract
    * leaves its own ground looking covered, which errs towards offering too
    * few gaps rather than towards offering a gap over somebody's territory.
    */
@@ -260,7 +256,7 @@ App.gaps = (function () {
     var covered = null;
     var failed = 0;
 
-    // One pass over the whole collection when it works — the same answer the
+    // One pass over the whole collection when it works - the same answer the
     // fold below produces, for roughly a third of the time, and this is the
     // single most expensive thing the gap layer does.
     var all = [];
@@ -316,8 +312,8 @@ App.gaps = (function () {
    *
    * Returns a *list*, and that is the bug this signature exists to prevent.
    * Opening a region does not give back a smaller version of the same region:
-   * two open areas joined by a strip narrower than a meter — a lane between two
-   * territories, the pinch where a reshaped boundary nearly touches a cluster —
+   * two open areas joined by a strip narrower than a meter - a lane between two
+   * territories, the pinch where a reshaped boundary nearly touches a cluster --
    * erode into two separate lobes. Keeping only the larger discards the other
    * silently, and on a plain 100 m barbell with a 60 cm neck that is half the
    * uncovered ground gone with nothing on screen to say a second area existed.
@@ -337,9 +333,9 @@ App.gaps = (function () {
     // Nothing survived. That has two very different causes and they must not
     // be treated alike: the shape was genuinely too thin to be a gap, or the
     // erosion gave up on a valid but awkward ring. turf.buffer returns
-    // undefined for both, so the shape is asked directly — area over
+    // undefined for both, so the shape is asked directly - area over
     // perimeter is about half the width of a long strip, so a piece whose
-    // ratio clears eps was at least 2·eps wide and should have survived.
+    // ratio clears eps was at least 2*eps wide and should have survived.
     // Dropping a large obvious gap is worse than showing one a little larger
     // than it strictly is; it is only ever offered, never applied by itself.
     if (!core || !core.geometry) {
@@ -416,9 +412,7 @@ App.gaps = (function () {
     return _features.slice();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // RENDER
-  // ══════════════════════════════════════════════════════════════════════
 
   function _render() {
     var group = s.gapsLayerGroup;
@@ -460,7 +454,7 @@ App.gaps = (function () {
 
     layer.on("click", function (e) {
       // Otherwise the map sees the click too, and in the one mode where that
-      // matters — a boundary being drawn — it would place a vertex.
+      // matters - a boundary being drawn - it would place a vertex.
       L.DomEvent.stopPropagation(e);
       adopt(feature);
     });
@@ -562,9 +556,7 @@ App.gaps = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ADOPT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Turn one uncovered piece into a territory.
@@ -577,7 +569,7 @@ App.gaps = (function () {
   function adopt(feature) {
     if (!feature || !feature.geometry) return false;
     // Adding a territory re-tests every building against every territory,
-    // which is about a second of work on a town-sized project — so it goes
+    // which is about a second of work on a town-sized project - so it goes
     // behind a spinner there, and stays immediate everywhere else. See
     // ui.busy.
     App.ui.busy("loading.updating", function () {
@@ -623,9 +615,7 @@ App.gaps = (function () {
     return made;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DISSOLVE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Make a gap disappear rather than turn it into a territory.
@@ -636,10 +626,10 @@ App.gaps = (function () {
    * stop having a hole in it. Which of the two things that means depends on
    * where the gap sits:
    *
-   *   • Touching the outer boundary → the boundary is wrong, not the
+   *   - Touching the outer boundary -> the boundary is wrong, not the
    *     territories. It is trimmed back to the edges of the territories
    *     around the gap, so the working area ends where the cards end.
-   *   • Enclosed by territories → the territories are what is wrong, and the
+   *   - Enclosed by territories -> the territories are what is wrong, and the
    *     one it abuts most absorbs it.
    *
    * Touching the boundary wins when both are true, which is the common case
@@ -651,11 +641,11 @@ App.gaps = (function () {
     if (!feature || !feature.geometry || !s.outerPolygonLayer) return false;
 
     // Deferred behind the spinner on a big project, so the answer is
-    // "started" rather than "worked" — the failure below says so for itself.
+    // "started" rather than "worked" - the failure below says so for itself.
     App.ui.busy("loading.updating", function () {
       App.history.push();
       if (_dissolveOne(feature)) return;
-      // Nothing moved, so the entry would be a step that undoes nothing —
+      // Nothing moved, so the entry would be a step that undoes nothing --
       // worse than no entry, because Ctrl+Z would then look broken.
       App.history.undo();
       alert(T("gaps.dissolveFailed"));
@@ -699,7 +689,7 @@ App.gaps = (function () {
    * Trim the boundary back so the gap falls outside it.
    *
    * The piece is grown first, or the half meter that opening took off would
-   * be left behind as a hairline strip — dissolving a gap and watching a
+   * be left behind as a hairline strip - dissolving a gap and watching a
    * thinner version of it stay put is exactly the failure this feature exists
    * to avoid. Growing it would reach into the territories beside it, so
    * whatever the growth covers that a territory already covers is put back
@@ -771,7 +761,7 @@ App.gaps = (function () {
       try {
         merged = G.union(merged, kept[i]) || merged;
       } catch (e) {
-        /* keep what we have */
+        /* keep what has merged so far */
       }
     }
     return merged;
@@ -781,7 +771,7 @@ App.gaps = (function () {
    * Hand the gap to the territory it belongs to most.
    *
    * "Most" is the longest shared edge, measured as the area a thin collar
-   * around the gap shares with each territory — a proxy, but a robust one,
+   * around the gap shares with each territory - a proxy, but a robust one,
    * and it is the rule every GIS calls sliver elimination. Splitting the gap
    * between its neighbors proportionally is the alternative, and it is the worse
    * answer for the shapes this meets: a hole left by a deleted territory, handed
@@ -834,7 +824,7 @@ App.gaps = (function () {
       if (index !== best) return cluster;
       var properties = Object.assign({}, cluster.properties || {});
       // The shape changed, so a card printed from it no longer matches the
-      // ground — the rule trimming and cutting already follow.
+      // ground - the rule trimming and cutting already follow.
       delete properties.printed;
       return {
         type: "Feature",
@@ -854,7 +844,13 @@ App.gaps = (function () {
     return true;
   }
 
-  /** Every gap closed, as one undoable step. */
+  /**
+   * Every gap closed, as one undoable step.
+   *
+   * @returns {number} how many gaps were handed to the dissolve. The work runs
+   *   behind the spinner, so how many of them actually closed is not known
+   *   here; it is logged when the pass finishes.
+   */
   function dissolveAll() {
     if (!_features.length) return 0;
     var pending = _features.slice();

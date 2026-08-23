@@ -1,4 +1,4 @@
-"""Entrypoint — starts background threads, then hands off to the WSGI server."""
+"""Entrypoint - starts background threads, then hands off to the WSGI server."""
 
 import os
 import threading

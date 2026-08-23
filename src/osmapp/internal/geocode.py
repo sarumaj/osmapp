@@ -1,13 +1,13 @@
 """Nominatim geocoding proxy with LRU cache and rate limiter.
 
-Two routes:
-  • /geocode           — address search, the same payload Nominatim returns.
-  • /geocode_boundary  — the outline of one result, looked up by osm_type and
+Three routes:
+  - /geocode           - address search, the same payload Nominatim returns.
+  - /geocode_boundary  - the outline of one result, looked up by osm_type and
     osm_id. Kept separate on purpose: /geocode is called on every keystroke by
     the search box, and a city relation's polygon is far too heavy to ship with
     a suggestion list. The client only asks for the outline once someone picks a
     result and wants it as the outer boundary.
-  • /reverse_geocode   — what a point is called. Answers the print dialog's
+  - /reverse_geocode   - what a point is called. Answers the print dialog's
     "Locality" field for territories whose buildings carry no addr:city or
     addr:place, which is most of them outside the countries where address
     imports have happened. Returns the whole settlement hierarchy rather than
@@ -94,15 +94,15 @@ def _nominatim(url: str, params: dict[str, Any]) -> requests.Response:
     return resp
 
 
-# ── search ────────────────────────────────────────────────────────────────────
+# search
 
 
 @bp.route("/geocode")
 def geocode() -> Response:
     """Proxy a Nominatim place search, cached by query and limit.
 
-    The proxy exists to hold Nominatim's usage policy in one place — a fixed User
-    Agent and a minimum interval between calls — which a browser cannot promise.
+    The proxy exists to hold Nominatim's usage policy in one place - a fixed User
+    Agent and a minimum interval between calls - which a browser cannot promise.
     An empty query returns [] without reaching upstream.
     """
     query = request.args.get("q", "").strip()
@@ -137,7 +137,7 @@ def geocode() -> Response:
     return Response(resp.content, mimetype="application/json")
 
 
-# ── boundary lookup ───────────────────────────────────────────────────────────
+# boundary lookup
 
 
 def _count_vertices(geometry: dict[str, Any]) -> int:
@@ -173,7 +173,7 @@ def _bounds(item: dict[str, Any], geom: BaseGeometry | None) -> dict[str, float]
 def geocode_boundary() -> Response:
     """Resolve one search result to its administrative outline.
 
-    Always answers 200 with ``geometry: null`` when the object has no polygon —
+    Always answers 200 with ``geometry: null`` when the object has no polygon --
     a house number or a place node is a perfectly ordinary result, not an error,
     and the client falls back to offering the bounding box.
     """
@@ -260,7 +260,7 @@ def geocode_boundary() -> Response:
     return body
 
 
-# ── reverse lookup ────────────────────────────────────────────────────────────
+# reverse lookup
 
 # Keys of Nominatim's `address` object that can reasonably go in a "Locality"
 # field, best first. The tail is deliberately included: a territory in open
@@ -289,7 +289,7 @@ def _locality_candidates(address: dict[str, Any]) -> list[dict[str, str]]:
     """The settlement names in one Nominatim address, deduplicated, best first.
 
     Deduplication is not cosmetic. Nominatim regularly repeats a name across
-    rungs — a town that is also its own municipality — and two identical
+    rungs - a town that is also its own municipality - and two identical
     entries in an autocomplete list look like a bug in the app rather than a
     fact about administrative geography.
     """
@@ -312,7 +312,7 @@ def reverse_geocode() -> Response:
     """Name the place a point falls in.
 
     Answers 200 with an empty candidate list when Nominatim knows nothing about
-    the point — the client treats this as an enrichment of a list it already
+    the point - the client treats this as an enrichment of a list it already
     has, so "no name here" is an ordinary answer rather than a failure.
     """
     try:

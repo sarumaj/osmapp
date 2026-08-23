@@ -1,5 +1,5 @@
 /**
- * geometry.js — geometry helpers, and the app's only calls to turf's boolean
+ * geometry.js - geometry helpers, and the app's only calls to turf's boolean
  * operations.
  *
  * Everything works on GeoJSON. Nothing here reads App.state, so any function
@@ -7,16 +7,16 @@
  *
  * The file has four parts:
  *
- *   • **Turf wrappers.** union, intersect and difference are called from here
- *     and nowhere else, so that turf's argument conventions — Features only,
+ *   - **Turf wrappers.** union, intersect and difference are called from here
+ *     and nowhere else, so that turf's argument conventions - Features only,
  *     never bare geometries, and both operands in one FeatureCollection since
- *     v7 — are satisfied in one place. unionHealed() is the one to reach for
+ *     v7 - are satisfied in one place. unionHealed() is the one to reach for
  *     when merging territories.
- *   • **Polygon normalization.** GeoJSON permits several shapes for the same
+ *   - **Polygon normalization.** GeoJSON permits several shapes for the same
  *     thing, and Leaflet produces different ones depending on how a layer was
  *     built. These functions reduce any of them to what a caller wants.
- *   • **Small math helpers.** Plain arithmetic on coordinate arrays.
- *   • **Planar noding.** Splitting a set of lines at their crossings, which is
+ *   - **Small math helpers.** Plain arithmetic on coordinate arrays.
+ *   - **Planar noding.** Splitting a set of lines at their crossings, which is
  *     what the partitioner needs before it can build a street graph.
  *
  * One recurring hazard is worth knowing about before reading further. turf
@@ -31,15 +31,13 @@ var App = window.App || {};
 App.geometry = (function () {
   "use strict";
 
-  // ══════════════════════════════════════════════════════════════════════
-  // TURF WRAPPERS — Turf signatures live here and nowhere else
-  // ══════════════════════════════════════════════════════════════════════
+  // TURF WRAPPERS - Turf signatures live here and nowhere else
 
   /**
    * Wrap a bare geometry in a Feature, passing Features through untouched.
    *
    * turf rejects a bare geometry where it expects a Feature, and callers in
-   * this app hold both — layer.toGeoJSON() gives a Feature, while a cluster's
+   * this app hold both - layer.toGeoJSON() gives a Feature, while a cluster's
    * stored `.geometry` is bare. Every wrapper below normalizes through here so
    * that no caller has to know which it is holding.
    */
@@ -56,7 +54,7 @@ App.geometry = (function () {
    * throws "Must have at least 2 geometries" when handed the old form. The
    * throw is the failure mode to watch for, because most callers here are
    * wrapped in a try/catch that treats a throw as "these shapes do not
-   * overlap" — so the version mismatch does not surface as an error, it
+   * overlap" - so the version mismatch does not surface as an error, it
    * surfaces as a union that never dissolves anything.
    */
   function pair(a, b) {
@@ -116,7 +114,7 @@ App.geometry = (function () {
    * single call, for a result identical to the last decimal.
    *
    * It is only a fast path, though. One unusable shape fails the whole
-   * collection, and the fold below is what turns that into a partial answer —
+   * collection, and the fold below is what turns that into a partial answer --
    * so a failure here is not an error, it is the reason the loop still
    * exists.
    *
@@ -153,7 +151,7 @@ App.geometry = (function () {
     return acc;
   }
 
-  // ── Merge artefact repair ─────────────────────────────────────────────
+  // Merge artefact repair
 
   var HEAL_METERS = 0.5; // half the width of the widest gap that gets closed
   var MIN_HOLE_M2 = 1; // below this a hole is a union artefact, not a courtyard
@@ -173,7 +171,7 @@ App.geometry = (function () {
    * Does the ring double back at b without enclosing anything?
    *
    * True when the outgoing direction opposes the incoming one and the triangle
-   * the three points span is smaller than SPIKE_MAX_M2 — a tab that goes out
+   * the three points span is smaller than SPIKE_MAX_M2 - a tab that goes out
    * along a line and returns along the same line.
    */
   function _isTab(a, b, c) {
@@ -233,21 +231,21 @@ App.geometry = (function () {
    * that shares an edge leaves the shared edge traversed twice, and rounding
    * coordinates to five decimals on the way through the file format leaves
    * more. They are invisible on the map, turf.booleanValid does not reliably
-   * catch them — a 49,164 m² territory carrying three of them reports valid —
+   * catch them - a 49,164 m2 territory carrying three of them reports valid --
    * and they cost nothing until something asks jsts to buffer them.
    *
    * Then they cost a territory. jsts snaps its input to a precision model
    * first, which welds the two sides of a tab into one edge and leaves the
-   * ring self-touching; `buffer(+0.5 m)` on a valid 49,164 m² territory with
-   * three of them returned 40 m². Everything built on that buffer —
-   * unionHealed, and so every merge in the app — then works correctly on a
+   * ring self-touching; `buffer(+0.5 m)` on a valid 49,164 m2 territory with
+   * three of them returned 40 m2. Everything built on that buffer --
+   * unionHealed, and so every merge in the app - then works correctly on a
    * shape that is wrong. Two of the 98 territories in a project export were in
    * that state, and half of the rest carried a tab that had not yet cost
    * anything.
    *
    * Removing a tab moves no ground: SPIKE_MAX_M2 bounds what any one removal
    * can enclose, and over that export the largest shift on any territory was
-   * 0.06 m² out of 49,000.
+   * 0.06 m2 out of 49,000.
    *
    * Returns the input untouched when there is nothing to remove, so a caller
    * may compare by identity to find out whether anything happened.
@@ -313,7 +311,7 @@ App.geometry = (function () {
    * looks as though it did not happen.
    *
    * The fix is to grow each input by a small epsilon before unioning, which
-   * closes any gap narrower than 2 × epsilon and lets the union genuinely
+   * closes any gap narrower than 2 x epsilon and lets the union genuinely
    * dissolve, then shrink the result back by the same amount. The round trip
    * restores the original footprint to within a few centimeters.
    *
@@ -336,18 +334,18 @@ App.geometry = (function () {
         //
         // turf.buffer goes through jsts, which snaps its input to a precision
         // model first. A ring carrying a segment shorter than that model can
-        // represent — a clip, a union and a round trip through here leave
-        // plenty of them, some measured in nanometers — has its endpoints
+        // represent - a clip, a union and a round trip through here leave
+        // plenty of them, some measured in nanometers - has its endpoints
         // snapped together, the ring self-touches, and what comes back is not
         // the shape half a meter larger but a scattering of slivers around
-        // where its outline used to be. On a 11,637 m² territory from a real
-        // project export, `buffer(+0.5 m)` returned 69 m² in fourteen pieces;
+        // where its outline used to be. On a 11,637 m2 territory from a real
+        // project export, `buffer(+0.5 m)` returned 69 m2 in fourteen pieces;
         // deduplicating the near-coincident vertices first does not help.
         //
         // Everything downstream then behaves correctly on a shape that is
         // wrong: the union folds in the slivers, the shrink is compared
         // against the whole footprint and passes because the loss is a
-        // fraction of a percent of it, and a territory disappears — its
+        // fraction of a percent of it, and a territory disappears - its
         // ground uncovered, discovered by whoever was supposed to walk it.
         // Nothing below can catch that, because by then there is nothing left
         // to notice. It has to be caught here, against the one thing that is
@@ -380,13 +378,13 @@ App.geometry = (function () {
     //
     // Both conditions are easy to state incorrectly, so note the exact form:
     //
-    //   • The part count must not *grow*. Eroding a polygon can never merge
+    //   - The part count must not *grow*. Eroding a polygon can never merge
     //     parts together, so a test that also accepts a larger count accepts
     //     precisely the case being guarded against.
-    //   • The area is compared against `plain`, the union of the *ungrown*
+    //   - The area is compared against `plain`, the union of the *ungrown*
     //     inputs, and not against `merged`. `merged` is inflated by eps on
     //     every side by construction, so comparing to it would demand that the
-    //     shrink give back less than the grow added — and for a territory
+    //     shrink give back less than the grow added - and for a territory
     //     small enough that half a meter is 2% of its area, which a 90 m
     //     square is, that rejects every correct shrink there is.
     var result = merged;
@@ -444,15 +442,13 @@ App.geometry = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // POLYGON NORMALIZATION
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Flatten anything polygonal into a list of single-Polygon Features.
    *
    * Accepts a Feature, a FeatureCollection, a bare geometry, a Polygon or a
-   * MultiPolygon, and always returns an array — empty when there is nothing
+   * MultiPolygon, and always returns an array - empty when there is nothing
    * polygonal in the input. This is the usual first step for code that has to
    * handle a territory made of several disconnected pieces, which happens
    * whenever a cut separates one.
@@ -486,7 +482,7 @@ App.geometry = (function () {
    *
    * Deliberately not the centroid. turf.centroid returns the mean of the
    * vertices, which for an L-shape, a crescent or a ring lies *outside* the
-   * polygon — frequently inside a neighboring territory. Those shapes are
+   * polygon - frequently inside a neighboring territory. Those shapes are
    * common here, because a boundary that follows streets bends around blocks
    * and a hand-drawn cut can leave any outline at all.
    *
@@ -523,7 +519,7 @@ App.geometry = (function () {
    * The largest Polygon in x by area, as a Feature<Polygon>, or null.
    *
    * Used where something has to be a single polygon and the rest can be
-   * discarded — a boundary, for instance, which the rest of the app assumes is
+   * discarded - a boundary, for instance, which the rest of the app assumes is
    * one ring. Do not use it to normalize a territory, which may legitimately
    * consist of several parts; use polygonParts() there.
    */
@@ -549,16 +545,11 @@ App.geometry = (function () {
   }
 
   /**
-   * Normalize whatever the outer polygon layer produces into a Feature<Polygon>.
-   * L.polygon.toGeoJSON() gives a Feature; L.geoJSON().toGeoJSON() gives a
-   * FeatureCollection; either may be a MultiPolygon.
-   */
-  /**
    * turf.area(), and 0 for anything it refuses to measure.
    *
    * Four modules had written out this same try/catch, because every one of
-   * them compares areas to decide something — which part is the largest, has
-   * the shape grown, is this sliver worth keeping — and none of them has an
+   * them compares areas to decide something - which part is the largest, has
+   * the shape grown, is this sliver worth keeping - and none of them has an
    * answer for a ring turf cannot integrate. Zero is that answer everywhere:
    * an unmeasurable shape loses every comparison, which is what each caller
    * wanted from its own catch block.
@@ -589,6 +580,15 @@ App.geometry = (function () {
     }
   }
 
+  /**
+   * Normalize whatever the outer polygon layer produces into a Feature<Polygon>.
+   *
+   * L.polygon.toGeoJSON() gives a Feature; L.geoJSON().toGeoJSON() gives a
+   * FeatureCollection; either may be a MultiPolygon. Invalid geometry is
+   * repaired with a zero buffer rather than rejected.
+   *
+   * @throws when the layer is absent or holds nothing polygonal
+   */
   function getOuterFeature(layer) {
     if (!layer) throw new Error("No outer polygon");
     var poly = largestPolygon(layer.toGeoJSON());
@@ -602,7 +602,7 @@ App.geometry = (function () {
    *
    * Note the use of L.geoJSON rather than L.polygon. L.polygon takes a
    * coordinate array, so handing it a MultiPolygon means picking one part and
-   * silently discarding the others — which loses pieces of any territory that
+   * silently discarding the others - which loses pieces of any territory that
    * a cut has separated.
    *
    * @param {Object} geometry GeoJSON geometry
@@ -627,15 +627,13 @@ App.geometry = (function () {
     return layers.length ? layers[0] : null;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SMALL MATH HELPERS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * The acute angle between two bearings, ignoring direction.
    *
-   * Both the modulo and the fold are needed: bearings 10° and 350° describe
-   * nearly the same line, as do 10° and 170°, and this returns a small number
+   * Both the modulo and the fold are needed: bearings 10 deg and 350 deg describe
+   * nearly the same line, as do 10 deg and 170 deg, and this returns a small number
    * for each. Used to decide whether two street segments continue one another.
    *
    * @returns {number} degrees, in [0, 90]
@@ -743,7 +741,7 @@ App.geometry = (function () {
    *
    * Used to tell a territory edge that follows the outer boundary from one
    * that was cut through the middle, which decides whether an edge may be
-   * moved. The default tolerance is roughly five meters — generous, because
+   * moved. The default tolerance is roughly five meters - generous, because
    * the two rings come from different rounding paths and need not agree
    * exactly.
    *
@@ -775,8 +773,8 @@ App.geometry = (function () {
    *
    * A hand-written ray-casting test, used as a fallback when turf's boolean
    * operations throw on geometry they consider invalid. It answers a weaker
-   * question than a real intersection test — a shape can overlap a polygon
-   * while all of its own vertices lie outside — but it never throws, which is
+   * question than a real intersection test - a shape can overlap a polygon
+   * while all of its own vertices lie outside - but it never throws, which is
    * what a fallback has to guarantee.
    */
   function anyCoordInPolygons(feature, polyFeatures) {
@@ -814,9 +812,7 @@ App.geometry = (function () {
     return false;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PLANAR NODING
-  // ══════════════════════════════════════════════════════════════════════
 
   var NODE_CELL_DEG = 0.002; // bin size for the pair search, roughly 200 m
 
@@ -827,7 +823,7 @@ App.geometry = (function () {
    * proper planar graph, where lines only ever meet at shared endpoints.
    * Street data needs this before it can be routed over, because two streets
    * that cross at a junction are usually two independent ways in OSM with no
-   * vertex in common at the crossing point — so without noding, a route can
+   * vertex in common at the crossing point - so without noding, a route can
    * never turn from one onto the other.
    *
    * Both T-junctions, where one line ends on another, and X-crossings, where
@@ -838,9 +834,12 @@ App.geometry = (function () {
    * street network would be a few million intersection tests.
    *
    * @param {number[][][]} lines coordinate arrays
+   * @returns {number[][][]} one entry per edge of the noded graph, each a pair
+   *   of coordinates. Undirected duplicates are collapsed, so an edge appears
+   *   once however many input lines ran along it.
    */
   function nodeLineSegments(lines) {
-    // ── Clean and deduplicate whole lines ────────────────────────────────
+    // Clean and deduplicate whole lines
     var cleanLines = [];
     for (var i = 0; i < lines.length; i++) {
       var deduped = dedupCoords(roundCoords(lines[i], 5), 1e-7);
@@ -869,7 +868,7 @@ App.geometry = (function () {
     }
     cleanLines = uniqueLines;
 
-    // ── Flatten to segments ──────────────────────────────────────────────
+    // Flatten to segments
     var segments = [];
     for (i = 0; i < cleanLines.length; i++) {
       for (var j = 0; j < cleanLines[i].length - 1; j++) {
@@ -882,7 +881,7 @@ App.geometry = (function () {
       }
     }
 
-    // ── Bin segments by cell ─────────────────────────────────────────────
+    // Bin segments by cell
     var bins = new Map();
     segments.forEach(function (seg, idx) {
       var x0 = Math.floor(Math.min(seg.a[0], seg.b[0]) / NODE_CELL_DEG);
@@ -899,7 +898,7 @@ App.geometry = (function () {
       }
     });
 
-    // ── Intersect only within bins ───────────────────────────────────────
+    // Intersect only within bins
     var splitPoints = Object.create(null);
 
     function addSplit(li, si, pt) {
@@ -964,7 +963,7 @@ App.geometry = (function () {
       }
     });
 
-    // ── Rebuild lines through their split points ─────────────────────────
+    // Rebuild lines through their split points
     var newLines = [];
     for (i = 0; i < cleanLines.length; i++) {
       var coords = cleanLines[i];
@@ -992,7 +991,7 @@ App.geometry = (function () {
       if (newCoords.length >= 2) newLines.push(newCoords);
     }
 
-    // ── Emit unique undirected edges ─────────────────────────────────────
+    // Emit unique undirected edges
     var edgeSet = Object.create(null);
     var finalLines = [];
     for (i = 0; i < newLines.length; i++) {

@@ -1,12 +1,12 @@
 /**
- * pdfdoc.js — every PDF job the app does, all of them in the browser.
+ * pdfdoc.js - every PDF job the app does, all of them in the browser.
  *
  * Four of them. Measuring a card template, turning one of its pages into a
  * bitmap for the placement dialog, pressing the rendered map into it, and
  * lifting a saved project back out of a card that was already printed.
  *
  * Why the browser
- *   Every other request this app makes — Overpass, Nominatim, tiles — wants a
+ *   Every other request this app makes - Overpass, Nominatim, tiles - wants a
  *   network wherever the code runs. Composing a card does not, and it is the
  *   last step between "tiles cached, territories in localStorage" and a card in
  *   somebody's hand. Working offline and working without a server are different
@@ -14,7 +14,7 @@
  *
  * There is no server side to any of this, and no fallback to one. A second
  * implementation of four jobs in another language, kept against the day the
- * first breaks, is a great deal of code for a path with no users — and an
+ * first breaks, is a great deal of code for a path with no users - and an
  * untested path is not a safety net. So failures here are failures: `ensure()`
  * says up front whether the machinery is present, and everything below reports
  * its own trouble instead of handing the job on.
@@ -37,7 +37,7 @@ App.pdfdoc = (function () {
   "use strict";
 
   // The name the state is filed under and the ceilings a card may carry. This
-  // is the only definition — nothing else reads or writes the attachment — and
+  // is the only definition - nothing else reads or writes the attachment - and
   // the name is fixed rather than derived, so recovering the state later is one
   // lookup instead of a hunt and a card carrying somebody else's attachment is
   // not mistaken for one of these.
@@ -52,14 +52,12 @@ App.pdfdoc = (function () {
   var MIN_SIDE_PT = 40.0;
   var MAX_PAGE_FRACTION = 0.9;
 
-  // The scale pypdfium2 rendered the placement preview at. Kept because the
-  // dialog's pixels-per-point arithmetic was written against it, not because
-  // there is anything left to stay in step with.
+  // The scale the placement preview is rendered at. The dialog's
+  // pixels-per-point arithmetic is written against this number, so the two
+  // have to move together.
   var PREVIEW_SCALE = 110 / 72;
 
-  // ══════════════════════════════════════════════════════════════════════
   // LIBRARY LOADING
-  // ══════════════════════════════════════════════════════════════════════
 
   function _vendor() {
     return window.VENDOR || {};
@@ -70,7 +68,7 @@ App.pdfdoc = (function () {
    *
    * All this confirms is that the URLs reached the page. Whether the files
    * behind them can actually be fetched is discovered by fetching them, and
-   * the loaders below report that in their own words — more use than a
+   * the loaders below report that in their own words - more use than a
    * boolean. With nothing left to fall back to, the point of asking early is
    * to fail with a sentence somebody can act on.
    */
@@ -131,7 +129,7 @@ App.pdfdoc = (function () {
   var _pdfJs = null;
 
   /**
-   * pdf.js — the half that *reads*.
+   * pdf.js - the half that *reads*.
    *
    * Ships as an ES module, so it comes in via import() instead of a script
    * tag. Its worker is same-origin and precached. Leave workerSrc unset and
@@ -174,10 +172,10 @@ App.pdfdoc = (function () {
   /**
    * Hand a document back.
    *
-   * pdf.js 6 dropped PDFDocumentProxy.destroy() — teardown moved to the
+   * pdf.js 6 dropped PDFDocumentProxy.destroy() - teardown moved to the
    * loading task, which is what owns the worker. Calling the old method on a
    * v6 proxy throws, and every one of these sits in a `.then` that nobody
-   * awaits, so the failure surfaced as an unrelated rejection ("doc.destroy
+   * awaits, so the failure surfaces as an unrelated rejection ("doc.destroy
    * is not a function") swallowing whatever the caller was actually doing.
    *
    * Rejections from the teardown itself are of no interest here: the
@@ -193,9 +191,7 @@ App.pdfdoc = (function () {
       .catch(function () {});
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BYTES
-  // ══════════════════════════════════════════════════════════════════════
 
   function _bytes(source) {
     if (source instanceof Uint8Array) return Promise.resolve(source);
@@ -212,7 +208,7 @@ App.pdfdoc = (function () {
     });
   }
 
-  /** gzip — or the payload untouched, on a browser with no CompressionStream. */
+  /** gzip - or the payload untouched, on a browser with no CompressionStream. */
   function _gzip(bytes) {
     if (typeof window.CompressionStream !== "function") {
       // _gunzip below takes an uncompressed payload as it comes, so a card
@@ -237,19 +233,17 @@ App.pdfdoc = (function () {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // INSPECT — where the map goes on this template
-  // ══════════════════════════════════════════════════════════════════════
+  // INSPECT - where the map goes on this template
 
   /**
    * Every rectangle drawn on the page, in page coordinates.
    *
-   * The transform gets tracked here for the same reason it did in Python:
-   * word processors habitually wrap their drawing in a scale, and coordinates
-   * taken raw would be wrong by that factor while looking perfectly fine. This
-   * version also descends into Form XObjects, which pypdf never did — over
-   * there, a template whose card sits inside one embedded form produced no
-   * candidate rectangles whatsoever.
+   * The transform is tracked because word processors habitually wrap their
+   * drawing in a scale, and coordinates taken raw would be wrong by that
+   * factor while looking perfectly fine. Form XObjects are descended into for
+   * the same reason: a template whose card sits inside one embedded form
+   * offers no candidate rectangles at all to a walk that stays at the top
+   * level.
    */
   function _rectangles(page, ops) {
     return page.getOperatorList().then(function (list) {
@@ -324,8 +318,8 @@ App.pdfdoc = (function () {
    * What pdf.js hands over is a list of sub-operators plus one flat run of
    * numbers, so the run gets walked against the arity table above to work out
    * which four belong to a rectangle. The outer argument shape has shifted
-   * between pdf.js majors — a trailing bounding box appeared and later left
-   * again — so only the first two entries are touched, and an unfamiliar
+   * between pdf.js majors - a trailing bounding box appeared and later left
+   * again - so only the first two entries are touched, and an unfamiliar
    * sub-operator ends the walk instead of misreading everything after it.
    */
   function _pathRects(args, ops, ctm, out) {
@@ -579,9 +573,7 @@ App.pdfdoc = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PREVIEW — one page as a bitmap for the placement dialog
-  // ══════════════════════════════════════════════════════════════════════
+  // PREVIEW - one page as a bitmap for the placement dialog
 
   function renderPage(file, pageIndex) {
     ensure();
@@ -634,9 +626,7 @@ App.pdfdoc = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // COMPOSE — stamp the map onto the template
-  // ══════════════════════════════════════════════════════════════════════
+  // COMPOSE - stamp the map onto the template
 
   /**
    * @param {Object} spec
@@ -653,9 +643,9 @@ App.pdfdoc = (function () {
     return Promise.all([_writer(), _bytes(spec.template), _bytes(spec.image)])
       .then(function (parts) {
         var PDFLib = parts[0].lib;
-        // No `ignoreEncryption`. The server turned encrypted templates away
-        // and this does the same. Cards get handed to other people, and
-        // silently taking a password off one is not ours to decide.
+        // No `ignoreEncryption`: an encrypted template is turned away rather
+        // than opened. Cards get handed to other people, and silently taking
+        // a password off one is not this app's decision to make.
         return PDFLib.PDFDocument.load(parts[1]).then(function (doc) {
           doc.registerFontkit(parts[0].fontkit);
           return _stamp(PDFLib, doc, parts[2], spec);
@@ -693,7 +683,7 @@ App.pdfdoc = (function () {
     // Crop box, not media box. pdf.js gives page.view as the intersection of
     // the two, so that is what the placeholder was measured against; drawing
     // against anything else moves the map by whatever the difference is. Where
-    // the two boxes agree — nearly always — this is the same thing.
+    // the two boxes agree - nearly always - this is the same thing.
     var media = page.getCropBox ? page.getCropBox() : page.getMediaBox();
     if (
       box.x < 0 ||
@@ -738,10 +728,10 @@ App.pdfdoc = (function () {
           page.drawText(field.text, {
             x: media.x + field.x,
             y: media.y + field.y,
-            // 10 rather than field.size. reportlab had 10 baked in, and the
-            // leader size that detection reports is frequently 14, so obeying
-            // it would move the text on every card printed from a template
-            // somebody already tuned. Worth fixing — but on both paths at once.
+            // A fixed 10 pt rather than field.size. The leader size detection
+            // reports is frequently 14, so obeying it would move the text on
+            // every card printed from a template somebody has already tuned
+            // to the 10 pt this has always written.
             size: 10,
             font: font,
           });
@@ -754,7 +744,7 @@ App.pdfdoc = (function () {
   /**
    * DejaVuSans, cut down to what is used.
    *
-   * WinAnsi is what the standard 14 give you, and it has no ł ą ę ś ż ź ć ń —
+   * WinAnsi is what the standard 14 give you, and it has no ł ą ę ś ż ź ć ń --
    * that is every other locality name in Poland. Subsetting is the single
    * place this genuinely beats the server: only glyphs that appear on the card
    * make it into the file.
@@ -800,9 +790,7 @@ App.pdfdoc = (function () {
       });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // EXTRACT — read a saved project back out of a printed card
-  // ══════════════════════════════════════════════════════════════════════
+  // EXTRACT - read a saved project back out of a printed card
 
   function extractProject(file) {
     ensure();

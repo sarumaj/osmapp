@@ -1,5 +1,5 @@
 /**
- * trim.js — shrink the outer boundary onto the buildings that matter.
+ * trim.js - shrink the outer boundary onto the buildings that matter.
  *
  * A hand-drawn or Nominatim-derived boundary encloses far more than the thing
  * being partitioned: the fields, the forest and the farms on the far side of
@@ -8,7 +8,7 @@
  * partitioning and reduces the boundary to everywhere within walking reach of
  * a building that matters.
  *
- * ── How the shape is found ─────────────────────────────────────────────────
+ * How the shape is found
  *
  *   1. Buildings marked as ignored are dropped, and so is anything already
  *      outside the boundary.
@@ -28,7 +28,7 @@
  *      therefore a decision, which is why the outlier pass runs on open.
  *
  *      A corridor goes straight, and is routed around the working boundary
- *      only when a straight line would leave it — tested over the whole
+ *      only when a straight line would leave it - tested over the whole
  *      segment, since a concave boundary can cut through the middle of a line
  *      whose ends are both inside. The way round is found on the grid and
  *      then pulled straight, so it comes back as a couple of legs rather than
@@ -49,7 +49,7 @@
  *   6. The result is clipped to the existing boundary. Trimming only ever
  *      removes area; growing the working area is a different tool.
  *
- * ── Why the moves in step 5 are safe ───────────────────────────────────────
+ * Why the moves in step 5 are safe
  *
  * The raster holds the whole disc of radius `reach` around every kept
  * building, so every kept building is at least `reach` from the ring.
@@ -64,14 +64,14 @@
  * shape actually contains, measured on the shape itself, and the confirmation
  * repeats the count.
  *
- * ── Adjusting the proposal ─────────────────────────────────────────────────
+ * Adjusting the proposal
  *
  * The one corner that should follow the ditch rather than the hedge is not
  * something these settings can express, so the proposal takes handles from
  * Leaflet.Editable. While that is on the sliders and the selection are
  * locked, because a recompute would discard the adjustment.
  *
- * ── Seeing the selection ───────────────────────────────────────────────────
+ * Seeing the selection
  *
  * Excluded buildings are painted red, which says nothing at the zoom where a
  * shift-drag needs checking: a house is two pixels across there. Each also
@@ -141,9 +141,9 @@ App.trim = (function () {
     pane: PANE,
   };
 
-  var _pool = null; // [{ feature, key, centroid, big }] — candidates
-  var _byFeature = null; // feature → key, so painting a building is not a scan
-  // ── Who decided what ──────────────────────────────────────────────────
+  var _pool = null; // [{ feature, key, centroid, big }] - candidates
+  var _byFeature = null; // feature -> key, so painting a building is not a scan
+  // Who decided what
   //
   // Two sliders re-run the automatic pass, so the pass's answer and the user's
   // edits cannot share one set of excluded keys: re-running would either wipe
@@ -155,8 +155,8 @@ App.trim = (function () {
   // somebody has said something about, true for exclude and false for keep.
   // `_ignored` is derived from both and never written to directly.
   var _auto = null; // Set of keys the current pass names
-  var _manual = null; // Map key → true (exclude) / false (keep)
-  var _ignored = null; // derived: (_auto ∪ manual-excluded) ∖ manual-kept
+  var _manual = null; // Map key -> true (exclude) / false (keep)
+  var _ignored = null; // derived: (_auto plus manual-excluded) minus manual-kept
   var _scaleCache = null; // { entries, median, unit, groups, home } per pool
   var _result = null; // last computed proposal
   var _toolbar = null;
@@ -187,10 +187,17 @@ App.trim = (function () {
     return !!s.trimMode;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // MODE
-  // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Enter or leave the trim tool.
+   *
+   * Refuses to open without a boundary and downloaded buildings, since the
+   * proposal is derived from both. Entering closes whichever other modal tool
+   * holds the map, runs the outlier pass, and computes a first proposal;
+   * leaving discards the proposal without touching the boundary - apply() is
+   * the only thing that commits one.
+   */
   function toggle() {
     var next = !s.trimMode;
 
@@ -297,9 +304,7 @@ App.trim = (function () {
     App.gaps.schedule(0);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SELECTION
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Buildings that can be trimmed away: everything downloaded that currently
@@ -368,10 +373,10 @@ App.trim = (function () {
   /**
    * A building's key, in constant time.
    *
-   * This was a linear scan over the pool, and it is asked once per building
-   * by restyleBuildings() — which is called on every click, every box drag
-   * and every slider recompute. On a town with four thousand buildings that
-   * is sixteen million comparisons per interaction, which is the difference
+   * A Map rather than a scan over the pool. This is asked once per building
+   * by restyleBuildings(), which runs on every click, every box drag and
+   * every slider recompute: on a town with four thousand buildings a scan is
+   * sixteen million comparisons per interaction, which is the difference
    * between a selection gesture that feels immediate and one that stutters.
    */
   function _keyOf(feature) {
@@ -388,12 +393,12 @@ App.trim = (function () {
   }
 
   /**
-   * Named by the pass and kept anyway — the amber ring.
+   * Named by the pass and kept anyway - the amber ring.
    *
-   * Derived rather than remembered. A set that only ever grew was right while
-   * the pass ran once; with the sliders live it would leave a mark on
-   * buildings the current settings no longer name, which is a mark that
-   * points at a decision nothing on screen is making any more.
+   * Derived rather than remembered. The sliders re-run the pass, so a set that
+   * only ever grew would leave a mark on buildings the current settings no
+   * longer name - a mark pointing at a decision nothing on screen is making
+   * any more.
    */
   function isFlagged(feature) {
     if (!s.trimMode || !_auto) return false;
@@ -411,13 +416,13 @@ App.trim = (function () {
     return count;
   }
 
-  // ── The derived set ───────────────────────────────────────────────────
+  // The derived set
 
   /**
    * Rebuild `_ignored` from the pass and the decisions taken by hand.
    *
    * Everything that changes either input ends here, and nothing anywhere
-   * writes to `_ignored` itself — which is what makes "a slider moves the
+   * writes to `_ignored` itself - which is what makes "a slider moves the
    * machine's answer, a click moves yours" true rather than merely intended.
    */
   function _applySelection() {
@@ -440,10 +445,9 @@ App.trim = (function () {
   /**
    * Everything that changes the selection ends here.
    *
-   * Three things have to move together — the building fills, the markers over
-   * them and the proposal — and before this existed each caller remembered two
-   * of the three. The one it forgot was always the markers, because a stale
-   * marker looks exactly like a marker.
+   * Three things have to move together - the building fills, the markers over
+   * them and the proposal - and a caller doing it itself reliably forgets the
+   * markers, because a stale marker looks exactly like a live one.
    */
   function _selectionChanged() {
     App.polygons.restyleBuildings();
@@ -452,10 +456,9 @@ App.trim = (function () {
   }
 
   /**
-   * Flip one building, from wherever the request came from — the shape, its
-   * marker, or the context menu. Three call sites had the same four lines
-   * written out; recording an undo snapshot would have made it three places
-   * to remember to do it.
+   * Flip one building, from wherever the request came from - the shape, its
+   * marker, or the context menu. One place, so that the undo snapshot every
+   * flip has to record cannot be forgotten by one of the three.
    */
   function _toggleIgnored(key) {
     if (s.trimEdit || key === null || key === undefined || !_ignored) return;
@@ -495,7 +498,7 @@ App.trim = (function () {
   }
 
   /**
-   * Nothing excluded at all — including by the pass.
+   * Nothing excluded at all - including by the pass.
    *
    * Emptying the manual overrides alone would leave the automatic answer
    * standing, so the button that says Clear would clear the part nobody
@@ -510,7 +513,7 @@ App.trim = (function () {
     _applySelection();
   }
 
-  // ── Markers ───────────────────────────────────────────────────────────
+  // Markers
   //
   // A red fill on the building itself says "excluded" perfectly well at zoom
   // 18 and not at all at zoom 13, where a house is two pixels across and the
@@ -520,7 +523,7 @@ App.trim = (function () {
   //
   // They are markers rather than a second styled polygon layer because they
   // also have to be clickable at that zoom. Clicking one puts the building
-  // back, which is the missing half of a selection gesture — being able to see
+  // back, which is the missing half of a selection gesture - being able to see
   // a mistake is not much use without being able to undo exactly it.
 
   var _icons = {};
@@ -584,7 +587,7 @@ App.trim = (function () {
     });
 
     // A mark sits on top of the building it stands for and swallows the hover,
-    // so it carries the building's own panel — otherwise marking a building
+    // so it carries the building's own panel - otherwise marking a building
     // would take away the only way to find out what it was, which is exactly
     // the information the decision needs.
     marker.bindTooltip(
@@ -656,8 +659,8 @@ App.trim = (function () {
    * The question is whether a *place* is on its own, not whether a building
    * is: four houses two kilometers from anywhere have each other, and a rule
    * measuring each building's distance to its k-th nearest neighbor never
-   * reaches them. So the buildings are clustered by single linkage — anything
-   * within a short hop of anything else is the same place — and each place is
+   * reaches them. So the buildings are clustered by single linkage - anything
+   * within a short hop of anything else is the same place - and each place is
    * measured against the main one. Every building in an outlying place goes
    * together, because half a hamlet is not a thing to draw a boundary around.
    *
@@ -708,7 +711,7 @@ App.trim = (function () {
     //
     // Lifting it to a share of the download would keep "at most eight
     // buildings" from being silly in a town of four thousand, but in a city the
-    // ceiling works out at two hundred — enough to sweep away a whole block on
+    // ceiling works out at two hundred - enough to sweep away a whole block on
     // the far side of a park while the readout beside the slider still says
     // eight. A control that reports one number and applies another is worse
     // than a blunt one, so the slider reaches sixty for the towns that need it
@@ -758,35 +761,34 @@ App.trim = (function () {
   /**
    * The measurements every judgement here is made against, worked out once.
    *
-   * ── Why there is a unit at all ────────────────────────────────────────
+   * Why there is a unit at all
    *
-   * "Far" was the median plot spacing times the slider, with an absolute
-   * floor of 120 m underneath it. That is right in a village and wrong in a
-   * city, in a way that produced exactly the complaint this replaces: plots
-   * in a city sit maybe fifteen meters apart, so the floor decided the
-   * question, and *any* group more than 120 m from the main mass was called
-   * isolated. A block on the far side of a park, a terrace across a river, an
-   * estate behind a industrial strip — all of them are 150 to 300 m from
-   * their nearest neighbor and all of them are plainly still in the city.
-   * The slider could not rescue it either: ten times fifteen meters is still
-   * only 150.
+   * Taking "far" to be the median plot spacing times the slider, with an
+   * absolute floor of 120 m underneath it, is right in a village and wrong in
+   * a city. Plots in a city sit maybe fifteen meters apart, so the floor
+   * decides the question and *any* group more than 120 m from the main mass
+   * counts as isolated. A block on the far side of a park, a terrace across a
+   * river, an estate behind an industrial strip - all of them are 150 to
+   * 300 m from their nearest neighbor and all of them are plainly still in
+   * the city. The slider cannot rescue that either: ten times fifteen meters
+   * is still only 150.
    *
    * The missing term is how big the place is. A gap of 200 m means something
    * quite different in a settlement 800 m across than in one 8 km across, and
    * the main settlement is right there to be measured. So the unit is the
-   * largest of three things — the plot spacing, a floor, and a share of the
-   * main settlement's own extent — and the slider multiplies it. A village is
+   * largest of three things - the plot spacing, a floor, and a share of the
+   * main settlement's own extent - and the slider multiplies it. A village is
    * unaffected, because its extent term comes out below the floor and the
    * arithmetic reduces to what it was before. A city gets a unit several
    * times larger, which is what stops it eating its own suburbs.
    *
-   * ── Why it is cached ──────────────────────────────────────────────────
+   * Why it is cached
    *
    * None of it depends on the sliders: the linkage distance comes from the
    * median spacing, and the groups come from the linkage. So a drag re-runs
    * the two cheap comparisons per group and nothing else, instead of
    * re-clustering four thousand buildings on every frame. Keyed on the array
-   * identity, which is what the pool is — and what a test's made-up village
+   * identity, which is what the pool is - and what a test's made-up village
    * is too.
    */
   function _scaleOf(entries) {
@@ -807,9 +809,9 @@ App.trim = (function () {
     for (var i = 1; i < groups.length; i++)
       if (groups[i].length > home.length) home = groups[i];
 
-    // The floor is divided by the default factor so that the default setting
-    // reproduces the old number exactly: unit × 3 is 120 m in an area with
-    // nothing else to go on, which is where it has always been.
+    // The floor is divided by the default factor so that the two agree at the
+    // default setting: unit x 3 is TRIM_OUTLIER_MIN_M in an area with nothing
+    // else to go on.
     var base = Math.max(1, s.TRIM_OUTLIER_FACTOR || 3);
     var unit = Math.max(
       median,
@@ -857,7 +859,7 @@ App.trim = (function () {
    * Single-linkage groups: indices into `entries`, one array per place.
    *
    * Union-find over the pairs the grid says are close enough, rather than a
-   * distance matrix — the point of clustering thousands of buildings on every
+   * distance matrix - the point of clustering thousands of buildings on every
    * press of a button is that it has to cost about as much as not doing it.
    */
   function _groupsWithin(entries, distance) {
@@ -962,7 +964,7 @@ App.trim = (function () {
    * What one notch of the isolation slider is worth here, in meters.
    *
    * The slider is a multiplier, and a multiplier with nothing to multiply is
-   * a number nobody can act on: "3×" says nothing about whether the farm at
+   * a number nobody can act on: "3x" says nothing about whether the farm at
    * the end of the track is going to be caught. So the readout carries the
    * distance it works out to, and it is the same number the pass uses rather
    * than a second calculation that can drift from it.
@@ -988,7 +990,7 @@ App.trim = (function () {
     return finite.length % 2 ? finite[mid] : (finite[mid - 1] + finite[mid]) / 2;
   }
 
-  // ── Rectangle select ──────────────────────────────────────────────────
+  // Rectangle select
   //
   // Clicking four hundred buildings one at a time is not a workflow. Shift
   // drags a box that ignores everything inside it; Alt drags one that puts
@@ -1052,9 +1054,7 @@ App.trim = (function () {
     L.DomEvent.off(document, "mouseup", _onBoxUp);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SHAPE
-  // ══════════════════════════════════════════════════════════════════════
 
   /** The live proposal, read out of the map and the current selection. */
   function compute() {
@@ -1193,22 +1193,22 @@ App.trim = (function () {
   /**
    * Make the kept buildings one place, and say which raster component that is.
    *
-   * Without this, a building that is not near any other loses outright: it forms
-   * its own component, the vote went to the settlement, and the proposal came
-   * back unchanged. Which made un-excluding one a no-op — you clicked, the
-   * count went up, and the boundary did not move. That is the single most
+   * Without this, a building that is not near any other loses outright: it
+   * forms its own component, the vote goes to the settlement, and the proposal
+   * comes back unchanged. That makes un-excluding one a no-op - you click, the
+   * count goes up, and the boundary does not move. It is the single most
    * confusing thing a tool like this can do, because the user's model is the
    * simple one and the simple one is right: what I keep, I keep.
    *
-   * So an outlying group is not dropped, it is joined — by stamping a corridor
+   * So an outlying group is not dropped, it is joined - by stamping a corridor
    * along the streets that lead to it. Which is also the honest answer on the
    * ground: a territory that includes the farm at the end of the lane includes
    * the lane, because that is what the person walking it does. Straight-line
    * corridors are the fallback for anything the network cannot reach.
    *
    * This is what makes excluding the sparse edges a decision rather than a
-   * side effect, and it is why the outlier pass now runs by default: dropping
-   * is no longer automatic, so something has to propose it.
+   * side effect, and it is why the outlier pass runs by default: nothing is
+   * dropped automatically, so something has to propose it.
    *
    * @returns {number} the component label holding every kept building it could
    *   join; groups it could not are left to be counted as falling outside.
@@ -1267,17 +1267,16 @@ App.trim = (function () {
    *
    * Straight, unless straight is impossible.
    *
-   * The first version asked the street network first, and that was the wrong
-   * instinct dressed up as a good one. A lane to an outlying farm is rarely
-   * the shortest way there by road, so the corridor set off along whatever
-   * route the graph liked, wandered around two corners, and arrived as an arm
-   * nobody would have drawn. Following streets is right for the *edge* of the
-   * territory, where the line has to be one somebody can stand on and see; it
-   * is wrong for a link, where the only question is how to reach the building
-   * without covering ground that was not asked for. The straight line is the
-   * answer to that question, and it is also the shortest.
+   * The street network is deliberately not consulted. A lane to an outlying
+   * farm is rarely the shortest way there by road, so a routed corridor sets
+   * off along whatever the graph likes, wanders around two corners, and
+   * arrives as an arm nobody would have drawn. Following streets is right for
+   * the *edge* of the territory, where the line has to be one somebody can
+   * stand on and see; it is wrong for a link, where the only question is how
+   * to reach the building without covering ground that was not asked for. The
+   * straight line is the answer to that question, and it is also the shortest.
    *
-   * So the boundary is only worked around when it genuinely blocks the way —
+   * So the boundary is only worked around when it genuinely blocks the way --
    * checked over the whole segment rather than at its endpoints, because a
    * concave boundary can cut through the middle of a line whose ends are both
    * comfortably inside. Then, and only then, a grid route goes round, and it
@@ -1335,7 +1334,7 @@ App.trim = (function () {
    * A territory boundary with a hole in it is a boundary somebody has to
    * explain. On a printed card it is worse than that: the person walking it
    * has no way to tell an intentional exclusion from a rendering artefact, and
-   * these are artefacts — an empty field ringed by houses, a courtyard the
+   * these are artefacts - an empty field ringed by houses, a courtyard the
    * reach did not close, a sliver the street snapping left behind. None of
    * them is a place anybody should be told to skip.
    *
@@ -1401,7 +1400,7 @@ App.trim = (function () {
    * remove but the steps themselves, and leaving those in makes every
    * downstream test several times the work for a shape nobody can tell apart.
    * Above it, this is the edge-detail slider, and it is doing the thing the
-   * slider promises — a boundary that hugs every bay between two houses is
+   * slider promises - a boundary that hugs every bay between two houses is
    * accurate and unusable, because the person holding the card has to decide
    * which side of it they are standing on.
    */
@@ -1443,7 +1442,7 @@ App.trim = (function () {
     return out;
   }
 
-  // ── Following the streets ─────────────────────────────────────────────
+  // Following the streets
 
   /**
    * Pull the ring onto the street network.
@@ -1456,7 +1455,7 @@ App.trim = (function () {
    *
    * A routed replacement is rejected when it detours (the same limits the cut
    * tool uses) or when it wanders further than `slack` from the ring it is
-   * replacing — that second test is what stops a road that loops back through
+   * replacing - that second test is what stops a road that loops back through
    * the middle of the village from being adopted as the edge of it.
    */
   function _followStreets(core) {
@@ -1519,7 +1518,7 @@ App.trim = (function () {
     return _polygon(deduped);
   }
 
-  // ── Measuring ─────────────────────────────────────────────────────────
+  // Measuring
 
   function _count(feature, entries) {
     var box;
@@ -1541,9 +1540,7 @@ App.trim = (function () {
     return { inside: inside, outside: entries.length - inside };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PREVIEW
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Recompute after the dust settles; a slider drag fires far too often. */
   function _schedule(delay) {
@@ -1553,7 +1550,7 @@ App.trim = (function () {
     // work on one synchronous tick, and the browser paints nothing between
     // being told and being blocked. Announced at the moment the slider moves,
     // the debounce it is already waiting out becomes the frame it is painted
-    // in — so the toolbar says "working" for the half second it is, instead of
+    // in - so the toolbar says "working" for the half second it is, instead of
     // showing the last answer as though it were the current one.
     _pending = true;
     _updateStatus();
@@ -1625,9 +1622,7 @@ App.trim = (function () {
     _preview = _lost = null;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ADJUSTING BY HAND
-  // ══════════════════════════════════════════════════════════════════════
   //
   // Everything above works from what the buildings are, and the answer is
   // usually right. "Usually" is the problem: the one corner that should follow
@@ -1635,8 +1630,8 @@ App.trim = (function () {
   // express, and re-deriving the whole shape from a slider to move one vertex
   // is the wrong shape of control entirely.
   //
-  // So the proposal can be taken over. Leaflet.Editable — already in the app
-  // for drawing the boundary in the first place — puts a handle on every
+  // So the proposal can be taken over. Leaflet.Editable - already in the app
+  // for drawing the boundary in the first place - puts a handle on every
   // corner, a half-handle on every edge for adding one, and deletes on click.
   // Nothing new is vendored for this.
   //
@@ -1645,7 +1640,7 @@ App.trim = (function () {
   // sliders and the selection are locked: a recompute would silently throw the
   // adjustment away, and the honest way to prevent that is to make it
   // impossible rather than to warn about it afterwards. Turning it off goes
-  // back to the computed shape — which is a discard, but an explicit one, done
+  // back to the computed shape - which is a discard, but an explicit one, done
   // by the same control that started the editing.
 
   /**
@@ -1710,7 +1705,7 @@ App.trim = (function () {
     if (!_editLayer || !_result) return;
     // A sweep deletes corners one at a time and this re-tests every kept
     // building against the ring. Once at the end of the stroke, not once per
-    // corner — App.vertices calls back on release.
+    // corner - App.vertices calls back on release.
     if (App.vertices.isErasing()) return;
     var poly;
     try {
@@ -1761,9 +1756,7 @@ App.trim = (function () {
     if (box) box.checked = locked;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TOOLBAR
-  // ══════════════════════════════════════════════════════════════════════
 
   function _showToolbar() {
     _hideToolbar();
@@ -1794,7 +1787,7 @@ App.trim = (function () {
       _schedule();
     });
 
-    // ── The outlier sliders ─────────────────────────────────────────────
+    // The outlier sliders
     //
     // The pass runs on arrival, and these two sliders are how its answer is
     // argued with. Without them the only reply to "it took too much" or "it
@@ -1851,7 +1844,7 @@ App.trim = (function () {
     _updateStatus();
   }
 
-  // ── Outlier settings ──────────────────────────────────────────────────
+  // Outlier settings
 
   /** Range inputs are integers, and the isolation factor is not. */
   function _scaled(factor) {
@@ -1870,6 +1863,8 @@ App.trim = (function () {
     return value;
   }
 
+  var _outlierTimer = null;
+
   /**
    * Re-run the pass, a beat after the slider stops moving.
    *
@@ -1878,8 +1873,6 @@ App.trim = (function () {
    * far side. Running both on every frame of a drag would spend the whole
    * drag computing the answer to a setting the slider has already left.
    */
-  var _outlierTimer = null;
-
   function _scheduleOutliers() {
     clearTimeout(_outlierTimer);
     // Grouping the buildings and deciding which are outliers is another second
@@ -2011,10 +2004,16 @@ App.trim = (function () {
     return km2 >= 100 ? Math.round(km2) : Math.round(km2 * 100) / 100;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // APPLY
-  // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Confirm the proposal on screen, then make it the outer boundary.
+   *
+   * Confirmed rather than silent because it is not only a boundary change:
+   * territories are clipped to the new outline and the ones that moved lose
+   * their printed mark. The dialog is marked dangerous when the proposal
+   * leaves kept buildings outside it.
+   */
   function apply() {
     if (!_result || _result.error || !_result.feature) {
       alert(T("trim.nothingToApply"));
@@ -2074,8 +2073,8 @@ App.trim = (function () {
     if (s.trimMode) toggle();
 
     // Replacing the boundary clips every territory against it and then
-    // re-tests every building — the heaviest thing in the app after the
-    // partition itself, and the only one of them that never said so.
+    // re-tests every building - the heaviest thing in the app after the
+    // partition itself, and long enough that it needs a spinner over it.
     App.ui.busy("loading.boundary", function () {
       _swap(poly);
     });
@@ -2119,16 +2118,13 @@ App.trim = (function () {
     return healed && healed.geometry ? healed : null;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // KEYBOARD
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Outliers and Clear are new: both have been buttons since the tool
-   * shipped, and both were the only two actions on any of the three mode
-   * toolbars with no key at all. `when` rather than a guard inside `run`, so
-   * the sheet can grey what the hand-adjust latch has locked instead of
-   * offering a key that quietly does nothing.
+   * Every button on this toolbar has a key, Outliers and Clear included.
+   * `when` rather than a guard inside `run`, so the sheet can grey what the
+   * hand-adjust latch has locked instead of offering a key that quietly does
+   * nothing.
    */
   var TRIM_KEYS = {
     id: "trim",
@@ -2137,8 +2133,8 @@ App.trim = (function () {
       { combos: ["Enter"], labelKey: "shortcuts.trimApply", run: apply },
       {
         // Cut and merge both answer Backspace, and this tool collects a
-        // selection exactly the way merge does. Leaving it to Ctrl+Z alone
-        // made it the one modal tool where the obvious key did nothing.
+        // selection exactly the way merge does, so the obvious key has to work
+        // here too rather than leaving Ctrl+Z as the only way back.
         combos: ["Backspace", "Delete"],
         labelKey: "shortcuts.trimBack",
         when: function () {
@@ -2228,12 +2224,12 @@ App.trim = (function () {
     if (marked === 0) alert(T("trim.noOutliers"));
   }
 
-  // ── Selection history ─────────────────────────────────────────────────
+  // Selection history
   //
   // The ignore set is what this tool edits, so it needs a stack of its own:
   // without one, Ctrl+Z while trimming reaches past it into the cluster stack
   // and undoes whatever geometry change came before the tool was opened.
-  // Snapshots are small — a set of keys — so every change gets one.
+  // Snapshots are small - a set of keys - so every change gets one.
 
   var _ignoreUndo = [];
   var _ignoreRedo = [];
@@ -2312,10 +2308,10 @@ App.trim = (function () {
     redoKey: "toolbar.redoIgnore",
   };
 
-  // ── Context menu ──────────────────────────────────────────────────────
+  // Context menu
 
   /**
-   * The trim toolbar's actions, under the cursor — and, when the pointer is
+   * The trim toolbar's actions, under the cursor - and, when the pointer is
    * over a building, that building named as something to keep or exclude.
    */
   function _showTrimMenu(point, key) {

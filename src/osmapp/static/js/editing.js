@@ -1,12 +1,11 @@
 /**
- * editing.js — the cut tool (street-snapped split lines) and merge mode.
+ * editing.js - the cut tool (street-snapped split lines) and merge mode.
  *
  * Cut tool design notes
- * ─────────────────────
- * The previous version snapped every click to anything within 200 m and only
- * showed the result of routing and boundary extension after the line was
- * committed, so the shape that got cut was frequently not the shape that was
- * drawn. Three rules keep it predictable now:
+ *
+ * What gets cut has to be what was drawn: a tool that snaps generously and
+ * only reveals the routed, extended line after the cut is committed leaves
+ * the two routinely different. Three rules keep them the same:
  *
  *   1. Snapping reaches CUT_SNAP_PX pixels, not a fixed number of meters, so
  *      it grabs what is under the cursor and nothing else. Holding Alt turns
@@ -14,8 +13,8 @@
  *   2. Street routing only replaces a segment when both of its vertices
  *      actually landed on the street network, and only when the detour is
  *      small. A hand-placed vertex is always joined by a straight line.
- *   3. Everything that will happen to the line — routing, extension to the
- *      surrounding boundaries — is drawn live, in green, while you draw. The
+ *   3. Everything that will happen to the line - routing, extension to the
+ *      surrounding boundaries - is drawn live, in green, while you draw. The
  *      toolbar counts how many territories the line currently separates, so a
  *      cut that cannot work is visible before it is committed rather than
  *      after it fails.
@@ -33,7 +32,7 @@ App.editing = (function () {
   var D = null;
   var T = null;
 
-  // ── Draw state ────────────────────────────────────────────────────────
+  // Draw state
   var _points = []; // [{ latlng, t, snapped: boolean }]
   var _previewLine = null; // red dashes: the vertices as clicked
   var _ghostLine = null; // green: what will actually be cut
@@ -43,19 +42,19 @@ App.editing = (function () {
   var _cutToolbar = null;
   var _mergeToolbar = null;
   var _mergeHint = null;
-  var _deselected = []; // territories dropped from the selection — the redo stack
+  var _deselected = []; // territories dropped from the selection - the redo stack
 
   var _pendingMove = null;
   var _moveQueued = false;
   var _altHeld = false;
   var _rightPan = null; // { x, y, moved } while the right button drags the map
   var _routedPrefix = []; // routed geometry through the committed vertices
-  var _undonePoints = []; // vertices taken back, newest last — the redo stack
+  var _undonePoints = []; // vertices taken back, newest last - the redo stack
   var _lastCut = null; // the line from the most recent cut, for diagnosis
 
-  // ── Snap index ────────────────────────────────────────────────────────
+  // Snap index
   //
-  // Streets live in App.network now — the trim tool needs the same graph, and
+  // Streets live in App.network now - the trim tool needs the same graph, and
   // the routing heuristics have to be one implementation or they are two.
   // What is still local is the boundary grid: a cut is allowed to snap onto
   // the outlines it is cutting, which is a cut-tool rule and nobody else's.
@@ -70,17 +69,15 @@ App.editing = (function () {
     N = App.network;
     D = App.dom;
     T = App.i18n.t;
-    // Alt is a live modifier rather than a shortcut — it suspends snapping for
-    // as long as it is down — so it stays here, next to the pointer state it
+    // Alt is a live modifier rather than a shortcut - it suspends snapping for
+    // as long as it is down - so it stays here, next to the pointer state it
     // changes. Everything discrete is registered with App.shortcuts.
     document.addEventListener("keydown", _onModifierDown);
     document.addEventListener("keyup", _onModifierUp);
     App._loaded.push("editing");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SNAP INDEX
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Streets and boundaries go into separate grids rather than one, so that a
@@ -119,7 +116,7 @@ App.editing = (function () {
     })(layer.getLatLngs());
   }
 
-  // ── Snapping ──────────────────────────────────────────────────────────
+  // Snapping
 
   /**
    * The pixel radius in meters at the current zoom, so the magnet has the
@@ -187,12 +184,10 @@ App.editing = (function () {
     return N.nearestNodeAt(latlng, maxMeters);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ROUTING
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * Replace the straight hop a→b with a street path, but only when doing so
+   * Replace the straight hop a->b with a street path, but only when doing so
    * cannot surprise anyone: both ends must have been snapped onto the street
    * network, both must sit on a graph node within the snap radius, and the
    * detour must be small. Anything else stays a straight line, because a
@@ -252,23 +247,23 @@ App.editing = (function () {
     return out;
   }
 
-  // ── Extend the split line out to the nearest boundaries ───────────────
+  // Extend the split line out to the nearest boundaries
 
   /**
    * A cut only separates a territory if the line crosses right out of it.
    * Each end is pushed along its own direction until it meets a boundary, and
    * then a little past it.
    *
-   * The overshoot is the important part. The old version cast its ray from
-   * the endpoint itself and took the nearest hit, so an endpoint that had
-   * snapped onto a boundary found that boundary at distance zero and did not
-   * move at all — leaving the line terminating exactly on the outline, where
-   * a hairline knife is a coin flip.
+   * The overshoot is the important part. The ray starts a fraction of a meter
+   * beyond the endpoint, so a boundary the endpoint has already snapped onto
+   * is not reported as a zero-distance hit and taken as the stopping place;
+   * the result is then pushed CUT_EXTEND_OVERSHOOT_M further still. A line
+   * terminating exactly on the outline makes a hairline knife a coin flip.
    */
   function _extendToBoundaries(latlngs) {
     if (latlngs.length < 2 || !_edgeGrid) return latlngs;
 
-    var reach = 1.0; // degrees; replaced by the real extent when we have one
+    var reach = 1.0; // degrees; replaced below by the boundary's own extent
     if (s.outerPolygonLayer) {
       try {
         var b = s.outerPolygonLayer.getBounds();
@@ -347,15 +342,15 @@ App.editing = (function () {
     return null;
   }
 
-  // ── Live "will this actually cut anything" check ──────────────────────
+  // Live "will this actually cut anything" check
 
   /**
    * Count boundary crossings per territory. Two or more crossings means the
    * line goes in one side and out another, which is the necessary condition
    * for a separation; one crossing means it stops inside.
    *
-   * This is a cheap approximation — a line that leaves and re-enters through
-   * the same edge also scores two — but it is right often enough to warn
+   * This is a cheap approximation - a line that leaves and re-enters through
+   * the same edge also scores two - but it is right often enough to warn
    * before committing, which is the whole point.
    *
    * @returns {{separates: number, touches: number}}
@@ -397,9 +392,7 @@ App.editing = (function () {
     return { separates: separates, touches: touches };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DRAW MODE
-  // ══════════════════════════════════════════════════════════════════════
 
   function toggleEditMode() {
     var next = !s.editMode;
@@ -512,7 +505,7 @@ App.editing = (function () {
     _altHeld = false;
   }
 
-  // ── Right-button panning ──────────────────────────────────────────────
+  // Right-button panning
 
   /**
    * Left-drag panning already works while drawing, but it costs the click
@@ -523,7 +516,7 @@ App.editing = (function () {
    *
    * Leaflet's own drag handler ignores every button but the primary one, so the
    * panning is done from a handler here rather than through map.dragging. Right
-   * click has no other job in this mode — the territory context menu already
+   * click has no other job in this mode - the territory context menu already
    * bows out while s.editMode is set.
    */
   function _bindRightPan() {
@@ -577,7 +570,7 @@ App.editing = (function () {
     if (!s.editMode) return;
 
     // The cursor has not moved but the ground under it has, so what it is
-    // pointing at — and therefore the snap dot and the green preview — has to
+    // pointing at - and therefore the snap dot and the green preview - has to
     // be worked out again.
     if (moved) {
       _pendingMove = s.leafletMap.mouseEventToLatLng(e);
@@ -799,9 +792,9 @@ App.editing = (function () {
 
   /**
    * Leaflet fires click, click, dblclick. Both trailing clicks belong to the
-   * double-click, so drop anything placed inside the threshold and put a
-   * single vertex at the double-click position instead. The old code popped
-   * exactly one point, which left the vertex count off by one.
+   * double-click, so everything placed inside the threshold is dropped and a
+   * single vertex goes at the double-click position instead. Popping exactly
+   * one point leaves the vertex count off by one.
    */
   function _onDrawDblClick(e) {
     L.DomEvent.stopPropagation(e);
@@ -884,9 +877,7 @@ App.editing = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SHORTCUT CONTEXTS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Every key the cut tool answers, in one list, plus the two gestures that are
@@ -961,8 +952,8 @@ App.editing = (function () {
     titleKey: "shortcuts.groupMerge",
     entries: [
       {
-        // Cut commits on Enter and so does trim. Merge asked you to go and
-        // find the button, for no reason anybody could have named.
+        // Cut commits on Enter and so does trim; merge is the third of the
+        // three and answers the same key rather than only its own button.
         combos: ["Enter"],
         labelKey: "shortcuts.mergeApply",
         when: canMerge,
@@ -1004,12 +995,12 @@ App.editing = (function () {
     ],
   };
 
-  // ── Cut context menu ──────────────────────────────────────────────────
+  // Cut context menu
 
   /**
    * The cut toolbar sits in a corner; the drawing happens under the cursor.
    * Right-click already had to be watched here for panning, and a right
-   * button that was released without moving is a click asking for a menu —
+   * button that was released without moving is a click asking for a menu --
    * so the toolbar's actions are available where the hand already is.
    */
   function _showCutMenu(point) {
@@ -1070,9 +1061,9 @@ App.editing = (function () {
   }
 
   /**
-   * The merge menu the toolbar's buttons were the only route to, with the
-   * one entry a toolbar cannot offer at the top: the territory under the
-   * cursor, named as something you can pick or drop right here.
+   * The merge toolbar's own actions, under the cursor, with the one entry a
+   * toolbar cannot offer at the top: the territory being pointed at, named as
+   * something to pick or drop right here.
    */
   function _showMergeMenu(point, layer, feature) {
     var selected = layer ? _selectionIndex(layer) >= 0 : false;
@@ -1135,7 +1126,7 @@ App.editing = (function () {
     return false;
   }
 
-  // ── Cut toolbar ───────────────────────────────────────────────────────
+  // Cut toolbar
 
   function _showCutToolbar() {
     _hideCutToolbar();
@@ -1179,7 +1170,7 @@ App.editing = (function () {
     box.addEventListener("change", function () {
       s[flag] = !!box.checked;
       // Routing depends on which vertices count as snapped, and that does not
-      // change retroactively — but the geometry between them does, so the
+      // change retroactively - but the geometry between them does, so the
       // whole prefix has to be rebuilt rather than just the tail.
       _rebuildPrefix();
       _refreshPreview();
@@ -1225,9 +1216,7 @@ App.editing = (function () {
     _cutToolbar = D.remove(_cutToolbar);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SPLIT
-  // ══════════════════════════════════════════════════════════════════════
 
   function _splitWithLine(points) {
     if (s.clusters.length === 0) {
@@ -1321,17 +1310,16 @@ App.editing = (function () {
 
   /**
    * Subtract a thin buffer around `line` from every polygonal part of
-   * `feature`. Returns geometries only when the part count actually grew —
+   * `feature`. Returns geometries only when the part count actually grew --
    * otherwise a MultiPolygon that was merely trimmed would look like a split.
    *
-   * The knife width escalates on failure. Be honest about what this is: on
-   * synthetic tests — zig-zag lines, 60-vertex irregular cells, lines flush
-   * with an edge — a wider blade never rescued a cut that the 1.5 cm one
-   * missed, and it never should, because every failure there was a line that
-   * did not go all the way across. Escalation is insurance against
-   * floating-point cases nobody has reproduced, it only runs after a real
-   * failure, and it costs one extra difference() on a line that was going to
-   * be reported as broken anyway. If it never fires, delete it.
+   * The knife width escalates on failure, and no test has yet produced a case
+   * where the wider blade helps: over zig-zag lines, 60-vertex irregular cells
+   * and lines flush with an edge, every cut the 1.5 cm blade missed was a line
+   * that did not go all the way across, which no width rescues. The escalation
+   * is insurance against floating-point cases nobody has reproduced; it runs
+   * only after a real failure, and it costs one extra difference() on a line
+   * that was going to be reported as broken anyway.
    *
    * The widths are capped below geometry.unionHealed's 1 m healing reach, so
    * two halves cut apart here can still be merged back together later without
@@ -1410,9 +1398,7 @@ App.editing = (function () {
     return grew && out.length > parts.length ? out : null;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // MERGE MODE
-  // ══════════════════════════════════════════════════════════════════════
 
   function toggleMergeMode() {
     s.mergeMode = !s.mergeMode;
@@ -1425,7 +1411,7 @@ App.editing = (function () {
       s.selectedClusters = [];
       _deselected = [];
       // Selecting means clicking the shape, so the tooltip is pinned above it
-      // rather than sitting under the pointer — the count still reads, the
+      // rather than sitting under the pointer - the count still reads, the
       // click target stays clear.
       App.polygons.setTooltipMode("anchored");
       App.gaps.schedule(0);
@@ -1434,7 +1420,7 @@ App.editing = (function () {
       App.shortcuts.push(MERGE_KEYS);
       // Without a scope of its own, Ctrl+Z in merge mode reached past the
       // selection being built and undid the last change to the territories
-      // themselves — the exact failure history.js's scope stack was written
+      // themselves - the exact failure history.js's scope stack was written
       // to stop, in the one mode that never registered one.
       App.history.pushScope(MERGE_SCOPE);
     } else {
@@ -1458,7 +1444,7 @@ App.editing = (function () {
   }
 
   /**
-   * Hold a selection that was built somewhere else — the territory list.
+   * Hold a selection that was built somewhere else - the territory list.
    *
    * The list is a far better place to pick fourteen territories out of ninety-
    * nine than the map is, and merge mode is where a live selection already
@@ -1496,7 +1482,7 @@ App.editing = (function () {
       App.polygons.selectCluster(item.layer, true);
     });
     // Arriving from the list is a fresh start, not a step in the walk the
-    // undo stack is keeping — there is nothing behind it to go back to.
+    // undo stack is keeping - there is nothing behind it to go back to.
     _deselected = [];
     _updateMergeCount();
     return s.selectedClusters.length > 0;
@@ -1628,7 +1614,7 @@ App.editing = (function () {
         App.ui.setOverlayStatus(T("loading.dissolving"));
         // unionHealed grows each input by half a meter before unioning, so
         // boundaries that only nearly coincide still dissolve. A plain union
-        // left hairline slivers, and Leaflet drew the internal outlines.
+        // leaves hairline slivers, and Leaflet draws the internal outlines.
         merged = G.unionHealed(
           selected.map(function (item) {
             return item.feature;
@@ -1648,7 +1634,7 @@ App.editing = (function () {
       //
       // This is the one failure that cannot be seen on the map. What comes
       // back is a perfectly ordinary-looking territory, and the ground that
-      // went missing is only discovered by whoever was sent to walk it —
+      // went missing is only discovered by whoever was sent to walk it --
       // weeks later, as a hole in the coverage. It happens: unionAll answers
       // a throw with a partial union by design, because for its other callers
       // most of an outline beats none of it, and geometry.unionHealed can be
@@ -1736,9 +1722,9 @@ App.editing = (function () {
       T("merge.selected", { count: s.selectedClusters.length }),
     );
 
-    // Disabled with a reason rather than clickable-into-an-alert. This is how
-    // every button in the main toolbar already behaves; the two buttons that
-    // live on a mode's own bar were the exception.
+    // Disabled with a reason rather than clickable-into-an-alert, which is how
+    // every button in the main toolbar behaves. A mode's own bar is no
+    // exception.
     var merge = D.role(_mergeToolbar, "merge");
     if (merge) {
       var ready = canMerge();

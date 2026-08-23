@@ -1,26 +1,26 @@
 /**
- * autoheal.js — repairing the faults the territory list can already name.
+ * autoheal.js - repairing the faults the territory list can already name.
  *
  * Four faults are mechanical enough to repair without asking, and this module
  * is those four:
  *
- *   • **Split** — a territory whose geometry is more than one polygon. The
+ *   - **Split** - a territory whose geometry is more than one polygon. The
  *     pieces are not adjacent, so nobody can walk it as one assignment. Each
  *     piece becomes a territory of its own: the same footprint, counted the
  *     way the map already draws it.
  *
- *   • **Empty** — a territory with no buildings in it, which prints a card
+ *   - **Empty** - a territory with no buildings in it, which prints a card
  *     for a strip of embankment. It is absorbed into the neighbor it shares
  *     the most boundary with, the same repair clustering.js already makes to
  *     its own leftovers.
  *
- *   • **Crossed** — a boundary drawn straight through a building, so one
+ *   - **Crossed** - a boundary drawn straight through a building, so one
  *     house belongs to two territories and two cards show the same roof. The
  *     footprint goes whole to whichever territory already holds most of it,
  *     which puts the boundary onto the building's own wall. See footprints.js
  *     for the geometry; clustering.js runs it on its own output.
  *
- *   • **Uncovered** — ground inside the boundary that is in no territory at
+ *   - **Uncovered** - ground inside the boundary that is in no territory at
  *     all (see gaps.js). It is made a territory first and then judged by the
  *     same rules as everything else, and that order carries the work: a strip
  *     left by dragging the boundary outward becomes a territory, is found to
@@ -31,11 +31,11 @@
  *
  * Deliberately *not* healed:
  *
- *   • The `tiny` flag. It means "smaller than the number chip drawn on it at
+ *   - The `tiny` flag. It means "smaller than the number chip drawn on it at
  *     this zoom", a statement about the viewport rather than the territory, so
  *     repairing on it would make one button do different things depending on
  *     how far the map is zoomed out.
- *   • An empty territory whose neighbors are all empty too. In a download with
+ *   - An empty territory whose neighbors are all empty too. In a download with
  *     no buildings anywhere, "merge every empty one into a neighbor" collapses
  *     the whole partition into a single territory. A host therefore has to
  *     have buildings, and an empty territory with nothing populated beside it
@@ -52,7 +52,7 @@
  * on its edge and leave as empty, rather than being merged while it still
  * counts that house and then having a boundary moved inside its new owner.
  * Those last two take turns until a round changes nothing, because a merge
- * does not leave an outline as it found it — see the loop in _plan.
+ * does not leave an outline as it found it - see the loop in _plan.
  *
  * The repair is computed against plain features and applied in one
  * setClusters() call behind one history entry, so the whole thing is a single
@@ -61,8 +61,8 @@
  *
  * _canFix() runs the same _plan() the button runs and throws the result away,
  * rather than testing something cheaper that resembles the repair. The two
- * disagree exactly where it matters — on a territory whose neighbor touches
- * it but cannot take it — and a button that runs and changes nothing teaches
+ * disagree exactly where it matters - on a territory whose neighbor touches
+ * it but cannot take it - and a button that runs and changes nothing teaches
  * people to distrust the one that works.
  */
 var App = window.App || {};
@@ -78,7 +78,7 @@ App.autoheal = (function () {
   // same 0.5 m clustering.js uses, for the same reason: adjacent territories
   // share a boundary but rarely share exact vertices, so an exact test finds
   // no neighbors at all. Whatever probes for adjacency and whatever performs
-  // the merge have to agree on this number — a union tighter than the test
+  // the merge have to agree on this number - a union tighter than the test
   // that found the pair leaves a hairline seam, and the seam is a MultiPolygon,
   // which is the very fault being repaired.
   var TOUCH_SLACK_M = 0.5;
@@ -106,15 +106,13 @@ App.autoheal = (function () {
     App._loaded.push("autoheal");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE AUDIT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Does this territory contain no buildings?
    *
-   * Three-valued on purpose. `null` is "cannot say" — nothing has been
-   * downloaded, or this territory has not been counted yet — and it is the
+   * Three-valued on purpose. `null` is "cannot say" - nothing has been
+   * downloaded, or this territory has not been counted yet - and it is the
    * answer that matters most, because the alternative is treating an
    * unanswered question as a fault and merging away a perfectly good
    * territory on the strength of data that never arrived.
@@ -180,7 +178,7 @@ App.autoheal = (function () {
    * How many buildings territory `index` has a boundary drawn through.
    *
    * The cheap half of issueOf, for callers that want the flag without the
-   * rehearsed repair behind it — the info panel asks on every refresh, and
+   * rehearsed repair behind it - the info panel asks on every refresh, and
    * the list asks once per row.
    */
   function crossed(index) {
@@ -215,7 +213,7 @@ App.autoheal = (function () {
       crossed: crossings,
       // Splitting a multi-part shape always changes it, so that one needs no
       // rehearsal. Everything else is answered by running the repair and
-      // throwing the result away — see _canFix.
+      // throwing the result away - see _canFix.
       fixable: split || ((empty || crossings > 0) && _canFix(index)),
     };
   }
@@ -232,7 +230,7 @@ App.autoheal = (function () {
    * there is only one.
    *
    * The rehearsal is not free, so it is reached only for a territory already
-   * known to be empty — a handful of rows in a list of hundreds — and each one
+   * known to be empty - a handful of rows in a list of hundreds - and each one
    * costs a bbox-filtered neighbor scan and at most a few unions.
    */
   function _canFix(index) {
@@ -256,7 +254,7 @@ App.autoheal = (function () {
    * no rehearsal either: adopting one always produces a territory that was not
    * there before, so the offer on such a row is never empty.
    *
-   * `crossed` costs one survey of the whole map, cached — see _crossings —
+   * `crossed` costs one survey of the whole map, cached - see _crossings --
    * rather than one per row.
    */
   function audit() {
@@ -290,12 +288,10 @@ App.autoheal = (function () {
     };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // UNCOVERED GROUND
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * The uncovered pieces, in the order gaps.js holds them — largest first.
+   * The uncovered pieces, in the order gaps.js holds them - largest first.
    *
    * Read live rather than cached, because that is the list the dialog is
    * showing and an index into a stale copy would adopt the wrong piece of
@@ -312,7 +308,7 @@ App.autoheal = (function () {
    *
    * Same three-way convention as _scope: omitted means every one of them, a
    * number or an array names them, and an index that no longer exists is
-   * dropped rather than throwing — the list can have been rendered before a
+   * dropped rather than throwing - the list can have been rendered before a
    * recount landed.
    *
    * @param {number|number[]} [indices]
@@ -331,16 +327,14 @@ App.autoheal = (function () {
       });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // COUNTING BUILDINGS AS THE PLAN CHANGES
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * One point per building, centroids cached on the feature.
    *
    * `_centroid` is the same field polygons.refreshFilteredData writes, so the
-   * first heal after a download pays for the centroids and every later pass —
-   * here or there — reads them back.
+   * first heal after a download pays for the centroids and every later pass --
+   * here or there - reads them back.
    *
    * @returns {Object[]|null} turf Points, or null when nothing is downloaded
    */
@@ -352,7 +346,8 @@ App.autoheal = (function () {
     // Keyed on the collection object, which is replaced wholesale by a
     // download, an import or a reset and never edited in place. Opening the
     // list rehearses a repair for every empty territory, and without this
-    // each rehearsal walked all the buildings again to build the same array.
+    // each rehearsal would walk all the buildings again to build the same
+    // array.
     if (_pointsFor === collection) return _points;
 
     var points = [];
@@ -412,19 +407,17 @@ App.autoheal = (function () {
     return slot.buildings;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // NEIGHBORS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Slots touching `victim`, most shared boundary first.
    *
    * The victim is grown by the touch slack and intersected with each
    * candidate, so the ranking value is roughly the shared boundary length
-   * times the slack. Ranking by centroid distance instead — the obvious
-   * cheaper test — welds a sliver onto whichever territory happens to have
+   * times the slack. Ranking by centroid distance instead - the obvious
+   * cheaper test - welds a sliver onto whichever territory happens to have
    * its middle nearby, across a neighbor it never touches. clustering.js
-   * learned that the hard way; this is the same measurement.
+   * makes the same measurement, for the same reason.
    */
   function _neighbors(slots, victim) {
     var probe;
@@ -464,9 +457,7 @@ App.autoheal = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE PLAN
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Everything but `printed`.
@@ -511,7 +502,7 @@ App.autoheal = (function () {
    *
    * Unconditional: there is no minimum size here, because the merge pass that
    * follows is the size filter. A sliver has no buildings by construction, so
-   * it is empty, so it is offered to the neighbor it touches — which is a
+   * it is empty, so it is offered to the neighbor it touches - which is a
    * better answer than any threshold, since it puts the ground somewhere
    * instead of quietly dropping it.
    */
@@ -556,14 +547,14 @@ App.autoheal = (function () {
    * unionHealed comes first because it is the one that closes the seam:
    * neighbors share a boundary to within a few centimeters rather than
    * exactly, and a plain union of two shapes that only nearly touch returns a
-   * MultiPolygon — the host would come out split, which is the other fault
+   * MultiPolygon - the host would come out split, which is the other fault
    * this module exists to remove. It grows both inputs by the same slack the
    * neighbor test used, unions, and shrinks back.
    *
    * The plain union is the fallback, and it is not a formality. turf's
-   * polygon clipping gives up on near-degenerate vertex arrangements — two
+   * polygon clipping gives up on near-degenerate vertex arrangements - two
    * rectangles meeting along an edge produce one as soon as they are buffered,
-   * because the corner arcs graze the shared edge — and it announces this by
+   * because the corner arcs graze the shared edge - and it announces this by
    * throwing. geometry.unionAll answers a throw with a *partial* union,
    * dropping whichever shape it could not fold in. For the callers it was
    * written for that is the right trade: most of an outline beats none of it.
@@ -571,15 +562,15 @@ App.autoheal = (function () {
    * ground belonging to nobody, discovered as a hole in the coverage weeks
    * later. So:
    *
-   *   • the host must come out bigger by the ground it is actually gaining,
+   *   - the host must come out bigger by the ground it is actually gaining,
    *     which is the victim minus whatever the two already share. Measuring
    *     against the victim's whole area instead assumes neighbors never
    *     overlap, and they do: a merge that keeps unionHealed's grown result
    *     leaves a half-meter of overlap along the seam, and a territory drawn
-   *     by hand over another one overlaps outright. A 30 m² sliver sitting
-   *     87% inside its neighbor gains that neighbor 4 m², and demanding 27
-   *     rejected a union that had lost nothing at all.
-   *   • and it must be a single polygon, or the repair has produced the exact
+   *     by hand over another one overlaps outright. A 30 m2 sliver sitting
+   *     87% inside its neighbor gains that neighbor 4 m2, so demanding 27
+   *     rejects a union that has lost nothing at all.
+   *   - and it must be a single polygon, or the repair has produced the exact
    *     fault it exists to remove, and the next run would split it back into
    *     the two shapes it started with.
    *
@@ -588,7 +579,7 @@ App.autoheal = (function () {
    */
   function _absorb(host, victim) {
     // What this merge should add: the victim, less the part of it the host is
-    // already covering. Zero is a legitimate answer — a sliver wholly inside
+    // already covering. Zero is a legitimate answer - a sliver wholly inside
     // its neighbor is absorbed by ceasing to be a territory of its own, and
     // no ground moves at all.
     var gain = Math.max(0, G.area(victim) - G.sharedArea(host, victim));
@@ -613,8 +604,8 @@ App.autoheal = (function () {
       // vertices that are *nearly* the same point, which is what a shared
       // boundary carried through a buffer and back is made of; quantizing
       // makes them exactly the same point and the arithmetic becomes easy.
-      // A centimeter is far below anything this app measures — the touch
-      // slack is fifty times it — so nothing that matters moves.
+      // A centimeter is far below anything this app measures - the touch
+      // slack is fifty times it - so nothing that matters moves.
       candidates.push(G.union(G.quantize(host), G.quantize(victim)));
     } catch (e) {
       /* out of ideas; the victim keeps its ground and its flag */
@@ -641,9 +632,9 @@ App.autoheal = (function () {
    * A crossing is repaired when *either* side of it is in scope, and the other
    * side moves too. That is not scope creep: a boundary is the one line two
    * territories share, and there is no way to take it off a building for one
-   * of them without taking it off for the other. The merge pass has always
-   * worked the same way — it rewrites the host it hands an empty territory to,
-   * in or out of scope.
+   * of them without taking it off for the other. The merge pass works the same
+   * way - it rewrites the host it hands an empty territory to, in or out of
+   * scope.
    *
    * Every territory a repair touched loses its building count, because moving
    * a footprint from one to the other is precisely the event that changes it.
@@ -727,9 +718,9 @@ App.autoheal = (function () {
         // Down the ranking until one of them can actually take it. The best
         // neighbor by shared boundary is the one that *should* have it, but
         // whether a union of those two particular outlines comes back usable
-        // is a question about arithmetic, not about geography — and the
+        // is a question about arithmetic, not about geography - and the
         // second-best neighbor is still a neighbor. Trying only the first
-        // turned a solvable case into a button that did nothing.
+        // turns a solvable case into a button that does nothing.
         for (var h = 0; h < hosts.length; h++) {
           var host = hosts[h];
           var union = _absorb(host.feature, victim.feature);
@@ -756,9 +747,7 @@ App.autoheal = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // RUNNING IT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Work out the repair without performing it.
@@ -766,7 +755,7 @@ App.autoheal = (function () {
    * Pure: it reads s.clusters and returns new features, and nothing on the
    * map moves. That is what lets the same function answer "would this change
    * anything?" for the wand on a row and "what shall be written back?" for the
-   * click on it — one implementation, so the button and the repair cannot
+   * click on it - one implementation, so the button and the repair cannot
    * drift apart.
    *
    * @param {number|number[]} [indices] territories to repair; all when omitted
@@ -825,7 +814,7 @@ App.autoheal = (function () {
     // becomes two; with no buildings on it, it goes to the neighbor it abuts
     // most. Adopting afterwards would leave exactly the faults this module
     // exists to remove, freshly created by the repair that was meant to
-    // remove them. `buildings: null` rather than zero — the count is unknown
+    // remove them. `buildings: null` rather than zero - the count is unknown
     // until _buildings works it out, and claiming zero would hand a populated
     // strip to a neighbor.
     adopted.forEach(function (feature) {
@@ -848,17 +837,17 @@ App.autoheal = (function () {
     // nothing. Both orders are needed and neither is enough on its own.
     //
     // Footprints first, because a strip that gives up its last house becomes
-    // empty and the merge that follows hands it to a neighbor — the end it
+    // empty and the merge that follows hands it to a neighbor - the end it
     // should have had. Merges first would keep the strip while it still counts
     // that house.
     //
     // And round again after, because the merge does not put two outlines
     // together the way it found them: _absorb closes the seam with a healed
     // union, which buffers out and back by the touch slack, and a line that
-    // had just been set down on a wall comes back half a meter inside it. The
-    // first heal on the sample village left two territories still flagged that
-    // way — repaired by clicking the same button a second time, which is
-    // exactly the thing this module refuses to ship.
+    // had just been set down on a wall comes back half a meter inside it.
+    // Without the second round, a heal of the sample village leaves two
+    // territories still flagged that way, repairable only by clicking the same
+    // button again - exactly the thing this module refuses to ship.
     //
     // Each round costs less than the last: the survey only finds what the
     // previous one moved.
@@ -917,7 +906,7 @@ App.autoheal = (function () {
    * Make uncovered ground into territories, and then repair what that made.
    *
    * The repair for a piece of ground nobody covers, in the same one Ctrl+Z as
-   * every other repair. What comes out is not always a territory — an
+   * every other repair. What comes out is not always a territory - an
    * uncovered strip with no houses on it is absorbed by the neighbor it abuts
    * most, which is the right answer and the one gaps.js's own "close it"
    * makes by hand.
@@ -943,7 +932,7 @@ App.autoheal = (function () {
     if (App.history) App.history.push();
     // setClusters rebuilds a Feature around every geometry it is handed, so
     // the untouched ones are passed through as they stand rather than copied
-    // here — the copy it makes is the one that ends up on the map either way.
+    // here - the copy it makes is the one that ends up on the map either way.
     App.polygons.setClusters(
       plan.kept.map(function (slot) {
         return slot.feature;

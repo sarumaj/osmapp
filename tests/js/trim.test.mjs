@@ -6,16 +6,16 @@
  * quietly — the tool would still return a polygon, still draw it in green, and
  * still let somebody apply it:
  *
- *   • Reach decides what counts as sparse. A shape that ignores the slider
+ *   - Reach decides what counts as sparse. A shape that ignores the slider
  *     looks identical at every setting, which is exactly what a broken slider
  *     looks like too.
- *   • Ignored buildings must actually pull the boundary in. If they only
+ *   - Ignored buildings must actually pull the boundary in. If they only
  *     changed a count somewhere, the whole selection gesture would be
  *     decoration.
- *   • The winner among disconnected settlements is the one with the most
+ *   - The winner among disconnected settlements is the one with the most
  *     buildings, not the largest area — a wide empty component with three
  *     farms in it must not beat the village.
- *   • Trimming never grows. Clipping to the existing boundary is the only
+ *   - Trimming never grows. Clipping to the existing boundary is the only
  *     thing standing between "reshape the area" and "silently annex the field
  *     next door", and it is one intersect() call away from being forgotten.
  *

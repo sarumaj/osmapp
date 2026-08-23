@@ -1,24 +1,24 @@
 /**
- * spatial.js — a spatial index, a priority queue, and fast distance helpers.
+ * spatial.js - a spatial index, a priority queue, and fast distance helpers.
  *
  * Two data structures and a handful of arithmetic functions, none of which
  * know anything about the app. Everything here works on plain `[lng, lat]`
  * coordinate pairs: no Leaflet layers, no GeoJSON features, no turf.
  *
- * ── The grid ──────────────────────────────────────────────────────────────
+ * The grid
  *
  * `Grid` answers "what is near this point" without looking at everything.
  * The alternative is a linear scan, and the questions asked here are asked
- * constantly — snapping a vertex to the nearest street runs on every pointer
+ * constantly - snapping a vertex to the nearest street runs on every pointer
  * move, and finding the nearest graph node runs on every step of a route
- * search — so with a city's worth of streets a scan is the dominant cost.
+ * search - so with a city's worth of streets a scan is the dominant cost.
  *
  * The index is a uniform grid rather than a tree because the data is street
  * geometry, which is spread fairly evenly across the area being worked on.
  * That is the case where uniform cells behave well, and they are far simpler
  * to build and cheaper to rebuild than a balanced structure.
  *
- * ── Distances ─────────────────────────────────────────────────────────────
+ * Distances
  *
  * dist() and distSq() use an equirectangular approximation: latitude and
  * longitude are scaled to meters and then treated as a flat plane. That is
@@ -53,7 +53,7 @@ App.spatial = (function () {
    * Squared distance in meters between two [lng, lat] coords.
    *
    * The longitude scale is taken at the midpoint latitude of the pair, which
-   * keeps the approximation symmetric — d(a, b) and d(b, a) agree exactly.
+   * keeps the approximation symmetric - d(a, b) and d(b, a) agree exactly.
    */
   function distSq(a, b) {
     var kx = lngScale((a[1] + b[1]) / 2);
@@ -83,9 +83,9 @@ App.spatial = (function () {
   /**
    * A uniform grid index over lng/lat coordinates.
    *
-   * Items are added with add() or addSegment() and are identified afterwards
-   * by their insertion index, which the query methods return. The caller keeps
-   * its own array in the same order and looks the payload up there.
+   * Items are added with addPoint() or addSegment(). Each carries the caller's
+   * own payload, returned by the nearest* queries; candidates() and shell()
+   * return insertion indices into `items` instead.
    *
    * Cells are keyed lazily in a plain object, so an empty region costs
    * nothing and the grid needs no bounds up front.
@@ -232,8 +232,7 @@ App.spatial = (function () {
    * Used both for measuring how far a point lies from a street and for finding
    * where on that street to place a snapped vertex.
    *
-   * @returns {{coord:number[], dist:number, t:number}} `t` is the position
-   *   along the segment, 0 at a and 1 at b
+   * @returns {{coord:number[], dist:number}}
    */
   function closestOnSegment(p, a, b) {
     var kx = lngScale(p[1]);
@@ -279,8 +278,8 @@ App.spatial = (function () {
     // coord. shell(coord, 1) is the eight cells *around* that one, so starting
     // at 1 would miss any segment lying entirely within the centre cell.
     // Street segments are usually long enough to stamp neighboring cells as
-    // well and would be found regardless, but a chain of short segments — a
-    // traced boundary ring, for instance — would not be.
+    // well and would be found regardless, but a chain of short segments - a
+    // traced boundary ring, for instance - would not be.
     for (var ring = 0; ring <= maxRing; ring++) {
       var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
@@ -307,8 +306,8 @@ App.spatial = (function () {
    * along the segment and querying each, or scanning everything.
    *
    * The bounding box of the segment is used, so a long diagonal returns items
-   * near the corners it does not actually pass through; as with near(), these
-   * are candidates the caller must still test.
+   * near the corners it does not actually pass through; as with candidates(),
+   * these are candidates the caller must still test.
    *
    * @returns {number[]} item indices, deduplicated and unordered
    */
@@ -370,8 +369,8 @@ App.spatial = (function () {
   /**
    * A binary min-heap of `{ f, ... }` objects, ordered by the `f` property.
    *
-   * This is the frontier for the route searches in clustering.js and
-   * editing.js, where `f` is the estimated total cost of a path. Both push and
+   * This is the frontier for the route searches in network.js and
+   * clustering.js, where `f` is the estimated total cost of a path. Both push and
    * pop are logarithmic in the size of the frontier, whereas keeping the
    * frontier in a sorted array costs a scan or a re-sort on every step, and
    * those searches pop thousands of times.

@@ -1,5 +1,5 @@
 /**
- * main.js — entry point.
+ * main.js - entry point.
  *
  * Waits for the DOM, creates the Leaflet map with Leaflet.Editable, sets up
  * the layer groups, then initializes every other module in dependency order.
@@ -33,19 +33,19 @@
       _reveal();
       return;
     }
-    // zoomControl: false — the two zoom buttons are tiles in the toolbar's
+    // zoomControl: false - the two zoom buttons are tiles in the toolbar's
     // View group instead (see controls.js). Leaflet's own pair is a second
     // control in the same top-left corner, styled by leaflet.css rather than
-    // by this app, so it read as the one piece of chrome that belonged to a
-    // different program — and it named neither of its buttons.
+    // by this app, so it reads as the one piece of chrome belonging to a
+    // different program - and it names neither of its buttons.
     var map = L.map(node, {
       center: [47.3769, 8.5417],
       zoom: 13,
       zoomControl: false,
     });
     // Before i18n, deliberately: the map should have ground under it while the
-    // dictionaries load. App.basemap adds whichever basemap was last chosen —
-    // OSM unless someone switched to an aid layer — and the toolbar's View
+    // dictionaries load. App.basemap adds whichever basemap was last chosen --
+    // OSM unless someone switched to an aid layer - and the toolbar's View
     // group names them later, once there is a language to name them in.
     App.basemap.init(map);
 
@@ -69,8 +69,8 @@
       // Start-up is straight-line and unguarded: the first module whose init()
       // throws takes every one after it with it, the hand-over at the end of
       // _startTranslated included. Catching it here keeps the reveal out of
-      // that sequence, so a throw leaves the same half-built page it always
-      // did rather than a spinner parked over one until the fail-safe expires.
+      // that sequence, so a throw leaves a half-built page rather than a
+      // spinner parked over one until the fail-safe expires.
       .catch(function (err) {
         console.error(">>> Start-up did not finish:", err);
       })
@@ -81,7 +81,7 @@
     var s = App.state;
     s.leafletMap = map;
 
-    // ── Leaflet.Editable ────────────────────────────────────────────────
+    // Leaflet.Editable
     if (typeof L.Editable !== "undefined" && !map.editTools) {
       try {
         map.editTools = new L.Editable(map, {});
@@ -98,13 +98,13 @@
     App.vertices.install();
     App.vertices.watch(map);
 
-    // ── Panes ───────────────────────────────────────────────────────────
+    // Panes
     // Stacking is stated here rather than left to draw order. Without these
     // panes it is a side effect of a call sequence: setClusters() builds cluster
     // layers and then calls refreshFilteredData(), so streets and buildings are
     // appended to the SVG after the territories and land on top. That happens to
-    // be the right order — hovering a building should tell you about the
-    // building — but whichever path is topmost receives the pointer events, so
+    // be the right order - hovering a building should tell you about the
+    // building - but whichever path is topmost receives the pointer events, so
     // it is not something to inherit by accident.
     //
     // The outer boundary sits at the bottom on purpose: it spans everything,
@@ -113,29 +113,30 @@
       ["outerPane", 405],
       // Between the boundary and the territories: a gap never overlaps a
       // territory, so all this ordering decides is that it wins over the
-      // boundary spanning it — which is the point, since the boundary would
+      // boundary spanning it - which is the point, since the boundary would
       // otherwise swallow the hover.
       ["gapsPane", 408],
       ["clustersPane", 410],
       ["streetsPane", 420],
       ["buildingsPane", 430],
       // The trim proposal is a decision being previewed, so it sits above
-      // everything it is a decision about — including the buildings, which is
+      // everything it is a decision about - including the buildings, which is
       // the layer it is being judged against.
       ["trimPane", 440],
     ].forEach(function (spec) {
       if (!map.getPane(spec[0])) map.createPane(spec[0]).style.zIndex = spec[1];
     });
 
-    // ── Layer groups ────────────────────────────────────────────────────
+    // Layer groups
     s.streetsLayerGroup = L.featureGroup().addTo(map);
     s.buildingsLayerGroup = L.featureGroup().addTo(map);
     s.gapsLayerGroup = L.featureGroup().addTo(map);
     s.innerPolygonsLayerGroup = L.featureGroup().addTo(map);
     s.outerPolygonLayerGroup = L.featureGroup().addTo(map);
 
-    // ── Modules — dom and ui first, history after controls so the undo and
-    //    redo buttons exist when their state is first synced ─────────────
+    // Modules, in dependency order. ui first, history after controls so the
+    // undo and redo buttons exist when their state is first synced. dom needs
+    // no init of its own.
     App.ui.init();
     // Before every module that pushes a context onto it, which is most of
     // them. It only installs one listener; the contexts arrive later.
@@ -183,7 +184,7 @@
 
     _setupDrawingKeys(map);
 
-    // ── Map events ──────────────────────────────────────────────────────
+    // Map events
     map.on("move zoom", App.ui.closeContextMenu);
     map.on("contextmenu", _onMapContextMenu);
     map.on("editable:drawing:commit", function (e) {
@@ -208,7 +209,7 @@
     _restoreSession(s);
   }
 
-  // ── Handing the page over ─────────────────────────────────────────────
+  // Handing the page over
 
   /** Take the boot splash down. Defined in index.html.j2, so it may be absent. */
   function _reveal() {
@@ -224,7 +225,7 @@
    * Awesome ships `font-display: block`, so until its file arrives every icon
    * in the toolbar is drawn as nothing at all.
    *
-   * Neither the tiles nor the session restore are waited on — see the splash
+   * Neither the tiles nor the session restore are waited on - see the splash
    * markup in index.html.j2 for the tiles, and note that the restore puts up
    * the loading overlay itself, which a second spinner would only delay.
    */
@@ -242,7 +243,7 @@
    * The families are read off those icons rather than named here: Font
    * Awesome's family string carries its major version ("Font Awesome 7 Free")
    * and the vendor tree is regenerated from package.json by a CI job, so a
-   * literal would go stale one dependency bump later — resolving instantly, on
+   * literal would go stale one dependency bump later - resolving instantly, on
    * a page whose icons are still blank.
    *
    * fonts.load() is also what starts the fetch. An @font-face is a
@@ -280,7 +281,7 @@
    *
    * The layer handlers in polygons.js, gaps.js and trim.js all stop propagation,
    * so this only runs when there was nothing under the pointer. Without it that
-   * case falls through to the browser's own menu — including in the modes whose
+   * case falls through to the browser's own menu - including in the modes whose
    * hint banner says "Right-click for the menu" and whose menu is the only place
    * some of their actions live.
    *
@@ -311,8 +312,8 @@
    *
    * session.js writes to IndexedDB on every edit, and this is the only reader.
    * Without it a reload discards the boundary, the downloaded streets and the
-   * territories — which is a reload of any kind: F5, a PWA relaunch, or the
-   * navigation a language change once was.
+   * territories - which is a reload of any kind: F5, a PWA relaunch, or a
+   * navigation.
    *
    * The view is applied last. applyPayload fits the whole territory, which is
    * the right default with nothing better to go on, but wrong when the last
@@ -340,7 +341,7 @@
    * open the boundary dialog and two modal things at once is worse than
    * neither; App.tour.maybeAutoStart() checks for exactly that and leaves the
    * flag alone if it backs off, so the next visit tries again. The delay lets
-   * Leaflet finish placing its controls — the tour points at their boxes, and
+   * Leaflet finish placing its controls - the tour points at their boxes, and
    * measuring one mid-layout puts the spotlight in the wrong place.
    */
   function _offerTour() {
@@ -381,11 +382,11 @@
     /**
      * Take back the last vertex.
      *
-     * Leaflet.Editable has had pop() since 1.3.0 and this tool never called
-     * it, so the boundary drawer was the one place in the app where a
-     * misplaced click could only be answered by abandoning the whole shape
-     * and starting again — while the split-line tool three meters away had
-     * bound Backspace to exactly this from the day it shipped.
+     * Leaflet.Editable has offered pop() since 1.3.0. Without it bound, the
+     * boundary drawer is the one place in the app where a misplaced click can
+     * only be answered by abandoning the whole shape and starting again --
+     * while the split-line tool three meters away answers Backspace with
+     * exactly this.
      */
     function popVertex() {
       var editor = map.editTools && map.editTools._drawingEditor;
@@ -488,7 +489,7 @@
       // The download is offered, not assumed: the double-click that ends a
       // drawing is about the drawing. The whole area becomes one cluster
       // either way, so the boundary is printable and exportable without the
-      // partitioner — and without OSM data, if that is declined.
+      // partitioner - and without OSM data, if that is declined.
       App.data.confirmAndFetch(geojson).then(function () {
         App.polygons.ensureDefaultCluster();
       });
@@ -501,7 +502,7 @@
     }
   }
 
-  // ── Address search, proxied through Flask so Nominatim sees one client ──
+  // Address search, proxied through Flask so Nominatim sees one client
   //
   // Results carry their OSM identity (osm_type + osm_id) as well as a centre,
   // because App.boundary uses it to ask /geocode_boundary for the outline of

@@ -1,8 +1,8 @@
 /**
- * dom.js — building UI out of the <template> elements in index.html.
+ * dom.js - building UI out of the <template> elements in index.html.
  *
- * No module in this app writes HTML as a string. Every piece of interface —
- * toolbars, dialogs, context menus, map overlays — is declared as a
+ * No module in this app writes HTML as a string. Every piece of interface --
+ * toolbars, dialogs, context menus, map overlays - is declared as a
  * <template> in index.html and cloned from there through render() or one of
  * the mount functions below.
  *
@@ -32,8 +32,9 @@ App.dom = (function () {
    *
    * @param {string} templateId the id attribute of the <template>
    * @returns {Element} a detached clone the caller is expected to mount
-   * @throws if no such template exists, or if it is empty — both are typos
-   *   rather than runtime conditions, so they fail loudly
+   * @throws if no such template exists, and from dereferencing null if it
+   *   holds no element - both are typos rather than runtime conditions, so
+   *   they fail loudly
    */
   function render(templateId) {
     var tpl = _cache[templateId] || document.getElementById(templateId);
@@ -110,7 +111,7 @@ App.dom = (function () {
    *
    * The event is stopped before the handler runs. Most of this UI is mounted
    * inside the Leaflet map container, where an unhandled click would also
-   * register as a click on the map — which closes context menus, and in a
+   * register as a click on the map - which closes context menus, and in a
    * modal tool places a vertex. The handler receives the event and the node.
    *
    * The call is timed through App.util.timed, which reports only on a local
@@ -207,7 +208,7 @@ App.dom = (function () {
    * Return the flex column at the bottom of the map, creating it on first use.
    *
    * It is never removed again. With no children it has no height and receives
-   * no pointer events, so leaving it costs nothing — whereas removing it would
+   * no pointer events, so leaving it costs nothing - whereas removing it would
    * require remove() to recognize an empty stack, which it cannot do, since it
    * is given a node and knows nothing about the parent it came from.
    */

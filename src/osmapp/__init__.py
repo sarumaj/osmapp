@@ -30,7 +30,7 @@ def create_app() -> Flask:
     the page, the tiles and the manifest are cached or static and are exempt.
 
     Returns:
-        An app ready to serve. Nothing here starts a thread — see __main__ for the
+        An app ready to serve. Nothing here starts a thread - see __main__ for the
         periodic jobs, so an app built by a test has none of them running.
     """
     logging.basicConfig(level=logging.INFO)
@@ -73,7 +73,7 @@ def create_app() -> Flask:
 
     @app.cli.command("prune-tiles")
     def prune_tiles_command():
-        """flask prune-tiles"""
+        """Delete expired tiles and evict the cache back under its budget."""
         removed, freed = prune_tiles()
         print(f"Removed {removed} tiles, freed {freed / 1024 / 1024:.1f} MB")
 

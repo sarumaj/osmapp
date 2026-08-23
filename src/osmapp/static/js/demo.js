@@ -1,13 +1,13 @@
 /**
- * demo.js — the sample territory the guided tour works on.
+ * demo.js - the sample territory the guided tour works on.
  *
  * The partitioner, the cut tool, the merge bar, the context menu and the print
  * view cannot be opened without a boundary, downloaded streets and at least
- * one territory — which is what a first-time visitor does not have. So the
+ * one territory - which is what a first-time visitor does not have. So the
  * tour borrows the app for a minute: it loads a small sample area, opens the
  * real dialogs on it, and puts back whatever was there before.
  *
- * ── Why the data is invented rather than downloaded ────────────────────────
+ * Why the data is invented rather than downloaded
  *
  * A bundled extract of a real place would be several hundred kilobytes of
  * OpenStreetMap data shipped in the app, stale from the day it was cut, and a
@@ -19,16 +19,16 @@
  * and so on, in the user's language, so nothing here can be mistaken for the
  * user's own data.
  *
- * ── Leaving ────────────────────────────────────────────────────────────────
+ * Leaving
  *
  * leave() has to be right every time, including when the tour is abandoned
  * with Escape halfway through; the alternative is an afternoon of territory
  * work replaced by a demo village. Two things protect it:
  *
- *   • The snapshot is the app's own export payload, taken before anything is
+ *   - The snapshot is the app's own export payload, taken before anything is
  *     touched, and restored through the same applyPayload() a file import
- *     uses — nothing bespoke that could drift from the real code path.
- *   • The session store is suspended for the whole visit, so the sample never
+ *     uses - nothing bespoke that could drift from the real code path.
+ *   - The session store is suspended for the whole visit, so the sample never
  *     reaches IndexedDB and a crash mid-tour still leaves the user's own last
  *     saved session in place.
  */
@@ -40,7 +40,7 @@ App.demo = (function () {
 
   var s = null;
 
-  // ── Where and how big ─────────────────────────────────────────────────
+  // Where and how big
   //
   // Farmland in central Poland: far enough from anything for the basemap
   // underneath to be fields rather than somebody else's streets, and in the
@@ -53,8 +53,8 @@ App.demo = (function () {
 
   var M_PER_DEG_LAT = 111320;
 
-  var AVENUES = [0, 190, 380, 570]; // east–west, meters north of ROOT
-  var STREETS = [0, 230, 460, 690, 920]; // north–south, meters east of ROOT
+  var AVENUES = [0, 190, 380, 570]; // east-west, meters north of ROOT
+  var STREETS = [0, 230, 460, 690, 920]; // north-south, meters east of ROOT
   var MARGIN = 70; // how far the outer boundary runs past the outermost street
   var OVERHANG = 40; // how far each street runs past the last crossing
 
@@ -64,20 +64,20 @@ App.demo = (function () {
   var HOUSE_D = 10;
   var JUNCTION_CLEAR = 30; // no houses this close to a crossing
 
-  // ── The outfield ──────────────────────────────────────────────────────
+  // The outfield
   //
   // A track running east out of the village with three farms strung along it,
   // and a boundary drawn wide enough to contain them.
   //
   // This exists for the trim step. On a tidy grid with the boundary pulled
   // tight around it there is nothing to trim, so the tool opened on a sample
-  // where it visibly did nothing — which teaches the opposite of the point.
+  // where it visibly did nothing - which teaches the opposite of the point.
   // The farms are spaced far enough apart that the outlier pass finds them by
   // its own rule rather than by anything rigged here, and the empty half of
   // the boundary is the thing the tool is for.
   // Spaced by more than three times the village's own median plot spacing,
   // which is the rule the outlier pass actually applies. Closer together and
-  // they would be a hamlet — correctly, and uselessly for the walkthrough.
+  // they would be a hamlet - correctly, and uselessly for the walkthrough.
   var FARMS = [1550, 1850, 2150]; // meters east, all on the track
   var FARM_Y = 285; // between the second and third avenue
   var FARM_W = 20;
@@ -92,7 +92,7 @@ App.demo = (function () {
   // the partitioner with one territory eight times the size of its neighbors.
   var SPLIT_FIELD = 1250;
 
-  // ── The uncovered patch ───────────────────────────────────────────────
+  // The uncovered patch
   //
   // A notch bitten out of one territory, in the empty field between the last
   // street and the first farm. A grid that tiles the boundary exactly leaves
@@ -105,8 +105,8 @@ App.demo = (function () {
   // houses, which makes it the whole autoheal repair in one shape: adopted as
   // a territory, found to hold nothing, handed to the neighbor it shares the
   // most boundary with.
-  var GAP_W = 150; // east–west, meters
-  var GAP_D = 110; // north–south, meters
+  var GAP_W = 150; // east-west, meters
+  var GAP_D = 110; // north-south, meters
 
   var _active = false;
   var _snapshot = null;
@@ -117,9 +117,7 @@ App.demo = (function () {
     App._loaded.push("demo");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // GEOMETRY
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Local meters (x east, y north) to [lng, lat].
@@ -139,7 +137,7 @@ App.demo = (function () {
     ];
   }
 
-  /** Six decimals is about 10 cm — past that it is noise in a bigger file. */
+  /** Six decimals is about 10 cm - past that it is noise in a bigger file. */
   function _round(value) {
     return Math.round(value * 1e6) / 1e6;
   }
@@ -179,7 +177,7 @@ App.demo = (function () {
 
   /**
    * Looked up through App.i18n rather than a captured `t`, so that building
-   * the sample never depends on init() having run — the payload is pure data
+   * the sample never depends on init() having run - the payload is pure data
    * and the tests build it without a map, a state object or a DOM.
    */
   function _streetName(index) {
@@ -336,7 +334,7 @@ App.demo = (function () {
 
   /**
    * The rectangle x0,y0..x1,y1 with a GAP_W by GAP_D bite taken out of its
-   * south-east corner, as one closed ring — six corners rather than four.
+   * south-east corner, as one closed ring - six corners rather than four.
    */
   function _notched(x0, y0, x1, y1) {
     var cutX = x1 - GAP_W;
@@ -393,9 +391,7 @@ App.demo = (function () {
     };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BORROWING THE APP
-  // ══════════════════════════════════════════════════════════════════════
 
   function isActive() {
     return _active;
@@ -433,7 +429,7 @@ App.demo = (function () {
     var sample = payload();
 
     // The card is composed from tiles, and no tile server has heard of this
-    // village — without this the print step would open on an empty field with
+    // village - without this the print step would open on an empty field with
     // a red rectangle on it, while the map behind the dialog showed streets
     // and houses. A preview that does not preview teaches the wrong thing
     // about the one feature the whole app exists for.
@@ -468,7 +464,7 @@ App.demo = (function () {
     try {
       if (_snapshot) App.data.applyPayload(_snapshot);
       else if (App.controls && App.controls.clearAll) {
-        // Nothing to restore, so the app goes back to empty — but the session
+        // Nothing to restore, so the app goes back to empty - but the session
         // store is left alone. A first-time visitor has nothing saved anyway,
         // and wiping it would turn "I looked at the tour" into "I lost my
         // boundary" for anyone whose restore had not finished yet.
@@ -495,7 +491,7 @@ App.demo = (function () {
       // Suspending cancelled whatever save was already queued when the tour
       // started, so an edit made in the second before it could be a second
       // that never reached the store. One write closes that window, and it
-      // writes exactly what is on screen — which is now the user's own work.
+      // writes exactly what is on screen - which is now the user's own work.
       if (had) App.session.markDirty({ data: true });
     }
     return true;

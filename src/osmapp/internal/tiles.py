@@ -5,7 +5,7 @@ Two kinds of tile go through here, and the difference matters:
   /tiles/<z>/<x>/<y>.png            the OSM basemap. The only one a territory
                                     card is ever composed from.
   /tiles/aid/<layer>/<z>/<x>/<y>.png  optional on-screen aids (aerial imagery,
-                                    terrain). Never printed — see print.js,
+                                    terrain). Never printed - see print.js,
                                     which builds its URLs from a constant and
                                     has no way to reach this route at all.
 
@@ -42,7 +42,7 @@ logger = logging.getLogger("osm_app")
 bp = Blueprint("tiles", __name__)
 
 
-# ── helpers ───────────────────────────────────────────────────────────────────
+# helpers
 
 
 def _same_origin() -> bool:
@@ -66,8 +66,8 @@ def _tile_root(template: str = TILE_URL_TEMPLATE) -> Path:
 def _mimetype(data: bytes) -> str:
     """Sniff the payload rather than trusting the file name.
 
-    Cached tiles are all written as `.png` — the extension names a cache slot,
-    not a format — so that `prune_tiles` keeps one glob and the read path stays
+    Cached tiles are all written as `.png` - the extension names a cache slot,
+    not a format - so that `prune_tiles` keeps one glob and the read path stays
     a single stat. Imagery providers serve JPEG, and a JPEG announced as
     `image/png` decodes in a browser but not in every canvas pipeline.
     """
@@ -84,7 +84,7 @@ def _tile_response(data: bytes) -> Response:
     return resp
 
 
-# ── routes ────────────────────────────────────────────────────────────────────
+# routes
 
 
 @bp.route("/tiles/<int:z>/<int:x>/<int:y>.png")
@@ -97,7 +97,7 @@ def tiles(z: int, x: int, y: int) -> Response:
 def aid_tiles(layer: str, z: int, x: int, y: int) -> Response:
     """An optional on-screen basemap: imagery, terrain, whatever is configured.
 
-    `layer` is a key into AID_LAYERS and nothing else — an unknown name is a
+    `layer` is a key into AID_LAYERS and nothing else - an unknown name is a
     404 before any URL is built, so neither a path nor a template can be
     smuggled in through it.
     """
@@ -155,7 +155,7 @@ def _serve(template: str, z: int, x: int, y: int, max_zoom: int) -> Response:
     return _tile_response(resp.content)
 
 
-# ── client configuration ──────────────────────────────────────────────────────
+# client configuration
 
 
 def client_basemaps() -> dict[str, Any]:
@@ -189,7 +189,7 @@ def client_basemaps() -> dict[str, Any]:
     }
 
 
-# ── cache management ──────────────────────────────────────────────────────────
+# cache management
 
 
 def _is_basemap(path: Path, root: Path, base: str) -> bool:
@@ -207,7 +207,7 @@ def prune_tiles(
 
     Eviction order is (is basemap, mtime): every aid tile goes before the
     oldest OSM tile. One shared budget with a priority is better than two
-    budgets here — an aid layer nobody switches to costs nothing, while a long
+    budgets here - an aid layer nobody switches to costs nothing, while a long
     session on satellite imagery cannot quietly evict the basemap behind the
     territory someone is about to print.
 

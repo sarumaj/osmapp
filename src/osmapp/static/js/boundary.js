@@ -1,12 +1,12 @@
 /**
- * boundary.js — turn a geocoder hit into the outer polygon.
+ * boundary.js - turn a geocoder hit into the outer polygon.
  *
  * Nominatim knows the administrative outline of most places it returns, so
  * after a search for "Pforzheim" there is no reason to trace the town by hand.
  * The flow is:
  *
  *   1. main.js hands every accepted geocoder result to suggest().
- *   2. Nodes are skipped — a point has no outline — and so are results already
+ *   2. Nodes are skipped - a point has no outline - and so are results already
  *      known to be addresses. Ways and relations go to /geocode_boundary.
  *   3. The outline is previewed on the map, dashed and non-interactive, with a
  *      dialog offering a detail slider, the bounding box as a fallback, and the
@@ -16,7 +16,7 @@
  *      offering the download, then the whole-area default cluster.
  *
  * Simplification is client-side and one-directional. The server already trims
- * at BOUNDARY_THRESHOLD (~11 m), so the slider only ever goes coarser — asking
+ * at BOUNDARY_THRESHOLD (~11 m), so the slider only ever goes coarser - asking
  * for finer detail would mean another Nominatim round trip per drag.
  *
  * The suggestion is only ever a suggestion: nothing is applied until the
@@ -49,7 +49,7 @@ App.boundary = (function () {
   var TOLERANCES = [0, 0.00005, 0.0001, 0.0002, 0.0005, 0.001];
 
   var _previewLayer = null;
-  var _lookups = {}; // osm ref → Promise, so re-picking a result is free
+  var _lookups = {}; // osm ref -> Promise, so re-picking a result is free
 
   function init() {
     s = App.state;
@@ -59,9 +59,7 @@ App.boundary = (function () {
     App._loaded.push("boundary");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ENTRY POINT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * @param {{name:string, properties?:{osmType?:string, osmId?:number|string}}} geocode
@@ -129,7 +127,7 @@ App.boundary = (function () {
       );
     });
 
-    // A failed lookup should not be remembered — the next attempt may succeed.
+    // A failed lookup should not be remembered - the next attempt may succeed.
     promise.catch(function () {
       delete _lookups[ref];
     });
@@ -137,9 +135,7 @@ App.boundary = (function () {
     return promise;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DIALOG
-  // ══════════════════════════════════════════════════════════════════════
 
   function _openDialog(payload, geocode) {
     var base = payload.geometry
@@ -233,8 +229,8 @@ App.boundary = (function () {
     /**
      * The detail slider is the reason this needs keys of its own.
      *
-     * It is the one control here worth a second pass — coarser, look, coarser
-     * again — and doing that with the mouse means aiming at a slider thumb
+     * It is the one control here worth a second pass - coarser, look, coarser
+     * again - and doing that with the mouse means aiming at a slider thumb
      * between each look. The arrows do it in place, and Enter takes what is
      * on screen. The slider answers arrows itself once it has focus; these
      * work before anything has been clicked at all, which is the state the
@@ -329,9 +325,7 @@ App.boundary = (function () {
     return bits.join(" · ");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PREVIEW
-  // ══════════════════════════════════════════════════════════════════════
 
   function _preview(feature) {
     _clearPreview();
@@ -352,9 +346,7 @@ App.boundary = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // APPLY
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Install the chosen outline as the outer boundary.
@@ -375,7 +367,7 @@ App.boundary = (function () {
     }
 
     // Opening a second dialog closes this one, and its teardown clears the
-    // preview — so by the time the answer arrives there is nothing of the
+    // preview - so by the time the answer arrives there is nothing of the
     // suggestion left on the map either way.
     var asked = s.outerPolygonDrawn
       ? App.ui.confirm({
@@ -408,7 +400,7 @@ App.boundary = (function () {
 
     // The territories, streets and buildings that existed belonged to the
     // previous boundary. displayResults() drops them on a successful fetch, but
-    // a fetch that fails — an area over the download limit is the common case —
+    // a fetch that fails - an area over the download limit is the common case --
     // would otherwise leave the old territory sitting under the new outline.
     // Clearing up front means the state is coherent either way, and there is
     // nothing sensible to undo back to.
@@ -463,9 +455,7 @@ App.boundary = (function () {
     console.log(">>> Whole area set as a single cluster (from the boundary)");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // GEOMETRY HELPERS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Simplification can fold a thin peninsula into a self-intersection, which

@@ -1,9 +1,9 @@
 /**
- * history.js — undo / redo, routed to whatever the user is currently doing.
+ * history.js - undo / redo, routed to whatever the user is currently doing.
  *
  * Shortcuts: Ctrl/Cmd+Z undo, Ctrl+Y or Ctrl+Shift+Z redo.
  *
- * ── Scopes ────────────────────────────────────────────────────────────────
+ * Scopes
  *
  * "Undo" is not one thing. Halfway through drawing a split line it means
  * "take back that vertex"; with the print dialog open it means "take back that
@@ -13,15 +13,15 @@
  * The routing belongs in the stack rather than in the keyboard handler, for
  * two reasons:
  *
- *   • The toolbar Undo button goes through the same routing. A button meaning
+ *   - The toolbar Undo button goes through the same routing. A button meaning
  *     Ctrl+Z that calls history.undo() directly does something else than the
  *     key it stands for.
- *   • A mode that intercepts undo but not redo lets Ctrl+Y mid-draw fall
+ *   - A mode that intercepts undo but not redo lets Ctrl+Y mid-draw fall
  *     through to the cluster stack and restore old geometry underneath a
  *     split line that is still being drawn.
  *
  * A mode pushes a scope when it starts and pops it when it ends, and every
- * entry point — keyboard, toolbar, the cut toolbar's Back button — goes
+ * entry point - keyboard, toolbar, the cut toolbar's Back button - goes
  * through the same delegation. The base scope, always at the bottom of the
  * stack, is the cluster geometry stack that push() writes to.
  *
@@ -40,7 +40,7 @@
  *   }
  *
  * Modes never call push(). push() records document state, and a half-drawn
- * split line or an eraser stroke is not document state — it is the gesture
+ * split line or an eraser stroke is not document state - it is the gesture
  * that will eventually produce one.
  */
 var App = window.App || {};
@@ -57,9 +57,7 @@ App.history = (function () {
   /** Innermost last. The base scope is not on it; see _active(). */
   var _scopes = [];
 
-  // ══════════════════════════════════════════════════════════════════════
-  // BASE SCOPE — cluster geometry
-  // ══════════════════════════════════════════════════════════════════════
+  // BASE SCOPE - cluster geometry
 
   var BASE = {
     id: "clusters",
@@ -93,9 +91,7 @@ App.history = (function () {
     return _scopes.length ? _scopes[_scopes.length - 1] : BASE;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SCOPE STACK
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Take over undo/redo until popScope(id). Pushing an id that is already on
@@ -120,14 +116,12 @@ App.history = (function () {
     }
   }
 
-  /** Which scope is answering right now — for tests and for debugging. */
+  /** Which scope is answering right now - for tests and for debugging. */
   function scopeId() {
     return _active().id;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PUBLIC
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Record cluster geometry before a mutation that should be undoable.
@@ -145,7 +139,7 @@ App.history = (function () {
    *
    * Only the base scope rebuilds the territories, and rebuilding them on a
    * town-sized project is about a second of point-in-polygon work. The scoped
-   * undo — a vertex while cutting, a territory while selecting — are a few
+   * undo - a vertex while cutting, a territory while selecting - are a few
    * microseconds and must not be dressed up as work.
    */
   function _asBaseWork(scope, textKey, run) {
@@ -205,9 +199,7 @@ App.history = (function () {
     return _active().redoKey;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SNAPSHOT / RESTORE
-  // ══════════════════════════════════════════════════════════════════════
 
   function _undoClusters() {
     _redo.push(_snapshot());
@@ -225,7 +217,7 @@ App.history = (function () {
    * A snapshot is the outer boundary plus the territories.
    *
    * The territories alone would do for as long as nothing changes the boundary
-   * once they exist — drawing or adopting one clears the history rather than
+   * once they exist - drawing or adopting one clears the history rather than
    * adding to it. The trim tool breaks that: it reshapes the boundary and clips
    * the territories to the result in one action, and undoing only the second
    * half leaves territories spilling outside the outline they belong to.
@@ -263,7 +255,7 @@ App.history = (function () {
       /* an unreadable current boundary is one worth replacing */
     }
     // Rebuilding the layer detaches every handler bound to it, so it is only
-    // done when the geometry genuinely differs — which is to say, only for the
+    // done when the geometry genuinely differs - which is to say, only for the
     // one action that changes it.
     if (current && JSON.stringify(current) === JSON.stringify(geometry)) return;
 
@@ -272,9 +264,7 @@ App.history = (function () {
     App.polygons.setOuterLayer(layer);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BUTTONS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Re-read the active scope's depth into the toolbar. Scopes call this after
@@ -285,15 +275,13 @@ App.history = (function () {
     if (App.controls) App.controls.refresh();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // KEYBOARD
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Undo and redo are global: they are answered by whichever scope is active,
    * which is the whole design above, so there is nothing for a per-mode
    * binding to add. Registering them rather than listening directly is what
-   * gets them onto the shortcut sheet — and the sheet is where somebody finds
+   * gets them onto the shortcut sheet - and the sheet is where somebody finds
    * out that Ctrl+Z means "take back that vertex" while a cut is in progress.
    */
   function _bindKeyboard() {
@@ -302,8 +290,8 @@ App.history = (function () {
         combos: ["Mod+Z"],
         labelKey: "shortcuts.undo",
         // Survives an open dialog: the print dialog pushes the eraser's scope,
-        // so with one up this *is* the dialog's undo. It had that before the
-        // registry existed and must not lose it to a rule about modals.
+        // so with one up this *is* the dialog's undo, and the rule that
+        // silences shortcuts under a modal must not take it away.
         overModal: true,
         when: canUndo,
         run: undo,

@@ -1,12 +1,12 @@
 /**
- * pwa.js — service worker registration, the update prompt, and the online
+ * pwa.js - service worker registration, the update prompt, and the online
  * indicator.
  *
  * Two decisions worth knowing about:
  *
  * The worker is never activated silently. A new build waits until the user
  * says so, because the undo stack in history.js lives in memory and is not
- * part of the IndexedDB session — swapping the app out mid-edit would throw it
+ * part of the IndexedDB session - swapping the app out mid-edit would throw it
  * away, and the debounced save means the last second of work with it.
  *
  * Network-dependent controls are disabled rather than left to fail. Fetching
@@ -136,7 +136,7 @@ App.pwa = (function () {
     _waiting.postMessage({ type: "SKIP_WAITING" });
   }
 
-  // ── connectivity ───────────────────────────────────────────────────────────
+  // connectivity
 
   function _bindConnectivity() {
     window.addEventListener("online", function () {
@@ -154,7 +154,7 @@ App.pwa = (function () {
    * opens, so anything found by querySelectorAll at toggle time would miss
    * every dialog opened later. The class is inherited by whatever is mounted
    * next, so mark a control with `data-online-only` and the stylesheet handles
-   * the rest — now and after any future clone.
+   * the rest - now and after any future clone.
    *
    * Printing deliberately does not wear it: a card is composed in the browser
    * and drawn on cached tiles, so it works with the connection down. What does

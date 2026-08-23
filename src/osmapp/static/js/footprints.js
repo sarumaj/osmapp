@@ -1,11 +1,11 @@
 /**
- * footprints.js — boundaries drawn through buildings, and putting them back
+ * footprints.js - boundaries drawn through buildings, and putting them back
  * on the wall.
  *
  * clustering.js routes every Voronoi edge along the street network so that a
  * territory boundary is something you can stand on. The routing does not
- * always find one — no way snapped within ROUTE_SNAP_MAX_M, A* stopped on the
- * iteration cap, the endpoints on different components of the graph — and the
+ * always find one - no way snapped within ROUTE_SNAP_MAX_M, A* stopped on the
+ * iteration cap, the endpoints on different components of the graph - and the
  * edge then stays the straight line the Voronoi diagram drew, across whatever
  * is standing there.
  *
@@ -17,7 +17,7 @@
  *
  * The repair gives the building whole to one of the territories already
  * holding a piece of it and moves the boundary onto the building's own
- * outline — on it rather than near it, which is why the plain union is tried
+ * outline - on it rather than near it, which is why the plain union is tried
  * before the healed one below. Which territory is a preference rather than a
  * rule: the one holding most of it, unless that would break the territory on
  * the other side. See _resolve.
@@ -26,7 +26,7 @@
  * since a boundary through a light well is no more walkable than one through
  * a wall. See _filled.
  *
- * ── What counts as crossed ────────────────────────────────────────────────
+ * What counts as crossed
  *
  * Two territories claiming a piece of the same footprint, where both pieces
  * are worth arguing about. A boundary that clips a corner by a hand's breadth
@@ -36,10 +36,10 @@
  * building: a metre of a garage and a fiftieth of a warehouse both qualify, a
  * graze does neither.
  *
- * ── Finding them without testing everything ───────────────────────────────
+ * Finding them without testing everything
  *
  * The direct test is an intersection per building per territory, which on a
- * city download is five thousand buildings against fifty territories — more
+ * city download is five thousand buildings against fifty territories - more
  * than turf's clipper can do while somebody waits.
  *
  * A boundary can only cut a building by crossing one of its walls, which is a
@@ -47,8 +47,8 @@
  * every territory ring is walked once, and each of its segments is tested
  * against the walls of the buildings in the cells it passes through. Only the
  * handful of footprints a line actually goes through are worth an
- * intersection. The join is exact — a segment is stamped into every cell its
- * own bounding box spans — so cell size trades speed only, never correctness.
+ * intersection. The join is exact - a segment is stamped into every cell its
+ * own bounding box spans - so cell size trades speed only, never correctness.
  *
  * The intersections that remain are cut down before they are made: a whole
  * territory clipped against one house costs the territory's whole ring, and
@@ -64,19 +64,19 @@ App.footprints = (function () {
   var G = null;
 
   // Below either of these the boundary grazed the footprint rather than cut
-  // it. Both, not one: a fraction alone calls a 4 m² shed cut in half a
+  // it. Both, not one: a fraction alone calls a 4 m2 shed cut in half a
   // crossing worth two unions, and an absolute alone calls a metre off the
   // corner of a supermarket one.
   var MIN_SLICE_M2 = 1;
   var MIN_SLICE_FRACTION = 0.02;
 
-  // Cell edge for the building-against-boundary join, in degrees — about
+  // Cell edge for the building-against-boundary join, in degrees - about
   // 110 m north to south and rather less east to west, which is the scale of
   // a city block. The join is exact at any size; this only trades cells
   // walked against candidates filtered.
   var CELL_DEG = 0.001;
 
-  // A bounding box spanning more cells than this — about 11 km square — is not
+  // A bounding box spanning more cells than this - about 11 km square - is not
   // a building or a stretch of boundary, it is a coordinate that went wrong.
   // Stamping it would key a continent of empty buckets.
   var MAX_CELLS = 10000;
@@ -110,9 +110,7 @@ App.footprints = (function () {
     App._loaded.push("footprints");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE BUILDINGS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A footprint with its courtyards filled in.
@@ -123,8 +121,8 @@ App.footprints = (function () {
    * Leaving the holes in also breaks the repair. Taking the footprint out of
    * the territory beside it leaves every courtyard behind as a polygon of its
    * own, so the territory comes back in several pieces and the repair is
-   * refused for splitting it — as happened on a real project to a building
-   * with three courtyards of about 300 m² each.
+   * refused for splitting it - as happened on a real project to a building
+   * with three courtyards of about 300 m2 each.
    *
    * Filled once, in _prepare, so that the survey, the ownership and the repair
    * are all talking about one shape. A footprint with no hole in it is
@@ -147,7 +145,7 @@ App.footprints = (function () {
     });
     if (solid.length === 0) return feature;
     if (solid.length === 1) return solid[0];
-    // Outer rings can nest — a building part drawn inside its parent — and a
+    // Outer rings can nest - a building part drawn inside its parent - and a
     // MultiPolygon of overlapping parts measures its overlap twice.
     return G.unionAll(solid) || feature;
   }
@@ -169,18 +167,18 @@ App.footprints = (function () {
    * The downloaded buildings as {feature, bbox, area, rings}.
    *
    * Keyed on the collection object, which a download, an import or a reset
-   * replaces wholesale and nothing edits in place — so a repair that runs a
+   * replaces wholesale and nothing edits in place - so a repair that runs a
    * hundred rehearsals pays for the walk once.
    *
    * Held here rather than stamped onto each feature the way `_centroid` is,
    * and that is not a style preference. A record carries the feature it was
    * derived from, so a field on the feature pointing at the record is a cycle
-   * — and data.js writes s.cachedBuildings straight into the saved project,
+   * - and data.js writes s.cachedBuildings straight into the saved project,
    * where a cycle is not slow, it is an exception on the way to disk.
    *
    * The cell index is built here too, and for the same reason. Opening the
    * territory list rehearses a repair for every flagged row, and each
-   * rehearsal walks one territory's rings against the bins — but rebuilding
+   * rehearsal walks one territory's rings against the bins - but rebuilding
    * the bins each time would walk every building in the download instead.
    *
    * @returns {{records: Object[], bins: Object}} records is empty when
@@ -226,9 +224,7 @@ App.footprints = (function () {
     return _prepared;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE JOIN
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Every cell key a bounding box covers, or null when it covers absurdly
@@ -269,7 +265,7 @@ App.footprints = (function () {
    * The textbook orientation test, with the collinear cases kept rather than
    * dropped. A boundary that runs *along* a wall reports true here and is
    * then measured properly by the intersection, which finds one side holding
-   * everything and calls it no crossing at all — the right answer, reached
+   * everything and calls it no crossing at all - the right answer, reached
    * the slow way, for a case rare enough that the slow way costs nothing.
    * Dropping it instead would mean a boundary that grazes a wall and then
    * turns into the building is never looked at.
@@ -320,7 +316,7 @@ App.footprints = (function () {
    * on a city download is almost all of them.
    *
    * @param {Object} prepared the footprints and the cell index over them
-   * @param {Object[]} features the territory outlines whose rings to walk —
+   * @param {Object[]} features the territory outlines whose rings to walk --
    *   the ones a scoped run is asking about, not necessarily all of them
    * @returns {Object} record index -> true
    */
@@ -359,9 +355,7 @@ App.footprints = (function () {
     return hit;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE SURVEY
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Does any part of this feature have an interior ring? */
   function _holed(feature) {
@@ -375,7 +369,7 @@ App.footprints = (function () {
    *
    * Cut down to the footprint's neighborhood before intersecting. turf's
    * clipper walks both outlines, so the straight answer costs the territory's
-   * entire ring to decide something about a shape twelve meters across — 300 ms
+   * entire ring to decide something about a shape twelve meters across - 300 ms
    * apiece against the 11,500-vertex territory in a project export, and the
    * whole of what a survey spent. bboxClip is linear in the ring and keeps only
    * the corner the house stands in. On that export eight footprints went from
@@ -434,7 +428,7 @@ App.footprints = (function () {
    *
    * @returns {Object|null|undefined} the slice, null for no overlap, or
    *   undefined when a part failed too and the caller should try something
-   *   else — three outcomes because "nothing" and "no idea" are different.
+   *   else - three outcomes because "nothing" and "no idea" are different.
    */
   function _pieceWise(a, b) {
     var parts = G.polygonParts(a);
@@ -508,12 +502,12 @@ App.footprints = (function () {
    *   allowed; a null entry is a slot nothing occupies and is skipped.
    * @param {{only?: number[]}} [opts] look only for crossings on the outlines
    *   of the territories at these indices. The survey of who holds what still
-   *   runs against all of them — which territory holds most of a building is
+   *   runs against all of them - which territory holds most of a building is
    *   not a question one territory can answer about itself.
    * @returns {Array<{building:Object, area:number, owner:number,
    *                  shares:Array<{index:number, area:number, claim:boolean}>}>}
    *   `building` is the footprint with its courtyards filled (see _filled),
-   *   and `owner` is the largest share — the repair's first choice of who
+   *   and `owner` is the largest share - the repair's first choice of who
    *   should take it, not always who does.
    */
   function crossings(features, opts) {
@@ -527,7 +521,7 @@ App.footprints = (function () {
 
     // Only the named territories' rings are walked. A crossing is a boundary
     // through a footprint, and a boundary belongs to both sides, so every
-    // crossing a scoped run cares about is found by walking its own outline —
+    // crossing a scoped run cares about is found by walking its own outline --
     // and walking the other forty is what made the rehearsal expensive.
     var walk = features;
     if (opts && opts.only && opts.only.length) {
@@ -574,9 +568,7 @@ App.footprints = (function () {
     return out;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE REPAIR
-  // ══════════════════════════════════════════════════════════════════════
 
   function _parts(feature) {
     try {
@@ -594,8 +586,8 @@ App.footprints = (function () {
    * matter is that shape plus a fleck: the boundary and the wall cross at a
    * hair's angle, and the wedge between them survives as a polygon of its own.
    * On a straight-cut partition of a real project, fourteen of a hundred and
-   * eighty-one repairs were turned down over one — the largest 1.31 m², the
-   * smallest 0.018 m².
+   * eighty-one repairs were turned down over one - the largest 1.31 m2, the
+   * smallest 0.018 m2.
    *
    * Refusing there is wrong twice over: the boundary stays through the
    * building, and the row goes on offering a repair that declines itself. So a
@@ -635,8 +627,8 @@ App.footprints = (function () {
    * _sweep's rule is a size: below a crumb it is arithmetic, above one it is a
    * place, and a place is not something to move without a reason. This is the
    * reason. It runs only after every way of avoiding the severance has been
-   * tried — including giving the footprint to the other side, which is what
-   * settles this in most cases — and what it does is not a loss: a piece the
+   * tried - including giving the footprint to the other side, which is what
+   * settles this in most cases - and what it does is not a loss: a piece the
    * footprint cuts off can no longer be reached from the rest of its own
    * territory, and the only territory it can be reached from is the one taking
    * the footprint. Leaving it where it is would produce the split territory
@@ -672,7 +664,7 @@ App.footprints = (function () {
    * What is unioned in is the whole footprint, not the slices being handed
    * over, and that is the difference between a repair that works and one that
    * declines itself. A donor's slice meets the owner only along the boundary
-   * being moved — they abut, they do not overlap — and two polygons sharing an
+   * being moved - they abut, they do not overlap - and two polygons sharing an
    * edge dissolve only if that edge is the same coordinates in both. It very
    * often is not: two of the three crossings in a 98-territory project export
    * came back from that union in two pieces and were refused for it. The
@@ -687,11 +679,11 @@ App.footprints = (function () {
    *
    * The candidate order is the opposite of autoheal's, and deliberately.
    * There the two shapes are neighbors that only nearly touch, so the healed
-   * union — buffer out, union, buffer back — goes first because closing that
+   * union - buffer out, union, buffer back - goes first because closing that
    * seam is the whole job. Here the exact union is the one that leaves the
    * outline sitting on the wall to the last decimal, which is the point of the
    * exercise. The healed union rounds every corner it touches by the slack it
-   * buffers with, so it comes last — as the thing that gets an answer out of
+   * buffers with, so it comes last - as the thing that gets an answer out of
    * geometry the exact union choked on, not as the thing that gives the best
    * answer.
    *
@@ -769,12 +761,12 @@ App.footprints = (function () {
    *
    * Taken away one claimant at a time rather than by unioning their slices and
    * subtracting once, because the slices are exactly the shapes that will not
-   * union — see _onto, which exists because of that. Successive differences
+   * union - see _onto, which exists because of that. Successive differences
    * need no such luck, and each one is a footprint against a piece of itself.
    *
    * Almost always nothing, and nothing is returned as null rather than as an
    * empty shape so the caller can skip the trimming entirely. A speck is
-   * nothing too — trimming one off cost a repair on a real project, because
+   * nothing too - trimming one off cost a repair on a real project, because
    * subtracting a hundredth of a square meter split the shape it was cut from.
    *
    * @param {Array<{slice: Object}>} claimants everyone holding a piece of it
@@ -842,7 +834,7 @@ App.footprints = (function () {
       // whatever the owner already covers of it. Measuring the loss on the
       // shapes counts the crumbs and the stranded pieces without counting them
       // twice, and subtracting the overlap is what makes the sum the owner's
-      // gain rather than the donor's loss — territories do overlap, so a donor
+      // gain rather than the donor's loss - territories do overlap, so a donor
       // can give up ground the owner has held all along.
       var loss = null;
       try {
@@ -863,7 +855,7 @@ App.footprints = (function () {
     // Zero is a legitimate answer: a footprint wholly inside the owner
     // already, claimed by a neighbor only because that neighbor overlaps the
     // owner. The owner is then left exactly as it was, and not only to save
-    // the work — autoheal clears the printed mark on every territory a repair
+    // the work - autoheal clears the printed mark on every territory a repair
     // touched, so writing back an unmoved shape throws away its card.
     if (gain > NOTHING_M2) {
       var grown = _onto(features[owner.index], building, spare, extra, gain);
@@ -877,13 +869,13 @@ App.footprints = (function () {
    * Every territory this crossing changes, or null when it cannot be repaired.
    *
    * All or nothing. Half a repair is a building handed to nobody, or handed to
-   * two territories at once — worse than the crossing it was meant to remove,
+   * two territories at once - worse than the crossing it was meant to remove,
    * and invisible afterwards because the flag it would have carried was
    * cleared by the half that worked.
    *
    * Every claimant is offered the footprint in turn, largest share first, and
    * the first arrangement that works is taken. Then, if none did, every
-   * claimant again — this time allowing a donor to lose a piece the footprint
+   * claimant again - this time allowing a donor to lose a piece the footprint
    * cuts off from the rest of it.
    *
    * Both loops earn their place. Majority is a preference rather than a rule:
@@ -891,8 +883,8 @@ App.footprints = (function () {
    * on the other side of it and giving it the other way would not, the other
    * way is simply better, and that is what settled a crossing on a building
    * standing across a neck of its neighbor in a 98-territory project. And a
-   * stranded piece is not a loss — it goes over with the footprint, to the
-   * only territory it can still be reached from — but it moves ground nobody
+   * stranded piece is not a loss - it goes over with the footprint, to the
+   * only territory it can still be reached from - but it moves ground nobody
    * asked to move, so it is what is tried after everything else.
    *
    * If nothing works the crossing keeps its flag, and the report says so
@@ -904,8 +896,8 @@ App.footprints = (function () {
     var building = crossing.building;
 
     // Measured again rather than read off the survey. Footprints in OSM do
-    // overlap — a building part drawn over its parent, a garage sharing a
-    // wall — so a repair made a moment ago on the neighboring building can
+    // overlap - a building part drawn over its parent, a garage sharing a
+    // wall - so a repair made a moment ago on the neighboring building can
     // have moved these very shapes, and a stale slice would hand the same
     // ground over twice.
     var shares = [];
@@ -955,7 +947,7 @@ App.footprints = (function () {
    * @param {Object[]} features territory polygons, in list order
    * @param {{only?: number[]}} [opts] indices the run is allowed to repair. A
    *   crossing is repaired when *any* of the territories sharing the building
-   *   is named — the other side of it is moved too, because a boundary
+   *   is named - the other side of it is moved too, because a boundary
    *   belongs to both of the territories it separates.
    * @returns {{features:Object[], resolved:number, unresolved:number,
    *            changed:number[]}}
@@ -981,7 +973,7 @@ App.footprints = (function () {
 
     // Smallest footprint first. A repair can be refused because the shapes it
     // produced were unusable, and the shapes get harder to clip the more of
-    // them have already been folded together — so the cheap certain ones are
+    // them have already been folded together - so the cheap certain ones are
     // banked before the awkward ones are attempted.
     found.sort(function (a, b) {
       return a.area - b.area;

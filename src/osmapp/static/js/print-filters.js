@@ -1,5 +1,5 @@
 /**
- * print-filters.js — the basemap filters, and the three ways a browser can
+ * print-filters.js - the basemap filters, and the three ways a browser can
  * refuse to run them.
  *
  * Split out of print.js, which had grown past 2 800 lines and where this was
@@ -7,7 +7,7 @@
  * tiles, no module state beyond its own capability cache. Everything here is
  * either a pure function over pixel data or a probe against a throwaway 8x8
  * canvas, which is also what makes it the part of the print pipeline that can
- * be tested without a browser — see tests/js/print-filters.test.mjs.
+ * be tested without a browser - see tests/js/print-filters.test.mjs.
  *
  * print.js calls exactly three things: support(), applyPixelFilters() and
  * drawFilteredMosaic().
@@ -17,12 +17,10 @@ var App = window.App || {};
 App.printFilters = (function () {
   "use strict";
 
-  // ══════════════════════════════════════════════════════════════════════
   // CANVAS FILTER SUPPORT
-  // ══════════════════════════════════════════════════════════════════════
   //
   // `"filter" in ctx` is not the question. Safari has had the property since
-  // 17 while still refusing `url(#id)` references to SVG filters — it
+  // 17 while still refusing `url(#id)` references to SVG filters - it
   // implements only the CSS shorthand functions. Feature-detecting the
   // property therefore reports "supported" and then silently prints an
   // unfiltered map, which is the worst of the three possible outcomes because
@@ -32,8 +30,8 @@ App.printFilters = (function () {
   // fill one pixel with pure red through a grayscale filter and look at what
   // came out. Red survives a filter that was never applied; a luminance
   // matrix turns it into a neutral ~(54,54,54). Reading the property back is
-  // kept as a cheap first rejection — browsers report a filter they refused
-  // as "none" — but it is not trusted on its own.
+  // kept as a cheap first rejection - browsers report a filter they refused
+  // as "none" - but it is not trusted on its own.
   //
   // Splitting the two matters, because it buys a middle tier instead of an
   // all-or-nothing switch. Grayscale is exact as a CSS function (the SVG
@@ -66,7 +64,7 @@ App.printFilters = (function () {
       var ctx = probe.getContext("2d", { willReadFrequently: true });
       if (ctx) {
         // Readback is what the software path needs, so it is probed first and
-        // on its own — a canvas can be readable without ctx.filter existing.
+        // on its own - a canvas can be readable without ctx.filter existing.
         support.pixels = _canReadPixels(ctx);
         if (support.pixels && "filter" in ctx) {
           support.svg = _filterApplies(ctx, "url(#tile-grayscale)");
@@ -144,14 +142,12 @@ App.printFilters = (function () {
     return r < 200 && Math.abs(r - g) < 12 && Math.abs(g - b) < 12;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SOFTWARE FILTERS
-  // ══════════════════════════════════════════════════════════════════════
   //
   // The fallback for every engine that will not run the SVG filters. It is a
   // faithful reimplementation of the three <filter> elements in index.html
   // rather than an approximation, so the printed card is identical whichever
-  // path produced it — which matters more here than anywhere, because the
+  // path produced it - which matters more here than anywhere, because the
   // whole point of the preview is that it is what comes out of the printer.
   //
   // It needs nothing but getImageData, so it also covers Safari before 17,
@@ -159,7 +155,7 @@ App.printFilters = (function () {
   // the CSS shorthand: contrast() is a linear stretch stand-in for an S-curve,
   // and there is no CSS equivalent of a convolution at any price.
   //
-  // Cost is one pass per enabled filter over 2–6 Mpx, tens of milliseconds
+  // Cost is one pass per enabled filter over 2-6 Mpx, tens of milliseconds
   // each, on a repaint that was already redrawing the whole mosaic.
 
   // Matches feConvolveMatrix in #tile-sharpen. The kernel sums to 1, so the
@@ -179,7 +175,7 @@ App.printFilters = (function () {
    * order the SVG chain would.
    *
    * @param {Uint8ClampedArray} data RGBA, un-premultiplied, as getImageData
-   *   hands it over — which is the color space feConvolveMatrix works in when
+   *   hands it over - which is the color space feConvolveMatrix works in when
    *   preserveAlpha is true.
    * @param {number} width
    * @param {number} height
@@ -193,7 +189,7 @@ App.printFilters = (function () {
   }
 
   /**
-   * 3x3 convolution on RGB, leaving alpha untouched — SVG's
+   * 3x3 convolution on RGB, leaving alpha untouched - SVG's
    * preserveAlpha="true". Edges duplicate the outermost pixel, which is
    * feConvolveMatrix's default edgeMode.
    */
@@ -259,8 +255,8 @@ App.printFilters = (function () {
    *
    * Two things make this worth a function rather than an argument at the call
    * site. The attribute is honored only on the *first* getContext call for a
-   * given canvas — every later call hands back the context that already
-   * exists and ignores what was asked for — so the hint has to be attached
+   * given canvas - every later call hands back the context that already
+   * exists and ignores what was asked for - so the hint has to be attached
    * where the context is first created, which is print.js building the
    * mosaic, not here where it is read. And it is worth asking for only when
    * the software path is the one that will actually run: willReadFrequently
@@ -285,16 +281,16 @@ App.printFilters = (function () {
       applyPixelFilters(image.data, mosaic.width, mosaic.height, ops);
       mctx.putImageData(image, 0, 0);
     } catch (e) {
-      // Readback was probed before this ran, so reaching here means something
-      // changed underneath us. An unfiltered map beats no map.
+      // Readback was probed before this ran, so reaching here means the canvas
+      // changed in between. An unfiltered map beats no map.
       console.warn(">>> Software filters failed:", e.message);
     }
     ctx.drawImage(mosaic, 0, 0);
   }
 
   return {
-    // Named without the leading underscore now that they are a real seam
-    // rather than one file's internals.
+    // Named without the leading underscore: these are a seam other modules
+    // call across rather than one file's internals.
     support: _filterSupport,
     applyPixelFilters: applyPixelFilters,
     drawFilteredMosaic: _drawFilteredMosaic,

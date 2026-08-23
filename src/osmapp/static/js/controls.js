@@ -1,18 +1,18 @@
 /**
- * controls.js — the toolbar, the language picker and resetAll().
+ * controls.js - the toolbar, the language picker and resetAll().
  *
  * The toolbar is one panel built from GROUPS below, each group a titled
  * section with labelled buttons; the collapse toggle trades the labels back
- * for screen space. Availability is declarative — every button may carry:
+ * for screen space. Availability is declarative - every button may carry:
  *
- *   enabled()   — false disables the button rather than hiding it, so the
+ *   enabled()   - false disables the button rather than hiding it, so the
  *                 action stays discoverable and the tooltip explains what is
  *                 missing. Export is always on screen for this reason: a
  *                 greyed button reading "Draw or search for an outer boundary
  *                 first" teaches what a vanished one does not.
- *   active()    — toggle state, for the modal cut and merge tools.
- *   titleFn()   — a tooltip that has to be recomputed (undo/redo depth).
- *   shortcut    — the key that does the same thing, drawn into the tooltip.
+ *   active()    - toggle state, for the modal cut and merge tools.
+ *   titleFn()   - a tooltip that has to be recomputed (undo/redo depth).
+ *   shortcut    - the key that does the same thing, drawn into the tooltip.
  *                 Named `shortcut` rather than `key` because a group already
  *                 has a `key`. The binding itself is registered in
  *                 _registerKeys() below, and a test pins the two lists to
@@ -24,10 +24,10 @@
  * modules use; none of them reaches into the DOM for a button.
  *
  * Translation:
- *   • Labels and static tooltips carry data-i18n / data-i18n-attrs, so
+ *   - Labels and static tooltips carry data-i18n / data-i18n-attrs, so
  *     App.i18n.apply(document.body) refreshes them on a language change.
- *   • Computed titles — an undo depth, a disabled reason, "Show or hide
- *     Streets" — do not survive an App.i18n.apply() pass, so refresh() is
+ *   - Computed titles - an undo depth, a disabled reason, "Show or hide
+ *     Streets" - do not survive an App.i18n.apply() pass, so refresh() is
  *     registered as an i18n listener and rebuilds them. With URL routing a
  *     language change is a page load, so this matters only for an in-place
  *     switch.
@@ -45,7 +45,7 @@ App.controls = (function () {
   var _aidNote = null;
   var _panel = null;
 
-  /** id → { spec, node } for every rendered button. */
+  /** id -> { spec, node } for every rendered button. */
   var _items = {};
 
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
@@ -75,7 +75,7 @@ App.controls = (function () {
 
   var BASEMAP_ICON_FALLBACK = "fa-earth-europe";
 
-  // ── Availability predicates ───────────────────────────────────────────
+  // Availability predicates
   //
   // Named functions rather than inline closures so that two buttons meaning
   // the same thing cannot drift apart, and so a spec reads as a sentence.
@@ -128,9 +128,7 @@ App.controls = (function () {
     return !!_map && _map.getZoom() > _map.getMinZoom();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TOOLBAR CONTENT
-  // ══════════════════════════════════════════════════════════════════════
 
   var GROUPS = [
     {
@@ -144,8 +142,8 @@ App.controls = (function () {
           titleKey: "toolbar.draw",
           accent: "blue",
           shortcut: "D",
-          // The polygon tool is also the way back into an existing boundary —
-          // clicking it with one already set offers "edit instead" — so it
+          // The polygon tool is also the way back into an existing boundary --
+          // clicking it with one already set offers "edit instead" - so it
           // lights up while that editor is running. Without this the app
           // would be in a mode with nothing in the toolbar saying so, which
           // is the one thing every other modal tool here avoids.
@@ -249,11 +247,11 @@ App.controls = (function () {
           },
         },
         {
-          // The app exists to produce cards, and until now the only way to
-          // ask for one was to right-click the right shape on the map: a
-          // gesture you have to already know about, aimed at a polygon you
-          // have to already have found. This opens the list instead, where
-          // every row has a printer and a number beside it.
+          // The app exists to produce cards, and the only other way to ask
+          // for one is to right-click the right shape on the map: a gesture
+          // you have to already know about, aimed at a polygon you have to
+          // already have found. This opens the list instead, where every row
+          // has a printer and a number beside it.
           id: "print",
           icon: "fa-print",
           labelKey: "toolbar.labelPrint",
@@ -269,7 +267,7 @@ App.controls = (function () {
         {
           // Doing a territory again next round means the same shapes with a
           // clean slate of marks, which is otherwise a right-click per
-          // territory. Disabled — not hidden — when there is nothing marked,
+          // territory. Disabled - not hidden - when there is nothing marked,
           // so the counter in the info panel has a visible companion.
           id: "clear-printed",
           icon: "fa-list-check",
@@ -294,8 +292,8 @@ App.controls = (function () {
       // it, and three and a half tiles of the panel's six hold them. The
       // basemap is one drop-down rather than a row of switches because the
       // choice is exclusive. Then a divider, then the overlays, each its own
-      // toggle. The layer switches are never disabled — one that greys out
-      // cannot be used to find out whether the data arrived — so Numbers is the
+      // toggle. The layer switches are never disabled - one that greys out
+      // cannot be used to find out whether the data arrived - so Numbers is the
       // only entry with an enabled() predicate.
       key: "view",
       titleKey: "toolbar.groupView",
@@ -304,7 +302,7 @@ App.controls = (function () {
         // The zoom pair heads the line: it is the switch used most often and
         // the only one here that is a plain action rather than a state. It
         // stands in for Leaflet's own zoom control, which main.js suppresses
-        // with zoomControl: false — two unlabelled squares in this same
+        // with zoomControl: false - two unlabelled squares in this same
         // corner, styled by leaflet.css and by nothing in this app.
         //
         // Disabled at the ends of the scale rather than silently doing
@@ -372,7 +370,7 @@ App.controls = (function () {
           // The number chips ride along in this one: they are territories,
           // not a separate kind of thing to switch on and off. Which is also
           // why the Numbers button below is a second switch rather than a
-          // duplicate of this one — that one draws the chips, this one draws
+          // duplicate of this one - that one draws the chips, this one draws
           // the shapes they sit on.
           id: "layer-clusters",
           icon: "fa-object-group",
@@ -410,7 +408,7 @@ App.controls = (function () {
           // A view switch rather than a territory tool: it changes the
           // picture and not the document, which is what puts it in this group.
           // The count in the info panel is a number people check against the
-          // map by eye, and they lose — this puts the same number *on* each
+          // map by eye, and they lose - this puts the same number *on* each
           // territory, so counting is reading rather than searching.
           id: "numbers",
           icon: "fa-hashtag",
@@ -486,7 +484,7 @@ App.controls = (function () {
         },
         {
           // Always rendered. Disabled until there is something worth writing
-          // out, with a tooltip that says what is missing — a button that
+          // out, with a tooltip that says what is missing - a button that
           // disappears teaches nothing about why.
           id: "export",
           icon: "fa-file-export",
@@ -531,8 +529,8 @@ App.controls = (function () {
         },
         {
           // The tour teaches the workflow once; this answers "what can I
-          // press right now", which is a different question and was the one
-          // with no button at all.
+          // press right now", which is a different question and needs a
+          // button of its own.
           id: "shortcuts",
           icon: "fa-keyboard",
           labelKey: "toolbar.labelShortcuts",
@@ -559,9 +557,7 @@ App.controls = (function () {
     },
   ];
 
-  // ══════════════════════════════════════════════════════════════════════
   // LIFECYCLE
-  // ══════════════════════════════════════════════════════════════════════
 
   function init(leafletMap) {
     s = App.state;
@@ -571,8 +567,8 @@ App.controls = (function () {
 
     _makePanel().addTo(leafletMap);
 
-    // A basemap can also be chosen from outside the toolbar — the session
-    // restore picks the remembered one — so the group's own state is painted
+    // A basemap can also be chosen from outside the toolbar - the session
+    // restore picks the remembered one - so the group's own state is painted
     // from the change rather than from the click, and the aid note with it.
     App.basemap.onChange(function () {
       _syncAidNote();
@@ -582,7 +578,7 @@ App.controls = (function () {
     App.i18n.onChange(refresh);
 
     // The zoom pair is the only button in the panel whose availability the map
-    // changes on its own — a scroll wheel, a double-click, a fitBounds — so it
+    // changes on its own - a scroll wheel, a double-click, a fitBounds - so it
     // is the only one that needs the map to say when it moved.
     leafletMap.on("zoomend", refresh);
 
@@ -591,22 +587,22 @@ App.controls = (function () {
     App._loaded.push("controls");
   }
 
-  // ── Keys for the toolbar ──────────────────────────────────────────────
+  // Keys for the toolbar
 
   /**
-   * Nothing here existed before, and the shape of the gap was odd: every
-   * modal tool in the app answers a dozen keys, and *entering* one of them
-   * was mouse-only. So the shortcut sheet on the main map listed five lines —
-   * help, escape, right-click, undo, redo — one keystroke before listing
-   * fourteen, which reads as an app that mostly has no shortcuts.
+   * Entering a modal tool needs keys of its own. Every one of them answers a
+   * dozen keys once it is running, so without these the shortcut sheet on the
+   * main map lists five lines - help, escape, right-click, undo, redo - one
+   * keystroke before listing fourteen, which reads as an app that mostly has
+   * no shortcuts.
    *
    * Two rules make single letters safe here.
    *
-   *   • `_idle()` — none of these fire while a modal tool is running. The
+   *   - `_idle()` - none of these fire while a modal tool is running. The
    *     tools bind their own letters and are innermost on the stack, but only
    *     for the letters they use: without this, T inside the merge tool would
    *     start trimming from underneath it.
-   *   • The registry already refuses to fire a character-producing combo into
+   *   - The registry already refuses to fire a character-producing combo into
    *     a text field, so the search box and the card fields are unaffected.
    *
    * Availability reuses the buttons' own predicates rather than restating
@@ -697,7 +693,7 @@ App.controls = (function () {
 
   /**
    * Fold _idle() into whatever the entry already asked for, so the sheet greys
-   * every one of these while a tool owns the keyboard — which is also the
+   * every one of these while a tool owns the keyboard - which is also the
    * honest answer to "what can I press right now".
    */
   function _whenIdle(entry) {
@@ -716,7 +712,7 @@ App.controls = (function () {
     _locate(item ? item.node : null);
   }
 
-  // ── The View group ────────────────────────────────────────────────────
+  // The View group
 
   /**
    * The basemap drop-down: one tile, the glyph of the current choice, and the
@@ -724,14 +720,14 @@ App.controls = (function () {
    *
    * A select rather than one tile per basemap, for the reason the language
    * picker is one: the choice is exclusive and the options are named, so a row
-   * of mutually exclusive tiles spends three tiles' width — and three rows of a
-   * collapsed panel — saying what one control says. Which basemaps exist is a
+   * of mutually exclusive tiles spends three tiles' width - and three rows of a
+   * collapsed panel - saying what one control says. Which basemaps exist is a
    * server decision (config.AID_LAYERS, an empty URL removes one), so the
    * options are built from App.basemap rather than written out.
    *
    * Each option is the layer's full name: a list has room for "Satellite
    * imagery" where a 52 px tile does not. No pictogram in front of it, unlike
-   * the language picker's flags — the tile's glyph comes out of the icon font
+   * the language picker's flags - the tile's glyph comes out of the icon font
    * (see BASEMAP_ICONS) and an <option> paints plain text only.
    *
    * @returns {HTMLElement} the tile, which _makePanel names with data-action.
@@ -744,8 +740,8 @@ App.controls = (function () {
     /**
      * The glyph is the only thing on the tile that says which basemap is on,
      * since the label names the control. Painted from the change rather than
-     * from the click, so a basemap chosen elsewhere — the session restore picks
-     * the remembered one — shows here too.
+     * from the click, so a basemap chosen elsewhere - the session restore picks
+     * the remembered one - shows here too.
      *
      * className rather than classList, so the previous basemap's icon goes when
      * the new one arrives; the tile class is restated for the same reason.
@@ -768,7 +764,7 @@ App.controls = (function () {
         App.basemap.entries().map(function (entry) {
           return {
             labelKey: entry.labelKey,
-            // Its own icon, so the row says which layer it is — replaced by
+            // Its own icon, so the row says which layer it is - replaced by
             // the tick on the one that is on, which is the more useful of the
             // two things an icon column can say here.
             icon: entry.id === current ? "fa-check" : _icon(entry.id),
@@ -823,9 +819,7 @@ App.controls = (function () {
     if (_aidNote) D.toggle(_aidNote, App.basemap.isAid());
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PANEL
-  // ══════════════════════════════════════════════════════════════════════
 
   function _makePanel() {
     var Control = L.Control.extend({
@@ -858,7 +852,7 @@ App.controls = (function () {
               // Named the same way as the buttons beside it. The two custom
               // tiles share one class with each other and their own class with
               // nothing, so without this the only selector that reaches the
-              // language picker also reaches the basemap one — and the guided
+              // language picker also reaches the basemap one - and the guided
               // tour, which addresses every other tile as [data-action="id"],
               // spotlit whichever of the two the panel happened to build
               // first.
@@ -943,7 +937,7 @@ App.controls = (function () {
     return node.getAttribute("aria-disabled") === "true";
   }
 
-  // ── Collapse ──────────────────────────────────────────────────────────
+  // Collapse
 
   /**
    * Labels cost roughly 90 px of map width. That is a fair trade on a desktop
@@ -951,7 +945,7 @@ App.controls = (function () {
    * user has already said otherwise.
    */
   function _initialCollapsed() {
-    // No stored answer — including "storage is unavailable" — falls through
+    // No stored answer - including "storage is unavailable" - falls through
     // to the width heuristic below.
     var stored = App.util.readLocal(COLLAPSE_KEY, null);
     if (stored === "1") return true;
@@ -981,9 +975,7 @@ App.controls = (function () {
     App.util.writeLocal(COLLAPSE_KEY, collapsed ? "1" : "0");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BUTTON STATE
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Re-evaluate enabled / active / tooltip for every button. */
   function refresh() {
@@ -1027,9 +1019,9 @@ App.controls = (function () {
     }
     if (!spec.titleKey) return;
     // A key belonging to a button is part of what the button is, so it goes in
-    // the tooltip the way undo and redo have always carried theirs — which
-    // means the mapping is no longer declarative and the title has to be
-    // computed here instead.
+    // the tooltip the way undo and redo carry theirs. That makes the mapping
+    // no longer declarative, so the title is computed here rather than left to
+    // data-i18n-attrs.
     if (spec.shortcut) {
       node.removeAttribute("data-i18n-attrs");
       node.title = _withKey(T(spec.titleKey), spec.shortcut);
@@ -1065,24 +1057,23 @@ App.controls = (function () {
   }
 
   /**
-   * "Undo last change (3 available) — Ctrl+Z".
+   * "Undo last change (3 available) - Ctrl+Z".
    *
-   * The cut toolbar has shown its keys on <kbd> tags since it shipped and the
-   * main toolbar showed none, so the two most-used shortcuts in the app were
-   * the two least discoverable. Rendered through App.shortcuts so a Mac reads
-   * ⌘ rather than being told about a key its keyboard labels differently.
+   * The cut toolbar shows its keys on <kbd> tags; this is how the main
+   * toolbar shows its own, so the two most-used shortcuts in the app are not
+   * also the two least discoverable. Rendered through App.shortcuts so a Mac
+   * reads ⌘ rather than being told about a key its keyboard labels
+   * differently.
    */
   function _withKey(title, combo) {
     return title + " — " + App.shortcuts.hint(combo);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ACTIONS
-  // ══════════════════════════════════════════════════════════════════════
 
   function _draw() {
     // The button shows itself as active while the outline editor runs, and a
-    // control that looks pressed has to be the way to unpress it — otherwise
+    // control that looks pressed has to be the way to unpress it - otherwise
     // clicking it asks "replace this boundary?" about the shape currently
     // being edited, which is a question about the wrong thing.
     if (s.outlineMode) {
@@ -1093,7 +1084,7 @@ App.controls = (function () {
     _confirmReplaceOuter().then(function (answer) {
       if (answer === "alt") {
         // "I clicked the polygon tool because I want to change the polygon"
-        // is at least as likely a reading as "…because I want a new one", so
+        // is at least as likely a reading as "...because I want a new one", so
         // the dialog offers both rather than only the destructive half.
         App.outline.toggle();
         return;
@@ -1145,7 +1136,7 @@ App.controls = (function () {
       });
   }
 
-  // ── Locate ────────────────────────────────────────────────────────────
+  // Locate
 
   function _locate(node) {
     if (!navigator.geolocation) {
@@ -1174,7 +1165,7 @@ App.controls = (function () {
       .locate({ setView: false, enableHighAccuracy: true, timeout: 5000 });
   }
 
-  // ── Import ────────────────────────────────────────────────────────────
+  // Import
 
   function _setupImportButton(node) {
     var input = document.createElement("input");
@@ -1202,17 +1193,14 @@ App.controls = (function () {
     });
   }
 
-  // ── Language picker ───────────────────────────────────────────────────
+  // Language picker
 
-  /**
-   * @returns {HTMLElement} the tile, which _makePanel names with data-action.
-   */
   /**
    * Open a tile's list as the app's own menu, under the tile.
    *
    * Drawn rather than delegated to a <select>, because a native pop-up's size
    * and position are the browser's and it takes both from the control it
-   * belongs to — which for these two tiles is 80 px wide and `opacity: 0`.
+   * belongs to - which for these two tiles is 80 px wide and `opacity: 0`.
    * showContextMenu is the menu a right-click on a territory opens: its width
    * is its content's, its rows are the size every other row in the app is, and
    * _placeMenu keeps it on screen.
@@ -1255,7 +1243,7 @@ App.controls = (function () {
     //
     // setLanguage navigates to that language's URL (/ , /pl, /de, /fr) so the
     // choice is shareable and bookmarkable. Pass { navigate: false } for an
-    // in-place swap instead — which is why the flag is kept in sync above
+    // in-place swap instead - which is why the flag is kept in sync above
     // rather than left to the page load.
     button.addEventListener("click", function () {
       var current = App.i18n.current();
@@ -1279,7 +1267,7 @@ App.controls = (function () {
     return node;
   }
 
-  // ── Reset ─────────────────────────────────────────────────────────────
+  // Reset
 
   function resetAll() {
     App.ui
@@ -1302,7 +1290,7 @@ App.controls = (function () {
    * middle of a walkthrough is a prompt about something the user never did.
    *
    * @param {{keepSession?: boolean}} [opts] keepSession leaves IndexedDB
-   *   alone. Only the tour passes it — a real reset must clear the store, or
+   *   alone. Only the tour passes it - a real reset must clear the store, or
    *   the reset survives exactly until the next reload.
    */
   function clearAll(opts) {
@@ -1333,7 +1321,7 @@ App.controls = (function () {
     s.cachedBounds = null;
 
     // clearLayers() took the number chips off the map, but labels.js still
-    // holds the rows describing them — and ui.refreshInfo asks those rows how
+    // holds the rows describing them - and ui.refreshInfo asks those rows how
     // many territories are too small to see.
     if (App.labels) App.labels.refresh();
     App.ui.setInfoDefault();

@@ -5,15 +5,15 @@
  * aim. This needs a key held down and a movement, which means the questions
  * worth asking are all about what it does *not* take:
  *
- *   • Not the corners outside its ring. A sweep past a shape must not quietly
+ *   - Not the corners outside its ring. A sweep past a shape must not quietly
  *     take the far side of it, and a radius measured in the wrong units — on
  *     the ground rather than on screen — is exactly how that happens without
  *     looking like a bug at the zoom it was tested at.
- *   • Not the last three. Leaflet.Editable's own floor is what stops a
+ *   - Not the last three. Leaflet.Editable's own floor is what stops a
  *     polygon becoming a line, and asking it per corner rather than once for
  *     the whole sweep is what makes a run that starts legal stop at the
  *     floor instead of straight through it.
- *   • Not the middle markers, which carry a delete() that removes the handle
+ *   - Not the middle markers, which carry a delete() that removes the handle
  *     and leaves the ring alone — erasing one would look like it worked and
  *     change nothing.
  *

@@ -4,13 +4,13 @@
  * Every gap this file pins was invisible while each tool was looked at on its
  * own, and obvious the moment the three modal tools were put side by side:
  *
- *   • Cut bound Backspace and nothing for going forward, though redoPoint()
+ *   - Cut bound Backspace and nothing for going forward, though redoPoint()
  *     had existed as long as undoPoint() and Ctrl+Y already reached it.
- *   • Merge bound Escape and nothing else — no Enter, though cut and trim
+ *   - Merge bound Escape and nothing else — no Enter, though cut and trim
  *     both commit on Enter and merge is exactly as modal as either.
- *   • Trim's two buttons were the only actions on any mode toolbar with no
+ *   - Trim's two buttons were the only actions on any mode toolbar with no
  *     key at all.
- *   • The outer-boundary drawer had no way to take back a vertex, though
+ *   - The outer-boundary drawer had no way to take back a vertex, though
  *     Leaflet.Editable has shipped pop() since 1.3.0.
  *
  * So the assertions here are about symmetry, not about behavior: a tool that

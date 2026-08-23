@@ -1,12 +1,12 @@
 /**
  * Repairing the faults the territory list can name.
  *
- *   • A territory drawn in separate pieces becomes one territory per piece.
- *   • A territory with no buildings is absorbed by the neighbor it shares the
+ *   - A territory drawn in separate pieces becomes one territory per piece.
+ *   - A territory with no buildings is absorbed by the neighbor it shares the
  *     most boundary with.
- *   • A boundary drawn through a building hands the footprint whole to the
+ *   - A boundary drawn through a building hands the footprint whole to the
  *     side holding most of it, which puts the line on the building's wall.
- *   • Ground in no territory at all becomes a territory first, and is then
+ *   - Ground in no territory at all becomes a territory first, and is then
  *     judged by the rules above like anything else.
  */
 

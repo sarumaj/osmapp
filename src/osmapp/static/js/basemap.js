@@ -1,5 +1,5 @@
 /**
- * basemap.js — the layer under everything else, and the rule about it.
+ * basemap.js - the layer under everything else, and the rule about it.
  *
  * There is exactly one printable basemap: OpenStreetMap. A territory card is
  * something a person carries down a street, writes on and hands to the next
@@ -8,7 +8,7 @@
  * card is always composed from OSM tiles, and that is not a preference anyone
  * can toggle.
  *
- * The aid layers exist for the other half of the work — deciding which of two
+ * The aid layers exist for the other half of the work - deciding which of two
  * doors on a corner plot is the actual entrance, seeing that a "street" is a
  * private drive, reading a slope before assigning a territory to someone.
  * That is worth having on screen, and worth keeping off paper.
@@ -18,7 +18,7 @@
  *   1. print.js builds its tile URLs from PRINT_TILE_URL below, a constant
  *      that always points at the OSM proxy route. Nothing about the on-screen
  *      selection is readable from there.
- *   2. The aid routes live at /tiles/aid/<layer>/… — a different path, so
+ *   2. The aid routes live at /tiles/aid/<layer>/... - a different path, so
  *      even an accidental URL rewrite in the print pipeline could not land on
  *      one by chance.
  *   3. The print dialog says so, when and only when an aid layer is on screen
@@ -45,21 +45,19 @@ App.basemap = (function () {
 
   var _map = null;
   var _config = null;
-  var _layers = {}; // id → L.TileLayer
-  var _specs = {}; // id → server descriptor, for labels and attribution
+  var _layers = {}; // id -> L.TileLayer
+  var _specs = {}; // id -> server descriptor, for labels and attribution
   var _order = []; // ids, toolbar order, base first
   var _current = BASE_ID;
   var _listeners = [];
 
-  // ══════════════════════════════════════════════════════════════════════
   // LIFECYCLE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Build every basemap layer and add the remembered one.
    *
-   * Called before i18n has loaded — the map needs tiles under it while the
-   * dictionaries arrive — so nothing here translates anything. Names are
+   * Called before i18n has loaded - the map needs tiles under it while the
+   * dictionaries arrive - so nothing here translates anything. Names are
    * resolved later, by the toolbar's View group, through labelKey.
    */
   function init(map) {
@@ -85,7 +83,7 @@ App.basemap = (function () {
       _layers[spec.id] = L.tileLayer(spec.url, {
         // The map's zoom range stays the basemap's. A layer that stops at 17
         // upscales its last level instead of going blank, so switching to it
-        // never looks broken — it looks soft, which is honest.
+        // never looks broken - it looks soft, which is honest.
         maxZoom: base.maxZoom,
         maxNativeZoom: spec.maxNativeZoom || spec.maxZoom || base.maxZoom,
         attribution: spec.attribution,
@@ -102,9 +100,7 @@ App.basemap = (function () {
     App._loaded.push("basemap");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SELECTION
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Show one basemap and only one.
@@ -128,8 +124,9 @@ App.basemap = (function () {
     _current = id;
     _remember(id);
 
-    // Not just cosmetic: the class is what CSS hangs the imagery treatment
-    // off, and what a stylesheet would key on to strengthen overlay contrast.
+    // A hook on the container for styling that has to know an aid layer is
+    // showing. The imagery treatment itself hangs off `basemap-aid` on the
+    // layer (see style.css); nothing reads this class yet.
     var container = _map.getContainer();
     if (container) container.classList.toggle("has-aid-basemap", isAid());
 
@@ -180,9 +177,7 @@ App.basemap = (function () {
     if (typeof fn === "function") _listeners.push(fn);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PERSISTENCE
-  // ══════════════════════════════════════════════════════════════════════
   //
   // localStorage, next to the map view and the toolbar collapse: it is one
   // short string, it is a view preference rather than territory data, and it

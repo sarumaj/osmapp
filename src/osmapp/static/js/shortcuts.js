@@ -1,11 +1,11 @@
 /**
- * shortcuts.js — the keyboard dispatcher, and the sheet that lists it.
+ * shortcuts.js - the keyboard dispatcher, and the sheet that lists it.
  *
  * One registry answers every key in the app, and the help sheet is rendered
  * *from* that registry rather than written alongside it: a list and a set of
  * handlers maintained separately disagree about which keys exist.
  *
- * ── Contexts ──────────────────────────────────────────────────────────────
+ * Contexts
  *
  * Shaped like App.history's scope stack, because it is the same problem: what
  * a key means depends on what you are doing. A mode pushes a context when it
@@ -22,7 +22,7 @@
  *   });
  *
  * An entry with `run` is a binding. An entry with `note: true` is a line on
- * the sheet and nothing else — for gestures (right-drag to pan) and modifier
+ * the sheet and nothing else - for gestures (right-drag to pan) and modifier
  * holds (Alt suspends snapping) that are not discrete keystrokes and are
  * handled where the pointer state lives. Both kinds are listed; only the
  * first fires.
@@ -34,16 +34,16 @@
  *
  * Two guarantees holders rely on. Auto-repeat does not re-fire `run`, because
  * a key held down is one press however many times the platform says so. And
- * `release` is called if the window loses focus with the key down — Alt+Tab
+ * `release` is called if the window loses focus with the key down - Alt+Tab
  * away mid-sweep and the keyup is delivered to somebody else, which would
  * otherwise leave the gesture running with nothing to end it.
  *
- * `when()` gates an entry that exists only some of the time — the trim tool's
+ * `when()` gates an entry that exists only some of the time - the trim tool's
  * F is locked while corners are being dragged by hand. An entry that cannot
  * fire is greyed on the sheet rather than hidden, so the reason it is
  * unavailable stays visible.
  *
- * ── Dialogs ───────────────────────────────────────────────────────────────
+ * Dialogs
  *
  * A context marked `exclusive: true` is a barrier: nothing beneath it answers
  * the keyboard, and the tool the dialog opened on top of keeps its keys
@@ -57,7 +57,7 @@
  * wrong for the one gesture people expect from a form: type a number, press
  * Enter. Entries that mean something *while* typing say so.
  *
- * ── What this does not take over ──────────────────────────────────────────
+ * What this does not take over
  *
  * The tour and the PDF placement frame bind on the capture phase and own the
  * keyboard completely while they are up, including Escape. Text fields
@@ -80,7 +80,7 @@ App.shortcuts = (function () {
   var _sheet = null; // the node, when the sheet is stacked over a dialog
   var _sheetIsDialog = false; // the sheet *is* App.ui's dialog
 
-  // ── Platform ──────────────────────────────────────────────────────────
+  // Platform
   //
   // "Mod" is Ctrl everywhere and ⌘ on a Mac. Writing Ctrl on a sheet a Mac
   // user is reading is the kind of small wrongness that makes the whole sheet
@@ -116,7 +116,7 @@ App.shortcuts = (function () {
         // The one shortcut whose whole job is to reveal the others, so it is
         // also the only one that fires while its own sheet is open.
         //
-        // Two combos because "?" is not a key on most keyboards — it is Shift
+        // Two combos because "?" is not a key on most keyboards - it is Shift
         // and something, and which something depends on the layout. It is
         // still the conventional binding and worth having, but F1 is one
         // physical key everywhere, which is what makes it the reliable half
@@ -124,9 +124,9 @@ App.shortcuts = (function () {
         combos: ["?", "F1"],
         labelKey: "shortcuts.sheet",
         // Every screen that takes over the keyboard still has to be able to
-        // say what it answers. This was the one binding whose whole job is
-        // to reveal the others and it was unavailable in exactly the screens
-        // with the most keys to reveal.
+        // say what it answers. This is the one binding whose whole job is to
+        // reveal the others, so the screens with the most keys to reveal are
+        // exactly the ones it must not be silenced in.
         overModal: true,
         whileTyping: true,
         run: toggleSheet,
@@ -152,14 +152,12 @@ App.shortcuts = (function () {
     App._loaded.push("shortcuts");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // COMBO PARSING
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * "Ctrl+Shift+Z" → { ctrl: true, shift: true, alt: false, key: "z" }
+   * "Ctrl+Shift+Z" -> { ctrl: true, shift: true, alt: false, key: "z" }
    *
-   * "Mod" means Ctrl on Windows and Linux, ⌘ on a Mac, and matches either —
+   * "Mod" means Ctrl on Windows and Linux, ⌘ on a Mac, and matches either --
    * a Mac keyboard has a Ctrl key too and somebody used to it should not find
    * that undo has stopped working.
    */
@@ -208,9 +206,9 @@ App.shortcuts = (function () {
       //
       // Symbols are the exception, and "?" is why: on a US layout it *is*
       // Shift+/, on a German one Shift+ß, and the browser reports the symbol
-      // in e.key with shiftKey still true. Requiring Shift to be up meant the
-      // one binding whose job is to reveal all the others could never fire on
-      // any keyboard that has it. Which modifier produces a symbol is a
+      // in e.key with shiftKey still true. Requiring Shift to be up would stop
+      // the one binding whose job is to reveal all the others from ever firing
+      // on a keyboard that has it. Which modifier produces a symbol is a
       // property of the layout, not of the shortcut.
       return false;
     }
@@ -226,7 +224,7 @@ App.shortcuts = (function () {
     return key.length === 1 && !/[a-z0-9]/.test(key);
   }
 
-  // ── Display ───────────────────────────────────────────────────────────
+  // Display
 
   var KEY_LABELS = {
     escape: "Esc",
@@ -249,7 +247,7 @@ App.shortcuts = (function () {
     if (spec.alt) caps.push(isMac() ? "⌥" : "Alt");
     if (spec.shift) caps.push("Shift");
     if (spec.key) caps.push(_capFor(spec.key, spec.raw));
-    // A modifier named on its own — Alt, as a hold — is the whole combo.
+    // A modifier named on its own - Alt, as a hold - is the whole combo.
     if (!caps.length) caps.push(String(combo));
     return caps;
   }
@@ -265,9 +263,7 @@ App.shortcuts = (function () {
     return keyCaps(combo).join("+");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONTEXT STACK
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Take over the keyboard until pop(id). Pushing an id that is already on the
@@ -296,40 +292,38 @@ App.shortcuts = (function () {
     _global.entries = _global.entries.concat(entries || []);
   }
 
-  /** Innermost first, global last — dispatch order and sheet order alike. */
+  /** Innermost first, global last - dispatch order and sheet order alike. */
   function _stack() {
     return _contexts.slice().reverse().concat([_global]);
   }
 
-  /** Which context is answering right now — for tests and for debugging. */
+  /** Which context is answering right now - for tests and for debugging. */
   function activeId() {
     return _contexts.length ? _contexts[_contexts.length - 1].id : "global";
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DISPATCH
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Input types that swallow a character. Everything else with an <input> tag
-   * — a checkbox, a slider, a color well, a file picker — takes focus without
+   * - a checkbox, a slider, a color well, a file picker - takes focus without
    * taking text.
    *
-   * The distinction matters because "is a text field focused?" was being
-   * answered by the tag name, and the answer was wrong for most of the
-   * controls in the app's own dialogs. Click the print dialog's Sharpen box or
-   * touch its zoom slider and focus lands on an <input>; from that moment E,
-   * F, [, ], 0 and T were dead, though the sheet went on listing all six. The
-   * boundary dialog was worse: its one control is a range, so moving the
-   * Detail slider — the thing the dialog exists for — turned off the arrow
-   * keys documented to move it.
+   * The distinction matters because answering "is a text field focused?" from
+   * the tag name is wrong for most of the controls in the app's own dialogs.
+   * Click the print dialog's Sharpen box or touch its zoom slider and focus
+   * lands on an <input>; by tag name alone E, F, [, ], 0 and T would go dead
+   * from that moment while the sheet went on listing all six. The boundary
+   * dialog would be worse: its one control is a range, so moving the Detail
+   * slider - the thing the dialog exists for - would turn off the arrow keys
+   * documented to move it.
    *
    * A <select> stays on the typing side. Letters there drive the browser's own
    * option typeahead, which is text entry by another name.
    *
    * Written as the list of things that are *not* text on purpose: the text
    * types are open-ended and grow with the platform, the non-text ones are a
-   * closed set, and a type nobody here has heard of renders as a text box —
+   * closed set, and a type nobody here has heard of renders as a text box --
    * so guessing "text" for it is both safer and what the browser does.
    */
   var NON_TEXT_INPUT_TYPES = {
@@ -359,14 +353,14 @@ App.shortcuts = (function () {
    * A dialog owns the keyboard while it is up.
    *
    * Without this, Enter in the print dialog would also commit the cut that
-   * was in progress behind it, and Escape would close two things at once —
+   * was in progress behind it, and Escape would close two things at once --
    * which is how a modal stops being modal. App.ui's own Escape handler is
    * the one that closes the dialog; nothing here needs to.
    *
    * `overModal` is the exception, and there is exactly one kind of entry that
    * earns it: undo and redo, which do not mean anything on their own. They
-   * ask App.history which scope is active, and a dialog that has pushed one —
-   * the print dialog pushes the eraser's — is the thing they are already
+   * ask App.history which scope is active, and a dialog that has pushed one --
+   * the print dialog pushes the eraser's - is the thing they are already
    * addressed to. Blocking them takes Ctrl+Z away from the eraser, which is the
    * one place inside a dialog where it has something to undo.
    */
@@ -382,7 +376,7 @@ App.shortcuts = (function () {
   }
 
   /**
-   * Who can answer right now — the one calculation behind both halves of this
+   * Who can answer right now - the one calculation behind both halves of this
    * module.
    *
    * The dispatcher and the sheet both go through here, so a group the sheet
@@ -419,14 +413,14 @@ App.shortcuts = (function () {
   /**
    * The tour is modal in the stronger sense: it binds on the capture phase and
    * answers every key itself, including the arrows and Escape. Nothing here
-   * fires underneath it, `overModal` included — a walkthrough that can be
+   * fires underneath it, `overModal` included - a walkthrough that can be
    * undone out from under itself is worse than one with no shortcuts.
    */
   function _tourOpen() {
     return !!(App.tour && App.tour.isOpen && App.tour.isOpen());
   }
 
-  // ── Held keys ─────────────────────────────────────────────────────────
+  // Held keys
   //
   // Entries whose run() has fired and whose release() is owed, keyed by the
   // lowercased key that started them. Keyed rather than a list so that the
@@ -483,7 +477,7 @@ App.shortcuts = (function () {
         return;
       }
       // The sheet is the topmost thing on screen, so it is the thing Escape
-      // closes — ui.js stands down for exactly as long as it is up, or
+      // closes - ui.js stands down for exactly as long as it is up, or
       // asking for help over the print dialog would shut the print dialog.
       if (_matches(parse("Escape"), e)) {
         e.preventDefault();
@@ -519,7 +513,7 @@ App.shortcuts = (function () {
       var spec = parse(combos[i]);
       // A combo that produces a character never fires into a text field,
       // whatever the entry says. "?" and F1 both open the sheet and only one
-      // of them can be typed — without this, whileTyping on that pair would
+      // of them can be typed - without this, whileTyping on that pair would
       // mean somebody typing a question mark into the locality field gets a
       // list of shortcuts and no question mark.
       if (typing && _typesACharacter(spec)) continue;
@@ -535,9 +529,7 @@ App.shortcuts = (function () {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE SHEET
-  // ══════════════════════════════════════════════════════════════════════
 
   function isSheetOpen() {
     return _sheetOpen;
@@ -594,7 +586,7 @@ App.shortcuts = (function () {
    * anything if its combo were pressed right now.
    *
    * The rendering below is built from this rather than walking the stack
-   * itself, for the same reason the sheet is built from the registry at all —
+   * itself, for the same reason the sheet is built from the registry at all --
    * "what is drawn" and "what would fire" have to be one calculation or they
    * drift. It is also the seam the tests use, because asserting on greyed-out
    * rows through a DOM stub asserts mostly about the stub.
@@ -640,7 +632,7 @@ App.shortcuts = (function () {
       if (title) title.textContent = T(group.titleKey);
 
       // A group every one of whose entries is behind the barrier is not a
-      // group with some keys greyed — it is a group that does not apply, and
+      // group with some keys greyed - it is a group that does not apply, and
       // saying so once at the top beats saying nothing eleven times.
       var buried = group.entries.every(function (entry) {
         return entry.covered;

@@ -13,7 +13,7 @@ logger = logging.getLogger("osm_app")
 SUPPORTED_LANGS: tuple[str, ...] = ("en", "pl", "de", "fr")
 DEFAULT_LANG = "en"
 
-# (mtime, dict) — re-read only when the file changes on disk.
+# (mtime, dict) - re-read only when the file changes on disk.
 _cache: dict[str, tuple[float, dict[str, Any]]] = {}
 
 
@@ -22,7 +22,7 @@ def load_dictionary(code: str) -> dict[str, Any]:
 
     A file that is missing, unreadable or malformed yields an empty dict rather
     than raising. The client falls back to English per key, so a broken
-    dictionary costs that translation and not the page — and this is inlined into
+    dictionary costs that translation and not the page - and this is inlined into
     every render, so raising here would answer every route in every language with
     a 500.
 

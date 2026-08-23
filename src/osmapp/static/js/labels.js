@@ -1,19 +1,19 @@
 /**
- * labels.js — numbered chips on each polygon part, and the territory list.
+ * labels.js - numbered chips on each polygon part, and the territory list.
  *
  * The info panel reports `s.clusters.length`, which is correct but often does
  * not match what can be counted on screen, for three legitimate reasons:
  *
- *   • A territory can be too small to see. The partitioner drops orphan
+ *   - A territory can be too small to see. The partitioner drops orphan
  *     fragments below 5% of an average territory but keeps everything above
  *     that; the knife keeps pieces down to CUT_MIN_PIECE_M2. At a village
- *     zoom a 400 m² leftover is a few pixels of purple against a purple
- *     neighbor — counted and printable, effectively invisible.
- *   • Adjacent territories share an outline. Fifteen tiling a village read as
+ *     zoom a 400 m2 leftover is a few pixels of purple against a purple
+ *     neighbor - counted and printable, effectively invisible.
+ *   - Adjacent territories share an outline. Fifteen tiling a village read as
  *     one purple mass with lines through it, and the eye undercounts lines.
- *   • A territory can be in more than one piece. `_enforceConnectivity` makes
+ *   - A territory can be in more than one piece. `_enforceConnectivity` makes
  *     this rare rather than impossible, and merge can produce it outright by
- *     unioning two shapes that do not touch — the same confusion in the
+ *     unioning two shapes that do not touch - the same confusion in the
  *     opposite direction, with more shapes on the map than in the count.
  *
  * So there is one numbered chip per polygon *part*, with all parts of a
@@ -24,13 +24,13 @@
  * A chip is a handle on its territory rather than decoration, and two things
  * follow:
  *
- *   • It is clickable, hoverable, right-clickable and selectable, taking all
+ *   - It is clickable, hoverable, right-clickable and selectable, taking all
  *     of that from `polygons.attachProxyEvents` rather than a second copy of
  *     the handlers. On a territory a few pixels wide the chip is the only
  *     thing that can realistically be clicked. It goes inert in cut mode,
  *     where the pointer is a drawing instrument and anything clickable on the
  *     map is one more thing for the knife to catch on.
- *   • It lives in `innerPolygonsLayerGroup` with the territories rather than
+ *   - It lives in `innerPolygonsLayerGroup` with the territories rather than
  *     in a layer group of its own, so the View group's Shapes switch covers
  *     it and nothing can outlive a rebuild. Drawing the numbers is its own
  *     switch in that group, because the chips can be wanted without the
@@ -59,7 +59,7 @@ App.labels = (function () {
   /**
    * One row per territory, rebuilt by refresh():
    *   { index, area, parts, printed, anchors: [{ latlng, bbox, tiny, marker }] }
-   * The buildings/streets counts are deliberately *not* cached here — they
+   * The buildings/streets counts are deliberately *not* cached here - they
    * live on the cluster entry and are filled in later by refreshFilteredData,
    * so the list reads them at open time instead.
    */
@@ -126,9 +126,7 @@ App.labels = (function () {
     App._loaded.push("labels");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // VISIBILITY
-  // ══════════════════════════════════════════════════════════════════════
 
   function _storedVisible() {
     // Visible unless explicitly switched off, so a first visit and an
@@ -146,9 +144,7 @@ App.labels = (function () {
     refresh();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BUILDING THE CHIPS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A point guaranteed to be inside the part, as a Leaflet LatLng.
@@ -156,7 +152,7 @@ App.labels = (function () {
    * Not the centroid: a C-shaped or doughnut territory puts its centroid in
    * the hole, and a number floating over a neighbor is worse than no number.
    * G.interiorPoint promises interior, and is the same call clustering.js
-   * assigns pieces with — so a chip never lands on a piece that was counted
+   * assigns pieces with - so a chip never lands on a piece that was counted
    * as somebody else's.
    */
   function _interiorPoint(part) {
@@ -300,7 +296,7 @@ App.labels = (function () {
    * Rebuild every chip from s.clusters.
    *
    * Called from the one place cluster membership changes (setClusters) plus
-   * the ones that change it without going through there — deleteCluster, the
+   * the ones that change it without going through there - deleteCluster, the
    * two print-mark writers, and setTooltipMode, which is how entering and
    * leaving cut mode reaches the chips.
    *
@@ -318,8 +314,8 @@ App.labels = (function () {
 
     var inert = !!s.editMode;
 
-    // Described whether or not the chips are drawn. The rows are the audit —
-    // the count, the too-small warning, the list dialog — and all of that is
+    // Described whether or not the chips are drawn. The rows are the audit --
+    // the count, the too-small warning, the list dialog - and all of that is
     // about the territories rather than about the numbers. Returning early on
     // `!_visible` would leave _rows empty, so switching the numbers off would
     // silently take the info panel's warning with them.
@@ -382,11 +378,11 @@ App.labels = (function () {
   /**
    * Re-decide after a zoom which chips have outgrown their territory.
    *
-   * A drawing decision about a marker, and nothing more since the list stopped
-   * carrying a "too small to see" flag: that described the viewport rather
-   * than anything wrong with a territory, it emptied the moment you zoomed in,
-   * and autoheal could never repair it — so it sat among the two flags that
-   * are real faults and made them look like housekeeping.
+   * A drawing decision about a marker, and nothing more: the list carries no
+   * "too small to see" flag, because that would describe the viewport rather
+   * than anything wrong with a territory, would empty the moment you zoomed
+   * in, and could never be repaired by autoheal - a flag sitting among the
+   * two that are real faults and making them look like housekeeping.
    */
   function _syncTiny() {
     _rows.forEach(function (row) {
@@ -400,9 +396,7 @@ App.labels = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE AUDIT
-  // ══════════════════════════════════════════════════════════════════════
 
   function rows() {
     return _rows.slice();
@@ -424,15 +418,15 @@ App.labels = (function () {
   }
 
   /**
-   * Why the territories are worth a second look, as three numbers.
+   * Why the territories are worth a second look, as four numbers and their
+   * total.
    *
-   * `tiny` is territories with no part big enough to notice at this zoom and
-   * `split` is territories drawn as more than one shape: both explain a
+   * `split` is territories drawn as more than one shape. It explains a
    * disagreement between the count in the info panel and what can be counted
-   * on screen, and both are legitimate states rather than errors.
+   * on screen, and is a legitimate state rather than an error.
    *
    * `empty` is different in kind. A territory with no buildings in it is not
-   * a counting problem — it looks perfectly ordinary on the map — it is a card
+   * a counting problem - it looks perfectly ordinary on the map - it is a card
    * that sends somebody to walk a strip of embankment. It is read live off the
    * cluster entries rather than off `_rows`, because the counts are filled in
    * by refreshFilteredData *after* the rows are built.
@@ -447,12 +441,14 @@ App.labels = (function () {
    * `uncovered` is not about a territory at all: it is ground inside the
    * boundary that is in no territory (see gaps.js). It is counted here rather
    * than given a row of its own in the info panel, because a second number
-   * there is a second place to look and a second thing to explain — for a fault
+   * there is a second place to look and a second thing to explain - for a fault
    * whose repair, its flag and its place on the map all live in the list. One
    * mark on the one count, and the list says which of the three it is.
    *
-   * All of them are what App.autoheal repairs, or declines to; see there for
-   * why `tiny` is the one it leaves alone.
+   * All four are what App.autoheal repairs. The chips carry one more
+   * observation that is deliberately not counted here: a part too small to
+   * notice at this zoom, which describes the viewport rather than the
+   * territory. See autoheal.js for why nothing is repaired on it.
    */
   function warnings() {
     var split = 0;
@@ -502,9 +498,7 @@ App.labels = (function () {
     return _crossed(index) > 0;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // FINDING ONE
-  // ══════════════════════════════════════════════════════════════════════
 
   function _restorePulse() {
     _pulseTimer = null;
@@ -552,9 +546,7 @@ App.labels = (function () {
     return true;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // THE LIST
-  // ══════════════════════════════════════════════════════════════════════
 
   function _areaText(area) {
     if (!(area > 0)) return T("list.areaUnknown");
@@ -569,9 +561,9 @@ App.labels = (function () {
     node.setAttribute("title", title);
     node.setAttribute("aria-label", title);
     // An <i> carries no role, and an aria-label on an element with no role is
-    // not required to be announced — which made the flags decoration for
-    // anyone not looking at them, on a row whose whole purpose is to say that
-    // something is wrong with this territory.
+    // not required to be announced - which would leave the flags as decoration
+    // for anyone not looking at them, on a row whose whole purpose is to say
+    // that something is wrong with this territory.
     node.setAttribute("role", "img");
     host.appendChild(node);
   }
@@ -579,7 +571,7 @@ App.labels = (function () {
   /**
    * Every counted territory as a row you can click.
    *
-   * This is the answer to "where are they?" — the count becomes a list, the
+   * This is the answer to "where are they?" - the count becomes a list, the
    * list becomes a place on the map. Rows stay in index order because that is
    * the order the chips and the tooltips number them in; sorting by area
    * would put the interesting ones on top and break the correspondence.
@@ -592,7 +584,7 @@ App.labels = (function () {
     // dialog in place, and openDialog() tears the old one down on the way.
     // Without the distinction that teardown would hand the selection to the
     // map halfway through a re-render, and the reset below would then throw
-    // the selection away — losing it because somebody changed language.
+    // the selection away - losing it because somebody changed language.
     var reopening = _dialog !== null;
     _reopening = reopening;
     _gapsShown = null;
@@ -636,7 +628,7 @@ App.labels = (function () {
       // Seeded from whatever the map is already holding, so the round trip
       // closes: open the list on a live selection and it shows that selection,
       // adjust it here, close, and the map has what the list last said. Two
-      // ideas of "selected" — one on the map, one in the dialog — would drift
+      // ideas of "selected" - one on the map, one in the dialog - would drift
       // the moment either changed.
       _picked = _pickedOnMap();
       _anchor = null;
@@ -671,10 +663,10 @@ App.labels = (function () {
       _paintSelection(dialog);
     });
 
-    // The last screen in the app that took over without registering anything,
-    // so "?" over it listed the keys of the map underneath and said nothing
-    // about the list itself. N is the same letter the toolbar uses for the
-    // same switch, which is the point of having one.
+    // Registered rather than listened for directly, so that "?" over this
+    // dialog lists the list's own keys instead of the map's underneath. N is
+    // the same letter the toolbar uses for the same switch, which is the point
+    // of having one registry.
     App.shortcuts.push({
       id: "list",
       titleKey: "shortcuts.groupList",
@@ -749,7 +741,7 @@ App.labels = (function () {
    * Redraw the list, if one is open.
    *
    * For gaps.js, whose recount lands two hundred milliseconds after whatever
-   * changed the coverage — long after the dialog was drawn. Without this, a
+   * changed the coverage - long after the dialog was drawn. Without this, a
    * gap adopted from the map, a boundary dragged outward, or an undo would
    * leave the list showing a piece of ground that no longer exists, or hiding
    * one that had just appeared. Pushed from there rather than polled from
@@ -759,10 +751,10 @@ App.labels = (function () {
     if (!_dialog) return;
     // Only when the answer actually moved. A recount runs after anything that
     // touches the coverage and returns fresh objects describing the same
-    // ground, and rebuilding on every one of them tore the rows out from under
-    // whoever was clicking them — the row nodes are what the selection, the
-    // keyboard walk and the scroll position all hang off, so a rebuild for no
-    // reason is a selection lost for no reason.
+    // ground, and rebuilding on every one of them would tear the rows out from
+    // under whoever is clicking them - the row nodes are what the selection,
+    // the keyboard walk and the scroll position all hang off, so a rebuild for
+    // no reason is a selection lost for no reason.
     if (_gapMark() === _gapsShown) return;
 
     // Whoever closed a gap from the keyboard was standing on a row that is
@@ -803,11 +795,11 @@ App.labels = (function () {
    * Fill an already-open list dialog from the current territories.
    *
    * Separate from openList() because a repair changes the list and must not
-   * change the screen around it. Re-opening the dialog put the scroll back to
-   * the top and the focus back on the first thing in it, which for a list of
-   * forty territories means finding your place again after every click — and
-   * the rows you are working through are exactly the ones near the bottom,
-   * because those are the ones nobody has got to yet.
+   * change the screen around it. Re-opening the dialog would put the scroll
+   * back to the top and the focus back on the first thing in it, which for a
+   * list of forty territories means finding your place again after every
+   * click - and the rows you are working through are exactly the ones near
+   * the bottom, because those are the ones nobody has got to yet.
    *
    * @param {Element} dialog
    * @param {{status?: string}} [opts] a sentence for the live region
@@ -818,8 +810,8 @@ App.labels = (function () {
       return _rows[index] || _describe(entry, index);
     });
     var shown = all.filter(_matchesFilter);
-    // Uncovered ground answers the same two questions every row does — it is
-    // always something to repair, and it is never printed — so it goes
+    // Uncovered ground answers the same two questions every row does - it is
+    // always something to repair, and it is never printed - so it goes
     // through the same filter rather than past it.
     var gaps = _gaps();
     var shownGaps = _matchesGapFilter() ? gaps : [];
@@ -851,10 +843,10 @@ App.labels = (function () {
     D.toggleRole(dialog, "notes", notes.length > 0);
 
     // The repair offer, per row and for the list as a whole. `fixable` is not
-    // the same as `flagged`: a territory too small to see is flagged and not
-    // fixable, and an empty one no neighbor can take is flagged and not
-    // fixable either. autoheal answers it by rehearsing the repair rather than
-    // by guessing at it, so a wand that is shown always does something.
+    // the same as `flagged`: an empty territory no neighbor can take carries
+    // its flag and no wand, and so does a crossing that cannot be undone.
+    // autoheal answers it by rehearsing the repair rather than by guessing at
+    // it, so a wand that is shown always does something.
     if (!_audit)
       _audit = App.autoheal ? App.autoheal.audit() : { rows: [], fixable: 0 };
     var audit = _audit;
@@ -862,8 +854,8 @@ App.labels = (function () {
     audit.rows.forEach(function (issue) {
       if (issue.fixable) fixable[issue.index] = true;
     });
-    // Uncovered ground is always fixable — adopting a piece of it produces a
-    // territory that was not there a moment ago — so it needs no rehearsal
+    // Uncovered ground is always fixable - adopting a piece of it produces a
+    // territory that was not there a moment ago - so it needs no rehearsal
     // and counts towards the offer on its own.
     D.toggleRole(dialog, "fix-all", audit.fixable > 0 || gaps.length > 0);
 
@@ -933,10 +925,9 @@ App.labels = (function () {
       });
 
       // A list where clicking selects and double-clicking opens, which is what
-      // every other list anybody uses does. Zooming to the territory was on
-      // the single click while the list had no selection to speak of; now it
-      // has one, and a click that both picks a row and throws the dialog away
-      // can only be one of the two.
+      // every other list anybody uses does. The list has a selection, and a
+      // single click that both picked a row and threw the dialog away to zoom
+      // could only ever be one of the two.
       D.onRole(node, "go", function (e) {
         if (e && e.shiftKey) {
           _extendTo(dialog, row.index);
@@ -988,15 +979,15 @@ App.labels = (function () {
    * One piece of uncovered ground, as a row.
    *
    * The same template as a territory, and deliberately not a second one: it is
-   * the same kind of object in the same list — an area you can go and look at,
-   * with something wrong with it and a button that puts it right — and a
+   * the same kind of object in the same list - an area you can go and look at,
+   * with something wrong with it and a button that puts it right - and a
    * separate template would be a second thing to restyle every time this one
    * changes.
    *
    * What it is *not* is a territory, so three things differ. It carries no
    * number, because there is nothing on the map numbering it. It cannot be
-   * selected — the selection is handed to the map on the way out, where merge
-   * and delete act on territories — so it gets no `data-territory` and stays
+   * selected - the selection is handed to the map on the way out, where merge
+   * and delete act on territories - so it gets no `data-territory` and stays
    * out of _shownOrder. And it cannot be printed: there is no card for ground
    * nobody has claimed yet.
    *
@@ -1016,7 +1007,7 @@ App.labels = (function () {
     node.dataset.flagged = "1";
 
     // The number chip is where the eye goes first, so it is the one that says
-    // this row is not a territory — an exclamation where a number would be,
+    // this row is not a territory - an exclamation where a number would be,
     // in the same orange the shape itself is drawn in on the map.
     var num = D.role(node, "num");
     if (num) {
@@ -1059,7 +1050,7 @@ App.labels = (function () {
 
     // The other outcome, and the more common one: most uncovered ground is
     // not worth a card, and closing it hands it to a neighbor or trims the
-    // boundary back — whichever the shape calls for. gaps.js decides which.
+    // boundary back - whichever the shape calls for. gaps.js decides which.
     D.toggle(D.role(node, "print"), false);
     D.toggle(D.role(node, "dissolve"), true);
     D.onRole(node, "dissolve", function () {
@@ -1067,8 +1058,8 @@ App.labels = (function () {
     });
 
     // A single click goes and looks at it, where a territory needs a double.
-    // There is no selection to lose here — that is what the second click of a
-    // territory's pair is undoing — so making people click twice would be
+    // There is no selection to lose here - that is what the second click of a
+    // territory's pair is undoing - so making people click twice would be
     // ceremony for its own sake.
     D.onRole(node, "go", function () {
       App.ui.closeDialog();
@@ -1080,7 +1071,7 @@ App.labels = (function () {
    * Zoom to a piece of uncovered ground.
    *
    * Zoom 17 rather than the 19 a territory gets: a gap is understood by what is
-   * around it — the territories it sits between — and a tighter zoom shows the
+   * around it - the territories it sits between - and a tighter zoom shows the
    * hole and nothing else.
    */
   function focusGap(feature) {
@@ -1102,7 +1093,7 @@ App.labels = (function () {
    * Show which rows are picked, and nothing else.
    *
    * Deliberately not _renderList, which rebuilds every row and re-audits every
-   * territory — a second of work on a real partition to move a highlight from
+   * territory - a second of work on a real partition to move a highlight from
    * one row to another. Nothing about a selection can change which rows exist,
    * what they say, or what is wrong with them, so this walks the rows already
    * on screen and sets a flag on each.
@@ -1117,7 +1108,7 @@ App.labels = (function () {
     });
 
     // Reusing merge's own sentence: the count means the same thing in both
-    // places, and it is the same selection — the list is only where it was
+    // places, and it is the same selection - the list is only where it was
     // picked.
     D.text(dialog, "selection", T("merge.selected", { count: _picked.length }));
     D.toggleRole(dialog, "selection", _picked.length > 0);
@@ -1134,7 +1125,7 @@ App.labels = (function () {
    * what the sample every first-time visitor sees contains, would open a
    * 600 px dialog four fifths of which is empty box.
    *
-   * So the size is the one the list opened with — measured once, then held.
+   * So the size is the one the list opened with - measured once, then held.
    * The stylesheet decides what that natural size is, cap included; from then
    * on the dialog is that tall and the rows box takes up the slack.
    *
@@ -1161,20 +1152,17 @@ App.labels = (function () {
     _pinned = true;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // FINDING ONE ROW AMONG NINETY-NINE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Does this row carry a fault worth walking to?
    *
-   * Split and empty, and deliberately not tiny. On a real partition — ninety-
-   * nine territories with one genuine fault in it — thirty-five rows were
-   * "too small to see at this zoom", so a walk that included them stepped
-   * through thirty-five viewport artefacts before reaching the thing that was
-   * actually wrong. Zooming in empties that set entirely, which is the proof
-   * it does not belong in a locator. It keeps its flag on the row and its own
-   * entry in the filter, where choosing it is a decision rather than noise.
+   * Split, empty and crossed, and deliberately not "too small to see at this
+   * zoom". On a real partition - ninety-nine territories with one genuine
+   * fault in it - thirty-five parts were too small to notice, so a walk that
+   * included them would step through thirty-five viewport artefacts before
+   * reaching the thing actually wrong. Zooming in empties that set entirely,
+   * which is the proof it does not belong in a locator.
    *
    * Wider than `fixable`, though: a territory in two pieces that autoheal
    * cannot repair is still one to be taken to.
@@ -1213,8 +1201,8 @@ App.labels = (function () {
   /**
    * Put each chip in the state its axis is in.
    *
-   * The label says which state that is — "Issues", "With issues", "No issues"
-   * — because three states is one more than a pressed-or-not control can mean
+   * The label says which state that is - "Issues", "With issues", "No issues"
+   * - because three states is one more than a pressed-or-not control can mean
    * on its own, and a legend nobody reads is not an answer. `aria-pressed`
    * carries the coarser "is this narrowing anything", which is the question
    * somebody scanning the bar for why half the list is missing is asking.
@@ -1235,9 +1223,7 @@ App.labels = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PICKING SEVERAL
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * The selection, as the map will receive it.
@@ -1264,7 +1250,7 @@ App.labels = (function () {
    *
    * This is what the picking is for. The list is a far better place to choose
    * fourteen territories out of ninety-nine than a map is, and the operations
-   * worth doing to fourteen territories — merging them, deleting them — live
+   * worth doing to fourteen territories - merging them, deleting them - live
    * out there. So closing the dialog is the hand-over, and App.editing holds
    * it from then on: one idea of "selected", painted once, counted once,
    * undone once.
@@ -1319,7 +1305,7 @@ App.labels = (function () {
     if (at >= 0) _picked.splice(at, 1);
     else _picked.push(index);
     // A range extends from the last row touched by hand, the way it does in
-    // every file list — including when that touch took a row *out*.
+    // every file list - including when that touch took a row *out*.
     _anchor = index;
     _cursor = index;
     _paintSelection(dialog);
@@ -1330,7 +1316,7 @@ App.labels = (function () {
    *
    * The selection it replaces is remembered first, so that the double click
    * this may turn out to be the first half of can put it back. Only the first
-   * click of a pair takes the snapshot — the second one is inside the window
+   * click of a pair takes the snapshot - the second one is inside the window
    * and would otherwise overwrite it with the state the first one just created,
    * which is the state being backed out of.
    */
@@ -1380,8 +1366,8 @@ App.labels = (function () {
    *
    * Through the shown rows rather than through the index range, so a range
    * taken while filtered picks the twelve rows you can see rather than the
-   * eighty the numbers happen to span. With no anchor yet — Shift-clicking
-   * first — the range is just this row, which is what starts one.
+   * eighty the numbers happen to span. With no anchor yet - Shift-clicking
+   * first - the range is just this row, which is what starts one.
    */
   function _extendTo(dialog, index) {
     _beforeClick = null;
@@ -1392,9 +1378,9 @@ App.labels = (function () {
     if (from < 0) from = to;
 
     // The range *is* the selection rather than being added to it, which is
-    // what lets Shift+Up walk back over rows it just took. Adding instead
-    // meant the selection could only ever grow, so a range overshot by two
-    // rows had to be started again from scratch.
+    // what lets Shift+Up walk back over rows it just took. Adding to the
+    // selection instead would let it only ever grow, so a range overshot by
+    // two rows would have to be started again from scratch.
     _picked = order.slice(Math.min(from, to), Math.max(from, to) + 1);
     // The anchor stays put, so a second Shift-click grows or shrinks the same
     // range rather than starting a new one from where the last one ended.
@@ -1407,7 +1393,7 @@ App.labels = (function () {
    * Move through the list from the keyboard.
    *
    * Plain arrows move and take the row they land on, Shift+arrows drag the
-   * range out from the anchor — the same two rules as clicking, which is the
+   * range out from the anchor - the same two rules as clicking, which is the
    * point: the mouse and the keyboard should not disagree about what a
    * selection is.
    *
@@ -1489,7 +1475,7 @@ App.labels = (function () {
    * working around, not a document with a last page.
    *
    * The row is scrolled to and focused rather than selected on the map. This
-   * is a locator for the list — the map is one click further on, and going
+   * is a locator for the list - the map is one click further on, and going
    * there closes the dialog.
    */
   function _jump(dialog) {
@@ -1539,7 +1525,7 @@ App.labels = (function () {
    */
   function _restoreFocus(dialog, index, role) {
     // "Fix all" is about the list rather than about a row, so it comes back to
-    // itself — or, once there is nothing left to fix and it has gone, to the
+    // itself - or, once there is nothing left to fix and it has gone, to the
     // button that closes the dialog.
     if (index === null) {
       _focusFirst([D.role(dialog, "fix-all"), D.role(dialog, "close")]);
@@ -1557,8 +1543,8 @@ App.labels = (function () {
     if (!target && rows.length) target = rows[Math.min(index, rows.length - 1)];
 
     // Walked in order rather than picked by the first non-null: the wand that
-    // was clicked is usually gone or hidden by now — that is what a successful
-    // repair looks like — and stopping at it left the focus on <body>, which
+    // was clicked is usually gone or hidden by now - that is what a successful
+    // repair looks like - and stopping at it leaves the focus on <body>, which
     // takes the next Tab back to the top of the page instead of into the list.
     _focusFirst([
       target && role ? D.role(target, role) : null,
@@ -1590,7 +1576,7 @@ App.labels = (function () {
    * Run the repair, then rebuild the rows around what it did.
    *
    * The dialog stays where it is. A heal renumbers everything after the first
-   * territory it changes, so the rows have to be rebuilt — but the scroll
+   * territory it changes, so the rows have to be rebuilt - but the scroll
    * offset and the focus belong to the person reading, not to the data, and
    * both are put back.
    *
@@ -1598,7 +1584,7 @@ App.labels = (function () {
    * turf starts, which is the same 30 ms editing.js buys for a merge.
    *
    * @param {{gap: number}|number|null} target one territory by index, one
-   *   piece of uncovered ground as `{gap: n}`, or null for everything —
+   *   piece of uncovered ground as `{gap: n}`, or null for everything --
    *   which includes the uncovered ground, because "fix all" is the button
    *   that makes the map right and a strip nobody walks is not right.
    * @param {Element} [source] the button that was clicked, so the focus can
@@ -1628,8 +1614,8 @@ App.labels = (function () {
       }
       App.ui.hideOverlay();
 
-      // The dialog can have been closed while the repair ran — Escape still
-      // works under the spinner — and rebuilding a dialog that is no longer
+      // The dialog can have been closed while the repair ran - Escape still
+      // works under the spinner - and rebuilding a dialog that is no longer
       // on the page would throw.
       if (_dialog !== dialog) return;
 

@@ -1,5 +1,5 @@
 /**
- * util.js — reading user preferences, reading OSM tag values, and the
+ * util.js - reading user preferences, reading OSM tag values, and the
  * development-only timing gate.
  *
  * The three jobs have nothing to do with each other beyond all being needed
@@ -7,14 +7,14 @@
  * loads first and its functions are safe to call from another module's top
  * level, before init() has run.
  *
- * ── Preference storage ───────────────────────────────────────────────────
+ * Preference storage
  *
  * `window.localStorage` is not a safe expression to evaluate. Firefox in
  * private mode throws on the *property access* itself rather than on the
  * method call, and Safari throws from setItem once the storage quota is
- * reached. Everything stored through here is a view preference — which
+ * reached. Everything stored through here is a view preference - which
  * basemap is showing, whether the toolbar is collapsed, whether territory
- * numbers are visible — so the right response to any failure is the same one:
+ * numbers are visible - so the right response to any failure is the same one:
  * carry on without remembering. Callers therefore never have to handle an
  * error, and the functions below return a fallback or `false` instead of
  * throwing.
@@ -25,14 +25,14 @@
  * bug, and a helper whose entire contract is "shrug and continue" is the wrong
  * shape for them.
  *
- * ── OSM tag text ─────────────────────────────────────────────────────────
+ * OSM tag text
  *
  * A tag value coming from the backend can arrive in three different shapes,
  * only one of which is a plain string. Both the map tooltips in polygons.js
  * and the locality name ranking in naming.js need all three handled the same
  * way. See tagText below for what they are.
  *
- * ── Timing ───────────────────────────────────────────────────────────────
+ * Timing
  *
  * timed() measures a click handler, and only when the page is served locally.
  * See there for why the gate exists rather than the measurement being
@@ -43,13 +43,11 @@ var App = window.App || {};
 App.util = (function () {
   "use strict";
 
-  // ══════════════════════════════════════════════════════════════════════
   // PREFERENCE STORAGE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * @returns {Storage|null} the browser's localStorage, or null when it is
-   *   unavailable — which includes the case where merely reading the property
+   *   unavailable - which includes the case where merely reading the property
    *   throws, so this is the only place that touches it directly.
    */
   function _storage() {
@@ -140,16 +138,14 @@ App.util = (function () {
     try {
       return writeLocal(key, JSON.stringify(value));
     } catch (e) {
-      // JSON.stringify only throws on a value that refers to itself, which
-      // would be a bug in the caller rather than a storage problem — but not
-      // one worth losing the rest of the session over.
+      // JSON.stringify throws on a circular value and on a BigInt, both of
+      // which are a bug in the caller rather than a storage problem - but
+      // not one worth losing the rest of the session over.
       return false;
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TIMING
-  // ══════════════════════════════════════════════════════════════════════
 
   // Hostnames that mean "this machine". "" is what a file:// URL reports.
   var LOCAL_HOSTS = ["localhost", "127.0.0.1", "::1", "[::1]", ""];
@@ -161,7 +157,7 @@ App.util = (function () {
    *
    * Answered once and remembered: it cannot change without a navigation, and
    * the caller is on a click path. A name ending in ".localhost" counts because
-   * RFC 6761 §6.3 reserves that suffix for loopback.
+   * RFC 6761 section 6.3 reserves that suffix for loopback.
    *
    * @returns {boolean}
    */
@@ -177,7 +173,7 @@ App.util = (function () {
     } catch (e) {
       location = null;
     }
-    // No location object at all — a stub window, a sandboxed frame — is not a
+    // No location object at all - a stub window, a sandboxed frame - is not a
     // development host. An *empty* hostname is, and the two have to be told
     // apart: reading a missing location through `|| ""` would make the first
     // case indistinguishable from a file:// URL.
@@ -212,9 +208,7 @@ App.util = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // OSM TAG TEXT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Turn one raw OSM tag value into readable text, or null when it says
@@ -222,16 +216,16 @@ App.util = (function () {
    *
    * Three shapes all arrive in normal use and have to be handled here:
    *
-   *   • An **array**. When osmnx collapses several OSM ways into a single
+   *   - An **array**. When osmnx collapses several OSM ways into a single
    *     street edge it concatenates their tags, so `name` can be a list of
    *     names. These are joined with "; ", which is what the backend's own
    *     `_clean` does to the same values.
-   *   • The **strings** "nan" or "none", which are a missing value that has
+   *   - The **strings** "nan" or "none", which are a missing value that has
    *     been through a stringify step. The backend drops float NaN before
    *     serializing, but a hand-edited import or a file written by an older
    *     version can still contain the text form, and "nan" printed on a
    *     territory card is worse than an empty line.
-   *   • Anything else, which is trimmed and treated as nothing if the result
+   *   - Anything else, which is trimmed and treated as nothing if the result
    *     is empty.
    *
    * @param {*} value the raw property value

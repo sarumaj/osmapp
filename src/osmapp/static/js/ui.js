@@ -1,5 +1,5 @@
 /**
- * ui.js — the single owner of every piece of chrome outside the map:
+ * ui.js - the single owner of every piece of chrome outside the map:
  * loading overlay, info panel, context menu, modal dialogs.
  */
 var App = window.App || {};
@@ -85,9 +85,7 @@ App.ui = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // OVERLAY
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Indeterminate spinner: fetching, merging, splitting, post-processing.
@@ -169,8 +167,8 @@ App.ui = (function () {
   /**
    * Run work that is about to block the page, with the spinner up for it.
    *
-   * A synchronous job cannot be preceded by a repaint — the browser draws
-   * nothing until the call stack unwinds — so the only way to show anything
+   * A synchronous job cannot be preceded by a repaint - the browser draws
+   * nothing until the call stack unwinds - so the only way to show anything
    * before a second of geometry is to put the spinner up, hand the frame back,
    * and do the work in the next task. That is what this is: showBusy, a tick,
    * the work, hideOverlay.
@@ -183,8 +181,8 @@ App.ui = (function () {
    * spinner; the ninety-nine-territory town sees one every time.
    *
    * `always` is for the jobs that cannot be decided that way: loading a whole
-   * project is the heaviest thing here — it is what the estimate is measured
-   * *from* — and it happens before there is any estimate to read, on a page
+   * project is the heaviest thing here - it is what the estimate is measured
+   * *from* - and it happens before there is any estimate to read, on a page
    * that has just finished drawing itself and looks ready. Nobody reads a
    * spinner during a page load as a flash; they read a page that stopped
    * answering as a broken one.
@@ -223,8 +221,8 @@ App.ui = (function () {
   function hideOverlay() {
     // Before the spinner comes down, not after. Whatever put it up has just
     // changed the map, and the uncovered remainder is recomputed on a short
-    // timer — long enough for the overlay to go first, so a second of
-    // arithmetic landed on a page that looked finished and stopped answering.
+    // timer - long enough for the overlay to go first, which would land a
+    // second of arithmetic on a page that looks finished and stops answering.
     // Doing it here costs the same second and spends it under the spinner
     // that is already explaining the wait.
     if (App.gaps && App.gaps.flush) App.gaps.flush();
@@ -234,9 +232,7 @@ App.ui = (function () {
     D.role(_overlay, "phases").textContent = "";
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // INFO PANEL
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * @param {{title?:string, streets?:number, buildings?:number,
@@ -283,7 +279,7 @@ App.ui = (function () {
 
   /**
    * A quiet mark next to the count when something on the map is worth a second
-   * look — a territory drawn in more than one piece, one with no buildings in
+   * look - a territory drawn in more than one piece, one with no buildings in
    * it at all, one whose boundary is drawn through a building, or ground
    * inside the boundary that is in no territory.
    *
@@ -291,14 +287,14 @@ App.ui = (function () {
    * the mark the number looks wrong, with it the number looks explained. The
    * other two explain nothing and are the ones that matter most, because an
    * empty territory and a strip nobody covers both look entirely ordinary
-   * right up until somebody is handed the card — or is not. All of them are
+   * right up until somebody is handed the card - or is not. All of them are
    * one click away in the list, which is also where they can be repaired.
    *
-   * The uncovered ground had a row of its own here, and lost it to this mark.
-   * A second count in the panel was a second place to look and a second thing
-   * to explain, for a fault that could only ever be acted on somewhere else:
-   * its flag, its area, the button that adopts it and the button that closes
-   * it are all in the list. One mark, one place to go.
+   * The uncovered ground shares this mark rather than getting a row of its
+   * own. A second count in the panel would be a second place to look and a
+   * second thing to explain, for a fault that can only ever be acted on
+   * somewhere else: its flag, its area, the button that adopts it and the
+   * button that closes it are all in the list. One mark, one place to go.
    */
   function _syncClusterWarning() {
     var warn = App.labels ? App.labels.warnings() : null;
@@ -313,7 +309,7 @@ App.ui = (function () {
     }
   }
 
-  /** Re-render the panel from the last payload — after a language change or
+  /** Re-render the panel from the last payload - after a language change or
    *  a zoom that changed which territories count as too small to see. */
   function refreshInfo() {
     if (_lastInfo) setInfo(_lastInfo);
@@ -324,7 +320,7 @@ App.ui = (function () {
    *
    * Marking one territory does not change a street or a building count, and
    * recomputing those means re-running every point-in-polygon test in the
-   * area — seconds of work to move one number by one.
+   * area - seconds of work to move one number by one.
    */
   function setPrintedCount(count) {
     if (!_lastInfo || _lastInfo.clusters == null) return;
@@ -353,22 +349,15 @@ App.ui = (function () {
       clusters: clusters,
       printed: printed || 0,
       hintKey: "info.hintFiltered",
-      // The one place in the app that named a key in prose, and it named the
-      // wrong one on a Mac. App.shortcuts already knows how to draw a combo
-      // for the keyboard in front of the user.
+      // Drawn by App.shortcuts rather than written into the sentence, which
+      // is the only way the hint names the key that is actually on the
+      // keyboard in front of the user rather than the one on a PC.
       hintParams: { key: App.shortcuts.hint("Mod+Z") },
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DIALOG
-  // ══════════════════════════════════════════════════════════════════════
 
-  /**
-   * Mount a dialog template on the map. Only one dialog exists at a time;
-   * opening a second closes the first. Escape closes it (see _onKeyDown).
-   * @returns {HTMLElement} the dialog root — query it with App.dom.role()
-   */
   var _dialogOnClose = null;
   var _veil = null;
 
@@ -376,10 +365,18 @@ App.ui = (function () {
    * Dialogs that bring their own way out and would be worse for a second one.
    *
    * The shortcut sheet *is* the help, and a confirm is one sentence with two
-   * buttons — a "?" on either would point at itself or at nothing.
+   * buttons - a "?" on either would point at itself or at nothing.
    */
   var NO_HELP = { "tpl-shortcuts-dialog": true, "tpl-confirm-dialog": true };
 
+  /**
+   * Mount a dialog template on the map. Only one dialog exists at a time;
+   * opening a second closes the first. Escape closes it (see _onKeyDown).
+   *
+   * @param {Function} [onClose] run once the dialog is taken down, however it
+   *   was closed
+   * @returns {HTMLElement} the dialog root - query it with App.dom.role()
+   */
   function openDialog(templateId, onClose) {
     closeDialog();
     _dialogOnClose = onClose || null;
@@ -401,15 +398,15 @@ App.ui = (function () {
   }
 
   /**
-   * The "?" every mode bar has advertised on its hint banner, given to the
-   * screens that have no banner.
+   * The "?" a mode bar advertises on its hint banner, given to the screens
+   * that have no banner.
    *
-   * The key has worked inside dialogs since App.shortcuts learned about
-   * `overModal`, but nothing on screen said so — which made it a shortcut for
-   * people who had already read the shortcut list. Public because the PDF
-   * placement frame mounts itself rather than going through openDialog: it
-   * stacks over the print dialog, and openDialog would close the thing it is
-   * stacking over.
+   * The key itself works inside a dialog through App.shortcuts' `overModal`,
+   * but a key nothing on screen mentions is a shortcut only for people who
+   * have already read the shortcut list. Public because the PDF placement
+   * frame mounts itself rather than going through openDialog: it stacks over
+   * the print dialog, and openDialog would close the thing it is stacking
+   * over.
    */
   function addHelpButton(dialog) {
     if (!dialog || dialog.querySelector(".app-dialog__help")) return null;
@@ -430,12 +427,12 @@ App.ui = (function () {
   /**
    * Keep Tab inside the dialog.
    *
-   * aria-modal="true" is a claim about where focus can go, and it was only
-   * ever true of the mouse: Tab walked straight out of the print dialog into
-   * the toolbar behind it, where every button was still live. The veil covers
-   * the mouse; this covers the keyboard.
+   * aria-modal="true" is a claim about where focus can go, and on its own it
+   * is true only of the mouse: Tab walks straight out of the print dialog
+   * into the toolbar behind it, where every button is still live. The veil
+   * covers the mouse; this covers the keyboard.
    *
-   * Nothing here answers Escape — App.shortcuts owns that, and a second
+   * Nothing here answers Escape - App.shortcuts owns that, and a second
    * listener would close two things per press.
    */
   function trapFocus(dialog) {
@@ -449,8 +446,8 @@ App.ui = (function () {
       if (!items.length) return;
       var first = items[0];
       var last = items[items.length - 1];
-      // Focus outside the dialog entirely — the map took it, or nothing has
-      // it yet — comes back to the top rather than continuing round the page.
+      // Focus outside the dialog entirely - the map took it, or nothing has
+      // it yet - comes back to the top rather than continuing round the page.
       if (dialog.contains(document.activeElement)) {
         if (!e.shiftKey && document.activeElement !== last) return;
         if (e.shiftKey && document.activeElement !== first) return;
@@ -465,7 +462,7 @@ App.ui = (function () {
    *
    * App.shortcuts asks before dispatching: a modal that shares Enter with the
    * cut tool behind it is not modal. The node itself is exposed for the one
-   * caller that re-renders its own dialog in place — the shortcut sheet, which
+   * caller that re-renders its own dialog in place - the shortcut sheet, which
    * has to redraw when a mode is entered while it is open.
    */
   function isDialogOpen() {
@@ -476,9 +473,7 @@ App.ui = (function () {
     return _dialog;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONFIRM
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A yes/no prompt that resolves rather than blocking.
@@ -486,15 +481,15 @@ App.ui = (function () {
    * window.confirm() is synchronous, unstyled, unlocalizable beyond its
    * message, and on mobile it is a system sheet that looks like the browser
    * asking rather than the app. It is also unusable for the case this exists
-   * for — asking before a download — because the answer arrives before the
+   * for - asking before a download - because the answer arrives before the
    * caller can show anything about what is being downloaded.
    *
-   * Every exit resolves exactly once: the buttons, Escape (via _onKeyDown →
-   * closeDialog → the teardown below), and any other dialog opening on top.
+   * Every exit resolves exactly once: the buttons, Escape (via _onKeyDown ->
+   * closeDialog -> the teardown below), and any other dialog opening on top.
    *
    * `altKey` adds a third button and makes the answer a string rather than a
    * boolean. Existing callers pass no altKey, never see one, and keep the
-   * boolean they were written against — but a caller that does pass one must
+   * boolean they were written against - but a caller that does pass one must
    * test for `=== "alt"` before testing truthiness, because "alt" is truthy.
    * The one question that needs three answers is "replace this boundary?",
    * where the third is "edit the one I have".
@@ -561,8 +556,8 @@ App.ui = (function () {
       }
       D.onRole(dialog, "ok", accept);
 
-      // Enter accepts, Escape declines. Both go through the registry now
-      // rather than through a listener on the dialog node: a prompt whose two
+      // Enter accepts, Escape declines. Both go through the registry rather
+      // than through a listener on the dialog node: a prompt whose two
       // keys are invisible to the sheet is a prompt where "?" lists the keys
       // of the tool underneath and says nothing about the question actually
       // on screen.
@@ -590,9 +585,7 @@ App.ui = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONTEXT MENU
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A context menu from a list of items, anywhere on the map.
@@ -608,7 +601,7 @@ App.ui = (function () {
    *                disabled?:boolean, onlineOnly?:boolean, separator?:boolean,
    *                onClick?:Function}>} items
    *   A `separator: true` entry draws a divider and nothing else. `role` is a
-   *   name for the entry that survives translation — the item's own text is
+   *   name for the entry that survives translation - the item's own text is
    *   whatever language the app is in, so anything that has to find one
    *   particular entry from outside (the guided tour rings the print one)
    *   would otherwise be matching on a label.
@@ -660,7 +653,7 @@ App.ui = (function () {
         e.preventDefault();
         e.stopPropagation();
         closeContextMenu();
-        // Timed on a local host only — see App.util.timed. The menu is the other
+        // Timed on a local host only - see App.util.timed. The menu is the other
         // seam every action passes through, beside App.dom.onRole.
         App.util.timed(label, function () {
           if (item.onClick) item.onClick();
@@ -737,18 +730,17 @@ App.ui = (function () {
   /**
    * The territory menu, expressed in the vocabulary above.
    *
-   * Zoom, print, mark and delete are what it always had. Cut and merge are
-   * new, and they are the reason this is worth doing at all: both were
-   * toolbar-only, which meant "split this one" was a trip to the corner of
-   * the screen followed by a hunt for the shape you had just been pointing
-   * at. Starting a mode *from* a territory is the same action with the
-   * subject already chosen.
+   * Zoom, print, mark and delete, plus cut and merge. The last two are the
+   * reason this menu is worth having: reached from the toolbar alone, "split
+   * this one" is a trip to the corner of the screen followed by a hunt for
+   * the shape you had just been pointing at. Starting a mode *from* a
+   * territory is the same action with the subject already chosen.
    */
   function showPolygonContextMenu(point, layer, feature) {
     // The mark is set for you when a card is produced, so this exists for the
     // two cases the automatic path cannot see: a card printed from somewhere
     // else, and a round starting over. Labelled by current state rather than
-    // rendered as a checkbox — a menu item that says what it will do needs no
+    // rendered as a checkbox - a menu item that says what it will do needs no
     // second glance to read.
     var printed = App.polygons.isPrinted(feature);
     var canMerge = !!(s.clusters && s.clusters.length >= 2);
@@ -765,7 +757,7 @@ App.ui = (function () {
         },
       },
       {
-        // Not onlineOnly. The card is composed in the browser now, and the
+        // Not onlineOnly. The card is composed in the browser, and the
         // basemap under it comes from the service worker's tile cache.
         labelKey: "menu.print",
         icon: "fa-print",
@@ -819,11 +811,11 @@ App.ui = (function () {
   /**
    * The boundary's own menu.
    *
-   * Everything here was reachable only from the toolbar, and only by somebody
-   * who already knew which of the four buttons in the Area group acted on the
-   * outline. Reshaping in particular had no entry point at all — the boundary
-   * was write-once, so the correction for a corner in the wrong place was to
-   * draw the whole thing again and re-download for it.
+   * Everything here is otherwise reachable only from the toolbar, and only by
+   * somebody who already knows which of the four buttons in the Area group
+   * acts on the outline. Reshaping matters most: without an entry point on the
+   * boundary itself, the correction for a corner in the wrong place is to draw
+   * the whole thing again and re-download for it.
    */
   function showOuterContextMenu(point, layer) {
     return showContextMenu(point, [
@@ -843,10 +835,10 @@ App.ui = (function () {
       },
       { separator: true },
       {
-        // Every Area-group action was here except the one that comes next in
-        // the workflow, which meant the boundary's own menu stopped exactly
-        // where the boundary stops being the subject — and the step people
-        // are looking for right after drawing one was the trip to the corner.
+        // The step that comes next in the workflow, kept here even though the
+        // boundary stops being the subject at it. Ending the menu one entry
+        // earlier sends the one thing people look for right after drawing a
+        // boundary back to the corner of the screen.
         labelKey: "menu.partition",
         icon: "fa-shapes",
         disabled: !(s.cachedStreets && s.cachedStreets.features),
@@ -880,12 +872,12 @@ App.ui = (function () {
   /**
    * The menu for empty ground.
    *
-   * Every showContextMenu() call site needed something under the cursor — a
-   * territory, a building, the boundary — so a right-click on bare map fell
-   * through to the browser's own menu. Two of the mode hints already promised
-   * otherwise ("Right-click for the menu"), and the modes whose menu is the
-   * only place some of their actions live were the ones you had to know to
-   * aim at a shape to reach.
+   * Every other showContextMenu() call site needs something under the cursor
+   * - a territory, a building, the boundary - so without this a right-click
+   * on bare map falls through to the browser's own menu. Two of the mode hints
+   * promise otherwise ("Right-click for the menu"), and the modes whose menu
+   * is the only place some of their actions live are exactly the ones where
+   * having to aim at a shape is worst.
    *
    * Kept short on purpose: this is the menu with no subject, so it holds the
    * things that have no subject either.

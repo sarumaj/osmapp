@@ -1,10 +1,10 @@
 /**
- * outline.js — reshape the outer boundary after it has been set.
+ * outline.js - reshape the outer boundary after it has been set.
  *
  * Moving one corner of a boundary otherwise means redrawing the whole thing
  * and re-downloading the OSM data behind it.
  *
- * ── Vertices are Leaflet.Editable's job ───────────────────────────────────
+ * Vertices are Leaflet.Editable's job
  *
  * The library already draws the boundary in the first place, and its
  * PathEditor gives all three gestures: drag a vertex to move it, click a
@@ -16,11 +16,11 @@
  * MIN_VERTEX is 3 for a polygon editor, so the library declines to delete the
  * vertex that would leave a line rather than a shape.
  *
- * ── What makes this different from trim ───────────────────────────────────
+ * What makes this different from trim
  *
  * Trimming can only shrink, so it never invalidates the download. This can
  * grow, which means the streets and buildings inside the new outline may
- * never have been fetched — the map would look correct and be missing data.
+ * never have been fetched - the map would look correct and be missing data.
  * So growing past what was downloaded offers a refetch on the way out, rather
  * than leaving a whole street to turn up absent from a printed card.
  */
@@ -59,10 +59,15 @@ App.outline = (function () {
     return !!s.outlineMode;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // MODE
-  // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Enter or leave boundary reshaping.
+   *
+   * Entering closes whichever other modal tool holds the map and edits the
+   * existing outer layer in place; leaving tears the editor down but does not
+   * put the shape back - cancel() does that, apply() commits it.
+   */
   function toggle() {
     var next = !s.outlineMode;
 
@@ -83,7 +88,7 @@ App.outline = (function () {
     s.outlineMode = next;
     // No button of its own to light up: this tool is reached from the polygon
     // tool and from the boundary's own menu, so it is the Draw button that
-    // carries the active state — and refresh() re-evaluates it from the flag
+    // carries the active state - and refresh() re-evaluates it from the flag
     // that has just been set.
     App.controls.refresh();
 
@@ -168,15 +173,13 @@ App.outline = (function () {
     _redo = [];
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // RING
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * The outer ring as a plain array, or null.
    *
    * Leaflet nests latlngs by ring and by part, and how deep depends on
-   * whether the layer is a Polygon or a MultiPolygon — so this walks down to
+   * whether the layer is a Polygon or a MultiPolygon - so this walks down to
    * the first array of LatLngs rather than assuming a depth.
    */
   function _ring() {
@@ -224,7 +227,7 @@ App.outline = (function () {
     // An eraser sweep is one gesture and gets one entry, recorded by
     // _afterErase when the key comes up. Twenty steps to take back one swipe
     // is an undo stack that describes the implementation rather than the
-    // work — and the readout still follows every corner, because that is
+    // work - and the readout still follows every corner, because that is
     // what says the sweep is doing something.
     if (App.vertices.isErasing()) {
       _sync();
@@ -249,7 +252,7 @@ App.outline = (function () {
     if (!shot) return;
     // A drag that ends where it started is not a step. On the first change
     // there is nothing on the stack to compare against, so the comparison is
-    // with the shape the tool opened with — otherwise the very gesture most
+    // with the shape the tool opened with - otherwise the very gesture most
     // likely to be a no-op, picking a corner up and putting it back, is the
     // one that always records one.
     var last = _undo.length ? _undo[_undo.length - 1] : _originalRing();
@@ -264,7 +267,7 @@ App.outline = (function () {
     if (!_undo.length) return false;
     _redo.push(_snapshot());
     // The stack holds the states *after* each change, so the one to return to
-    // is the entry beneath the top — and the original when there is none.
+    // is the entry beneath the top - and the original when there is none.
     _undo.pop();
     _restore(_undo.length ? _undo[_undo.length - 1] : _originalRing());
     return true;
@@ -308,9 +311,7 @@ App.outline = (function () {
     redoKey: "toolbar.redoCorner",
   };
 
-  // ══════════════════════════════════════════════════════════════════════
   // SHORTCUTS
-  // ══════════════════════════════════════════════════════════════════════
 
   var OUTLINE_KEYS = {
     id: "outline",
@@ -360,9 +361,7 @@ App.outline = (function () {
     ],
   };
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONTEXT MENU
-  // ══════════════════════════════════════════════════════════════════════
 
   function _showMenu(point) {
     App.ui.showContextMenu(point, [
@@ -406,9 +405,7 @@ App.outline = (function () {
     return true;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TOOLBAR
-  // ══════════════════════════════════════════════════════════════════════
 
   function _showToolbar() {
     _hideToolbar();
@@ -465,9 +462,7 @@ App.outline = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ACTIONS
-  // ══════════════════════════════════════════════════════════════════════
 
   function _feature() {
     if (!_layer) return null;
@@ -479,6 +474,7 @@ App.outline = (function () {
     }
   }
 
+  /** Back to the ring the tool opened with, discarding undo and redo. */
   function reset() {
     if (!_original || !_layer) return;
     _redo = [];
@@ -488,7 +484,7 @@ App.outline = (function () {
 
   function cancel() {
     // Leaving without applying must leave the boundary as it was found, and
-    // the layer has been edited in place — so the shape is put back before
+    // the layer has been edited in place - so the shape is put back before
     // the mode ends rather than relying on the caller to notice.
     if (_original && _layer && _undo.length) _restore(_originalRing());
     if (s.outlineMode) toggle();
@@ -549,8 +545,8 @@ App.outline = (function () {
     }
 
     // Replacing the boundary clips every territory against it and then
-    // re-tests every building — the heaviest thing in the app after the
-    // partition itself, and the only one of them that never said so.
+    // re-tests every building - the heaviest thing in the app after the
+    // partition itself, and long enough that it needs a spinner over it.
     App.ui.busy("loading.boundary", function () {
       _swap(poly, grew);
     });
@@ -648,7 +644,7 @@ App.outline = (function () {
     var healed = poly;
     try {
       // A ring dragged by hand can cross itself, and a bow-tie is not a
-      // boundary — buffer(0) is the standard repair and largestPolygon picks
+      // boundary - buffer(0) is the standard repair and largestPolygon picks
       // the lobe worth keeping when it splits into two.
       if (turf.booleanValid && !turf.booleanValid(healed)) {
         healed = G.largestPolygon(turf.buffer(healed, 0)) || null;

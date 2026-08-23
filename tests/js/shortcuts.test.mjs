@@ -4,13 +4,13 @@
  * Three failures are what these tests are for, and all three are silent — a key
  * that does nothing looks the same as a key that does not exist:
  *
- *   • A mode binds one half of a pair: Backspace with nothing going forward,
+ *   - A mode binds one half of a pair: Backspace with nothing going forward,
  *     Escape with no Enter. A registry does not prevent that by itself, but a
  *     registry that renders the help sheet does, because the gap becomes
  *     something a reader can see.
- *   • A key keeps firing after its tool closes, because nothing popped its
+ *   - A key keeps firing after its tool closes, because nothing popped its
  *     context and nothing complains.
- *   • A modal shares its keys with what is behind it, so Enter in a dialog also
+ *   - A modal shares its keys with what is behind it, so Enter in a dialog also
  *     commits the cut underneath — a modal that is not modal.
  *
  * The sheet is asserted through the registry rather than through the DOM,

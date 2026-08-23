@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import TypedDict
 
-# ── Paths ──────────────────────────────────────────────────────────────────────
+# Paths
 
 SCRIPT_DIR = Path(__file__).resolve().parent.parent  # the osmapp package
 TEMPLATE_DIR = SCRIPT_DIR / "templates"
@@ -15,42 +15,56 @@ I18N_DIR = STATIC_DIR / "lang"
 # it as an ordinary static asset and embeds it into the card itself. No
 # constant points at it, and pwa.py precaches the directory by name.
 
-# ── Overpass / Nominatim ───────────────────────────────────────────────────────
+# Overpass / Nominatim
 
 OVERPASS_URL = os.environ.get("OVERPASS_URL", "https://overpass-api.de/api")
 OVERPASS_TIMEOUT = int(os.environ.get("OVERPASS_TIMEOUT", "180"))  # seconds
-NOMINATIM_URL = os.environ.get("NOMINATIM_URL", "https://nominatim.openstreetmap.org/search")
+NOMINATIM_URL = os.environ.get(
+    "NOMINATIM_URL", "https://nominatim.openstreetmap.org/search"
+)
 # /lookup resolves an osm_type + osm_id straight to one object, which is how the
 # outer-boundary suggestion gets a polygon without asking /search for geometry on
 # every keystroke. Derived from NOMINATIM_URL so a self-hosted instance only has
 # to be configured once.
-NOMINATIM_LOOKUP_URL = os.environ.get("NOMINATIM_LOOKUP_URL", "") or re.sub(r"/search/?$", "/lookup", NOMINATIM_URL)
+NOMINATIM_LOOKUP_URL = os.environ.get("NOMINATIM_LOOKUP_URL", "") or re.sub(
+    r"/search/?$", "/lookup", NOMINATIM_URL
+)
 
 # Derived the same way, and for the same reason: a self-hosted Nominatim only
 # has to set NOMINATIM_URL for all three endpoints to follow it.
-NOMINATIM_REVERSE_URL = os.environ.get("NOMINATIM_REVERSE_URL", "") or re.sub(r"/search/?$", "/reverse", NOMINATIM_URL)
+NOMINATIM_REVERSE_URL = os.environ.get("NOMINATIM_REVERSE_URL", "") or re.sub(
+    r"/search/?$", "/reverse", NOMINATIM_URL
+)
 
 # Refuse early instead of hanging Overpass for three minutes.
 MAX_AREA_KM2 = float(os.environ.get("OSM_MAX_AREA_KM2", "50"))
 
-STREET_FILTER = '["highway"~"^(motorway|trunk|primary|secondary|tertiary|' 'residential|unclassified)$"]'
+# Overpass tag filter for the street download: the road classes a territory
+# boundary is routed along. Service roads, tracks and footpaths are left out,
+# so a boundary follows a way that can be named on a card.
+STREET_FILTER = (
+    '["highway"~"^(motorway|trunk|primary|secondary|tertiary|'
+    'residential|unclassified)$"]'
+)
 
-# ── Tile proxy ─────────────────────────────────────────────────────────────────
+# Tile proxy
 
-TILE_URL_TEMPLATE = os.environ.get("TILE_URL", "https://tile.openstreetmap.de/{z}/{x}/{y}.png")
+TILE_URL_TEMPLATE = os.environ.get(
+    "TILE_URL", "https://tile.openstreetmap.de/{z}/{x}/{y}.png"
+)
 TILE_CACHE_DIR = Path(os.environ.get("TILE_CACHE_DIR", ".tile_cache"))
 TILE_CACHE_MAX_BYTES = int(os.environ.get("TILE_CACHE_MAX_MB", "500")) * 1024 * 1024
 TILE_CACHE_MAX_AGE_DAYS = int(os.environ.get("TILE_CACHE_MAX_AGE_DAYS", "60"))
 TILE_MAX_ZOOM = 19
 
-# ── Aid basemaps ───────────────────────────────────────────────────────────────
+# Aid basemaps
 #
 # TILE_URL above is the *printable* basemap. It is the only one print.js ever
 # composes a territory card from, and that is a deliberate constraint rather
 # than an oversight: a card is walked with, annotated and handed on, and an
 # aerial photograph neither names a street nor shows a house number. Everything
-# below is an on-screen aid — imagery for "which of these two doors is the
-# front one", terrain for reading a slope before assigning it — served through
+# below is an on-screen aid - imagery for "which of these two doors is the
+# front one", terrain for reading a slope before assigning it - served through
 # the same proxy so it is same-origin and cached, and never reachable from the
 # print pipeline.
 #
@@ -95,7 +109,7 @@ AID_LAYERS: dict[str, AidLayer] = {
         _aid_layer(
             "imagery",
             "IMAGERY",
-            # Esri's World Imagery serves {z}/{y}/{x} — note the order, which
+            # Esri's World Imagery serves {z}/{y}/{x} - note the order, which
             # is why the templates are formatted by keyword and not by position.
             "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
             19,
@@ -112,10 +126,12 @@ AID_LAYERS: dict[str, AidLayer] = {
     if layer["url"]
 }
 
-# ── Geocode proxy ──────────────────────────────────────────────────────────────
+# Geocode proxy
 
 GEOCODE_CACHE_MAX = 256
-GEOCODE_MIN_INTERVAL = float(os.environ.get("GEOCODE_MIN_INTERVAL", "1.0"))  # Nominatim policy: ~1 request/second
+GEOCODE_MIN_INTERVAL = float(
+    os.environ.get("GEOCODE_MIN_INTERVAL", "1.0")
+)  # Nominatim policy: ~1 request/second
 
 # Douglas-Peucker tolerance in degrees that Nominatim applies to a boundary
 # before sending it. ~0.0001 deg is ~11 m: enough to shed surveyor-grade noise
@@ -124,7 +140,7 @@ GEOCODE_MIN_INTERVAL = float(os.environ.get("GEOCODE_MIN_INTERVAL", "1.0"))  # N
 BOUNDARY_THRESHOLD = float(os.environ.get("BOUNDARY_THRESHOLD", "0.0001"))
 BOUNDARY_MAX_THRESHOLD = 0.01
 
-# ── Request body limit ─────────────────────────────────────────────────────────
+# Request body limit
 #
 # The only bodies the app accepts are the GeoJSON polygons the fetch routes
 # take; template PDFs are composed in the browser and never cross the wire.

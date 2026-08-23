@@ -1,5 +1,5 @@
 /**
- * clustering.js — K-Means auto-partition.
+ * clustering.js - K-Means auto-partition.
  *
  *   Phase 0  collect sample points (buildings, then streets, then ring samples)
  *   Phase 1  K-Means -> k centroids
@@ -28,12 +28,12 @@ App.clustering = (function () {
   // boundary edges, and orphan parts below it are dropped rather than becoming
   // their own territory.
   var MIN_PART_M2 = 25;
-  // A territory has to be big enough for someone to walk. 25 m² is a 5x5 m
-  // speck — invisible on screen, but still counted in the info panel and still
+  // A territory has to be big enough for someone to walk. 25 m2 is a 5x5 m
+  // speck - invisible on screen, but still counted in the info panel and still
   // printable as a card. Scale the floor to the partition being produced.
   var MIN_TERRITORY_FRACTION = 0.05;
   // How far apart two slots can be and still count as touching. Adjacent slots
-  // share a boundary but rarely share exact vertices — the same reason
+  // share a boundary but rarely share exact vertices - the same reason
   // geometry.unionHealed() exists.
   var TOUCH_SLACK_M = 0.5;
   var CONNECTIVITY_PASSES = 5;
@@ -52,10 +52,13 @@ App.clustering = (function () {
     App.ui.hideOverlay();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DIALOG
-  // ══════════════════════════════════════════════════════════════════════
 
+  /**
+   * Open the partition dialog: how many territories, or how many buildings in
+   * each. Warns and does nothing until a boundary is drawn and streets are
+   * downloaded, since both phases below read them.
+   */
   function showClusterDialog() {
     if (!s.outerPolygonDrawn || !s.cachedStreets) {
       alert(T("alert.drawAndLoadFirst"));
@@ -152,11 +155,10 @@ App.clustering = (function () {
     /**
      * Type a number, press Enter.
      *
-     * The dialog is two number fields and a pair of radios, and it had no
-     * keys at all: the one gesture every form in the world answers ended in
-     * nothing happening, and the only way out was to take a hand off the
-     * keyboard. `whileTyping`, because the field is exactly where you are
-     * when you mean it.
+     * The dialog is two number fields and a pair of radios, so Enter is the
+     * one gesture every form in the world answers and the only way out that
+     * does not take a hand off the keyboard. `whileTyping`, because the field
+     * is exactly where you are when you mean it.
      */
     App.shortcuts.push({
       id: "partition",
@@ -185,9 +187,7 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ENTRY POINT
-  // ══════════════════════════════════════════════════════════════════════
 
   function runKMeansPartition(k, mode) {
     mode = mode || "area";
@@ -230,9 +230,7 @@ App.clustering = (function () {
     alert(message);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 0 — sample points
-  // ══════════════════════════════════════════════════════════════════════
+  // PHASE 0 - sample points
 
   function _phase0(k, mode) {
     App.ui.setPhase(0);
@@ -295,16 +293,14 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 1 — K-Means
-  // ══════════════════════════════════════════════════════════════════════
+  // PHASE 1 - K-Means
 
   function _phase1(k, mode, outerFeature, outerRing, pts) {
     App.ui.setPhase(1);
     _defer(function () {
       // turf.clustersKmeans measures Euclidean distance on raw degrees. A
       // degree of longitude is only cos(lat) as long as a degree of latitude
-      // — 0.61 at 52°N — so unprojected clustering over-weights longitude and
+      // - 0.61 at 52 deg N - so unprojected clustering over-weights longitude and
       // produces territories systematically elongated north-south. Scale into
       // a local equirectangular frame, cluster, scale back.
       var latSum = 0;
@@ -312,7 +308,7 @@ App.clustering = (function () {
         latSum += p.geometry.coordinates[1];
       });
       var lat0 = pts.length ? latSum / pts.length : 0;
-      var kx = SP.lngScale(lat0) / SP.M_PER_DEG_LAT; // ~0.61 at 52°N
+      var kx = SP.lngScale(lat0) / SP.M_PER_DEG_LAT; // ~0.61 at 52 deg N
 
       var projected = pts.map(function (p) {
         var c = p.geometry.coordinates;
@@ -340,13 +336,11 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 2 — Voronoi, clipped to the outer polygon
+  // PHASE 2 - Voronoi, clipped to the outer polygon
   //
   // Each surviving cell records which centroid owns it. Phase 5 uses that to
   // assign pieces by containment rather than by proximity, which is what keeps
   // a territory in one piece.
-  // ══════════════════════════════════════════════════════════════════════
 
   function _phase2(outerFeature, outerRing, centroids) {
     App.ui.setPhase(2);
@@ -391,7 +385,7 @@ App.clustering = (function () {
         // turf.voronoi returns cells in input order, so index i is the owning
         // centroid. Verified rather than assumed: the cell must contain it.
         // If clipping moved the cell off its centroid, fall back to whichever
-        // centroid the clipped cell's interior point is nearest — asking which
+        // centroid the clipped cell's interior point is nearest - asking which
         // centroid is nearest to centroid i always answers "i".
         var owner = i;
         try {
@@ -423,9 +417,7 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 3 — street graph
-  // ══════════════════════════════════════════════════════════════════════
+  // PHASE 3 - street graph
 
   function _phase3(outerFeature, outerRing, cells, centroids) {
     App.ui.setPhase(3);
@@ -440,18 +432,16 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 4 — route each unique cell edge exactly once
+  // PHASE 4 - route each unique cell edge exactly once
   //
   // Adjacent Voronoi cells share boundary edges. Routing each cell's copy
-  // independently let A* return two different street paths for the same edge,
+  // independently lets A* return two different street paths for the same edge,
   // which breaks the planar graph and makes polygonize miss rings. Edges are
   // keyed on their sorted endpoint pair so each is routed once.
   //
-  // Every part of a clipped cell contributes edges, not just the largest. When
-  // only the largest did, the smaller parts were bounded purely by their
-  // neighbors' lines, producing pieces that aligned with no cell at all.
-  // ══════════════════════════════════════════════════════════════════════
+  // Every part of a clipped cell contributes edges, not just the largest. With
+  // only the largest contributing, the smaller parts are bounded purely by
+  // their neighbors' lines and come out aligned with no cell at all.
 
   function _phase4(outerFeature, outerRing, cells, centroids, graph) {
     App.ui.setPhase(4);
@@ -469,8 +459,8 @@ App.clustering = (function () {
       }
 
       // isOnOuterBoundary walks the whole ring, and phase 4 asks it three
-      // times for every unique cell edge. On a Nominatim city boundary — two
-      // thousand vertices after simplification — against four thousand edges,
+      // times for every unique cell edge. On a Nominatim city boundary - two
+      // thousand vertices after simplification - against four thousand edges,
       // that is 24 million segment distances and about 200 ms of the run.
       // Stamping the ring into the grid index turns each question into a
       // lookup over the handful of segments in the neighboring cells.
@@ -565,16 +555,14 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PHASE 5 — polygonize, assign, gap-fill, enforce connectivity, render
-  // ══════════════════════════════════════════════════════════════════════
+  // PHASE 5 - polygonize, assign, gap-fill, enforce connectivity, render
 
   function _phase5(outerFeature, outerRing, cells, centroids, boundaryLines) {
     App.ui.setPhase(5);
     _defer(function () {
       var k = centroids.length;
 
-      // ── Polygonize the street-snapped boundary ────────────────────────
+      // Polygonize the street-snapped boundary
       var pieces = [];
       try {
         var noded = G.nodeLineSegments(boundaryLines);
@@ -599,7 +587,7 @@ App.clustering = (function () {
 
       console.log(">>> Pieces:", pieces.length, "for k =", k);
 
-      // ── Assign each piece to the cell that contains it ─────────────────
+      // Assign each piece to the cell that contains it
       var centroidCoords = centroids.map(function (c) {
         return c.geometry.coordinates;
       });
@@ -627,7 +615,7 @@ App.clustering = (function () {
         console.log(">>> Pieces assigned by distance fallback:", byDistance);
       }
 
-      // ── Clip every slot to the outer polygon ──────────────────────────
+      // Clip every slot to the outer polygon
       Object.keys(slots).forEach(function (idx) {
         try {
           var clipped = G.intersect(slots[idx], outerFeature);
@@ -639,18 +627,18 @@ App.clustering = (function () {
 
       console.log(">>> Slots filled:", Object.keys(slots).length, "of", k);
 
-      // ── Fill any uncovered remainder ──────────────────────────────────
+      // Fill any uncovered remainder
       // Must run before _enforceConnectivity, which can add slots that have no
       // matching centroid.
       _fillGaps(slots, outerFeature, centroidCoords);
 
-      // ── Guarantee every territory is a single connected piece ──────────
+      // Guarantee every territory is a single connected piece
       _enforceConnectivity(slots);
 
-      // ── Take every boundary off the buildings it runs through ─────────
+      // Take every boundary off the buildings it runs through
       // Last, because the two passes above both weld shapes together with
       // unionHealed, which buffers out and back by half a meter and rounds
-      // whatever outline it touches — including one already sitting on a
+      // whatever outline it touches - including one already sitting on a
       // wall. Going the other way round would put boundaries back into
       // buildings after this had taken them out. Nothing here can undo the
       // connectivity pass in return: a footprint handed over is refused
@@ -658,7 +646,7 @@ App.clustering = (function () {
       // it in.
       _detachBuildings(slots);
 
-      // ── Emit ──────────────────────────────────────────────────────────
+      // Emit
       var partitions = Object.keys(slots)
         .map(function (idx) {
           var f = G.feat(slots[idx]);
@@ -683,16 +671,14 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ASSIGNMENT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A point guaranteed to lie inside the feature.
    *
    * turf.centroid is the vertex mean, so for the L and crescent shapes that
-   * street-following boundaries produce it lands outside the polygon — often
-   * inside a neighbor, which is how pieces ended up in the wrong territory.
+   * street-following boundaries produce it lands outside the polygon - often
+   * inside a neighbor, which is how a piece lands in the wrong territory.
    * Shared with labels.js and naming.js through G.interiorPoint: the number
    * chip, the piece assignment and the reverse lookup have to agree on where
    * the inside of a territory is.
@@ -719,8 +705,8 @@ App.clustering = (function () {
    *
    * Containment in the owning Voronoi cell comes first. Nearest centroid is
    * only a fallback, because street-routed boundaries deviate far enough from
-   * the Voronoi edges that proximity alone put pieces in territories whose
-   * body was somewhere else entirely.
+   * the Voronoi edges that proximity alone puts pieces in territories whose
+   * body is somewhere else entirely.
    *
    * @returns {{index: number, fallback: boolean}|null}
    */
@@ -734,7 +720,7 @@ App.clustering = (function () {
           return { index: cells[i].centroidIdx, fallback: false };
         }
       } catch (e) {
-        /* malformed cell — try the next */
+        /* malformed cell - try the next */
       }
     }
 
@@ -742,9 +728,7 @@ App.clustering = (function () {
     return idx === null ? null : { index: idx, fallback: true };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // GAP FILLING
-  // ══════════════════════════════════════════════════════════════════════
 
   /** outer minus the union of all slots, merged into a touching slot. */
   function _fillGaps(slots, outerFeature, centroidCoords) {
@@ -792,8 +776,8 @@ App.clustering = (function () {
       if (!pt) return;
 
       // Prefer slots the fragment actually touches. Ranking purely by centroid
-      // distance welded fragments onto territories across the map, which is
-      // one of the ways a territory ended up in two pieces.
+      // distance welds fragments onto territories across the map, which is one
+      // of the ways a territory ends up in two pieces.
       var touching = _touchingSlots(slots, fragment, null);
       var candidates = touching.length > 0 ? touching : Object.keys(slots);
       if (touching.length === 0) stranded++;
@@ -866,15 +850,13 @@ App.clustering = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BUILDINGS ON THE BOUNDARY
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Move any boundary that runs through a building onto that building's wall.
    *
    * Phase 4 routes every cell edge along the street network, and where it
-   * succeeds this pass finds nothing to do — a street is not inside a house.
+   * succeeds this pass finds nothing to do - a street is not inside a house.
    * Where it fails the edge stays the straight Voronoi line, and a straight
    * line across a block goes through whatever is built on it. Those are the
    * ones this repairs, and it repairs them the same way autoheal does later:
@@ -912,9 +894,7 @@ App.clustering = (function () {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONNECTIVITY
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Make every territory a single connected polygon.
@@ -925,7 +905,7 @@ App.clustering = (function () {
    * it shares the most boundary with.
    *
    * An orphan that touches nothing becomes its own territory rather than being
-   * welded to a distant slot — that would recreate the exact bug this exists to
+   * welded to a distant slot - that would recreate the exact bug this exists to
    * prevent. Orphans below 5% of an average territory are dropped instead: at
    * that size they are invisible on the map but still counted in the info panel
    * and still printable as a card, which reads as a partition that produced one
@@ -1003,7 +983,7 @@ App.clustering = (function () {
 
     // The pass cap is a safety net, not a plan. If anything is still
     // multi-part, split it outright rather than shipping a territory in two
-    // places — that is the whole point of this function.
+    // places - that is the whole point of this function.
     var forced = 0;
     Object.keys(slots).forEach(function (idx) {
       var parts = G.polygonParts(slots[idx]);
@@ -1047,9 +1027,7 @@ App.clustering = (function () {
     return String(max + 1);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // STREET GRAPH
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Build an undirected weighted graph of the street network, plus a grid
@@ -1112,8 +1090,20 @@ App.clustering = (function () {
     return { nodes: nodes, grid: grid, count: keys.length };
   }
 
-  // ── A* ────────────────────────────────────────────────────────────────
+  // A*
 
+  /**
+   * Shortest street path between two graph nodes, biased toward one heading.
+   *
+   * `desiredBearing` is the straight line the Voronoi edge would have taken.
+   * A step is charged up to 30% extra for turning away from it, which is
+   * enough to prefer the road that runs alongside the edge over an equally
+   * short detour at right angles to it, and not enough to reject a genuine
+   * dogleg. Gives up after STREET_SEARCH_MAX_ITER pops so a partition cannot
+   * stall on two endpoints in different components.
+   *
+   * @returns {number[][]|null} coordinates, endpoints included
+   */
   function _astar(graph, startKey, endKey, desiredBearing) {
     if (!startKey || !endKey || startKey === endKey) return null;
 

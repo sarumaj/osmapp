@@ -1,23 +1,23 @@
 /**
- * i18n.js — translation for the whole client.
+ * i18n.js - translation for the whole client.
  *
  * Design notes:
- *   • Language comes from the URL: / is English, /pl, /fr and /de are the others.
+ *   - Language comes from the URL: / is English, /pl, /fr and /de are the others.
  *     Switching rewrites that URL with pushState and swaps the dictionary in
- *     place, so the address stays shareable without the page — and everything
- *     the page was holding — being thrown away to change some labels.
+ *     place, so the address stays shareable without the page - and everything
+ *     the page was holding - being thrown away to change some labels.
  *     Flask inlines the matching dictionary into the page as window.I18N_BUNDLE,
  *     so there is no fetch waterfall and no untranslated first paint. Fetching
  *     from static/lang/ remains as a fallback and for in-place switching.
- *   • English is always loaded as a fallback, so a half-finished translation
+ *   - English is always loaded as a fallback, so a half-finished translation
  *     degrades to English per key rather than showing raw key names.
- *   • Markup is annotated declaratively:
- *       data-i18n="key"                     → textContent
- *       data-i18n-attrs="title=key;placeholder=key2"  → attributes
+ *   - Markup is annotated declaratively:
+ *       data-i18n="key"                     -> textContent
+ *       data-i18n-attrs="title=key;placeholder=key2"  -> attributes
  *     App.dom.render() runs apply() on every cloned template, so templates are
  *     translated the moment they are mounted without each module remembering.
- *   • Strings built in JS go through t(). Console logging stays English on
- *     purpose — it is developer output, not user output.
+ *   - Strings built in JS go through t(). Console logging stays English on
+ *     purpose - it is developer output, not user output.
  *
  * Adding a language: drop static/lang/<code>.json next to the others and add
  * it to LANGUAGES below.
@@ -34,7 +34,7 @@ App.i18n = (function () {
   // in a language they cannot read: "Deutsch" is findable from any starting
   // point, "German" only from English. The flag is the same string in the
   // switcher's own tile, which is why both live here rather than in the
-  // dictionaries — a name in four translations is four places to keep in step
+  // dictionaries - a name in four translations is four places to keep in step
   // for a word that never changes.
   var LANGUAGES = [
     { code: "en", flag: "🇺🇸", name: "English" },
@@ -50,9 +50,7 @@ App.i18n = (function () {
   var _numbers = new Intl.NumberFormat(FALLBACK_LANG);
   var _plural = new Intl.PluralRules(FALLBACK_LANG);
 
-  // ══════════════════════════════════════════════════════════════════════
   // LOOKUP
-  // ══════════════════════════════════════════════════════════════════════
 
   function _resolve(node, vars) {
     // A key may resolve to a string, or to a { one, few, many, other } map
@@ -137,9 +135,7 @@ App.i18n = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DOM
-  // ══════════════════════════════════════════════════════════════════════
 
   function _translateNode(node) {
     var key = node.getAttribute("data-i18n");
@@ -169,9 +165,7 @@ App.i18n = (function () {
     return root;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // LIFECYCLE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * @returns {Array<{code:string, flag:string, name:string}>} A copy, so a
@@ -195,11 +189,11 @@ App.i18n = (function () {
    * Build the dictionary URL for a language.
    *
    * Two traps this avoids:
-   *   • A relative I18N_URL resolves differently per language, because the app
-   *     is served from /, /pl, /fr and /de — "static/lang/pl.json" becomes
+   *   - A relative I18N_URL resolves differently per language, because the app
+   *     is served from /, /pl, /fr and /de - "static/lang/pl.json" becomes
    *     "/de/static/lang/pl.json" on the German page. Resolving against
    *     document.baseURI pins it regardless of path depth.
-   *   • String.replace with a string pattern swaps only the FIRST match, so a
+   *   - String.replace with a string pattern swaps only the FIRST match, so a
    *     path with more than one LANG placeholder is half-substituted.
    *
    * If the value has no LANG placeholder it is treated as a directory, so
@@ -308,8 +302,8 @@ App.i18n = (function () {
    *   keeps the URL in step with the choice so it can be shared and
    *   bookmarked. The URL is rewritten with pushState and the dictionaries are
    *   swapped in place rather than reloading, which would throw away everything
-   *   the page is holding — the drawn boundary, the downloaded streets, the undo
-   *   stack, the map view — to change some text. Pass false to swap without
+   *   the page is holding - the drawn boundary, the downloaded streets, the undo
+   *   stack, the map view - to change some text. Pass false to swap without
    *   touching the URL at all.
    */
   function setLanguage(code, opts) {

@@ -24,7 +24,7 @@ def execute_in_thread(  # noqa: UP047
     """Run `target` on a daemon thread until `ev` is set.
 
     Exceptions from `target` are logged and swallowed, so one failed run does not
-    end the schedule — these jobs are cache eviction and disk trimming, where
+    end the schedule - these jobs are cache eviction and disk trimming, where
     stopping quietly is worse than failing loudly once.
 
     Args:

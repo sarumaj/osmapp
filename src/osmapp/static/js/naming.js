@@ -1,5 +1,5 @@
 /**
- * naming.js — what to call a territory, read off the OSM data already on the map.
+ * naming.js - what to call a territory, read off the OSM data already on the map.
  *
  * The print dialog's number field is answered exactly by labels.numberOf. The
  * locality is not on screen anywhere: it lives in the address tags of the
@@ -12,7 +12,7 @@
  *      contain two localities. addr:place carries the same weight as
  *      addr:city on purpose: rural Poland numbers houses against the
  *      settlement rather than a street, and there the village name is only
- *      ever in addr:place. addr:suburb is weighted down rather than dropped —
+ *      ever in addr:place. addr:suburb is weighted down rather than dropped --
  *      a real name for a real place, just a smaller one than the field
  *      usually wants.
  *   2. The same tally over every downloaded building, so a territory whose own
@@ -23,7 +23,7 @@
  *
  * Everything here is a *candidate*, never an answer. The caller decides which
  * becomes a placeholder and which become autocomplete entries, and the user
- * overrides both by typing — a congregation's locality wording is its own
+ * overrides both by typing - a congregation's locality wording is its own
  * convention and no address tag knows about it.
  *
  * Nothing is cached across calls except the network lookup. The tally is one
@@ -56,16 +56,14 @@ App.naming = (function () {
   /** Enough to choose from; more turns a dropdown into a directory. */
   var MAX_CANDIDATES = 12;
 
-  var _reverse = {}; // "lat,lon|lang" → Promise, so reopening a card is free
+  var _reverse = {}; // "lat,lon|lang" -> Promise, so reopening a card is free
 
   function init() {
     s = App.state;
     App._loaded.push("naming");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // READING TAGS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * One tag value as usable text, or null.
@@ -81,7 +79,7 @@ App.naming = (function () {
 
   /**
    * A building's centroid, cached on the feature under the same property
-   * polygons.refreshFilteredData uses — so whichever of the two runs first
+   * polygons.refreshFilteredData uses - so whichever of the two runs first
    * pays for it and the other one does not.
    */
   function _centroid(feature) {
@@ -137,13 +135,11 @@ App.naming = (function () {
     return out;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // CANDIDATES
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Tally one set of buildings into scored, ranked candidates. */
   function _rank(buildings, scope) {
-    var byValue = {}; // lowercased → candidate
+    var byValue = {}; // lowercased -> candidate
 
     LOCALITY_KEYS.forEach(function (spec) {
       buildings.forEach(function (building) {
@@ -243,15 +239,13 @@ App.naming = (function () {
     return out;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // REVERSE GEOCODING
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A point guaranteed to be inside the shape, as [lng, lat].
    *
    * turf.centroid is the vertex mean and lands outside a concave territory
-   * often enough to matter — and a reverse lookup on a point in the next
+   * often enough to matter - and a reverse lookup on a point in the next
    * village is worse than no lookup at all. Shared with labels.js, so the
    * place this asks Nominatim about is the place the number chip sits on.
    */
@@ -267,7 +261,7 @@ App.naming = (function () {
   /**
    * Ask Nominatim what this place is called.
    *
-   * Resolves to `[]` on every failure — offline, rate-limited, nothing found.
+   * Resolves to `[]` on every failure - offline, rate-limited, nothing found.
    * This is an enrichment of a list that is already usable, so a rejected
    * promise would only give the caller an error to swallow.
    *
@@ -341,8 +335,6 @@ App.naming = (function () {
     localityFor: localityFor,
     territoryCandidates: territoryCandidates,
     reverse: reverse,
-
-    // Exposed so the ranking can be asserted rather than inferred.
   };
 })();
 

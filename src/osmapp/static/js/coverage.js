@@ -1,29 +1,29 @@
 /**
- * coverage.js — a boolean raster over a lng/lat box, and the rings around
+ * coverage.js - a boolean raster over a lng/lat box, and the rings around
  * whatever is marked in it.
  *
  * This exists because the shape of "where the buildings actually are" cannot
  * be computed the obvious way. The obvious way is turf.buffer() per building
  * followed by turf.union() over the results, and on a real village that is a
- * few thousand buffers and a few thousand sequential polygon unions — tens of
+ * few thousand buffers and a few thousand sequential polygon unions - tens of
  * seconds at best, and a browser tab that stops answering at worst. The trim
  * tool needs that shape on every drag of a slider.
  *
  * A raster does the same job in one pass over a fixed number of cells:
  * stamping a disc is arithmetic, the union is free (a cell is either marked or
  * not), and the boundary falls out of a single sweep. The price is that the
- * result is a staircase at cell resolution, which does not matter here — the
+ * result is a staircase at cell resolution, which does not matter here - the
  * ring is simplified and then snapped onto streets afterwards, so a ten-meter
  * staircase is finer than the thing that replaces it.
  *
  * Two properties are relied on by App.trim and worth stating:
  *
- *   • The marked region contains the full disc of radius R around every point
+ *   - The marked region contains the full disc of radius R around every point
  *     that was stamped, so every stamped point is at least R away from the
  *     boundary. That is what lets the trim tool move the boundary afterwards
- *     — onto a street, along a routed path — and still know, without
+ *     - onto a street, along a routed path - and still know, without
  *     re-testing, that it has not walked over a building.
- *   • Components are 4-connected, and ringsOf(label) returns exactly one
+ *   - Components are 4-connected, and ringsOf(label) returns exactly one
  *     exterior ring per component. Two clusters of houses that only touch
  *     diagonally are two places, not one, and a boundary that pinches to a
  *     single point is not a boundary anyone can walk.
@@ -87,7 +87,7 @@ App.coverage = (function () {
     this.sizes = null;
   }
 
-  // ── Writing ───────────────────────────────────────────────────────────
+  // Writing
 
   Raster.prototype.cellOf = function (coord) {
     return [
@@ -113,7 +113,7 @@ App.coverage = (function () {
 
   /**
    * Mark every cell whose center lies within radiusM of coord, plus the cell
-   * the coord itself falls in — a radius under half a cell must still leave a
+   * the coord itself falls in - a radius under half a cell must still leave a
    * mark, or a lone building would vanish from its own shape.
    */
   Raster.prototype.stampDisc = function (coord, radiusM) {
@@ -147,14 +147,14 @@ App.coverage = (function () {
    * disc is the one primitive here that is already known to be correct and the
    * corners of a polyline are where a swept quad would leave a notch. The step
    * is half a cell, so consecutive discs always share cells and the corridor
-   * comes out 4-connected — which is the entire reason to draw one.
+   * comes out 4-connected - which is the entire reason to draw one.
    *
    * The taper is a single linear ramp from one end of the path to the other,
    * which is what makes the corridor read as a wedge rather than as plumbing.
-   * The first version widened *both* ends and left the middle at the narrow
-   * width, so a long link came out as a wire with a trumpet soldered to each
-   * end — three shapes where the ground has one. A cone from the settlement
-   * down to the building it reaches is the shape a peninsula actually has.
+   * A cone from the settlement down to the building it reaches is the shape a
+   * peninsula actually has; widening both ends instead leaves a long link
+   * looking like a wire with a trumpet soldered to each end, three shapes
+   * where the ground has one.
    *
    * @param {number[][]} coords [lng, lat] pairs
    * @param {number} radiusM the default width; never less than a cell, or the
@@ -210,13 +210,13 @@ App.coverage = (function () {
     return total;
   };
 
-  // ── Filling and routing ───────────────────────────────────────────────
+  // Filling and routing
 
   /**
    * Mark every cell whose center falls inside a polygon.
    *
    * Scanline with the even-odd rule, so holes come out unmarked without being
-   * treated as a special case — an interior ring is just more crossings on the
+   * treated as a special case - an interior ring is just more crossings on the
    * rows it spans.
    *
    * This exists so a corridor can be asked to stay inside the working
@@ -275,7 +275,7 @@ App.coverage = (function () {
    * A breadth-first search rather than anything cleverer: the grid is uniform,
    * so every step costs the same and BFS is already optimal, and the whole
    * point is to have an answer that cannot fail when one exists. Which is the
-   * property being bought here — a corridor drawn as a straight line stops at
+   * property being bought here - a corridor drawn as a straight line stops at
    * the first place the working boundary bends away from it, and the group it
    * was meant to reach is left stranded outside.
    *
@@ -336,7 +336,7 @@ App.coverage = (function () {
    *
    * Sampled every half cell rather than walked exactly. A supercover line
    * would be exact, but the answer is being used to decide whether a corridor
-   * may go straight, and a corridor is stamped as discs at least a cell wide —
+   * may go straight, and a corridor is stamped as discs at least a cell wide --
    * so a single cell of disagreement at a corner cannot change the outcome.
    */
   Raster.prototype.visible = function (a, b) {
@@ -411,7 +411,7 @@ App.coverage = (function () {
     return -1;
   };
 
-  // ── Components ────────────────────────────────────────────────────────
+  // Components
 
   /**
    * Label 4-connected components, 1..n. Unmarked cells get 0.
@@ -471,7 +471,7 @@ App.coverage = (function () {
     return this.components().labels[c[1] * this.w + c[0]];
   };
 
-  // ── Rings ─────────────────────────────────────────────────────────────
+  // Rings
 
   /**
    * Trace the boundary of the marked region as closed rings of [lng, lat].

@@ -1,5 +1,5 @@
 /**
- * print.js — territory card printing.
+ * print.js - territory card printing.
  *
  * Rather than screenshotting the live Leaflet map, this renders a fresh map
  * onto a canvas: basemap tiles, then this cluster's border, and nothing else.
@@ -13,14 +13,14 @@
  *   the field anchors; the placement dialog corrects that guess by hand; the
  *   result is remembered per template, keyed on a hash of its bytes. The
  *   canvas takes its aspect ratio from the resolved placeholder, so editing
- *   the card can no longer silently letterbox the map.
+ *   the card cannot silently letterbox the map.
  *
  * Tiles
  *   Tiles are fetched below the display zoom and upscaled, so the basemap is
  *   deliberately soft. OSM sets label text at ~11 px for a ~96 dpi screen; at
- *   300 dpi that prints as a 2.6 pt street name. TILE_DPI controls the trade:
- *   lower means larger, more readable labels on a softer map. The result is
- *   quantized — tiles exist only at integer zooms — so the label size ladder
+ *   300 dpi that prints as a 2.6 pt street name. TILE_ZOOM_OFFSET controls the
+ *   trade: higher means larger, more readable labels on a softer map. The
+ *   result is quantized - tiles exist only at integer zooms - so the ladder
  *   steps by 2x and the readout shows the tile zoom alongside the point size.
  *
  *   Every tile is kept as a decoded Image in _tiles, so panning and small zoom
@@ -31,7 +31,7 @@
  *   The canvas is fixed at the placeholder's aspect ratio, so the ratio cannot
  *   drift. Framing chooses which slice of the world lands on it: drag to pan,
  *   scroll or the slider to zoom, and the rotation slider to turn. The frame
- *   never turns — the map turns inside it.
+ *   never turns - the map turns inside it.
  *
  * Erase strokes are stored in lng/lat with a width in meters, not canvas
  * pixels, so they stay pinned to the street name they were drawn over when the
@@ -48,7 +48,7 @@ App.print = (function () {
   var D = null;
   var T = null;
 
-  // ── Output geometry ───────────────────────────────────────────────────
+  // Output geometry
   // Only the no-template fallback. A loaded template replaces all of this.
   var DEFAULT_LAYOUT = {
     page: 0,
@@ -66,7 +66,7 @@ App.print = (function () {
    * Bump whenever the detector's geometry or output shape changes.
    *
    * Saved layouts are keyed on the template's bytes, so a detector improvement
-   * would otherwise never reach anyone who had already loaded that template —
+   * would otherwise never reach anyone who had already loaded that template --
    * the cached numbers pin the old behavior forever. Layouts positioned by
    * hand carry source "manual" and survive the bump: a box someone aligned
    * against a loupe is better evidence than anything detection produces.
@@ -77,7 +77,7 @@ App.print = (function () {
   var _layoutId = null;
   var _candidates = [];
 
-  // Reassigned by _applyLayout — never captured by reference outside it.
+  // Reassigned by _applyLayout - never captured by reference outside it.
   var PLACEHOLDER = _layout.placeholder;
   var FIELDS = _layout.fields;
 
@@ -92,7 +92,7 @@ App.print = (function () {
   var TILE_SIZE = 256;
 
   /**
-   * The basemap a card is composed from — always OpenStreetMap, whatever is
+   * The basemap a card is composed from - always OpenStreetMap, whatever is
    * on screen.
    *
    * A card is carried down a street, written on and handed to the next
@@ -114,8 +114,8 @@ App.print = (function () {
    *
    * This is the only knob that exists. Tiles are published at integer zooms
    * only, so label size is quantized: each step doubles it. A continuous
-   * control here was a lie — most of its range mapped to the same integer and
-   * did nothing, and the positions that did change jumped by a factor of two.
+   * control here would be a lie - most of its range maps to the same integer
+   * and does nothing, and the positions that do change jump by a factor of two.
    *
    * 0 = tiles at display zoom, sharp, labels near 2.6 pt (unreadable in hand)
    * 1 = one level down, labels near 5.3 pt
@@ -143,7 +143,7 @@ App.print = (function () {
   var ATTRIBUTION = "© OpenStreetMap contributors";
 
   /**
-   * Card furniture — the scale bar and the compass rose.
+   * Card furniture - the scale bar and the compass rose.
    *
    * Both are off by default and both are drawn last, on top of the finished
    * card. Everything here is in points, because that is the unit the numbers
@@ -171,7 +171,7 @@ App.print = (function () {
     { key: "print.compassW", bearing: 270, needle: false },
   ];
 
-  // ── Session state ─────────────────────────────────────────────────────
+  // Session state
   var _dialog = null;
   var _feature = null;
   var _preview = null;
@@ -180,7 +180,7 @@ App.print = (function () {
   var _eraseCursor = null;
   var _eraseRO = null;
 
-  var _view = null; // { ez, lng, lat, rotation } — rotation in (-180, 180]
+  var _view = null; // { ez, lng, lat, rotation } - rotation in (-180, 180]
   var _desiredEz = null; // what the user asked for, before rotation clamping
   var _tiles = null; // "x/y" -> { img, done }
   var _tileZoom = 0;
@@ -212,11 +212,11 @@ App.print = (function () {
    * nothing else.
    *
    * The guided tour is the single exception, and the reason this exists. Its
-   * sample village is GeoJSON the app is holding — no tile server has ever
-   * heard of it — so a preview composed from tiles alone showed an empty field
-   * with a red rectangle on it while the map two centimeters behind the dialog
-   * showed a village. Whatever else a print preview is for, it is supposed to
-   * be a preview. demo.js hands its streets and buildings in here for as long
+   * sample village is GeoJSON the app is holding - no tile server has ever
+   * heard of it - so a preview composed from tiles alone is an empty field
+   * with a red rectangle on it, while the map two centimeters behind the
+   * dialog shows a village. Whatever else a print preview is for, it is
+   * supposed to be a preview. demo.js hands its streets and buildings in for
    * as the sample is loaded, and takes them away again with it.
    *
    * @type {{streets?: Object, buildings?: Object}|null}
@@ -235,9 +235,7 @@ App.print = (function () {
     return _dialog !== null;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PREFERENCES
-  // ══════════════════════════════════════════════════════════════════════
 
   var PREFERENCES_KEY = "osm.print.preferences.v1";
 
@@ -376,9 +374,7 @@ App.print = (function () {
     _writePreferences(preferences);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // LAYOUT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Adopt a layout: resize the canvases, refit, and restart the tile cache.
@@ -411,9 +407,7 @@ App.print = (function () {
     _retile();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TEMPLATE FILE
-  // ══════════════════════════════════════════════════════════════════════
 
   var TEMPLATE_KEY = "print:template";
 
@@ -424,7 +418,7 @@ App.print = (function () {
    */
   function _templateId(file) {
     if (!window.crypto || !crypto.subtle) {
-      // Insecure context — crypto.subtle is undefined on http://0.0.0.0:5000.
+      // Insecure context - crypto.subtle is undefined on http://0.0.0.0:5000.
       // Weaker, but enough to tell two templates apart on one machine.
       return Promise.resolve(
         "n" +
@@ -511,10 +505,10 @@ App.print = (function () {
    * Show the embed option only when there is a PDF to embed into.
    *
    * The attachment is written by App.pdfdoc.compose, which only runs on the
-   * template path — without one the card goes to the browser's own print
-   * dialog as an image and there is no file of ours to carry anything. A
-   * ticked, remembered, and quietly does nothing is worse than no checkbox:
-   * it promises the card is a restore point when it is not.
+   * template path - without one the card goes to the browser's own print
+   * dialog as an image and there is no file of this app's to carry anything.
+   * A checkbox that is ticked, remembered, and quietly does nothing is worse
+   * than no checkbox: it promises the card is a restore point when it is not.
    */
   function _syncAttach() {
     var row = D.role(_dialog, "attach-row");
@@ -523,7 +517,7 @@ App.print = (function () {
     if (hint) D.toggle(hint, !!_templateFile);
   }
 
-  /** Owns the template label — callers must not write it themselves. */
+  /** Owns the template label - callers must not write it themselves. */
   function _setTemplate(file) {
     _templateFile = file || null;
     D.text(
@@ -545,12 +539,10 @@ App.print = (function () {
     return _resolveLayout(file);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // PLACEMENT — drag the map box onto a render of the template
+  // PLACEMENT - drag the map box onto a render of the template
   //
   // Ordered dependency-first: constants, feedback, coordinate mapping, the
   // loupe, input handling, then open/show/save/close at the end.
-  // ══════════════════════════════════════════════════════════════════════
 
   var SNAP_PT = 4;
   var MIN_BOX_PT = 10;
@@ -571,7 +563,7 @@ App.print = (function () {
    * Transient feedback under the readout.
    *
    * Every action reports something. A click that changes nothing has to say so
-   * — silence is indistinguishable from a broken button.
+   * - silence is indistinguishable from a broken button.
    */
   function _placeNotice(text, warn) {
     if (!_placeDialog) return;
@@ -596,7 +588,7 @@ App.print = (function () {
     }, NOTICE_MS);
   }
 
-  /** PDF points → screen px. PDF y grows upward from the bottom-left. */
+  /** PDF points -> screen px. PDF y grows upward from the bottom-left. */
   function _toScreen(ph) {
     var k = _place.scale;
     return {
@@ -654,7 +646,7 @@ App.print = (function () {
    * the same magnification.
    *
    * The page renders at roughly 0.15 pt per screen pixel, so a one-point
-   * misalignment — which is visible on the printed card — cannot be seen on
+   * misalignment - which is visible on the printed card - cannot be seen on
    * the stage at all. Showing the frame edge inside the loupe rather than just
    * the template is the part that makes it useful: what matters is the gap
    * between the two, not either one alone.
@@ -701,7 +693,7 @@ App.print = (function () {
   /**
    * Keyboard nudging moves the box but not the pointer, so the loupe would
    * keep magnifying wherever the mouse was last left. Follow the corner
-   * closest to it instead — that is the one being adjusted.
+   * closest to it instead - that is the one being adjusted.
    */
   function _focusNearestCorner() {
     if (!_place) return;
@@ -944,7 +936,7 @@ App.print = (function () {
   }
 
   function _openPlacement() {
-    if (_placeDialog) return; // already open — self-evident, no notice needed
+    if (_placeDialog) return; // already open - self-evident, no notice needed
     if (!_templateFile) {
       _setStatus(T("print.errNoTemplate"), false);
       return;
@@ -967,7 +959,7 @@ App.print = (function () {
   }
 
   function _showPlacement(url) {
-    // Mounted directly, not through App.ui.openDialog — that closes whatever
+    // Mounted directly, not through App.ui.openDialog - that closes whatever
     // dialog is already on screen, and the print dialog has to stay underneath.
     _placeDialog = D.mountOnMap("tpl-place-dialog", s.leafletMap);
     App.i18n.apply(_placeDialog);
@@ -1020,7 +1012,7 @@ App.print = (function () {
     function rescale() {
       if (!_place) return;
       // clientWidth is 0 until the image has been laid out, which is a frame
-      // after load — a zero scale would put the box at infinity.
+      // after load - a zero scale would put the box at infinity.
       var shown = img.clientWidth || img.naturalWidth || _layout.pageWidth;
       _place.scale = shown / _layout.pageWidth;
       // max-height caps the image's height, so its width comes out of the
@@ -1070,9 +1062,7 @@ App.print = (function () {
     _placeDialog.focus();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PROJECTION
-  // ══════════════════════════════════════════════════════════════════════
 
   function _project(lng, lat, ez) {
     var scale = TILE_SIZE * Math.pow(2, ez);
@@ -1092,7 +1082,7 @@ App.print = (function () {
   }
 
   /**
-   * World pixels → canvas pixels, about the frame centre. A positive rotation
+   * World pixels -> canvas pixels, about the frame centre. A positive rotation
    * turns the map counter-clockwise inside a frame that itself never moves.
    */
   function _worldToCanvas(x, y, view) {
@@ -1135,7 +1125,7 @@ App.print = (function () {
     );
   }
 
-  /** Apply the world→canvas transform, then run fn to draw in world pixels. */
+  /** Apply the world->canvas transform, then run fn to draw in world pixels. */
   function _withMapTransform(ctx, view, fn) {
     var centre = _project(view.lng, view.lat, view.ez);
     ctx.save();
@@ -1204,9 +1194,7 @@ App.print = (function () {
     return { ez: ez, lng: centre[0], lat: centre[1], rotation: rotation };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TILE CACHE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Tiles for a view, in world pixels at the session tile zoom.
@@ -1278,7 +1266,7 @@ App.print = (function () {
    * Printed height of a basemap label, in points, for an actual view.
    *
    * Derived from the real upscale factor rather than a nominal one, because
-   * the display zoom is fractional while the tile zoom is not — the same
+   * the display zoom is fractional while the tile zoom is not - the same
    * offset gives a label anywhere within a factor of root-two as you move the
    * zoom slider. Showing the computed value keeps the readout honest.
    */
@@ -1310,7 +1298,7 @@ App.print = (function () {
   /**
    * Re-tile only if the view has drifted onto a different tile zoom.
    *
-   * Compares the zoom in use against the one the current view wants — not the
+   * Compares the zoom in use against the one the current view wants - not the
    * gap between ez and its own derived zoom, which is structurally bounded at
    * about 1.9 and so could never trigger anything.
    */
@@ -1399,9 +1387,7 @@ App.print = (function () {
     return pending;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ERASE CURSOR
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Brush diameter in CSS pixels. The canvas renders at RENDER_W but displays
@@ -1435,9 +1421,7 @@ App.print = (function () {
       "px) translate(-50%,-50%)";
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PAINT
-  // ══════════════════════════════════════════════════════════════════════
 
   function _schedulePaint() {
     if (_paintQueued || !_dialog) return;
@@ -1479,7 +1463,7 @@ App.print = (function () {
     var bleed = upright ? 0.05 : 0.5;
 
     // Applied to the basemap only. The border and attribution are drawn as
-    // vectors at full canvas resolution and are already sharp — running them
+    // vectors at full canvas resolution and are already sharp - running them
     // through the same filter would just add halos.
     var filters = [];
     if (wantSharp) filters.push("url(#tile-sharpen)");
@@ -1573,7 +1557,7 @@ App.print = (function () {
     _syncHistoryButtons();
   }
 
-  // ── The sample overlay ────────────────────────────────────────────────
+  // The sample overlay
 
   /**
    * On screen the street layer is drawn at a quarter opacity, because there it
@@ -1643,7 +1627,7 @@ App.print = (function () {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
-    // Streets first, then buildings — the same order the map's panes stack in,
+    // Streets first, then buildings - the same order the map's panes stack in,
     // so a house on a corner covers the road rather than the other way round.
     ctx.globalAlpha = OVERLAY_STREET_ALPHA;
     ctx.strokeStyle = streetStyle.color || "#e74c3c";
@@ -1695,10 +1679,10 @@ App.print = (function () {
     ctx.restore();
   }
 
-  // ── Card furniture ────────────────────────────────────────────────────
+  // Card furniture
 
   /**
-   * The largest 1, 2 or 5 × 10ⁿ metres that fits inside `maxMeters`.
+   * The largest 1, 2 or 5 x 10^n metres that fits inside `maxMeters`.
    *
    * A scale bar whose end reads "just under 437 m" is a bar nobody measures
    * with. The round number comes first and the bar is then drawn to whatever
@@ -1710,7 +1694,7 @@ App.print = (function () {
   function _niceDistance(maxMeters) {
     if (!(maxMeters > 0) || !isFinite(maxMeters)) return 0;
     var decade = Math.pow(10, Math.floor(Math.log(maxMeters) / Math.LN10));
-    var best = decade; // 1 × 10ⁿ always fits: the decade is ≤ maxMeters
+    var best = decade; // 1 x 10^n always fits: the decade is <= maxMeters
     [2, 5].forEach(function (step) {
       if (step * decade <= maxMeters) best = step * decade;
     });
@@ -1745,7 +1729,7 @@ App.print = (function () {
   /**
    * The canvas direction a compass bearing points in, as a unit vector.
    *
-   * The frame never turns — the map turns inside it — so a bearing has to be
+   * The frame never turns - the map turns inside it - so a bearing has to be
    * counter-rotated by the same angle the map was turned through. Exported
    * for the same reason as scaleFor: a compass that is confidently wrong is
    * worse than no compass, and off-by-a-sign is the whole failure mode.
@@ -1823,7 +1807,7 @@ App.print = (function () {
    * A compass rose in the top-right corner, opposite the attribution.
    *
    * The arms turn with the map and the letters do not. A rose whose lettering
-   * turned too would put an upside-down N on every card framed at 180°, and
+   * turned too would put an upside-down N on every card framed at 180 deg, and
    * the one thing a compass has to be is legible.
    */
   function _drawCompass(ctx) {
@@ -1920,7 +1904,7 @@ App.print = (function () {
     });
     ctx.restore();
 
-    // Erased spans punch through the border only — the map beneath is intact.
+    // Erased spans punch through the border only - the map beneath is intact.
     var mpp = _metersPerPixel(_view);
     ctx.save();
     ctx.globalCompositeOperation = "destination-out";
@@ -1947,9 +1931,7 @@ App.print = (function () {
     ctx.restore();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // DIALOG
-  // ══════════════════════════════════════════════════════════════════════
 
   function _setBusy(busy) {
     _busy = busy;
@@ -1997,7 +1979,7 @@ App.print = (function () {
     }
 
     // openDialog closes whatever is already open, and that teardown clears
-    // module state — so nothing may be assigned before this line.
+    // module state - so nothing may be assigned before this line.
     _dialog = App.ui.openDialog("tpl-print-dialog", _teardown);
 
     _feature = feature;
@@ -2031,7 +2013,7 @@ App.print = (function () {
     _applyFilterSupport();
 
     // Sizes both canvases, fits the view, picks the tile zoom and starts the
-    // prefetch — everything downstream of the frame's aspect ratio.
+    // prefetch - everything downstream of the frame's aspect ratio.
     _applyLayout(DEFAULT_LAYOUT);
 
     // May replace the layout a moment later, which redoes all of the above.
@@ -2041,11 +2023,11 @@ App.print = (function () {
   /**
    * Fill both card fields with what the map already knows.
    *
-   * The number was always the easy half: the chip on the shape says 7, so the
-   * field says 7. The locality is the half that was retyped once per card for
-   * a whole round, and it was never actually unknown — it is in the addr:city
-   * and addr:place tags of the buildings inside the shape, which the app has
-   * already downloaded, drawn and counted. App.naming tallies them.
+   * The number is the easy half: the chip on the shape says 7, so the field
+   * says 7. The locality is the half that would otherwise be retyped once per
+   * card for a whole round, and it is never actually unknown - it is in the
+   * addr:city and addr:place tags of the buildings inside the shape, which the
+   * app has already downloaded, drawn and counted. App.naming tallies them.
    *
    * Both are suggestions rather than facts, which is why the guess goes in the
    * placeholder and everything else goes in a datalist. The number is this
@@ -2053,7 +2035,7 @@ App.print = (function () {
    * own thing; the locality tagged on a building is whatever a mapper wrote
    * there, and a congregation that says "Mainz-Süd" where OSM says "Mainz"
    * should be typing over a hint rather than deleting an answer. Anything
-   * already typed always wins — the field is the user's, not ours.
+   * already typed always wins - the field is the user's, not ours.
    *
    * Locality is a preference and comes back filled from the last card, so most
    * of the time the placeholder is never seen. That is the point: the
@@ -2076,7 +2058,7 @@ App.print = (function () {
 
     // Nominatim is the answer where the buildings have no addresses at all,
     // which is most of the world. It arrives late and only ever adds to the
-    // list — the tags inside the shape stay ahead of it, because they describe
+    // list - the tags inside the shape stay ahead of it, because they describe
     // this territory while a reverse lookup describes one point in it.
     if (!App.naming) return;
     var target = _feature;
@@ -2209,8 +2191,8 @@ App.print = (function () {
     if (rotation) {
       // Magnetism applies to dragging only. Arrow keys move the slider by one
       // degree, which is inside the snap tolerance of every 15-degree mark, so
-      // snapping keyboard input pulled each press straight back and left the
-      // control looking dead.
+      // snapping keyboard input would pull each press straight back and leave
+      // the control looking dead.
       rotation.addEventListener("pointerdown", function () {
         _rotationDragging = true;
       });
@@ -2354,7 +2336,7 @@ App.print = (function () {
     });
 
     // The preview is fluid, so the render-to-screen ratio changes whenever the
-    // dialog is resized — the ring has to be resized with it.
+    // dialog is resized - the ring has to be resized with it.
     if (window.ResizeObserver) {
       _eraseRO = new ResizeObserver(_sizeEraseCursor);
       _eraseRO.observe(_preview);
@@ -2373,7 +2355,7 @@ App.print = (function () {
    * Pull the angle onto a 15-degree mark when it is close to one.
    *
    * Free rotation is the point of the slider, but the angles people actually
-   * want are almost always round — square to a street grid, or a quarter turn.
+   * want are almost always round - square to a street grid, or a quarter turn.
    * Hitting those exactly on a 361-position slider is otherwise luck.
    */
   function _snapRotation(deg) {
@@ -2438,7 +2420,7 @@ App.print = (function () {
     var detail = D.role(_dialog, "detail");
     if (!detail || !_view) return;
 
-    // Previews the slider's current position, which may not be applied yet —
+    // Previews the slider's current position, which may not be applied yet --
     // the refetch waits for change, the readout follows input.
     var z = _tileZoomForOffset(_view.ez, _detailOffset());
     D.text(
@@ -2446,7 +2428,7 @@ App.print = (function () {
       "detail-out",
       T("print.detailOut", { pt: _labelPt(_view.ez, z).toFixed(1), z: z }),
     );
-    // Below TILE_ZOOM_WARN, OSM stops naming minor roads — going softer
+    // Below TILE_ZOOM_WARN, OSM stops naming minor roads - going softer
     // deletes the labels rather than enlarging them.
     D.toggleClass(D.role(_dialog, "detail-out"), "is-warn", z < TILE_ZOOM_WARN);
   }
@@ -2477,27 +2459,22 @@ App.print = (function () {
   }
 
 
-  // ══════════════════════════════════════════════════════════════════════
   // KEYBOARD
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
-   * The card screen answers the keyboard now.
+   * The card screen's keys, registered rather than listened for.
    *
-   * It had exactly one binding, written as a listener on the dialog node, and
-   * it was invisible: the sheet listed the keys of whatever tool was open
-   * behind the dialog and said nothing about the dialog itself — including
-   * that Ctrl+Enter prints, which is the one thing everybody here wants to
-   * do. Worse, "?" could not even be pressed, because a dialog blocked every
-   * binding that was not marked overModal and that was the only rule about
-   * dialogs there was.
+   * A listener on the dialog node is invisible to the sheet, which would then
+   * list the keys of whatever tool is open behind the dialog and say nothing
+   * about the dialog itself - including that Ctrl+Enter prints, which is the
+   * one thing everybody here wants to do.
    *
-   * `exclusive` is that rule, replaced by something a dialog can participate
-   * in: nothing beneath this answers, and what this registers does.
+   * `exclusive` is what lets a dialog participate rather than merely block:
+   * nothing beneath this answers, and what this registers does.
    *
    * Every letter here is a control on the right-hand column, and the reason
    * they are safe as bare letters is that nothing fires while a text field
-   * has focus — the two card fields are the only text in the dialog.
+   * has focus - the two card fields are the only text in the dialog.
    */
   var PRINT_KEYS = {
     id: "print",
@@ -2508,7 +2485,7 @@ App.print = (function () {
         // Plain Enter deliberately does not print: the Card group holds two
         // text fields, and submitting a job from inside one of them is
         // exactly the accident this avoids. Which is also why it is one of
-        // the two entries here that fires while typing — from inside those
+        // the two entries here that fires while typing - from inside those
         // fields it is unambiguous, and it is where the hand already is.
         combos: ["Mod+Enter"],
         labelKey: "shortcuts.printGo",
@@ -2558,7 +2535,7 @@ App.print = (function () {
       {
         // Turning the map is a drag on the preview or a pair of buttons, and
         // both are awkward for the small correction that is most of what
-        // rotation is used for — a village street that runs slightly off the
+        // rotation is used for - a village street that runs slightly off the
         // vertical.
         combos: ["["],
         labelKey: "shortcuts.printRotateCcw",
@@ -2599,12 +2576,11 @@ App.print = (function () {
       },
       { combos: ["Drag"], labelKey: "shortcuts.printPan", note: true },
       { combos: ["Wheel"], labelKey: "shortcuts.printZoom", note: true },
-      // Shift starts the turn — the same thing the hint under the frame has
-      // always said. Alt is a modifier *within* that drag and does not start
-      // anything: held, the angle stops snapping to steps. Listing it on its
-      // own said the gesture was Alt-drag, which is not a gesture this dialog
-      // has, and on a Mac it read as ⌥ where the hint two inches away read
-      // Shift.
+      // Shift starts the turn, which is what the hint under the frame says.
+      // Alt is a modifier *within* that drag and does not start anything:
+      // held, the angle stops snapping to steps. Listing Alt on its own would
+      // claim a gesture this dialog does not have, and on a Mac it would read
+      // as ⌥ where the hint two inches away reads Shift.
       { combos: ["Shift+drag"], labelKey: "shortcuts.printRotateDrag", note: true },
       {
         combos: ["Shift+Alt+drag"],
@@ -2624,10 +2600,10 @@ App.print = (function () {
    * stopped before it bubbles rather than merely answered when it arrives.
    * The tour makes the same trade for the same reason.
    *
-   * What was missing was not the behavior but the record of it: four distinct
-   * gestures — nudge, resize, coarse, fine — existed only in the source, and
-   * the readout under the frame has no room to explain them. So they are
-   * notes here, and the sheet is where they are written down.
+   * Listed here because the behavior otherwise has no record: four distinct
+   * gestures - nudge, resize, coarse, fine - would exist only in the source,
+   * and the readout under the frame has no room to explain them. They are
+   * notes rather than bindings, and the sheet is where they are written down.
    */
   var PLACE_KEYS = {
     id: "place",
@@ -2641,9 +2617,9 @@ App.print = (function () {
       { combos: ["Shift+Arrows"], labelKey: "shortcuts.placeCoarse", note: true },
       { combos: ["Alt+Arrows"], labelKey: "shortcuts.placeFine", note: true },
       {
-        // The one that was not there at all. Cycling the detected boxes was a
-        // button on a dialog whose whole point is that your hands are on the
-        // arrow keys.
+        // Cycling the detected boxes needs a key of its own: this is a dialog
+        // whose whole point is that your hands are on the arrow keys, and a
+        // button in the corner takes them off.
         combos: ["S"],
         labelKey: "shortcuts.placeSnap",
         run: function () {
@@ -2678,9 +2654,7 @@ App.print = (function () {
     return !!(box && box.checked);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
-  // POINTER — erase or pan, depending on the mode
-  // ══════════════════════════════════════════════════════════════════════
+  // POINTER - erase or pan, depending on the mode
 
   function _pointerCanvas(e) {
     var rect = _preview.getBoundingClientRect();
@@ -2732,7 +2706,7 @@ App.print = (function () {
       e.preventDefault();
       var turned = _angleAt(_pointerCanvas(e));
       // Screen angles grow clockwise because y points down, while a positive
-      // rotation turns the map counter-clockwise — hence the subtraction.
+      // rotation turns the map counter-clockwise - hence the subtraction.
       _setRotation(_rotate.start - (turned - _rotate.from), e.altKey);
       return;
     }
@@ -2800,9 +2774,7 @@ App.print = (function () {
     _queueRetile();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ERASER HISTORY
-  // ══════════════════════════════════════════════════════════════════════
 
   function undo() {
     if (_strokes.length === 0) return;
@@ -2820,8 +2792,8 @@ App.print = (function () {
 
   /**
    * While the print dialog is open, undo belongs to the eraser. The dialog's
-   * own Undo/Redo buttons and the toolbar's now drive the same stack, instead
-   * of the toolbar quietly rewriting territory geometry behind the dialog.
+   * own Undo/Redo buttons and the toolbar's drive this one stack, so the
+   * toolbar cannot quietly rewrite territory geometry behind the dialog.
    */
   var ERASE_SCOPE = {
     id: "erase",
@@ -2857,9 +2829,7 @@ App.print = (function () {
     );
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // OUTPUT
-  // ══════════════════════════════════════════════════════════════════════
 
   /** Wait for every tile in the current frame, so the export is not patchy. */
   function _awaitTiles() {
@@ -2881,14 +2851,14 @@ App.print = (function () {
   /**
    * The two ways a finished card leaves this dialog.
    *
-   * They used not to be two, and which one you got was decided three
-   * fieldsets away: with no template the card went straight to the browser's
-   * print dialog and could never be saved, and with a template it was
-   * downloaded and could never be printed. Same button, opposite meanings.
+   * Two buttons rather than one whose meaning is decided three fieldsets
+   * away: a single button that prints when no template is loaded and
+   * downloads when one is cannot save the first card or print the second, and
+   * says nothing about which it is about to do.
    *
    * What is composed is the same artefact either way, so composition happens
    * once in _compose() and the action decides only what is done with the blob
-   * it resolves — printed, saved, or both, one after the other.
+   * it resolves - printed, saved, or both, one after the other.
    *
    * @param {"print"|"download"} action
    */
@@ -2977,7 +2947,7 @@ App.print = (function () {
    * Hand the composed file to the Open button.
    *
    * The URL is not revoked when the action finishes, because both actions
-   * give the blob to something that reads it later — a print frame that has
+   * give the blob to something that reads it later - a print frame that has
    * not painted yet, or a tab nobody has opened. It is released when the next
    * card replaces it or the dialog closes.
    */
@@ -3119,8 +3089,8 @@ App.print = (function () {
    * Template supplied: stamp the map into the placeholder.
    *
    * Composed in the browser, which is what lets a card be printed with no
-   * network at all. There is no server route behind this any more — see
-   * pdfdoc.js — so a failure here is reported rather than retried elsewhere.
+   * network at all. There is no server route behind it - see pdfdoc.js - so
+   * a failure here is reported rather than retried elsewhere.
    *
    * @returns {Promise<Blob>}
    */
@@ -3128,9 +3098,8 @@ App.print = (function () {
     var spec = {
       template: _templateFile,
       image: blob,
-      // page lives on the layout, not the placeholder — sending
-      // PLACEHOLDER.page posted the string "undefined" and the server
-      // rejected the whole request.
+      // page lives on the layout, not the placeholder: PLACEHOLDER carries no
+      // page, so reading it here would hand pdfdoc.js an undefined page number.
       page: _layout.page || 0,
       box: {
         x: PLACEHOLDER.x,
@@ -3155,7 +3124,7 @@ App.print = (function () {
 
     // The card carries the project it came from, so the printed sheet is also
     // the backup. See App.data.buildAttachmentPayload for what is left out and
-    // why — the short version is everything that can be downloaded again.
+    // why - the short version is everything that can be downloaded again.
     if (o.attach) {
       try {
         spec.project = App.data.buildAttachmentPayload();

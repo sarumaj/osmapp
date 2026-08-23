@@ -1,5 +1,5 @@
 /**
- * session.js — keeps the working state in IndexedDB so a refresh does not
+ * session.js - keeps the working state in IndexedDB so a refresh does not
  * lose the territory.
  *
  * Saves are debounced and split across three keys: the street and building
@@ -33,9 +33,7 @@ App.session = (function () {
     App._loaded.push("session");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // MAP VIEW
-  // ══════════════════════════════════════════════════════════════════════
   //
   // Kept in localStorage rather than in the IndexedDB payload: it is two
   // numbers and a zoom, it changes on every pan, and it is worth restoring
@@ -92,12 +90,12 @@ App.session = (function () {
    * For the guided tour, which loads a sample area over whatever the user was
    * working on and puts it back afterwards. Without this the debounced save
    * would land a demo village in IndexedDB a second later and the real work
-   * would be gone on the next reload — the one failure this feature must not
+   * would be gone on the next reload - the one failure this feature must not
    * have.
    *
-   * A boolean rather than a counter: a counter that gets one extra suspend()
-   * somewhere silently stops saving for the rest of the session, which is a
-   * far worse way to be wrong than a redundant resume.
+   * A boolean rather than a counter: a counter that takes one extra
+   * setSuspended(true) somewhere silently stops saving for the rest of the
+   * session, which is a far worse way to be wrong than a redundant resume.
    */
   function setSuspended(on) {
     _suspended = !!on;
@@ -145,6 +143,14 @@ App.session = (function () {
     });
   }
 
+  /**
+   * Load the last saved session back into the app.
+   *
+   * @returns {Promise<boolean>} whether a session was applied. False covers
+   *   nothing saved, a payload written by an incompatible version, and a
+   *   payload that failed to apply - in the last case the stored session is
+   *   dropped rather than left to fail again on the next load.
+   */
   function restore() {
     return Promise.all([
       App.store.get(META),
@@ -156,14 +162,14 @@ App.session = (function () {
 
       var ok = false;
       _restoring = true;
-      // Behind the spinner, and not because anything measured this project:
-      // applying a payload is the heaviest thing the app does, the estimate
-      // ui.busy() normally consults is measured from it, and at this point
-      // nothing has been measured at all. On a real project it is a second of
-      // blocked main thread and then the gap recount behind it — and both used
-      // to land on a page that had just finished drawing itself, so the map
-      // appeared, looked ready, and stopped answering. hideOverlay() takes the
-      // recount with it, which is what keeps the second one under here too.
+      // Behind the spinner unconditionally: applying a payload is the heaviest
+      // thing the app does, and the estimate ui.busy() normally consults is
+      // measured from it, so on this path there is nothing to consult yet. On
+      // a real project it is a second of blocked main thread plus the gap
+      // recount behind it, both landing on a page that has just finished
+      // drawing itself - without the overlay the map appears, looks ready and
+      // stops answering. hideOverlay() takes the recount with it, which is
+      // what keeps the second one under here too.
       return App.ui
         .busy(
           "loading.restoring",
@@ -195,6 +201,7 @@ App.session = (function () {
     });
   }
 
+  /** Forget the saved session, cancelling any save still pending. */
   function clear() {
     clearTimeout(_timer);
     _dataDirty = false;

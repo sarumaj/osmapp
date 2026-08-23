@@ -9,15 +9,15 @@
  *
  * Three decisions carry the feature and each fails silently if it drifts:
  *
- *   • Agreement, not first-match. A territory that straddles a boundary really
+ *   - Agreement, not first-match. A territory that straddles a boundary really
  *     does contain two locality names, and the one most of its addresses use
  *     is the honest pick. A rule that took the first tagged building would
  *     depend on Overpass ordering, which nobody controls.
- *   • addr:place weighs the same as addr:city. Rural Poland numbers houses
+ *   - addr:place weighs the same as addr:city. Rural Poland numbers houses
  *     against the settlement rather than a street, so the village name is only
  *     ever in addr:place — and a key-priority rule would let one stray
  *     addr:city outvote two hundred buildings agreeing on the village.
- *   • Only buildings *inside* the shape vote, by centroid, matching the
+ *   - Only buildings *inside* the shape vote, by centroid, matching the
  *     per-territory building count in polygons.js. Two rules for "in this
  *     territory" would eventually disagree in front of a user.
  *

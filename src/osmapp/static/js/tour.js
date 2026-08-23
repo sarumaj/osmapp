@@ -1,20 +1,20 @@
 /**
- * tour.js — the first-run walkthrough.
+ * tour.js - the first-run walkthrough.
  *
- * The app is a workflow — search a place, take its boundary, download the
- * data, split it, correct the split, print a card — and every step is
+ * The app is a workflow - search a place, take its boundary, download the
+ * data, split it, correct the split, print a card - and every step is
  * discoverable on its own while none of them implies the order. This module
  * states the order once and then gets out of the way.
  *
  * Constraints the implementation rests on:
  *
- *   • The user watches; the tour drives. Asking someone to perform each step
+ *   - The user watches; the tour drives. Asking someone to perform each step
  *     needs the app in a particular state to continue, and there is no such
  *     state on a first visit. The veil swallows clicks throughout, and a step
  *     about a screen that only exists once work is loaded gets the sample
  *     area (see demo.js) with the real dialog opened on it.
  *
- *   • Every side effect is declared and undone by the same machinery in both
+ *   - Every side effect is declared and undone by the same machinery in both
  *     directions. A step's enter() runs on arrival and its exit() on leaving,
  *     forwards or backwards; `demo: true` marks a step as needing the sample,
  *     which is swapped in and out by comparing that flag between the step
@@ -22,27 +22,27 @@
  *     up after itself, which is what keeps a walkthrough abandonable with
  *     Escape at any point.
  *
- *   • A step whose target is missing still runs. The geocoder step is skipped
+ *   - A step whose target is missing still runs. The geocoder step is skipped
  *     when the plugin failed to load; everything else falls back to a centred
  *     card, so a narrow screen does not silently lose four steps.
  *
- *   • Every screen the app opens is introduced by the control that opens it,
+ *   - Every screen the app opens is introduced by the control that opens it,
  *     so the modal features come in pairs: one step spotlights the button,
  *     the next shows what it opened and keeps a quieter ring on the button
  *     (`origin`) so the two stay visibly joined.
  *
- *   • A screen with more to say than one card holds is two steps rather than
+ *   - A screen with more to say than one card holds is two steps rather than
  *     a longer card. The card is capped so that what it describes stays
  *     visible around it, and the second step on a screen is placed on the
- *     side the first one was not — what one card hid, the other one shows.
+ *     side the first one was not - what one card hid, the other one shows.
  *     See _placeBubble and _sameSubject.
  *
- *   • The steps are data. STEPS below is the only place the sequence exists;
+ *   - The steps are data. STEPS below is the only place the sequence exists;
  *     tests read it to check that every key it names is in the dictionary.
  *
- *   • Suppression is a single localStorage flag, written the moment the
+ *   - Suppression is a single localStorage flag, written the moment the
  *     checkbox is touched rather than on exit, so closing the tab counts.
- *     Storage that throws — Firefox in private mode — means the tour opens
+ *     Storage that throws - Firefox in private mode - means the tour opens
  *     again next time, which is the harmless direction to fail in.
  */
 var App = window.App || {};
@@ -85,9 +85,7 @@ App.tour = (function () {
   var _placed = null;
   var _before = null;
 
-  // ══════════════════════════════════════════════════════════════════════
   // CONTENT
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * @type {Array<{id:string, target?:string, origin?:string, placement?:string,
@@ -95,7 +93,7 @@ App.tour = (function () {
    *               skipIfNoTarget?:boolean, reopenIfGone?:boolean,
    *               available?:Function, enter?:Function, exit?:Function}>}
    *
-   *   target      CSS selector, resolved at the moment the step is shown — so
+   *   target      CSS selector, resolved at the moment the step is shown - so
    *               a control rebuilt by a language change is still found, and a
    *               dialog this step's own enter() just opened is too.
    *   origin      CSS selector for the control that opened what `target`
@@ -131,13 +129,13 @@ App.tour = (function () {
     { id: "locate", target: '[data-action="locate"]', placement: "right" },
     { id: "refetch", target: '[data-action="refetch"]', placement: "right" },
 
-    // ── The sample block ────────────────────────────────────────────────
+    // The sample block
     // Everything from here to "restore" runs on a village that does not
     // exist. Whatever the user had is snapshotted on the way in and put back
-    // on the way out — including when the tour is abandoned mid-block.
+    // on the way out - including when the tour is abandoned mid-block.
     //
-    // The pairs start here. Each of the four things the app opens for you —
-    // the partition dialog, the cut bar, the merge bar, the print view — is
+    // The pairs start here. Each of the four things the app opens for you --
+    // the partition dialog, the cut bar, the merge bar, the print view - is
     // preceded by the control that opens it, and then keeps a ring on that
     // control while the screen itself is being explained.
     { id: "sample", demo: true },
@@ -169,7 +167,7 @@ App.tour = (function () {
       // The bar is two tools on one strip: the buildings you exclude by hand,
       // and the sliders that decide what is excluded for you. Both in one step
       // is more than a phone shows at once, and the half that lands past the
-      // fold is the automatic one — the half nobody knows to go looking for.
+      // fold is the automatic one - the half nobody knows to go looking for.
       id: "trimSliders",
       demo: true,
       target: ".trim-toolbar",
@@ -185,7 +183,7 @@ App.tour = (function () {
     },
     {
       // The marks are the half of the tool that is a conversation rather than
-      // a setting, and they only exist once something has been excluded — so
+      // a setting, and they only exist once something has been excluded - so
       // this step comes after the bar has opened and the automatic pass has
       // run on the sample's outlying farms.
       id: "trimMarks",
@@ -203,10 +201,10 @@ App.tour = (function () {
       },
     },
     {
-      // The boundary is not write-once, and the only two places that said so
-      // were a clause at the end of the "draw" step and a right-click nobody
-      // has a reason to try. A modal tool with its own toolbar, its own undo
-      // scope and its own refetch prompt was reachable only by accident.
+      // The boundary is not write-once, and the only other places that say so
+      // are a clause at the end of the "draw" step and a right-click nobody
+      // has a reason to try. Without a step of its own, a modal tool with its
+      // own toolbar, undo scope and refetch prompt is found only by accident.
       id: "outlineButton",
       demo: true,
       target: '[data-action="draw"]',
@@ -309,7 +307,7 @@ App.tour = (function () {
       // The one switch in the group that computes rather than draws: it finds
       // ground belonging to no territory, which is the failure the rest of the
       // app cannot show because nothing looks wrong when it happens. The sample
-      // carries one such patch on purpose — see demo.js — so the switch has
+      // carries one such patch on purpose - see demo.js - so the switch has
       // something to switch on.
       id: "gaps",
       demo: true,
@@ -328,7 +326,7 @@ App.tour = (function () {
       placement: "left",
     },
     {
-      // The button→screen pairing every other tool here gets. Without it the
+      // The button->screen pairing every other tool here gets. Without it the
       // only steps about the thing the app exists to produce are the two that
       // follow, both of which are about a right-click menu.
       id: "printButton",
@@ -338,7 +336,7 @@ App.tour = (function () {
     },
     {
       // The screen the print button opens, and the place where the map's
-      // faults are named — so it comes before the step about repairing them,
+      // faults are named - so it comes before the step about repairing them,
       // and before the two that reach a card from a territory instead.
       id: "territoryList",
       demo: true,
@@ -355,7 +353,7 @@ App.tour = (function () {
       // Autoheal rewrites the territories without asking how, so it is worth
       // a step of its own. The button this rings is hidden when there is
       // nothing to repair, which is why the sample carries an uncovered patch
-      // — see demo.js. On a tidy sample the step points at an absence.
+      // - see demo.js. On a tidy sample the step points at an absence.
       id: "autoheal",
       demo: true,
       target: '.territory-list [data-role="fix-all"]',
@@ -445,12 +443,13 @@ App.tour = (function () {
       placement: "right",
     },
     { id: "restore" },
-    // ── back to the user's own map ──────────────────────────────────────
+    // back to the user's own map
 
     { id: "history", target: '[data-action="undo"]', placement: "right" },
     { id: "files", target: '[data-action="export"]', placement: "right" },
-    // Export and Import were one step pointing at Export, which is half a
-    // step: the half that gets you a file, not the half that gets it back.
+    // Import gets a step of its own beside Export. One step pointing at
+    // Export is half a step: the half that gets you a file, not the half
+    // that gets it back.
     { id: "importFiles", target: '[data-action="import"]', placement: "right" },
     { id: "reset", target: '[data-action="reset"]', placement: "right" },
     { id: "language", target: '[data-action="language"]', placement: "right" },
@@ -458,8 +457,8 @@ App.tour = (function () {
     {
       // The tour answers "what is this app for" once. This answers "what can
       // I press right now", which is the question that comes up every time
-      // after that — and its button was the only one in the panel that no
-      // step pointed at.
+      // after that, so the button that opens it gets a step like every other
+      // button in the panel.
       id: "shortcuts",
       target: '[data-action="shortcuts"]',
       placement: "right",
@@ -503,9 +502,7 @@ App.tour = (function () {
     return "tour.steps." + step.id + ".body";
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // SUPPRESSION
-  // ══════════════════════════════════════════════════════════════════════
 
   function isSuppressed() {
     // No storage means no memory of a previous visit, so the tour offers
@@ -538,15 +535,13 @@ App.tour = (function () {
     return !isSuppressed();
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // LIFECYCLE
-  // ══════════════════════════════════════════════════════════════════════
 
   function init() {
     D = App.dom;
     T = App.i18n.t;
 
-    // Language can change while the tour is open — it is one of the steps.
+    // Language can change while the tour is open - it is one of the steps.
     App.i18n.onChange(function () {
       if (_root) _render();
     });
@@ -671,24 +666,14 @@ App.tour = (function () {
   }
 
   /**
-   * The safety net.
-   *
-   * Every step undoes its own work in exit(), so in the ordinary case this
-   * finds nothing to do. It exists for the ones that are not ordinary: a step
-   * whose enter() threw halfway, a dialog closed by something else, a tour
-   * abandoned with Escape while the print view was still composing. Each check
-   * is a no-op when there is nothing to close, so running it twice is free —
-   * and running it one time too few is how someone's afternoon disappears.
-   */
-  /**
    * Turn every modal tool off.
    *
    * Called on both sides of the tour, because a mode running while the sample
    * is swapped in or out is a tool holding layers that are about to be taken
    * away from it. On the way out this is the safety net for a step whose
-   * exit() did not run; on the way in the mode is the user's own — pressing H
+   * exit() did not run; on the way in the mode is the user's own - pressing H
    * mid-cut is not blocked by anything, none of the mode contexts being
-   * exclusive — and it cannot survive the swap either way, so it ends here
+   * exclusive - and it cannot survive the swap either way, so it ends here
    * rather than halfway through the first sample step.
    *
    * outline is cancelled rather than toggled: toggling it off would keep
@@ -706,6 +691,16 @@ App.tour = (function () {
     }
   }
 
+  /**
+   * The safety net.
+   *
+   * Every step undoes its own work in exit(), so in the ordinary case this
+   * finds nothing to do. It exists for the ones that are not ordinary: a step
+   * whose enter() threw halfway, a dialog closed by something else, a tour
+   * abandoned with Escape while the print view was still composing. Each check
+   * is a no-op when there is nothing to close, so running it twice is free --
+   * and running it one time too few is how someone's afternoon disappears.
+   */
   function _cleanup() {
     try {
       if (App.print && App.print.isOpen()) App.print.close();
@@ -730,14 +725,12 @@ App.tour = (function () {
     _show(_index - 1, -1);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // TRANSITIONS
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Leave the current step and arrive at `index`, in direction `dir`.
    *
-   * The order is exit, then sample, then enter, then measure — and each of
+   * The order is exit, then sample, then enter, then measure - and each of
    * those depends on the one before it. The print dialog has to close before
    * the territory it is printing is taken away; the sample has to be loaded
    * before the partition dialog can find any data to offer; and the spotlight
@@ -777,8 +770,8 @@ App.tour = (function () {
     requestAnimationFrame(function () {
       if (_root) _reposition();
     });
-    // And everything slower than one frame — a bar sliding in, a bar growing
-    // a line — is the watcher's.
+    // And everything slower than one frame - a bar sliding in, a bar growing
+    // a line - is the watcher's.
     _watchTarget();
   }
 
@@ -811,7 +804,7 @@ App.tour = (function () {
       App.demo.leave();
       return true;
     }
-    // False when the app could not be snapshotted — better to skip the sample
+    // False when the app could not be snapshotted - better to skip the sample
     // steps than to open dialogs over work that cannot be given back.
     return App.demo.enter();
   }
@@ -830,8 +823,8 @@ App.tour = (function () {
       return;
     }
     if (e.key === "ArrowRight" || e.key === "Enter") {
-      // Enter on a focused control means that control — the dot you tabbed
-      // to, Back, the checkbox — not "next step". Anywhere else it is the
+      // Enter on a focused control means that control - the dot you tabbed
+      // to, Back, the checkbox - not "next step". Anywhere else it is the
       // fastest way through the tour and stays that way.
       if (e.key === "Enter" && _isBubbleControl(e.target)) return;
       e.preventDefault();
@@ -846,9 +839,7 @@ App.tour = (function () {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // RENDER
-  // ══════════════════════════════════════════════════════════════════════
 
   function _resolve(step) {
     return step.target ? _find(step.target) : null;
@@ -858,8 +849,8 @@ App.tour = (function () {
     var node = document.querySelector(selector);
     if (!node || !node.getBoundingClientRect) return null;
     var rect = node.getBoundingClientRect();
-    // A control that is present but has no box — a collapsed panel, a
-    // display:none branch — is not something worth pointing at.
+    // A control that is present but has no box - a collapsed panel, a
+    // display:none branch - is not something worth pointing at.
     return rect.width > 0 && rect.height > 0 ? node : null;
   }
 
@@ -868,7 +859,7 @@ App.tour = (function () {
    *
    * A box is not the same as a view of one. The Print button in the toolbar
    * has a box throughout the steps that describe the territory list, and on a
-   * wide window it is visible beside the dialog — but on a phone the dialog is
+   * wide window it is visible beside the dialog - but on a phone the dialog is
    * the width of the screen and the button is behind it. Pointing at it there
    * draws a dashed rectangle around a paragraph of the dialog: a ring with
    * nothing in it, next to a step that says "this is the button that opened
@@ -879,7 +870,7 @@ App.tour = (function () {
    * order and the tour has no way to reason about that from the outside.
    *
    * Two layers are excused. The tour's own veil is over everything by design,
-   * and the dialog veil is 18% black — you can see straight through both, so
+   * and the dialog veil is 18% black - you can see straight through both, so
    * neither of them is what hides a control.
    */
   function _onTop(node) {
@@ -939,7 +930,7 @@ App.tour = (function () {
     if (!_root) return;
     var step = _steps[_index];
 
-    // Something closed the thing this step is pointing at — the context menu
+    // Something closed the thing this step is pointing at - the context menu
     // dismissing itself on a click at the veil is the case this exists for.
     // One retry, so a target that genuinely cannot open does not spin.
     if (!_resolve(step) && step.reopenIfGone && step.enter) {
@@ -976,16 +967,16 @@ App.tour = (function () {
    *
    * Half of what a step can point at is still moving on the frame it opens:
    *
-   *   • The four mode bars arrive with `mode-bar-in`, which starts them 10 px
+   *   - The four mode bars arrive with `mode-bar-in`, which starts them 10 px
    *     low and slides them up over 0.18 s. getBoundingClientRect() reports
    *     the transformed box, so a frame drawn on that first frame lands 10 px
    *     below the bar.
    *
-   *   • The trim bar then grows. Its status line arrives with the first
+   *   - The trim bar then grows. Its status line arrives with the first
    *     proposal, a debounce later, and the bar is anchored to the bottom of
    *     the map, so its top edge moves up another 16 px.
    *
-   *   • And anything the map owns moves when the map does.
+   *   - And anything the map owns moves when the map does.
    *
    * The single rAF after _show reaches a dialog that has not been laid out yet
    * and nothing slower than one frame, and a longer fixed delay only moves the
@@ -1013,7 +1004,7 @@ App.tour = (function () {
     _drawnAt = null;
   }
 
-  /** Within half a pixel on every edge — sub-pixel layout is not movement. */
+  /** Within half a pixel on every edge - sub-pixel layout is not movement. */
   function _sameBox(a, b) {
     if (!a || !b) return false;
     return (
@@ -1035,7 +1026,7 @@ App.tour = (function () {
    * What bounds it is not only the screen. That column is three screens tall
    * *inside a dialog that scrolls*, so the part you can see ends at the
    * dialog's edge, and a frame clamped to the viewport instead runs 31 px past
-   * the bottom of the dialog and finishes on the map — a box whose sides are
+   * the bottom of the dialog and finishes on the map - a box whose sides are
    * inside one thing and whose floor is inside another. So every ancestor that
    * clips its content clips the frame too, and the screen is merely the last
    * of them.
@@ -1067,7 +1058,7 @@ App.tour = (function () {
    * The rectangle everything above this node cuts it down to.
    *
    * The viewport to begin with, then every ancestor whose overflow is not
-   * `visible` on both axes — which on this page means the map container, a
+   * `visible` on both axes - which on this page means the map container, a
    * dialog that scrolls and the toolbar panel.
    *
    * An ancestor's border box, which overstates the clip by that ancestor's
@@ -1098,10 +1089,10 @@ App.tour = (function () {
   /**
    * The second ring: the control that opened what this step is describing.
    *
-   * Deliberately quieter than the spotlight — it is context, not the subject,
+   * Deliberately quieter than the spotlight - it is context, not the subject,
    * and two rings of equal weight would just be two things to look at. Absent
    * when the step names no origin, and absent when it names one that is not on
-   * screen — which on a phone means behind a dialog as often as it means gone,
+   * screen - which on a phone means behind a dialog as often as it means gone,
    * and a ring around a control you cannot see is a ring around nothing.
    */
   function _placeOrigin(step) {
@@ -1159,12 +1150,12 @@ App.tour = (function () {
    * Preferred side first, then the other three, then wherever covers least.
    *
    * Sides are tried rather than computed because the bubble's height depends
-   * on how long the translated body turned out to be — German runs a third
+   * on how long the translated body turned out to be - German runs a third
    * longer than English, and a layout that fits in one language and overflows
    * in another is the usual way this kind of thing breaks.
    *
    * What decides between the candidates is how much of the spotlight each one
-   * covers, and the first that covers none of it wins — so the order above is
+   * covers, and the first that covers none of it wins - so the order above is
    * still the preference, and the arithmetic only settles the cases where the
    * preference cannot be had. Where the step before this one was about the
    * same screen, distance from that card sorts the candidates the spotlight
@@ -1239,7 +1230,7 @@ App.tour = (function () {
    *
    * Covering the subject is what decides: it is the thing the step exists to
    * point at, and it is never traded for anything. `was` only sorts the
-   * positions that hide it equally — usually the several that hide none of it
+   * positions that hide it equally - usually the several that hide none of it
    * at all, where the placer would otherwise take the same one twice running
    * and cover the same half of a screen both times.
    *
@@ -1271,7 +1262,7 @@ App.tour = (function () {
    *
    * A screen with more in it than a card can hold is two steps, and both of
    * them describe things the reader has to be able to see. Left to itself the
-   * placer answers both the same way — the inputs are the same — so the half
+   * placer answers both the same way - the inputs are the same - so the half
    * of the screen the first card covered is the half the second one covers,
    * and that half is never read. The pair is worth detecting because the
    * remedy is free: the second card takes the side the first one did not, and
@@ -1353,7 +1344,7 @@ App.tour = (function () {
     return { left: left, top: top };
   }
 
-  /** "bottom-left", "top-right", "bottom", "top" — anything else centres. */
+  /** "bottom-left", "top-right", "bottom", "top" - anything else centres. */
   function _dock(where, box, vw, vh) {
     var name = String(where);
     var top =

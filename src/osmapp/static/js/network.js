@@ -1,11 +1,11 @@
 /**
- * network.js — the street graph, shared by everything that has to follow one.
+ * network.js - the street graph, shared by everything that has to follow one.
  *
  * The cut tool and the trim tool ask this the same two questions: given a
  * point, which street is under it, and given two points on the network, what
  * is the route between them. One graph answers both, because two copies of a
  * routing heuristic is two sets of detour limits and two definitions of
- * "snapped", one of which drifts — the same reason spatial.js exists.
+ * "snapped", one of which drifts - the same reason spatial.js exists.
  *
  * The boundary-edge grid is deliberately *not* here. That one indexes territory
  * outlines rather than streets and belongs to the cut tool alone: a cut may
@@ -36,9 +36,7 @@ App.network = (function () {
     App._loaded.push("network");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // BUILD
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Index the downloaded streets. Cheap to call: the work is skipped when the
@@ -107,7 +105,7 @@ App.network = (function () {
     return _built && _segGrid !== null;
   }
 
-  /** Five decimals is about a meter — the precision OSM ways are noded at. */
+  /** Five decimals is about a meter - the precision OSM ways are noded at. */
   function nodeKey(latlng) {
     return latlng.lat.toFixed(5) + "," + latlng.lng.toFixed(5);
   }
@@ -123,9 +121,7 @@ App.network = (function () {
     };
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // QUERIES
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Nearest point anywhere on a street center-line.
@@ -138,7 +134,7 @@ App.network = (function () {
   }
 
   /**
-   * Nearest graph node — an intersection or a shape point.
+   * Nearest graph node - an intersection or a shape point.
    * @returns {{key: string, coord: number[], latlng: L.LatLng, dist: number}|null}
    */
   function nearestNode(coord, maxMeters) {
@@ -158,9 +154,7 @@ App.network = (function () {
     return nearestNode([latlng.lng, latlng.lat], maxMeters);
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ROUTING
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * A* over the street graph. The straight-line heuristic is admissible, so

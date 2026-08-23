@@ -62,8 +62,8 @@ def _clean(value: Any) -> Any:
     """Normalize one osmnx cell, or return None if it carries no information.
 
     Three shapes need handling. Missing tags arrive as float NaN, not None.
-    Merged ways arrive as lists — osmnx concatenates the tags of every OSM way
-    it collapsed into a single edge — and a list is awkward for a tooltip, so
+    Merged ways arrive as lists - osmnx concatenates the tags of every OSM way
+    it collapsed into a single edge - and a list is awkward for a tooltip, so
     duplicates are dropped and the rest joined. Everything else is passed
     through with its type intact, which keeps ``length`` a number.
     """
@@ -159,7 +159,9 @@ def fetch_streets() -> Response:
         return error_("No streets found in that area.", 404)
     except Exception:
         logger.exception("fetch_streets failed")
-        return error_("Could not download streets. Overpass may be busy.", 502, retryable=True)
+        return error_(
+            "Could not download streets. Overpass may be busy.", 502, retryable=True
+        )
 
 
 @bp.route("/fetch_buildings", methods=["POST"])
@@ -216,4 +218,6 @@ def fetch_buildings() -> Response:
         return json_(empty)
     except Exception:
         logger.exception("fetch_buildings failed")
-        return error_("Could not download buildings. Overpass may be busy.", 502, retryable=True)
+        return error_(
+            "Could not download buildings. Overpass may be busy.", 502, retryable=True
+        )

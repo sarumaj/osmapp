@@ -1,14 +1,14 @@
 /**
- * vertices.js — the corner handles, and the one gesture that removes them fast.
+ * vertices.js - the corner handles, and the one gesture that removes them fast.
  *
  * Three places hand a ring to Leaflet.Editable and let it be dragged about:
  * the boundary drawer in main.js, the outline editor, and the trim tool's
  * hand-adjust latch. All three inherit the library's defaults, and the
  * defaults carry the same two problems in each, so the fix lives here once.
  *
- * ── Problem one: an eight-pixel target ────────────────────────────────────
+ * Problem one: an eight-pixel target
  *
- * L.Editable.VertexIcon is 8 × 8 CSS pixels, well below what is comfortable on
+ * L.Editable.VertexIcon is 8 x 8 CSS pixels, well below what is comfortable on
  * a trackpad. Missing it is not harmless either: the click lands on the
  * polygon underneath, which is the boundary in the outline editor and a
  * building that then toggles in trim mode.
@@ -19,14 +19,14 @@
  * the icon because icon size is also what the eye sees: a 26-pixel dot on
  * every corner of a hand-traced boundary hides the shape being traced.
  *
- * Middle markers — the half-handles that add a corner — get the same box with
+ * Middle markers - the half-handles that add a corner - get the same box with
  * a smaller dot inside it. They sit *on* the line, where an opaque circle
  * would hide the edge being adjusted.
  *
- * ── Problem two: deleting corners one at a time ───────────────────────────
+ * Problem two: deleting corners one at a time
  *
  * Straightening a stretch of a traced boundary means removing a run of twenty
- * corners, and the library's gesture is a click per corner — each a separate
+ * corners, and the library's gesture is a click per corner - each a separate
  * aim at the small target above, each reflowing the middle markers under the
  * cursor before the next one.
  *
@@ -37,11 +37,11 @@
  *
  * Two rules keep it honest:
  *
- *   • It never takes the last three corners. That is PolygonEditor's own
+ *   - It never takes the last three corners. That is PolygonEditor's own
  *     MIN_VERTEX of 3, asked through `vertexCanBeDeleted` rather than
  *     reimplemented, so a sweep across a triangle stops rather than leaving
  *     a line.
- *   • A stroke is one undo step. The host suspends its per-vertex bookkeeping
+ *   - A stroke is one undo step. The host suspends its per-vertex bookkeeping
  *     while the key is down and records once on release, so the undo stack
  *     describes the gesture rather than the implementation.
  *
@@ -65,9 +65,7 @@ App.vertices = (function () {
     App._loaded.push("vertices");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // HANDLE SIZE
-  // ══════════════════════════════════════════════════════════════════════
 
   /**
    * Resize the library's handles, once, before anything draws one.
@@ -76,8 +74,8 @@ App.vertices = (function () {
    * called from inside VertexMarker and MiddleMarker with no way to pass a
    * class in, so replacing the icon would mean replacing both markers to get
    * at one number. L.Class.extend copies `options` into a fresh object per
-   * subclass, so TouchVertexIcon — which already ships a 20-pixel icon for
-   * touch devices — is untouched by this.
+   * subclass, so TouchVertexIcon - which already ships a 20-pixel icon for
+   * touch devices - is untouched by this.
    */
   function install() {
     if (_installed) return false;
@@ -89,9 +87,7 @@ App.vertices = (function () {
     return true;
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // ERASER
-  // ══════════════════════════════════════════════════════════════════════
 
   function isErasing() {
     return !!_stroke;
@@ -237,7 +233,7 @@ App.vertices = (function () {
    * A copy rather than the live list: delete() removes the marker from the
    * same layer group being walked, and it also refreshes the editor, which
    * rebuilds the middle markers underneath. Middle markers are excluded by
-   * class rather than by duck-typing — they carry a delete() of their own
+   * class rather than by duck-typing - they carry a delete() of their own
    * that removes the handle without touching the ring, so erasing one would
    * look like it worked and change nothing.
    */
@@ -277,7 +273,7 @@ App.vertices = (function () {
 
   /**
    * The pointer is tracked from the moment the map exists, not from the
-   * moment somebody presses the key — see _last.
+   * moment somebody presses the key - see _last.
    */
   function watch(map) {
     if (!map) return;

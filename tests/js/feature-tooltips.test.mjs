@@ -5,12 +5,12 @@
  * on first hover and are expected to give it back. Two things go wrong with
  * that, and neither is visible from anything the module returns:
  *
- *   • A tooltip whose closing event never arrives. Leaflet closes on the
+ *   - A tooltip whose closing event never arrives. Leaflet closes on the
  *     shape's own mouseout, and that does not always come — the shape is taken
  *     off the map, a trim mark is dropped on top of it, the pointer leaves the
  *     window, the element is rebuilt under a cursor that has not moved. What
  *     is left is a panel describing a building nobody is pointing at.
- *   • A tooltip opened in a mode that shows none. `bindTooltip` installs
+ *   - A tooltip opened in a mode that shows none. `bindTooltip` installs
  *     Leaflet's own mouseover opener on the layer, and it knows nothing about
  *     this app's modes: closing without unbinding leaves it live, so the next
  *     hover reopens what the cut tool has just suppressed.

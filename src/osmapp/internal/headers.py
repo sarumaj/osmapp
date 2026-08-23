@@ -1,4 +1,11 @@
-"""OSMNX headers and settings for osmapp."""
+"""Identifying headers for outbound requests, and the osmnx global settings.
+
+Two paths reach third-party services. Requests this app issues directly --
+Nominatim through geocode.py, tiles through tiles.py - carry `get_headers()`,
+a fixed contact pair. Requests osmnx issues on our behalf carry whatever sits
+in `ox.settings`, which `init_osmnx` seeds with the same contact pair and
+`refresh_random_osmnx_headers` then replaces on a schedule.
+"""
 
 import threading
 
@@ -15,7 +22,11 @@ _lock_headers = threading.Lock()
 
 
 def refresh_random_osmnx_headers():
-    """Refresh the global headers for OSMNX."""
+    """Replace osmnx's User-Agent and Referer with a generated desktop pair.
+
+    Overwrites whatever `init_osmnx` installed, so the contact pair below only
+    identifies osmnx traffic until the first refresh runs.
+    """
     generator = HeaderGenerator()
     headers = generator(
         country="us",
@@ -37,5 +48,6 @@ def init_osmnx(overpass_url: str, timeout: int = 180):
 
 
 def get_headers() -> dict[str, str]:
-    """The identifying headers this app sends to third-party services."""
+    """The contact pair for requests this app issues itself, not through osmnx."""
+
     return {"User-Agent": user_agent, "Referer": referer}

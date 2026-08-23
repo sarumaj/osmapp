@@ -1,5 +1,5 @@
 /**
- * data.js — Overpass fetching via the Flask backend, rendering, export/import.
+ * data.js - Overpass fetching via the Flask backend, rendering, export/import.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -19,9 +19,7 @@ App.data = (function () {
     App._loaded.push("data");
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // FETCH
-  // ══════════════════════════════════════════════════════════════════════
   //
   // Overpass is a shared, free, frequently overloaded service. A download that
   // fails is far more often "come back in ten seconds" than "this will never
@@ -47,17 +45,17 @@ App.data = (function () {
 
   /**
    * @param {Object} geojson polygon to download
-   * @param {boolean} [forceRefresh] ignore the cache
+   * @param {boolean} [forceRefresh] accepted and ignored; there is no cache
+   *   to bypass, and the body below says why
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>} always resolves
    */
   function fetchData(geojson, forceRefresh) {
-    // There was a cache fast path here, guarded on `_isWithinCache(geojson)`,
-    // which tested `s.cachedPolygon` — a field nothing in the app has ever
-    // assigned. The guard was therefore always false and the branch never
-    // ran, so removing it changes no behavior. Reinstating it properly would
-    // mean recording the downloaded polygon and deciding what a confirmed
-    // download that then silently does not happen should look like; that is a
-    // feature decision, not a cleanup, so it is deliberately not made here.
+    // Every call downloads. There is no cache to consult: `s.cachedPolygon`,
+    // the field a "have we already covered this area" check would read, is
+    // assigned nowhere in the app, and `forceRefresh` is accepted but never
+    // read. Skipping a download the user has just confirmed also needs an
+    // answer for what a confirmed download that then does not happen looks
+    // like on screen.
     _cancelled = false;
     App.ui.showBusy(
       T("loading.streets"),
@@ -153,7 +151,7 @@ App.data = (function () {
       });
   }
 
-  /** "About 12.4 km²" — the one number that predicts how long this will take. */
+  /** "About 12.4 km2" - the one number that predicts how long this will take. */
   function _areaLine(geojson) {
     try {
       var km2 = turf.area(G.feat(geojson)) / 1e6;
@@ -194,8 +192,8 @@ App.data = (function () {
         signal: _abort ? _abort.signal : undefined,
       })
         .then(_parse, function (err) {
-          // fetch only rejects on a transport problem — DNS, a dropped
-          // connection, a proxy timeout, or this module's own abort() — so
+          // fetch only rejects on a transport problem - DNS, a dropped
+          // connection, a proxy timeout, or this module's own abort() - so
           // everything that lands here except a cancellation is worth another
           // try.
           if (_cancelled) throw _cancelledError();
@@ -256,9 +254,9 @@ App.data = (function () {
     return (
       status === 408 || // request timeout
       status === 425 || // too early
-      status === 429 || // rate limited — Overpass says this often
+      status === 429 || // rate limited - Overpass says this often
       status === 500 ||
-      status === 502 || // our own "Overpass may be busy"
+      status === 502 || // this app's own "Overpass may be busy"
       status === 503 ||
       status === 504
     );
@@ -321,9 +319,7 @@ App.data = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // RENDER
-  // ══════════════════════════════════════════════════════════════════════
 
   function displayResults(data) {
     if (!s._skipOuterClear) {
@@ -384,9 +380,7 @@ App.data = (function () {
     });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // EXPORT / IMPORT
-  // ══════════════════════════════════════════════════════════════════════
 
   /** The bundle written to a file or to the session store. */
   function buildPayload() {
@@ -413,7 +407,7 @@ App.data = (function () {
    * The project state, minus everything that can be downloaded again.
    *
    * buildPayload() is a session snapshot and carries `streets` and
-   * `buildings` — the whole OSM cache, which for a town is a few megabytes of
+   * `buildings` - the whole OSM cache, which for a town is a few megabytes of
    * geometry. That is the right thing to write into a file somebody chose to
    * save; it is the wrong thing to staple to every printed card, where it
    * would multiply the size of the PDF by an order of magnitude for data that
@@ -438,6 +432,12 @@ App.data = (function () {
     };
   }
 
+  /**
+   * Offer the full session bundle as a .json download.
+   *
+   * Everything buildPayload() holds, OSM cache included, so the file reopens
+   * without a network. Does nothing but warn when there is no boundary yet.
+   */
   function exportData() {
     if (!s.outerPolygonLayer) {
       alert(T("alert.exportNothing"));
@@ -462,9 +462,13 @@ App.data = (function () {
   }
 
   /**
-   * Apply a saved bundle: outer boundary, streets, buildings, territories.p
+   * Apply a saved bundle: outer boundary, streets, buildings, territories.
    * Shared by file import and session restore.
+   *
    * @param {{outerPolygon, streets, buildings, bounds, clusters}} payload
+   * @returns {number} how many territories were restored; a payload with none
+   *   gets the default single territory covering the whole boundary
+   * @throws when the version does not match or the boundary is unusable
    */
   function applyPayload(payload) {
     if (payload && payload.version != null && payload.version !== PAYLOAD_VERSION) {
@@ -500,7 +504,7 @@ App.data = (function () {
    * Import a saved project, from an export file or from a printed card.
    *
    * A card is a PDF with the project embedded in it, so the two paths differ
-   * only in how the JSON is obtained — the server unpacks the attachment and
+   * only in how the JSON is obtained - the server unpacks the attachment and
    * hands back exactly what a .json export would have contained. Everything
    * after that is shared, including the failure messages, because "this file
    * is not a project" means the same thing whichever wrapper it arrived in.
@@ -559,7 +563,7 @@ App.data = (function () {
   function _applyImported(payload) {
     var ok = false;
     // Behind the spinner for the same reason the session restore is, and with
-    // the same `always` — see session.js. Opening a project is a second of
+    // the same `always` - see session.js. Opening a project is a second of
     // blocked main thread on a town, plus the gap recount behind it, and
     // nothing has measured this project yet to say so.
     App.ui
@@ -590,7 +594,7 @@ App.data = (function () {
       )
       .then(function () {
         // A card carries the boundary and the territories but not the OSM
-        // cache, which is deliberate — see buildAttachmentPayload. Offered
+        // cache, which is deliberate - see buildAttachmentPayload. Offered
         // rather than assumed, for the same reason drawing a boundary offers
         // it: the download is the slow part, and somebody who only wanted to
         // look at last round's territories should not have to wait for it.
@@ -601,9 +605,7 @@ App.data = (function () {
       });
   }
 
-  // ══════════════════════════════════════════════════════════════════════
   // PRIVATE
-  // ══════════════════════════════════════════════════════════════════════
 
   function _bboxToBounds(b) {
     return { west: b[0], south: b[1], east: b[2], north: b[3] };
