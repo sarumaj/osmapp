@@ -250,6 +250,7 @@ App.print = (function () {
     "scale",
     "compass",
     "notes",
+    "note-text",
     "erase-size",
     "locality",
     "attach",
@@ -1952,6 +1953,7 @@ App.print = (function () {
   var NOTE_MARK_PT = 12; // the height of a pin or a note glyph
   var NOTE_PAD_PT = 3;
   var NOTE_GAP_PT = 5; // between a mark and the text beside it
+  var NOTE_LINE_SPACING = 1.25; // of the font size, baseline to baseline
   var NOTE_MAX_WIDTH = 0.34; // of the card, before the text wraps
 
   /**
@@ -1990,13 +1992,22 @@ App.print = (function () {
     ctx.lineCap = "round";
     ctx.font = NOTE_FONT_PT * PX_PER_PT + "px Arial, sans-serif";
 
-    // Lines first, then the marks and their text: a stroke along a street
-    // passes under the notes rather than through their lettering.
+    // Strokes first, then everything that carries words: a mark along a
+    // street passes under the lettering rather than through it.
     notes.forEach(function (note) {
       if (note.kind === "line") _drawNoteLine(ctx, note);
     });
     notes.forEach(function (note) {
-      if (note.kind !== "line") _drawNoteMark(ctx, note);
+      if (note.kind === "line") return;
+      if (note.kind === "text") _drawNoteText(ctx, note, _captionAnchor(note));
+      else _drawNoteMark(ctx, note);
+    });
+    // Last, so a mark's label sits over the strokes and glyphs rather than
+    // under whichever of them happened to be drawn after it.
+    notes.forEach(function (note) {
+      if (note.kind === "line" && _labelled(note)) {
+        _drawNoteText(ctx, note, _lineAnchor(note));
+      }
     });
 
     ctx.restore();
@@ -2006,6 +2017,61 @@ App.print = (function () {
     ctx.strokeStyle = note.color;
     ctx.lineWidth = Math.max(1, note.width * PX_PER_PT);
     if (_trace(ctx, note.points, false)) ctx.stroke();
+  }
+
+  /**
+   * Whether this note's words are drawn on the card.
+   *
+   * A caption is nothing but words, so the switch that keeps prose off a
+   * crowded card cannot take it away - there would be no annotation left.
+   */
+  function _labelled(note) {
+    if (!note.text) return false;
+    return note.kind === "text" || _opts().noteText;
+  }
+
+  /**
+   * Where a caption sits: on its point, since it has no glyph to hang off.
+   *
+   * @returns {{x:number, y:number, centred:boolean}} canvas pixels, and the
+   *   note that the box straddles the point rather than sitting beside it
+   */
+  function _captionAnchor(note) {
+    var at = _toCanvas(note.points[0][0], note.points[0][1], _view);
+    return { x: at[0], y: at[1], centred: true };
+  }
+
+  /**
+   * Where a mark's label sits: beside the middle of the stroke.
+   *
+   * The middle by length rather than by vertex, because a freehand sweep
+   * bunches its points where the hand slowed down and the middle one is
+   * wherever that happened to be.
+   */
+  function _lineAnchor(note) {
+    var points = note.points.map(function (coord) {
+      return _toCanvas(coord[0], coord[1], _view);
+    });
+    var lengths = [0];
+    for (var i = 1; i < points.length; i++) {
+      var step = Math.hypot(
+        points[i][0] - points[i - 1][0],
+        points[i][1] - points[i - 1][1],
+      );
+      lengths.push(lengths[i - 1] + step);
+    }
+
+    var half = lengths[lengths.length - 1] / 2;
+    for (var j = 1; j < points.length; j++) {
+      if (lengths[j] < half) continue;
+      var span = lengths[j] - lengths[j - 1];
+      var t = span > 0 ? (half - lengths[j - 1]) / span : 0;
+      return {
+        x: points[j - 1][0] + (points[j][0] - points[j - 1][0]) * t,
+        y: points[j - 1][1] + (points[j][1] - points[j - 1][1]) * t,
+      };
+    }
+    return { x: points[0][0], y: points[0][1] };
   }
 
   /**
@@ -2034,9 +2100,9 @@ App.print = (function () {
     ctx.strokeStyle = "#ffffff";
     ctx.stroke();
 
-    if (!note.text) return;
+    if (!_labelled(note)) return;
     var box = _ringBounds(rings);
-    _drawNoteText(ctx, note, box[2], (box[1] + box[3]) / 2);
+    _drawNoteText(ctx, note, { x: box[2], y: (box[1] + box[3]) / 2 });
   }
 
   /**
@@ -2141,36 +2207,75 @@ App.print = (function () {
    * is a sentence, and a sentence in white outline over a street map is
    * legible only where the map happens to be pale.
    */
-  function _drawNoteText(ctx, note, x, y) {
-    var size = NOTE_FONT_PT * PX_PER_PT;
-    var pad = NOTE_PAD_PT * PX_PER_PT;
-    var lines = _wrapNote(ctx, note.text, RENDER_W * NOTE_MAX_WIDTH);
-    var width = lines.reduce(function (widest, line) {
-      return Math.max(widest, ctx.measureText(line).width);
-    }, 0);
-    var height = lines.length * size * 1.25;
-
-    // Flipped to the other side rather than allowed to run off the card. The
-    // mark is where the note belongs; which side its text sits on is not.
-    var left = x + NOTE_GAP_PT * PX_PER_PT;
-    if (left + width + pad * 2 > RENDER_W)
-      left = x - NOTE_GAP_PT * PX_PER_PT - width - pad * 2;
-    var top = Math.max(0, Math.min(RENDER_H - height - pad * 2, y - height / 2));
+  function _drawNoteText(ctx, note, anchor) {
+    var box = _labelBox(ctx, note, anchor);
 
     ctx.fillStyle = "rgba(255,255,255,0.88)";
     ctx.strokeStyle = note.color;
     ctx.lineWidth = Math.max(1, PX_PER_PT);
     ctx.beginPath();
-    ctx.rect(left, top, width + pad * 2, height + pad * 2);
+    ctx.rect(box.left, box.top, box.width, box.height);
     ctx.fill();
     ctx.stroke();
 
     ctx.fillStyle = INK;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
-    lines.forEach(function (line, i) {
-      ctx.fillText(line, left + pad, top + pad + i * size * 1.25);
+    box.lines.forEach(function (line, i) {
+      ctx.fillText(
+        line,
+        box.left + box.pad,
+        box.top + box.pad + i * box.size * NOTE_LINE_SPACING,
+      );
     });
+  }
+
+  /**
+   * Where a note's words go and what they say, in canvas pixels.
+   *
+   * Separated from the drawing because the PDF needs the same answer: what is
+   * printed there is a /FreeText annotation rather than these pixels, and a
+   * box measured twice is a box that disagrees with itself.
+   *
+   * @param {{x:number, y:number, centred?:boolean}} anchor where the box hangs
+   *   from - beside the point, or over it for a caption, which has nothing
+   *   else marking the spot
+   */
+  function _labelBox(ctx, note, anchor) {
+    ctx.font = NOTE_FONT_PT * PX_PER_PT + "px Arial, sans-serif";
+    var size = NOTE_FONT_PT * PX_PER_PT;
+    var pad = NOTE_PAD_PT * PX_PER_PT;
+    var lines = _wrapNote(ctx, note.text, RENDER_W * NOTE_MAX_WIDTH);
+    var width =
+      lines.reduce(function (widest, line) {
+        return Math.max(widest, ctx.measureText(line).width);
+      }, 0) +
+      pad * 2;
+    var height = lines.length * size * NOTE_LINE_SPACING + pad * 2;
+
+    var left = anchor.centred
+      ? anchor.x - width / 2
+      : anchor.x + NOTE_GAP_PT * PX_PER_PT;
+    // Flipped to the other side rather than allowed to run off the card. The
+    // mark is where the note belongs; which side its text sits on is not.
+    var flipped = !anchor.centred && left + width > RENDER_W;
+    if (flipped) left = anchor.x - NOTE_GAP_PT * PX_PER_PT - width;
+    left = Math.max(0, Math.min(RENDER_W - width, left));
+    var top = Math.max(0, Math.min(RENDER_H - height, anchor.y - height / 2));
+
+    return {
+      lines: lines,
+      left: left,
+      top: top,
+      width: width,
+      height: height,
+      size: size,
+      pad: pad,
+      // Which edge of the box is the one that stays put. The card measures
+      // this box in Arial and the PDF draws it in DejaVu, so pdfdoc.js has to
+      // be free to widen it - and it has to widen it away from the mark.
+      grow: anchor.centred ? "centre" : flipped ? "left" : "right",
+    };
   }
 
   /** Break a note's text into lines that fit, honoring the ones it already has. */
@@ -2210,19 +2315,77 @@ App.print = (function () {
    * Every kind arrives as paths, glyphs included, so that pdfdoc.js writes one
    * kind of annotation and knows nothing about what a pin looks like. `closed`
    * is what separates the two: a glyph is a filled outline, a mark is a
-   * stroke.
+   * stroke. A caption has no paths at all - it is only its words.
    *
    * @returns {Array<{kind:string, paths:Array<Array<number[]>>, closed:boolean,
-   *                  text:string, color:string, width?:number}>}
-   *   width is the stroke of a mark; a glyph is filled and carries none.
+   *                  text:string, subject:string, color:string,
+   *                  width?:number, label?:Object}>}
+   *   subject is what a reader's comment list calls the row; width is the
+   *   stroke of a mark, and a glyph is filled and carries none. label is the
+   *   box of words, present only when they are printed - see _labelSpec.
    */
   function _noteSpecs() {
     var out = [];
     _notes().forEach(function (note) {
-      var spec = note.kind === "line" ? _lineSpec(note) : _markerSpec(note);
+      var spec =
+        note.kind === "line"
+          ? _lineSpec(note)
+          : note.kind === "text"
+            ? _captionSpec(note)
+            : _markerSpec(note);
       if (spec) out.push(spec);
     });
     return out;
+  }
+
+  /**
+   * The words of a note, as pdfdoc.js draws them.
+   *
+   * Fractions throughout, including the type size, because the map image is
+   * fitted into the placeholder and everything measured against it has to be
+   * fitted by the same amount. The lines are wrapped here rather than there:
+   * the wrap depends on the width of the card, which is this module's
+   * business, and sending the finished lines means the two outputs break the
+   * text in the same places.
+   */
+  function _labelSpec(ctx, note, anchor) {
+    var box = _labelBox(ctx, note, anchor);
+    return {
+      lines: box.lines,
+      at: [box.left / RENDER_W, box.top / RENDER_H],
+      width: box.width / RENDER_W,
+      height: box.height / RENDER_H,
+      size: box.size / RENDER_W,
+      pad: box.pad / RENDER_W,
+      step: (box.size * NOTE_LINE_SPACING) / RENDER_W,
+      grow: box.grow,
+    };
+  }
+
+  /** The label of a note that has one to print, or nothing. */
+  function _labelFor(note, anchor) {
+    if (!_labelled(note)) return null;
+    return _labelSpec(_preview.getContext("2d"), note, anchor);
+  }
+
+  /**
+   * A caption: words on the ground with nothing under them.
+   *
+   * Dropped when its anchor leaves the frame, the way a glyph is - the box is
+   * centred on that point, so half of it would hang over the form.
+   */
+  function _captionSpec(note) {
+    var at = _toFrame(note.points[0]);
+    if (at[0] < 0 || at[0] > 1 || at[1] < 0 || at[1] > 1) return null;
+    return {
+      kind: "text",
+      paths: [],
+      closed: false,
+      text: note.text,
+      subject: T("notes.kindText"),
+      color: note.color,
+      label: _labelFor(note, _captionAnchor(note)),
+    };
   }
 
   function _lineSpec(note) {
@@ -2237,8 +2400,10 @@ App.print = (function () {
       paths: paths,
       closed: false,
       text: note.text,
+      subject: T("notes.kindMark"),
       color: note.color,
       width: note.width,
+      label: _labelFor(note, _lineAnchor(note)),
     };
   }
 
@@ -2252,7 +2417,8 @@ App.print = (function () {
    * not in the PDF - which is the same answer as "pan it into the frame".
    */
   function _markerSpec(note) {
-    var paths = _markerRings(note).map(function (ring) {
+    var rings = _markerRings(note);
+    var paths = rings.map(function (ring) {
       return ring.map(function (point) {
         return [point[0] / RENDER_W, point[1] / RENDER_H];
       });
@@ -2260,12 +2426,20 @@ App.print = (function () {
     var box = _ringBounds(paths);
     if (box[0] < 0 || box[1] < 0 || box[2] > 1 || box[3] > 1) return null;
 
+    // The label hangs off the right edge of the glyph, and it is laid out in
+    // canvas pixels - the same measurement the preview draws from.
+    var pixels = _ringBounds(rings);
     return {
       kind: note.kind,
       paths: paths,
       closed: true,
       text: note.text,
+      subject: T(note.kind === "pin" ? "notes.kindPin" : "notes.kindNote"),
       color: note.color,
+      label: _labelFor(note, {
+        x: pixels[2],
+        y: (pixels[1] + pixels[3]) / 2,
+      }),
     };
   }
 
@@ -2662,7 +2836,7 @@ App.print = (function () {
 
     // The furniture is composited on the finished card rather than mixed into
     // the tile mosaic, so switching either one costs a repaint and no refetch.
-    ["scale", "compass", "notes"].forEach(function (role) {
+    ["scale", "compass", "notes", "note-text"].forEach(function (role) {
       var box = D.role(_dialog, role);
       if (!box) return;
       box.addEventListener("change", function () {
@@ -3054,6 +3228,7 @@ App.print = (function () {
       scale: _checked("scale"),
       compass: _checked("compass"),
       notes: _checked("notes"),
+      noteText: _checked("note-text"),
       // Only meaningful on the template path: the no-template path hands a
       // PNG to the browser's own print dialog, and there is no PDF of ours to
       // attach anything to.

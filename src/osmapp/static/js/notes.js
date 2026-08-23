@@ -1,18 +1,21 @@
 /**
  * notes.js - annotations drawn over the working area.
  *
- * Three kinds, because three different things get written on a paper map
+ * Four kinds, because four different things get written on a paper map
  * before it is handed to somebody:
  *
  *   - a **note**: a sentence pinned to a spot ("gate is round the back"),
  *   - a **pin**: a mark on one place or building with an optional label,
  *   - a **line**: a stroke along something, drawn either freehand or snapped
  *     to the street network so that "this street, not the next one" is a
- *     mark that actually lies on the street.
+ *     mark that actually lies on the street,
+ *   - a **caption**: words on the ground and nothing else ("odd side", "start
+ *     here"), which is a note without the icon that would anchor it to a
+ *     doorway it is not about.
  *
- * All three are one record with one geometry - a list of lng/lat points, of
- * length one for the first two - so that everything downstream (the layer, the
- * session, the card) walks a single shape instead of three.
+ * All four are one record with one geometry - a list of lng/lat points, of
+ * length one for everything but a line - so that everything downstream (the
+ * layer, the session, the card) walks a single shape instead of four.
  *
  * Why they are not territories
  *
@@ -52,7 +55,7 @@ App.notes = (function () {
    * the snap switch on the bar, in the same place the cut and trim tools keep
    * theirs.
    */
-  var TOOLS = ["note", "pin", "draw"];
+  var TOOLS = ["note", "pin", "draw", "text"];
 
   /**
    * The Font Awesome glyph each tool is drawn with - on the bar, in the menu,
@@ -63,10 +66,19 @@ App.notes = (function () {
     note: "fa-note-sticky",
     pin: "fa-location-dot",
     draw: "fa-pencil",
+    text: "fa-font",
   };
 
-  /** What a stored record may call itself. The draw tool makes the last one. */
-  var KINDS = ["note", "pin", "line"];
+  /** What a stored record may call itself. The draw tool makes "line". */
+  var KINDS = ["note", "pin", "line", "text"];
+
+  /** What the text dialog is titled, per kind. */
+  var TITLE_KEYS = {
+    note: "notes.titleNote",
+    pin: "notes.titlePin",
+    line: "notes.titleLine",
+    text: "notes.titleText",
+  };
 
   var PEN_KEY = "osmapp.notes.pen";
 
@@ -317,7 +329,7 @@ App.notes = (function () {
         lineCap: "round",
         lineJoin: "round",
       },
-    ).bindTooltip(note.text || T("notes.untitledLine"), { sticky: true });
+    ).bindTooltip(note.text || T("notes.kindMark"), { sticky: true });
   }
 
   /**
@@ -333,6 +345,8 @@ App.notes = (function () {
    * so a note is drawn with the same icon its tool is labelled with.
    */
   function _markerLayer(note) {
+    if (note.kind === "text") return _captionLayer(note);
+
     var pin = note.kind === "pin";
     var size = pin ? 28 : 24;
     var icon = L.divIcon({
@@ -369,10 +383,58 @@ App.notes = (function () {
     return marker;
   }
 
+  /**
+   * A caption: the words on the ground, with nothing marking the spot.
+   *
+   * Centred on its point by the transform on .note-caption rather than by an
+   * iconAnchor, because the box is as wide as whatever was typed and Leaflet
+   * needs a size up front to compute an anchor from.
+   */
+  function _captionLayer(note) {
+    return L.marker([note.points[0][1], note.points[0][0]], {
+      icon: L.divIcon({
+        className: "note-caption",
+        iconSize: null,
+        html:
+          '<span style="color:' +
+          _cssColor(note.color) +
+          '">' +
+          _escapeHtml(note.text) +
+          "</span>",
+      }),
+      pane: "notesPane",
+      keyboard: false,
+    });
+  }
+
   /** A color safe to interpolate into markup, or the pen's default. */
   function _cssColor(value) {
     return /^#[0-9a-f]{6}$/i.test(value) ? value : "#d40000";
   }
+
+  /**
+   * Text safe to interpolate into markup.
+   *
+   * A caption is drawn through L.divIcon, which takes a string of HTML and no
+   * other kind of content, so this is the one place in the app where something
+   * somebody typed is turned into markup rather than into a text node.
+   */
+  function _escapeHtml(value) {
+    return String(value == null ? "" : value).replace(
+      /[&<>"']/g,
+      function (character) {
+        return HTML_ESCAPES[character];
+      },
+    );
+  }
+
+  var HTML_ESCAPES = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  };
 
   // VISIBILITY
 
@@ -885,16 +947,13 @@ App.notes = (function () {
   // CREATING
 
   function _createPoint(latlng) {
-    var pin = _tool === "pin";
-    _askText(pin ? "notes.titlePin" : "notes.titleNote", "", function (text) {
-      // A note is its text, so an empty one is a note that was thought better
-      // of. A pin is a place, and a place with no label is still a place.
-      if (!text && !pin) return;
-      _add({
-        kind: pin ? "pin" : "note",
-        points: [[latlng.lng, latlng.lat]],
-        text: text,
-      });
+    var kind = _tool;
+    _askText(TITLE_KEYS[kind], "", function (text) {
+      // A pin is a place, and a place with no label is still a place. A note
+      // and a caption are their words, so an empty one is one that was
+      // thought better of.
+      if (!text && kind !== "pin") return;
+      _add({ kind: kind, points: [[latlng.lng, latlng.lat]], text: text });
     });
   }
 
@@ -915,7 +974,16 @@ App.notes = (function () {
     // on empty ground. Storing it would put an invisible annotation on the
     // card and an unclickable one on the map.
     if (geometry.length < 2) return;
-    _add({ kind: "line", points: geometry, text: "" });
+
+    // Stored first, then opened for its label - rather than asked for the
+    // label and stored on the answer. Both put the same dialog on screen, and
+    // this way round the mark survives a dialog that is dismissed: the line is
+    // the work, and the words are a remark about it.
+    //
+    // Asked at all, rather than left to the menu on the mark, because a mark
+    // with no words reaches a PDF as a comment with nothing in it - which is
+    // the one outcome that reads as the feature being broken.
+    _openEditor(_add({ kind: "line", points: geometry, text: "" }));
   }
 
   /** Take back the last vertex of a street line still being drawn. */
@@ -928,19 +996,20 @@ App.notes = (function () {
     else _syncDraft();
   }
 
+  /** @returns {Object} the sanitized record now in the list, not the argument. */
   function _add(record) {
     _remember();
-    s.notes.push(
-      _sanitize({
-        kind: record.kind,
-        points: record.points,
-        text: record.text,
-        color: _pen.color,
-        width: _pen.width,
-      }),
-    );
+    var stored = _sanitize({
+      kind: record.kind,
+      points: record.points,
+      text: record.text,
+      color: _pen.color,
+      width: _pen.width,
+    });
+    s.notes.push(stored);
     _render();
     _changed();
+    return stored;
   }
 
   function _remove(note) {
@@ -1012,17 +1081,13 @@ App.notes = (function () {
   }
 
   function _openEditor(note) {
-    _askText(
-      note.kind === "line" ? "notes.titleLine" : "notes.titleNote",
-      note.text,
-      function (text) {
-        if (text === note.text) return;
-        _remember();
-        note.text = text;
-        _render();
-        _changed();
-      },
-    );
+    _askText(TITLE_KEYS[note.kind], note.text, function (text) {
+      if (text === note.text) return;
+      _remember();
+      note.text = text;
+      _render();
+      _changed();
+    });
   }
 
   // MENUS
@@ -1137,6 +1202,13 @@ App.notes = (function () {
         labelKey: "shortcuts.noteToolDraw",
         run: function () {
           _setTool("draw");
+        },
+      },
+      {
+        combos: ["4"],
+        labelKey: "shortcuts.noteToolText",
+        run: function () {
+          _setTool("text");
         },
       },
       {

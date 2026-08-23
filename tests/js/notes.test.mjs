@@ -20,6 +20,11 @@
  * until it is compared with the preview it came from. Pinned with it: that a
  * glyph is filled with the even-odd rule, which is what makes the second ring
  * of a pin the hole in it rather than a second blob over it.
+ *
+ * The fourth is the box of words. The preview measures it in the canvas font
+ * and the card draws it in another, so a box carried over unchanged clips the
+ * last word off every label -- and it clips it inside an appearance stream,
+ * where nothing but a rendered page shows it.
  */
 
 import test from "node:test";
@@ -113,6 +118,16 @@ test("a line needs two points, and an unknown kind is not a note at all", () => 
     }),
   );
   assert.equal(N._sanitize({ kind: "arrow", points: [[1, 2]] }), null);
+});
+
+test("a caption is a point kind, like a note and a pin", () => {
+  const record = notes()._sanitize({
+    kind: "text",
+    points: [[8.5, 47.3]],
+    text: "ODD SIDE",
+  });
+  assert.equal(record.kind, "text");
+  assert.deepEqual(record.points, [[8.5, 47.3]]);
 });
 
 test("a color that is not a hex color falls back rather than reaching markup", () => {
@@ -212,6 +227,47 @@ test("a stroke's rectangle clears its own thickness", () => {
 
 // ── The annotations themselves ───────────────────────────────────────────────
 
+/**
+ * Every annotation on a page, as dictionaries.
+ *
+ * By subtype rather than by position, because each note writes two objects --
+ * the mark and its popup - and which order they land in is pdf-lib's business
+ * rather than something worth pinning.
+ */
+function annotations(PDFLib, page) {
+  const annots = page.node.Annots();
+  const out = [];
+  for (let i = 0; i < annots.size(); i++) out.push(annots.lookup(i, PDFLib.PDFDict));
+  return out;
+}
+
+/**
+ * A box of words as print.js hands one over: fractions of the frame
+ * throughout, with the lines already wrapped and the box already measured
+ * against the canvas font.
+ */
+function label(lines, grow) {
+  return {
+    lines,
+    at: [0.4, 0.4],
+    width: 0.2,
+    height: 0.06,
+    size: 0.02,
+    pad: 0.004,
+    step: 0.025,
+    grow: grow || "right",
+  };
+}
+
+/** Enough of a pdf-lib font for the label geometry to be measured. */
+function stubFont(perCharacter = 5) {
+  return {
+    ref: { toString: () => "9 0 R" },
+    widthOfTextAtSize: (text, size) => text.length * perCharacter * (size / 9),
+    encodeText: (text) => `(${text})`,
+  };
+}
+
 /** A square glyph a fifth of the frame wide, centred where asked. */
 function glyph(kind, u, v) {
   const r = 0.1;
@@ -219,6 +275,7 @@ function glyph(kind, u, v) {
     kind,
     closed: true,
     text: kind === "note" ? "Zażółć gęślą jaźń" : "",
+    subject: kind === "note" ? "Note" : "Pin",
     color: "#d40000",
     width: 2,
     paths: [
@@ -256,6 +313,7 @@ test("notes reach the page as annotations a reader can open", async () => {
         ],
       ],
       text: "Kolejowa",
+      subject: "Mark",
       color: "#0000ff",
       width: 3,
     },
@@ -264,19 +322,43 @@ test("notes reach the page as annotations a reader can open", async () => {
   // Saved and reloaded rather than inspected in place: what is asserted has to
   // be what a reader would find in the file, not what this app put in memory.
   const reloaded = await PDFLib.PDFDocument.load(await doc.save());
-  const annots = reloaded.getPage(0).node.Annots();
-  const at = (index) => annots.lookup(index, PDFLib.PDFDict);
+  const all = annotations(PDFLib, reloaded.getPage(0));
   const value = (dict, key) => dict.get(PDFLib.PDFName.of(key));
+  const marks = all.filter((d) => String(value(d, "Subtype")) === "/Ink");
+  const at = (index) => marks[index];
 
-  assert.equal(annots.size(), 3);
+  // Six objects for three notes: each mark and the window a reader opens on
+  // it. The popup is why a comment list has something to show.
+  assert.equal(all.length, 6);
+  assert.equal(marks.length, 3);
+  assert.equal(
+    all.filter((d) => String(value(d, "Subtype")) === "/Popup").length,
+    3,
+  );
 
-  // All three are ink, glyphs included. A reader that lets one be selected and
-  // deleted lets all of them be, which is the whole reason a pin is not filed
-  // as the popup note it more closely resembles.
+  // All three marks are ink, glyphs included. A reader that lets one be
+  // selected and deleted lets all of them be, which is the whole reason a pin
+  // is not filed as the popup note it more closely resembles.
   assert.deepEqual(
     [0, 1, 2].map((i) => String(value(at(i), "Subtype"))),
     ["/Ink", "/Ink", "/Ink"],
   );
+
+  // The fields a comment list reads: who said it, when, and what kind of
+  // thing it is. Without them a row is a shape with a string on it.
+  assert.equal(value(at(0), "T").decodeText(), "OSM Territory Mapper");
+  assert.ok(value(at(0), "CreationDate"), "no creation date");
+  assert.equal(value(at(0), "Subj").decodeText(), "Note");
+  assert.equal(value(at(2), "Subj").decodeText(), "Mark");
+
+  // And each one points at its own window, which points back at it.
+  for (const index of [0, 1, 2]) {
+    const popup = at(index).lookup(PDFLib.PDFName.of("Popup"), PDFLib.PDFDict);
+    assert.ok(popup, `mark ${index} has no popup`);
+    assert.equal(String(popup.get(PDFLib.PDFName.of("Subtype"))), "/Popup");
+    // Never printed: a note window on paper is a box over the map.
+    assert.equal(popup.get(PDFLib.PDFName.of("F")), undefined);
+  }
 
   // The text is the whole point of a comment, and Polish is the language this
   // app spends a subsetted font on elsewhere for exactly this reason.
@@ -329,10 +411,11 @@ test("a glyph is filled through its holes and a mark is only stroked", () => {
       },
     ]);
 
+    const marks = annotations(PDFLib, page).filter(
+      (d) => String(d.get(PDFLib.PDFName.of("Subtype"))) === "/Ink",
+    );
     const streams = [0, 1].map((index) => {
-      const form = page.node
-        .Annots()
-        .lookup(index, PDFLib.PDFDict)
+      const form = marks[index]
         .lookup(PDFLib.PDFName.of("AP"), PDFLib.PDFDict)
         .lookup(PDFLib.PDFName.of("N"));
       return new TextDecoder().decode(
@@ -351,6 +434,116 @@ test("a glyph is filled through its holes and a mark is only stroked", () => {
     assert.match(streams[1], /\bS$/);
     assert.doesNotMatch(streams[1], /\bB/);
   });
+});
+
+// ── The words on the card ────────────────────────────────────────────────────
+
+test("a label's box is widened to fit the font that draws it", () => {
+  const P = pdfdoc();
+  // The preview measures Arial and the card draws DejaVu, so the box arrives
+  // sized for the wrong face. Kept as it came, it clips the last word off
+  // every label - the appearance stream's BBox cuts anything past its edge.
+  const wide = P._label(
+    { label: label(["a very long line indeed"]), color: "#000000" },
+    AREA,
+    stubFont(20),
+  );
+  const boxWidth = wide.rect[2] - wide.rect[0];
+  assert.ok(
+    boxWidth > 0.2 * AREA.width,
+    `box stayed at the width it arrived with (${boxWidth})`,
+  );
+
+  // And a box already wide enough is left alone, so the two outputs agree
+  // wherever they can.
+  const narrow = P._label(
+    { label: label(["ab"]), color: "#000000" },
+    AREA,
+    stubFont(1),
+  );
+  assert.equal(narrow.rect[2] - narrow.rect[0], 0.2 * AREA.width);
+});
+
+test("a label grows away from the mark it belongs to", () => {
+  const P = pdfdoc();
+  const font = stubFont(20);
+  const text = ["a very long line indeed"];
+
+  // Right is the ordinary case: the box hangs off the mark's right side, so
+  // its left edge is the one that stays put.
+  const right = P._label(
+    { label: label(text, "right"), color: "#000" },
+    AREA,
+    font,
+  );
+  assert.equal(right.rect[0], AREA.x + 0.4 * AREA.width);
+
+  // Flipped to the left of its mark, the right edge is the fixed one -
+  // growing the other way would run the box back over the glyph.
+  const left = P._label(
+    { label: label(text, "left"), color: "#000" },
+    AREA,
+    font,
+  );
+  assert.equal(left.rect[2], AREA.x + 0.6 * AREA.width);
+
+  // A caption has no mark to avoid, so it grows both ways about its middle.
+  const centre = P._label(
+    { label: label(text, "centre"), color: "#000" },
+    AREA,
+    font,
+  );
+  assert.equal(
+    (centre.rect[0] + centre.rect[2]) / 2,
+    AREA.x + 0.5 * AREA.width,
+  );
+});
+
+test("a note with no words to print gets no box", () => {
+  const P = pdfdoc();
+  assert.equal(P._label({ color: "#000000" }, AREA, stubFont()), null);
+  // And no box without a font to draw it in, which is what keeps a card that
+  // needs no typeface from fetching one.
+  assert.equal(
+    P._label({ label: label(["x"]), color: "#000" }, AREA, null),
+    null,
+  );
+});
+
+test("a caption is a FreeText, so a reader opens it for typing", async () => {
+  const PDFLib = pdfLib();
+  const P = pdfdoc();
+  const doc = await PDFLib.PDFDocument.create();
+  const page = doc.addPage([595, 842]);
+
+  P._annotate(
+    PDFLib,
+    doc,
+    page,
+    AREA,
+    [
+      {
+        kind: "text",
+        paths: [],
+        closed: false,
+        text: "ODD SIDE ONLY",
+        subject: "Caption",
+        color: "#8e44ad",
+        label: label(["ODD SIDE ONLY"]),
+      },
+    ],
+    stubFont(),
+  );
+
+  const marks = annotations(PDFLib, page).filter(
+    (d) => String(d.get(PDFLib.PDFName.of("Subtype"))) !== "/Popup",
+  );
+  assert.equal(marks.length, 1);
+  assert.equal(String(marks[0].get(PDFLib.PDFName.of("Subtype"))), "/FreeText");
+  // /DA is what a reader rebuilds an appearance from after somebody edits the
+  // text, so it has to name the same font at the same size the box was drawn
+  // with.
+  assert.match(String(marks[0].get(PDFLib.PDFName.of("DA"))), /\/F1 [\d.]+ Tf/);
 });
 
 test("an appearance box is its annotation's rectangle", () => {
@@ -376,7 +569,9 @@ test("an appearance box is its annotation's rectangle", () => {
       },
     ]);
 
-    const annot = page.node.Annots().lookup(0, PDFLib.PDFDict);
+    const annot = annotations(PDFLib, page).find(
+      (d) => String(d.get(PDFLib.PDFName.of("Subtype"))) === "/Ink",
+    );
     const rect = annot.lookup(PDFLib.PDFName.of("Rect"), PDFLib.PDFArray);
     const form = annot
       .lookup(PDFLib.PDFName.of("AP"), PDFLib.PDFDict)
@@ -385,4 +580,36 @@ test("an appearance box is its annotation's rectangle", () => {
 
     assert.deepEqual(bbox.asRectangle(), rect.asRectangle());
   });
+});
+
+test("every pen the toolbar offers has the strings it asks for", () => {
+  // notes.js builds "notes.hint<Tool>" from the tool that is selected, so a
+  // pen added without its hint shows the key itself over the map. No
+  // dictionary-parity test catches that: every language is equally missing it.
+  const bundle = JSON.parse(
+    readFileSync(join(ROOT, "src/osmapp/static/lang/en.json"), "utf8"),
+  );
+  const markup = readFileSync(
+    join(ROOT, "src/osmapp/templates/index.html.j2"),
+    "utf8",
+  );
+  const toolbar = markup.slice(markup.indexOf('id="tpl-notes-toolbar"'));
+  const tools = [...toolbar.slice(0, toolbar.indexOf("</template>")).matchAll(
+    /data-role="tool-(\w+)"/g,
+  )].map((match) => match[1]);
+
+  assert.deepEqual(tools, ["note", "pin", "draw", "text"]);
+  for (const tool of tools) {
+    const suffix = tool[0].toUpperCase() + tool.slice(1);
+    assert.ok(bundle.notes["tool" + suffix], `notes.tool${suffix} is missing`);
+    assert.ok(bundle.notes["hint" + suffix], `notes.hint${suffix} is missing`);
+  }
+  // And what the editor titles itself, and what a reader's comment list calls
+  // the row - both keyed off the kind that was stored rather than the tool.
+  for (const kind of ["Note", "Pin", "Line", "Text"]) {
+    assert.ok(bundle.notes["title" + kind], `notes.title${kind} is missing`);
+  }
+  for (const kind of ["Note", "Pin", "Mark", "Text"]) {
+    assert.ok(bundle.notes["kind" + kind], `notes.kind${kind} is missing`);
+  }
 });

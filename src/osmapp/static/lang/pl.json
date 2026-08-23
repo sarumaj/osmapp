@@ -394,7 +394,9 @@
     "compassW": "W",
     "notesGroup": "Notatki",
     "notes": "Dołącz notatki",
-    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — po jednym rysunku na notatkę, pinezkę i zaznaczenie — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie."
+    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — po jednym rysunku na notatkę, pinezkę i zaznaczenie — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie.",
+    "noteText": "Rysuj tekst na karcie",
+    "noteTextHint": "Wyłączone: notatka zachowuje swój znacznik, a jej treść trafia tylko do komentarzy PDF, dzięki czemu zatłoczona karta pozostaje czytelna. Podpis to sam tekst, więc jest rysowany zawsze."
   },
   "place": {
     "title": "Umieść mapę",
@@ -943,7 +945,8 @@
     "noteTextCancel": "Zostaw notatkę bez zmian",
     "noteToolDraw": "Narysuj zaznaczenie",
     "noteSnap": "Przyciągaj punkty do ulic",
-    "noteClick": "Postaw jeden punkt"
+    "noteClick": "Postaw jeden punkt",
+    "noteToolText": "Napisz podpis"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -1026,12 +1029,18 @@
     "menuEdit": "Zmień tekst",
     "menuRecolor": "Przemaluj bieżącym piórem",
     "menuDelete": "Usuń tę notatkę",
-    "untitledLine": "Zaznaczenie",
     "clearTitle": "Usunąć wszystkie notatki?",
     "clearMessage": "Znikną wszystkie notatki, pinezki i zaznaczenia. Tego nie da się cofnąć.",
     "clearOk": "Usuń je",
     "toolDraw": "Rysuj",
+    "kindNote": "Notatka",
+    "kindPin": "Pinezka",
+    "kindMark": "Zaznaczenie",
     "snap": "Przyciągaj do ulic",
-    "hintDraw": "Przeciągnij, aby rysować · Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Prawy przycisk przesuwa mapę"
+    "hintDraw": "Przeciągnij, aby rysować · Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Prawy przycisk przesuwa mapę",
+    "hintText": "Kliknij tam, gdzie ma być tekst · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "toolText": "Tekst",
+    "titleText": "Podpis",
+    "kindText": "Podpis"
   }
 }

@@ -1828,7 +1828,7 @@ body {
    put the last tool on a second line in one of them. */
 .notes-toolbar__tools {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   margin-bottom: 8px;
 }
@@ -1970,6 +1970,23 @@ body {
   /* The tip of the pin is the coordinate, so the glyph hangs above it. */
   align-items: flex-end;
   font-size: 22px;
+}
+
+/* A caption is its own words: no glyph, no anchor, just text on the ground.
+   Centred by a transform because the box is as wide as what was typed, and
+   Leaflet can only place an icon it was given a size for. */
+.note-caption {
+  transform: translate(-50%, -50%);
+  max-width: 220px;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.85);
+  font: 600 var(--ui-fs-md) / 1.3 var(--ui-font);
+  white-space: pre-wrap;
+  text-align: center;
+  /* Sized by its content, which Leaflet's own width and height would fight. */
+  width: max-content;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
 }
 
 .note-tooltip {

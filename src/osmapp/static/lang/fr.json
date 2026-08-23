@@ -369,7 +369,9 @@
     "compassW": "O",
     "notesGroup": "Notes",
     "notes": "Inclure les notes",
-    "notesHint": "Une carte PDF les porte comme de vraies annotations — un dessin par note, épingle et marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte."
+    "notesHint": "Une carte PDF les porte comme de vraies annotations — un dessin par note, épingle et marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte.",
+    "noteText": "Dessiner le texte sur la carte",
+    "noteTextHint": "Désactivé, une note garde sa marque et ses mots ne vont que dans les commentaires du PDF, ce qui garde lisible une carte chargée. Une légende n'est que du texte : elle est dessinée dans tous les cas."
   },
   "place": {
     "title": "Positionner la carte",
@@ -902,7 +904,8 @@
     "noteTextCancel": "Laisser la note telle quelle",
     "noteToolDraw": "Dessiner une marque",
     "noteSnap": "Aimanter les points aux rues",
-    "noteClick": "Poser un point"
+    "noteClick": "Poser un point",
+    "noteToolText": "Écrire une légende"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -977,12 +980,18 @@
     "menuEdit": "Modifier le texte",
     "menuRecolor": "Recolorer avec le stylo courant",
     "menuDelete": "Supprimer cette note",
-    "untitledLine": "Marque",
     "clearTitle": "Supprimer toutes les notes ?",
     "clearMessage": "Toutes les notes, épingles et marques disparaîtront. C'est irréversible.",
     "clearOk": "Les supprimer",
     "toolDraw": "Dessiner",
+    "kindNote": "Note",
+    "kindPin": "Épingle",
+    "kindMark": "Marque",
     "snap": "Aimanter aux rues",
-    "hintDraw": "Faites glisser pour dessiner · Cliquez pour poser des points · Entrée ou double-clic termine · Le clic droit déplace la carte"
+    "hintDraw": "Faites glisser pour dessiner · Cliquez pour poser des points · Entrée ou double-clic termine · Le clic droit déplace la carte",
+    "hintText": "Cliquez où le texte doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "toolText": "Texte",
+    "titleText": "Légende",
+    "kindText": "Légende"
   }
 }

@@ -369,7 +369,9 @@
     "compassW": "W",
     "notesGroup": "Notizen",
     "notes": "Notizen mitdrucken",
-    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz, Nadel und Markierung eine Zeichnung — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet."
+    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz, Nadel und Markierung eine Zeichnung — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet.",
+    "noteText": "Den Text auf die Karte zeichnen",
+    "noteTextHint": "Aus behält eine Notiz ihre Markierung und ihr Text steht nur in den Kommentaren des PDFs, was eine volle Karte lesbar hält. Eine Beschriftung besteht nur aus Text und wird immer gezeichnet."
   },
   "place": {
     "title": "Karte positionieren",
@@ -902,7 +904,8 @@
     "noteTextCancel": "Notiz unverändert lassen",
     "noteToolDraw": "Eine Markierung zeichnen",
     "noteSnap": "Punkte an den Straßen einrasten",
-    "noteClick": "Einen Punkt setzen"
+    "noteClick": "Einen Punkt setzen",
+    "noteToolText": "Eine Beschriftung schreiben"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -977,12 +980,18 @@
     "menuEdit": "Text ändern",
     "menuRecolor": "Mit dem aktuellen Stift einfärben",
     "menuDelete": "Diese Notiz löschen",
-    "untitledLine": "Markierung",
     "clearTitle": "Alle Notizen löschen?",
     "clearMessage": "Alle Notizen, Nadeln und Markierungen verschwinden. Das lässt sich nicht rückgängig machen.",
     "clearOk": "Löschen",
     "toolDraw": "Zeichnen",
+    "kindNote": "Notiz",
+    "kindPin": "Nadel",
+    "kindMark": "Markierung",
     "snap": "An Straßen einrasten",
-    "hintDraw": "Zum Zeichnen ziehen · Klicken setzt Punkte · Enter oder Doppelklick beendet · Rechte Taste verschiebt die Karte"
+    "hintDraw": "Zum Zeichnen ziehen · Klicken setzt Punkte · Enter oder Doppelklick beendet · Rechte Taste verschiebt die Karte",
+    "hintText": "Klicke dorthin, wo der Text stehen soll · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "toolText": "Text",
+    "titleText": "Beschriftung",
+    "kindText": "Beschriftung"
   }
 }

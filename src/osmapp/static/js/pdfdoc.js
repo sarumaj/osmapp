@@ -724,16 +724,25 @@ App.pdfdoc = (function () {
         height: area.height,
       });
 
-      // After the image and before the fields, which is also the order they
-      // are read in: an annotation belongs over the map it is about.
-      _annotate(PDFLib, doc, page, area, spec.notes);
-
       var texts = (spec.fields || []).filter(function (field) {
         return field && field.text && isFinite(field.x) && isFinite(field.y);
       });
-      if (!texts.length) return _finish(doc, spec);
+      // One font for the card's fields and for any note whose words are
+      // printed, fetched only when something actually needs it: a card with
+      // neither should not pay for a typeface.
+      var wantsFont =
+        texts.length ||
+        (spec.notes || []).some(function (note) {
+          return note && note.label;
+        });
 
-      return _font(doc).then(function (font) {
+      return (wantsFont ? _font(doc) : Promise.resolve(null)).then(function (
+        font,
+      ) {
+        // After the image and before the fields, which is also the order they
+        // are read in: an annotation belongs over the map it is about.
+        _annotate(PDFLib, doc, page, area, spec.notes, font);
+
         texts.forEach(function (field) {
           page.drawText(field.text, {
             x: media.x + field.x,
@@ -850,18 +859,33 @@ App.pdfdoc = (function () {
   var GLYPH_OUTLINE_PT = 0.7;
 
   /**
+   * The note window a reader opens from the comment.
+   *
+   * Closed, and never printed - the print flag is deliberately absent here,
+   * where every other annotation this file writes carries it. A popup is the
+   * reader's window onto the text, not something to put on paper.
+   */
+  var POPUP_W_PT = 200;
+  var POPUP_H_PT = 90;
+
+  /**
    * Attach one annotation per note.
    *
    * @param {Object} area where the map image ended up, in user space
    * @param {Array} notes from print.js: paths as fractions of that image, with
    *   y measured downward the way a canvas measures it
    */
-  function _annotate(PDFLib, doc, page, area, notes) {
+  function _annotate(PDFLib, doc, page, area, notes, font) {
     if (!Array.isArray(notes) || !notes.length) return;
     var stamped = PDFLib.PDFString.fromDate(new Date());
 
     notes.forEach(function (note, index) {
-      var dict = _inkAnnotation(PDFLib, doc, note, area);
+      // One annotation per note, whichever pieces it is made of. A glyph with
+      // its words beside it is one remark somebody made, and two objects
+      // would be two rows in the comment list and two things to delete.
+      var dict = note.paths.length
+        ? _inkAnnotation(PDFLib, doc, note, area, font)
+        : _captionAnnotation(PDFLib, doc, note, area, font);
       if (!dict) return;
 
       // Hex strings, not literals: a note is whatever the user typed, and the
@@ -870,14 +894,29 @@ App.pdfdoc = (function () {
       dict.Contents = PDFLib.PDFHexString.fromText(note.text || "");
       dict.T = PDFLib.PDFHexString.fromText(ANNOTATION_AUTHOR);
       dict.NM = PDFLib.PDFHexString.fromText("osmapp-note-" + (index + 1));
+      // Both dates, and the same date. A reader's comment list is a list of
+      // things somebody said, and it sorts and captions them by when they
+      // were said; one written with neither is a row with a blank where the
+      // rest of them carry a time.
       dict.M = stamped;
+      dict.CreationDate = stamped;
+      if (note.subject) {
+        // What the comment list calls this row, in the language of the card.
+        dict.Subj = PDFLib.PDFHexString.fromText(note.subject);
+      }
       dict.C = _rgb(note.color);
       // Bit 3, Print. Without it a reader is entitled to leave the annotation
       // off the paper, which for a card that exists to be carried around is
       // the same as not making it.
       dict.F = 4;
 
-      page.node.addAnnot(doc.context.register(doc.context.obj(dict)));
+      // The parent's own reference has to exist before the popup can name it
+      // and after the popup has been named on the parent, so it is reserved
+      // here and filled in below rather than handed out by register().
+      var ref = doc.context.nextRef();
+      dict.Popup = _popup(PDFLib, doc, page, dict.Rect, ref);
+      doc.context.assign(ref, doc.context.obj(dict));
+      page.node.addAnnot(ref);
     });
   }
 
@@ -888,7 +927,7 @@ App.pdfdoc = (function () {
    * that color and outlined in white, with the even-odd rule, so the second
    * ring of a pin or a note is the hole the icon font draws there.
    */
-  function _inkAnnotation(PDFLib, doc, note, area) {
+  function _inkAnnotation(PDFLib, doc, note, area, font) {
     var paths = (note.paths || [])
       .map(function (path) {
         return path
@@ -919,6 +958,12 @@ App.pdfdoc = (function () {
     // filled together or the hole in one of them is filled by the next.
     content.push(note.closed ? "B*" : "S");
 
+    var label = _label(note, area, font);
+    if (label) {
+      content.push(label.content);
+      rect = _union(rect, label.rect);
+    }
+
     return {
       Type: "Annot",
       Subtype: "Ink",
@@ -932,18 +977,185 @@ App.pdfdoc = (function () {
         }, []);
       }),
       BS: { W: width, S: "S" },
-      AP: { N: _appearance(PDFLib, doc, rect, content.join("\n")) },
+      AP: {
+        N: _appearance(PDFLib, doc, rect, content.join("\n"), label && font),
+      },
     };
   }
 
-  /** A form XObject holding one annotation's drawing. @returns {PDFRef} */
-  function _appearance(PDFLib, doc, rect, content) {
+  /**
+   * A caption: words on the map and nothing else, so /FreeText rather than
+   * ink around an empty path.
+   *
+   * The subtype is what a reader keys its editing off - double-clicking a
+   * FreeText opens it for typing, which is exactly what a caption is for.
+   */
+  function _captionAnnotation(PDFLib, doc, note, area, font) {
+    var label = _label(note, area, font);
+    if (!label) return null;
+
+    return {
+      Type: "Annot",
+      Subtype: "FreeText",
+      Rect: label.rect,
+      // The appearance below is what is actually drawn; /DA is what a reader
+      // falls back on when it rebuilds one after an edit, so the two name the
+      // same font at the same size.
+      DA: PDFLib.PDFString.of("/F1 " + _num(label.size) + " Tf 0 g"),
+      DR: { Font: { F1: font.ref } },
+      // Left, matching the box the preview drew.
+      Q: 0,
+      AP: { N: _appearance(PDFLib, doc, label.rect, label.content, font) },
+    };
+  }
+
+  /**
+   * The box of words a note carries, drawn in the annotation's own appearance.
+   *
+   * Every measurement arrives as a fraction of the map image, so that a card
+   * whose map was fitted into a smaller placeholder carries type fitted by the
+   * same amount - see _labelSpec in print.js, which is where the lines were
+   * wrapped and the box first measured.
+   *
+   * The box is measured again here, and kept at whichever of the two is
+   * wider. The preview measures Arial and this draws DejaVu, and a box sized
+   * for the narrower of the two clips the last word off every label - which
+   * is what the appearance stream's own BBox does to anything past its edge.
+   * Growing happens away from the mark, so a label that was flipped to the
+   * left of its glyph does not grow back across it.
+   *
+   * @returns {{content:string, rect:number[], size:number}|null}
+   */
+  function _label(note, area, font) {
+    if (!note.label || !font) return null;
+    var label = note.label;
+
+    var topLeft = _onPage(label.at, area);
+    var size = label.size * area.width;
+    var pad = label.pad * area.width;
+    var step = label.step * area.width;
+
+    var text = label.lines.reduce(function (widest, line) {
+      return Math.max(widest, font.widthOfTextAtSize(line, size));
+    }, 0);
+    var width = Math.max(label.width * area.width, text + pad * 2);
+    var height = Math.max(
+      label.height * area.height,
+      label.lines.length * step + pad * 2,
+    );
+
+    var left = topLeft[0];
+    var top = topLeft[1];
+    var grown = width - label.width * area.width;
+    if (label.grow === "left") left -= grown;
+    else if (label.grow === "centre") left -= grown / 2;
+    var rect = [left, top - height, left + width, top];
+
+    var content = [
+      "q 1 1 1 rg",
+      _rgbOp(_rgb(note.color), "RG"),
+      _num(Math.max(0.4, size * 0.08)) + " w",
+      _rect(rect),
+      "B Q",
+      "BT /F1 " + _num(size) + " Tf 0 g",
+    ];
+    label.lines.forEach(function (line, index) {
+      // Down from the top of the box rather than up from the bottom: the
+      // preview lays the lines out that way, and a box with one line too many
+      // has to overflow at the same end in both.
+      var baseline = top - pad - size * ASCENDER - index * step;
+      content.push(
+        "1 0 0 1 " +
+          _num(left + pad) +
+          " " +
+          _num(baseline) +
+          " Tm " +
+          font.encodeText(line) +
+          " Tj",
+      );
+    });
+    content.push("ET");
+
+    return { content: content.join("\n"), rect: rect, size: size };
+  }
+
+  /**
+   * How far below the top of a line its baseline sits, as a share of the type
+   * size.
+   *
+   * A canvas draws from the top of the em box and a PDF from the baseline, so
+   * something has to bridge them. pdf-lib exposes a line height but not an
+   * ascender, and 0.78 is close enough for DejaVu at nine points that the two
+   * outputs put the words in the same place.
+   */
+  var ASCENDER = 0.78;
+
+  /** A rectangle as the operator that draws it. */
+  function _rect(rect) {
+    return (
+      _num(rect[0]) +
+      " " +
+      _num(rect[1]) +
+      " " +
+      _num(rect[2] - rect[0]) +
+      " " +
+      _num(rect[3] - rect[1]) +
+      " re"
+    );
+  }
+
+  /** The rectangle covering both. */
+  function _union(a, b) {
+    return [
+      Math.min(a[0], b[0]),
+      Math.min(a[1], b[1]),
+      Math.max(a[2], b[2]),
+      Math.max(a[3], b[3]),
+    ];
+  }
+
+  /**
+   * The window a reader shows the note's text in.
+   *
+   * Written out rather than left to the reader. A markup annotation without
+   * one is a shape that happens to carry a string: some readers invent a
+   * popup for it, some show the text only in a sidebar, and some show nothing
+   * at all - which is the complaint this exists to answer.
+   *
+   * @param {number[]} rect the annotation's own rectangle
+   * @param {PDFRef} parent the annotation this window belongs to
+   * @returns {PDFRef}
+   */
+  function _popup(PDFLib, doc, page, rect, parent) {
+    var ref = doc.context.register(
+      doc.context.obj({
+        Type: "Annot",
+        Subtype: "Popup",
+        // Beside the mark and hanging below it, which is where a reader that
+        // honors the rectangle puts a note window it did not place itself.
+        Rect: [rect[2], rect[1] - POPUP_H_PT, rect[2] + POPUP_W_PT, rect[1]],
+        Parent: parent,
+        Open: false,
+      }),
+    );
+    page.node.addAnnot(ref);
+    return ref;
+  }
+
+  /**
+   * A form XObject holding one annotation's drawing.
+   *
+   * @param {Object} [font] named F1 in the form's resources where the content
+   *   sets type; a stream that says Tf with no font to resolve draws nothing
+   * @returns {PDFRef}
+   */
+  function _appearance(PDFLib, doc, rect, content, font) {
     return doc.context.register(
       doc.context.flateStream(content, {
         Type: "XObject",
         Subtype: "Form",
         BBox: rect,
-        Resources: {},
+        Resources: font ? { Font: { F1: font.ref } } : {},
       }),
     );
   }
@@ -1105,6 +1317,7 @@ App.pdfdoc = (function () {
     // side of it are what put an annotation over the right piece of ground,
     // and a card whose comments are all mirrored still looks like a card.
     _annotate: _annotate,
+    _label: _label,
     _onPage: _onPage,
     _rgb: _rgb,
     _bounds: _bounds,

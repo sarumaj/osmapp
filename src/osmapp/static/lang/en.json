@@ -369,7 +369,9 @@
     "compassW": "W",
     "notesGroup": "Notes",
     "notes": "Include the notes",
-    "notesHint": "A PDF card carries them as real annotations - one ink drawing per note, pin and mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead."
+    "notesHint": "A PDF card carries them as real annotations - one ink drawing per note, pin and mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead.",
+    "noteText": "Draw the words on the card",
+    "noteTextHint": "Off, a note keeps its mark and its words go only into the PDF's comments, which leaves a crowded card readable. A caption is nothing but words, so it is drawn either way."
   },
   "place": {
     "title": "Position the map",
@@ -902,7 +904,8 @@
     "noteTextCancel": "Leave the note as it was",
     "noteToolDraw": "Draw a mark",
     "noteSnap": "Snap points to the streets",
-    "noteClick": "Place one point"
+    "noteClick": "Place one point",
+    "noteToolText": "Write a caption"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
@@ -977,12 +980,18 @@
     "menuEdit": "Edit the text",
     "menuRecolor": "Recolor to the current pen",
     "menuDelete": "Delete this note",
-    "untitledLine": "Mark",
     "clearTitle": "Delete every note?",
     "clearMessage": "Every note, pin and mark goes. This cannot be undone.",
     "clearOk": "Delete them",
     "toolDraw": "Draw",
+    "kindNote": "Note",
+    "kindPin": "Pin",
+    "kindMark": "Mark",
     "snap": "Snap to streets",
-    "hintDraw": "Drag to draw · Click to place points · Enter or double-click finishes · Right-drag pans"
+    "hintDraw": "Drag to draw · Click to place points · Enter or double-click finishes · Right-drag pans",
+    "hintText": "Click where the words belong · Right-click for the tools · Esc leaves · ? for all keys",
+    "toolText": "Text",
+    "titleText": "Caption",
+    "kindText": "Caption"
   }
 }

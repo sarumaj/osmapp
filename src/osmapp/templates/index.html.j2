@@ -1106,6 +1106,11 @@
             <span data-i18n="notes.toolDraw">Draw</span>
             <kbd>3</kbd>
           </button>
+          <button type="button" class="notes-tool" data-role="tool-text">
+            <i class="fa-solid fa-font" aria-hidden="true"></i>
+            <span data-i18n="notes.toolText">Text</span>
+            <kbd>4</kbd>
+          </button>
         </div>
 
         <div class="notes-toolbar__pen">
@@ -1450,6 +1455,15 @@
                 per note, pin and mark - which any reader can open, move or
                 delete. A PNG has nowhere to put those, so they are drawn onto
                 the map instead.
+              </p>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="note-text" checked />
+                <span data-i18n="print.noteText">Draw the words on the card</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.noteTextHint">
+                Off, a note keeps its mark and its words go only into the PDF's
+                comments, which leaves a crowded card readable. A caption is
+                nothing but words, so it is drawn either way.
               </p>
             </fieldset>
 
