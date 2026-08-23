@@ -8,7 +8,8 @@
     "buildings": "Gebäude",
     "clusters": "Gebiete",
     "aidNote": "Nur eine Orientierungshilfe am Bildschirm. Gebietskarten werden immer mit der OpenStreetMap-Ebene gedruckt.",
-    "gaps": "Nicht abgedeckte Flächen"
+    "gaps": "Nicht abgedeckte Flächen",
+    "notes": "Notizen"
   },
   "map": {
     "youAreHere": "Du bist hier"
@@ -102,7 +103,18 @@
     "zoomIn": "Eine Stufe hineinzoomen",
     "zoomOut": "Eine Stufe herauszoomen",
     "atMaxZoom": "Näher geht dieser Hintergrund nicht",
-    "atMinZoom": "Weiter heraus geht dieser Hintergrund nicht"
+    "atMinZoom": "Weiter heraus geht dieser Hintergrund nicht",
+    "groupNotes": "Notizen",
+    "labelNotes": "Notizen",
+    "notes": "Notizen schreiben, Nadeln setzen und Straßen markieren",
+    "labelClearNotes": "Löschen",
+    "clearNotes": "Alle Notizen, Nadeln und Markierungen löschen",
+    "needsNotes": "Es gibt noch keine Notizen",
+    "labelLayerNotes": "Notizen",
+    "undoNoteCount": "Letzte Änderung an den Notizen rückgängig machen ({count} verfügbar)",
+    "undoNoteNone": "Nichts rückgängig zu machen",
+    "redoNoteCount": "Änderung an den Notizen wiederherstellen ({count} verfügbar)",
+    "redoNoteNone": "Nichts wiederherzustellen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -354,7 +366,10 @@
     "compassN": "N",
     "compassE": "O",
     "compassS": "S",
-    "compassW": "W"
+    "compassW": "W",
+    "notesGroup": "Notizen",
+    "notes": "Notizen mitdrucken",
+    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz und Nadel ein Klebezettel, je Markierung ein Freihandstrich — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet."
   },
   "place": {
     "title": "Karte positionieren",
@@ -862,7 +877,20 @@
     "listZoom": "Auf ein Gebiet auf der Karte zoomen",
     "listPick": "Ein Gebiet zur Auswahl hinzufügen",
     "listRange": "Alle Gebiete bis hierher auswählen",
-    "listClose": "Liste schließen"
+    "listClose": "Liste schließen",
+    "groupNotes": "Notizwerkzeug",
+    "goNotes": "Notizen machen",
+    "noteToolNote": "Eine Notiz schreiben",
+    "noteToolPin": "Eine Nadel setzen",
+    "noteToolFree": "Freihand zeichnen",
+    "noteToolStreet": "Entlang einer Straße markieren",
+    "noteFinish": "Die Linie beenden",
+    "noteBack": "Letzten Punkt zurücknehmen",
+    "noteCancel": "Notizwerkzeug verlassen",
+    "noteDrag": "Freihand zeichnen",
+    "groupNoteText": "Diese Notiz",
+    "noteTextSave": "Notiz speichern",
+    "noteTextCancel": "Notiz unverändert lassen"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -906,5 +934,44 @@
   },
   "dialog": {
     "help": "Tasten für diese Ansicht"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} Notiz",
+      "other": "{count} Notizen"
+    },
+    "vertices": {
+      "one": "{count} Punkt",
+      "other": "{count} Punkte"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Notiz",
+    "toolPin": "Nadel",
+    "toolFree": "Freihand",
+    "toolStreet": "Straße",
+    "color": "Farbe",
+    "width": "Stärke",
+    "finish": "Linie beenden",
+    "done": "Fertig",
+    "undo": "Letzte Änderung an den Notizen rückgängig machen",
+    "redo": "Änderung an den Notizen wiederherstellen",
+    "hintNote": "Klicke dorthin, wo die Notiz hingehört · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "hintPin": "Klicke den Ort oder das Gebäude an · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "hintFree": "Zum Zeichnen ziehen · Die Karte bleibt in diesem Werkzeug stehen · Rechtsklick für die Werkzeuge · Esc beendet",
+    "hintStreet": "Entlang der Straße klicken · Punkte rasten am Netz ein, die Linie folgt ihm · Enter oder Doppelklick beendet · Backspace geht zurück",
+    "titleNote": "Notiz",
+    "titlePin": "Beschriftung der Nadel",
+    "titleLine": "Beschriftung der Markierung",
+    "placeholder": "Was soll hier stehen?",
+    "textHint": "Strg+Enter speichert. Auf einer PDF-Karte wird daraus ein Kommentar, den jedes Programm öffnen kann; auf einem PNG wird er in die Karte gezeichnet.",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "menuEdit": "Text ändern",
+    "menuRecolor": "Mit dem aktuellen Stift einfärben",
+    "menuDelete": "Diese Notiz löschen",
+    "untitledLine": "Markierung",
+    "clearTitle": "Alle Notizen löschen?",
+    "clearMessage": "Alle Notizen, Nadeln und Markierungen verschwinden. Das lässt sich nicht rückgängig machen.",
+    "clearOk": "Löschen"
   }
 }

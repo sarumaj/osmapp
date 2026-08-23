@@ -144,7 +144,8 @@ App.dom = (function () {
    * flag to hide the panel on a window too narrow for both.
    */
   var BOTTOM_BARS =
-    ".draw-hint,.cut-toolbar,.merge-toolbar,.trim-toolbar,.outline-toolbar";
+    ".draw-hint,.cut-toolbar,.merge-toolbar,.trim-toolbar,.outline-toolbar," +
+    ".notes-toolbar";
 
   /**
    * Set or clear the `has-map-bar` flag on <body> to match what is currently

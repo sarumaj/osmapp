@@ -33,6 +33,7 @@ App.state = {
   buildingsLayerGroup: null,
   innerPolygonsLayerGroup: null,
   gapsLayerGroup: null,
+  notesLayerGroup: null,
   outerPolygonLayerGroup: null,
   outerPolygonLayer: null,
 
@@ -54,6 +55,14 @@ App.state = {
   outerPolygonDrawn: false, // whether an outer boundary exists yet
   clusters: [], // [{ feature: GeoJSON Feature, layer: L.Layer }]
 
+  // Notes
+  //
+  // Annotations laid over the working area: written notes, pins on places, and
+  // marks drawn along streets. Records rather than layers - App.notes owns
+  // what they look like - because they are also what a session, an export and
+  // a printed card carry. See notes.js.
+  notes: [], // [{ kind, points, text, color, width }]
+
   // UI / misc
   contextMenu: null, // the open context menu element, if any
   userLocationMarker: null,
@@ -67,6 +76,7 @@ App.state = {
   mergeMode: false, // joining territories together
   trimMode: false, // shrinking the boundary onto the buildings
   outlineMode: false, // reshaping the boundary vertex by vertex
+  noteMode: false, // writing annotations over the area
   selectedClusters: [], // [{ layer, feature }]
 
   // Trim tool (live, flipped from the trim toolbar)

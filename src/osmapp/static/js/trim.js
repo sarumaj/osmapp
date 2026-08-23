@@ -213,6 +213,7 @@ App.trim = (function () {
       if (s.editMode) App.editing.toggleEditMode();
       if (s.mergeMode) App.editing.toggleMergeMode();
       if (s.outlineMode) App.outline.toggle();
+      if (s.noteMode) App.notes.toggle();
     }
 
     s.trimMode = next;

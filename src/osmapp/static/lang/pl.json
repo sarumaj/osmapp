@@ -8,7 +8,8 @@
     "buildings": "Budynki",
     "clusters": "Tereny",
     "aidNote": "Tylko pomoc na ekranie. Karty terenów są zawsze drukowane na warstwie OpenStreetMap.",
-    "gaps": "Obszary bez terenu"
+    "gaps": "Obszary bez terenu",
+    "notes": "Notatki"
   },
   "map": {
     "youAreHere": "Jesteś tutaj"
@@ -102,7 +103,18 @@
     "zoomIn": "Przybliż o jeden poziom",
     "zoomOut": "Oddal o jeden poziom",
     "atMaxZoom": "To już najbliżej, jak sięga to tło",
-    "atMinZoom": "To już najdalej, jak sięga to tło"
+    "atMinZoom": "To już najdalej, jak sięga to tło",
+    "groupNotes": "Notatki",
+    "labelNotes": "Notatki",
+    "notes": "Pisz notatki, wstawiaj pinezki i zaznaczaj ulice",
+    "labelClearNotes": "Wyczyść",
+    "clearNotes": "Usuń wszystkie notatki, pinezki i zaznaczenia",
+    "needsNotes": "Nie ma jeszcze żadnych notatek",
+    "labelLayerNotes": "Notatki",
+    "undoNoteCount": "Cofnij ostatnią zmianę w notatkach (dostępne: {count})",
+    "undoNoteNone": "Nie ma czego cofnąć",
+    "redoNoteCount": "Ponów zmianę w notatkach (dostępne: {count})",
+    "redoNoteNone": "Nie ma czego ponowić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -379,7 +391,10 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "W"
+    "compassW": "W",
+    "notesGroup": "Notatki",
+    "notes": "Dołącz notatki",
+    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — notatka i pinezka stają się żółtą karteczką, zaznaczenie odręczną kreską — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie."
   },
   "place": {
     "title": "Umieść mapę",
@@ -903,7 +918,20 @@
     "listZoom": "Powiększ teren na mapie",
     "listPick": "Dodaj teren do zaznaczenia",
     "listRange": "Zaznacz wszystkie tereny aż do tego",
-    "listClose": "Zamknij listę"
+    "listClose": "Zamknij listę",
+    "groupNotes": "Narzędzie notatek",
+    "goNotes": "Rób notatki",
+    "noteToolNote": "Napisz notatkę",
+    "noteToolPin": "Wstaw pinezkę",
+    "noteToolFree": "Rysuj odręcznie",
+    "noteToolStreet": "Zaznacz wzdłuż ulicy",
+    "noteFinish": "Zakończ linię",
+    "noteBack": "Cofnij ostatni punkt",
+    "noteCancel": "Wyjdź z narzędzia notatek",
+    "noteDrag": "Rysuj odręcznie",
+    "groupNoteText": "Ta notatka",
+    "noteTextSave": "Zapisz notatkę",
+    "noteTextCancel": "Zostaw notatkę bez zmian"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -951,5 +979,48 @@
   },
   "dialog": {
     "help": "Klawisze dla tego widoku"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} notatka",
+      "few": "{count} notatki",
+      "many": "{count} notatek",
+      "other": "{count} notatki"
+    },
+    "vertices": {
+      "one": "{count} punkt",
+      "few": "{count} punkty",
+      "many": "{count} punktów",
+      "other": "{count} punktu"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Notatka",
+    "toolPin": "Pinezka",
+    "toolFree": "Odręcznie",
+    "toolStreet": "Ulica",
+    "color": "Kolor",
+    "width": "Grubość",
+    "finish": "Zakończ linię",
+    "done": "Gotowe",
+    "undo": "Cofnij ostatnią zmianę w notatkach",
+    "redo": "Ponów zmianę w notatkach",
+    "hintNote": "Kliknij tam, gdzie ma być notatka · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "hintPin": "Kliknij miejsce lub budynek do oznaczenia · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "hintFree": "Przeciągnij, aby rysować · Mapa nie przesuwa się w tym trybie · Prawy przycisk otwiera narzędzia · Esc kończy",
+    "hintStreet": "Klikaj wzdłuż ulicy · Punkty przyciągają się do sieci, a linia biegła będzie po niej · Enter lub dwuklik kończy · Backspace cofa",
+    "titleNote": "Notatka",
+    "titlePin": "Podpis pinezki",
+    "titleLine": "Podpis zaznaczenia",
+    "placeholder": "Co ma tu być napisane?",
+    "textHint": "Ctrl+Enter zapisuje. Na wydruku PDF powstaje z tego komentarz, który każdy czytnik otworzy; na PNG jest rysowane na mapie.",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "menuEdit": "Zmień tekst",
+    "menuRecolor": "Przemaluj bieżącym piórem",
+    "menuDelete": "Usuń tę notatkę",
+    "untitledLine": "Zaznaczenie",
+    "clearTitle": "Usunąć wszystkie notatki?",
+    "clearMessage": "Znikną wszystkie notatki, pinezki i zaznaczenia. Tego nie da się cofnąć.",
+    "clearOk": "Usuń je"
   }
 }

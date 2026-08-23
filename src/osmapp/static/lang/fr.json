@@ -8,7 +8,8 @@
     "buildings": "Bâtiments",
     "clusters": "Territoires",
     "aidNote": "Aide à l'écran uniquement. Les fiches de territoire sont toujours imprimées sur le fond OpenStreetMap.",
-    "gaps": "Zones non couvertes"
+    "gaps": "Zones non couvertes",
+    "notes": "Notes"
   },
   "map": {
     "youAreHere": "Vous êtes ici"
@@ -102,7 +103,18 @@
     "zoomIn": "Zoomer d'un niveau",
     "zoomOut": "Dézoomer d'un niveau",
     "atMaxZoom": "Ce fond ne va pas plus près",
-    "atMinZoom": "Ce fond ne va pas plus loin"
+    "atMinZoom": "Ce fond ne va pas plus loin",
+    "groupNotes": "Notes",
+    "labelNotes": "Notes",
+    "notes": "Écrire des notes, poser des épingles et marquer des rues",
+    "labelClearNotes": "Effacer",
+    "clearNotes": "Supprimer toutes les notes, épingles et marques",
+    "needsNotes": "Il n'y a pas encore de notes",
+    "labelLayerNotes": "Notes",
+    "undoNoteCount": "Annuler la dernière modification des notes ({count} disponibles)",
+    "undoNoteNone": "Rien à annuler",
+    "redoNoteCount": "Rétablir une modification des notes ({count} disponibles)",
+    "redoNoteNone": "Rien à rétablir"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -354,7 +366,10 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "O"
+    "compassW": "O",
+    "notesGroup": "Notes",
+    "notes": "Inclure les notes",
+    "notesHint": "Une carte PDF les porte comme de vraies annotations — un pense-bête par note et par épingle, un trait d'encre par marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte."
   },
   "place": {
     "title": "Positionner la carte",
@@ -862,7 +877,20 @@
     "listZoom": "Zoomer sur un territoire de la carte",
     "listPick": "Ajouter un territoire à la sélection",
     "listRange": "Sélectionner tous les territoires jusqu’à celui-ci",
-    "listClose": "Fermer la liste"
+    "listClose": "Fermer la liste",
+    "groupNotes": "Outil notes",
+    "goNotes": "Prendre des notes",
+    "noteToolNote": "Écrire une note",
+    "noteToolPin": "Poser une épingle",
+    "noteToolFree": "Dessiner à main levée",
+    "noteToolStreet": "Marquer le long d'une rue",
+    "noteFinish": "Terminer la ligne",
+    "noteBack": "Reprendre le dernier point",
+    "noteCancel": "Quitter l'outil notes",
+    "noteDrag": "Dessiner à main levée",
+    "groupNoteText": "Cette note",
+    "noteTextSave": "Enregistrer la note",
+    "noteTextCancel": "Laisser la note telle quelle"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -906,5 +934,44 @@
   },
   "dialog": {
     "help": "Touches de cet écran"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} note",
+      "other": "{count} notes"
+    },
+    "vertices": {
+      "one": "{count} point",
+      "other": "{count} points"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Note",
+    "toolPin": "Épingle",
+    "toolFree": "Main levée",
+    "toolStreet": "Rue",
+    "color": "Couleur",
+    "width": "Épaisseur",
+    "finish": "Terminer la ligne",
+    "done": "Terminé",
+    "undo": "Annuler la dernière modification des notes",
+    "redo": "Rétablir une modification des notes",
+    "hintNote": "Cliquez où la note doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "hintPin": "Cliquez le lieu ou le bâtiment à marquer · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "hintFree": "Faites glisser pour dessiner · La carte ne bouge pas dans cet outil · Clic droit pour les outils · Échap termine",
+    "hintStreet": "Cliquez le long de la rue · Les points s'aimantent au réseau et la ligne le suit · Entrée ou double-clic termine · Retour arrière recule",
+    "titleNote": "Note",
+    "titlePin": "Étiquette de l'épingle",
+    "titleLine": "Étiquette de la marque",
+    "placeholder": "Que doit-elle dire ?",
+    "textHint": "Ctrl+Entrée enregistre. Sur une carte PDF cela devient un commentaire que tout lecteur peut ouvrir ; sur un PNG c'est dessiné sur la carte.",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "menuEdit": "Modifier le texte",
+    "menuRecolor": "Recolorer avec le stylo courant",
+    "menuDelete": "Supprimer cette note",
+    "untitledLine": "Marque",
+    "clearTitle": "Supprimer toutes les notes ?",
+    "clearMessage": "Toutes les notes, épingles et marques disparaîtront. C'est irréversible.",
+    "clearOk": "Les supprimer"
   }
 }

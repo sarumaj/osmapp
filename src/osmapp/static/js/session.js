@@ -114,7 +114,10 @@ App.session = (function () {
   }
 
   function _save() {
-    if (!s.outerPolygonLayer) return;
+    // Notes are the one thing worth saving on their own: everything else here
+    // hangs off a boundary, but somebody can open the app, mark three streets
+    // and reload before ever drawing one.
+    if (!s.outerPolygonLayer && !App.notes.count()) return;
     var payload = App.data.buildPayload();
 
     var writes = [
@@ -123,6 +126,10 @@ App.session = (function () {
         savedAt: Date.now(),
         outerPolygon: payload.outerPolygon,
         bounds: payload.bounds,
+        // In the meta record rather than beside the territories: notes are
+        // kilobytes and change as often as the boundary does, which is what
+        // the split between these three keys is about.
+        notes: payload.notes,
       }),
       App.store.set(CLUSTERS, payload.clusters),
     ];
@@ -158,7 +165,15 @@ App.session = (function () {
       App.store.get(CLUSTERS),
     ]).then(function (parts) {
       var meta = parts[0];
-      if (!meta || meta.version !== VERSION || !meta.outerPolygon) return false;
+      if (!meta || meta.version !== VERSION) return false;
+
+      // A session that is nothing but annotations still restores them.
+      // applyPayload is the owner of that step everywhere else, but it cannot
+      // run without a boundary, so this path does it directly.
+      if (!meta.outerPolygon) {
+        App.notes.restore(meta.notes);
+        return !!App.notes.count();
+      }
 
       var ok = false;
       _restoring = true;
@@ -181,6 +196,7 @@ App.session = (function () {
                 streets: (parts[1] || {}).streets,
                 buildings: (parts[1] || {}).buildings,
                 clusters: parts[2] || [],
+                notes: meta.notes,
               });
               console.log(">>> Session restored from", new Date(meta.savedAt));
               ok = true;

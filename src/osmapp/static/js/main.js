@@ -123,6 +123,12 @@
       // everything it is a decision about - including the buildings, which is
       // the layer it is being judged against.
       ["trimPane", 440],
+      // Above the lot: an annotation is a remark about everything underneath
+      // it, and one hidden behind a building is a remark nobody reads. It is
+      // also the topmost thing the pointer can hit, which is what makes
+      // clicking a note to edit it work while a territory covers the same
+      // ground.
+      ["notesPane", 450],
     ].forEach(function (spec) {
       if (!map.getPane(spec[0])) map.createPane(spec[0]).style.zIndex = spec[1];
     });
@@ -133,6 +139,7 @@
     s.gapsLayerGroup = L.featureGroup().addTo(map);
     s.innerPolygonsLayerGroup = L.featureGroup().addTo(map);
     s.outerPolygonLayerGroup = L.featureGroup().addTo(map);
+    s.notesLayerGroup = L.featureGroup().addTo(map);
 
     // Modules, in dependency order. ui first, history after controls so the
     // undo and redo buttons exist when their state is first synced. dom needs
@@ -169,6 +176,9 @@
     // Beside gaps rather than beside labels: both are repairs to the coverage
     // rather than descriptions of it, and both write through setClusters.
     App.autoheal.init();
+    // After polygons and before print: notes are drawn over the territories
+    // and printed onto the card that carries them.
+    App.notes.init();
     App.print.init();
     App.boundary.init();
     _setupGeocoder(s);
@@ -302,6 +312,10 @@
     }
     if (s.outlineMode) {
       App.outline.handleContextMenu(e.containerPoint);
+      return;
+    }
+    if (s.noteMode) {
+      App.notes.handleContextMenu(e.containerPoint);
       return;
     }
     App.ui.showMapContextMenu(e.containerPoint);

@@ -400,6 +400,11 @@ App.data = (function () {
           properties: Object.assign({}, f.properties || {}, { cluster: i }),
         };
       }),
+      // Additive rather than a version bump. PAYLOAD_VERSION is a
+      // compatibility gate that throws, so raising it for a new optional key
+      // would discard every session and every export file already out there --
+      // for a field an older build ignores and a newer one defaults to empty.
+      notes: App.notes.all(),
     };
   }
 
@@ -426,6 +431,9 @@ App.data = (function () {
       outerPolygon: payload.outerPolygon,
       bounds: payload.bounds,
       clusters: payload.clusters,
+      // Kept, unlike the OSM cache: an annotation is somebody's own remark
+      // about the ground and nothing can hand it back.
+      notes: payload.notes,
       // Says the OSM cache was left out on purpose, so applyPayload can tell
       // "printed card" from "export that lost its streets somehow".
       partial: true,
@@ -465,7 +473,7 @@ App.data = (function () {
    * Apply a saved bundle: outer boundary, streets, buildings, territories.
    * Shared by file import and session restore.
    *
-   * @param {{outerPolygon, streets, buildings, bounds, clusters}} payload
+   * @param {{outerPolygon, streets, buildings, bounds, clusters, notes}} payload
    * @returns {number} how many territories were restored; a payload with none
    *   gets the default single territory covering the whole boundary
    * @throws when the version does not match or the boundary is unusable
@@ -491,6 +499,12 @@ App.data = (function () {
       bounds: payload.bounds || _bboxToBounds(turf.bbox(outer)),
     });
     s._skipOuterClear = false;
+
+    // A payload with no notes in it clears them, which is what applying a
+    // project means: the annotations on screen belong to the one being
+    // replaced, and keeping them would scatter another area's remarks over
+    // this one.
+    App.notes.restore(payload.notes);
 
     var restored = App.polygons.setClusters(payload.clusters || []);
     if (restored === 0) {

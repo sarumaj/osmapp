@@ -711,12 +711,22 @@ App.pdfdoc = (function () {
 
       // pdf-lib works in user space, so a mediabox starting anywhere but the
       // origin displaces the lot. The offset is put back right here.
-      page.drawImage(png, {
+      var area = {
         x: media.x + box.x + (box.width - drawW) / 2,
         y: media.y + box.y + (box.height - drawH) / 2,
         width: drawW,
         height: drawH,
+      };
+      page.drawImage(png, {
+        x: area.x,
+        y: area.y,
+        width: area.width,
+        height: area.height,
       });
+
+      // After the image and before the fields, which is also the order they
+      // are read in: an annotation belongs over the map it is about.
+      _annotate(PDFLib, doc, page, area, spec.notes);
 
       var texts = (spec.fields || []).filter(function (field) {
         return field && field.text && isFinite(field.x) && isFinite(field.y);
@@ -788,6 +798,264 @@ App.pdfdoc = (function () {
       .then(function () {
         return doc.save();
       });
+  }
+
+  // ANNOTATE - the notes, as annotations rather than as ink
+
+  /**
+   * Why these are annotations and not pixels
+   *
+   * A note is somebody's remark about the ground, and the person holding the
+   * card is the one most likely to want to answer it. Pressed into the map
+   * image it is a picture of a remark: it cannot be opened, moved, replied to
+   * or taken off. Written as a /Text or /Ink annotation it is the thing
+   * itself - it appears in the reader's comment list, with the note's words
+   * as its /Contents and this app as its author.
+   *
+   * The consequence, and it is a real one: a PDF card does not carry those
+   * words in ink. A PNG card draws them beside the mark, because a picture
+   * has nowhere else to put them; a PDF card puts them where a comment goes,
+   * which is a panel rather than the page. Print a PDF card and you get the
+   * marks without the sentences.
+   *
+   * Each annotation carries an appearance stream of its own. Where /AP is
+   * absent, PDF 32000-1 12.5.5 leaves the drawing to the reader, and readers
+   * differ - in what they draw, and in whether they draw markup when printing
+   * at all. With /AP and the print flag, the marks on the paper are the marks
+   * that were on the preview.
+   *
+   * On coordinates: everything below is in absolute user space, and each
+   * appearance stream's /BBox is its annotation's /Rect. That is deliberate --
+   * 12.5.5 maps the transformed BBox onto the Rect, so the two being equal is
+   * what makes that mapping the identity and keeps a stroke from being
+   * stretched into its own bounding box.
+   */
+
+  var ANNOTATION_AUTHOR = "OSM Territory Mapper";
+
+  /** The square a note or a pin claims, and the dot drawn in the middle of it. */
+  var STICKY_PT = 16;
+  var STICKY_DOT_PT = 3.5;
+
+  /** Slack around a stroke's own extent, so a thick line is not clipped. */
+  var INK_PAD_PT = 2;
+
+  /**
+   * The icon a viewer falls back on where it insists on drawing its own.
+   *
+   * Both are ordinary comment icons: the vocabulary /Text allows has no pin in
+   * it, and the difference between a note and a pin is what is written in it
+   * rather than what it looks like.
+   */
+  var STICKY_ICONS = { note: "Comment", pin: "Note" };
+
+  /**
+   * Attach one annotation per note.
+   *
+   * @param {Object} area where the map image ended up, in user space
+   * @param {Array} notes from print.js: positions as fractions of that image,
+   *   with y measured downward the way a canvas measures it
+   */
+  function _annotate(PDFLib, doc, page, area, notes) {
+    if (!Array.isArray(notes) || !notes.length) return;
+    var stamped = PDFLib.PDFString.fromDate(new Date());
+
+    notes.forEach(function (note, index) {
+      var dict =
+        note.kind === "line"
+          ? _inkAnnotation(PDFLib, doc, note, area)
+          : _stickyAnnotation(PDFLib, doc, note, area);
+      if (!dict) return;
+
+      // Hex strings, not literals: a note is whatever the user typed, and the
+      // PDFDocEncoding a literal string implies has no room for the Polish
+      // diacritics the rest of this file goes to some length to support.
+      dict.Contents = PDFLib.PDFHexString.fromText(note.text || "");
+      dict.T = PDFLib.PDFHexString.fromText(ANNOTATION_AUTHOR);
+      dict.NM = PDFLib.PDFHexString.fromText("osmapp-note-" + (index + 1));
+      dict.M = stamped;
+      dict.C = _rgb(note.color);
+      // Bit 3, Print. Without it a reader is entitled to leave the annotation
+      // off the paper, which for a card that exists to be carried around is
+      // the same as not making it.
+      dict.F = 4;
+
+      page.node.addAnnot(doc.context.register(doc.context.obj(dict)));
+    });
+  }
+
+  /** A note or a pin: a dot on the map with the text behind it. */
+  function _stickyAnnotation(PDFLib, doc, note, area) {
+    var at = _onPage(note.at, area);
+    if (!at) return null;
+
+    var half = STICKY_PT / 2;
+    var rect = [at[0] - half, at[1] - half, at[0] + half, at[1] + half];
+    var color = _rgb(note.color);
+    var content = [
+      _rgbOp(color, "rg"),
+      "1 1 1 RG",
+      _num(STICKY_DOT_PT * 0.45) + " w",
+      _circlePath(at[0], at[1], STICKY_DOT_PT),
+      "B", // fill and stroke: the ring is what keeps a dark dot off dark ground
+    ].join("\n");
+
+    return {
+      Type: "Annot",
+      Subtype: "Text",
+      Rect: rect,
+      Name: STICKY_ICONS[note.kind] || "Comment",
+      // Closed. A card with six notes on it would otherwise open as six popup
+      // windows stacked over the map they are about.
+      Open: false,
+      AP: { N: _appearance(PDFLib, doc, rect, content) },
+    };
+  }
+
+  /** A mark along a street, as the ink stroke it was drawn as. */
+  function _inkAnnotation(PDFLib, doc, note, area) {
+    var paths = (note.paths || [])
+      .map(function (path) {
+        return path
+          .map(function (point) {
+            return _onPage(point, area);
+          })
+          .filter(Boolean);
+      })
+      .filter(function (path) {
+        return path.length >= 2;
+      });
+    if (!paths.length) return null;
+
+    var width = Math.max(0.5, note.width || 1);
+    var rect = _bounds(paths, width / 2 + INK_PAD_PT);
+    var color = _rgb(note.color);
+
+    var content = [_rgbOp(color, "RG"), _num(width) + " w", "1 J", "1 j"];
+    paths.forEach(function (path) {
+      content.push(_linePath(path), "S");
+    });
+
+    return {
+      Type: "Annot",
+      Subtype: "Ink",
+      Rect: rect,
+      // The geometry twice over, deliberately. /InkList is what an editor
+      // reshapes and what a viewer regenerates an appearance from after an
+      // edit; the /AP is what everything draws until somebody does.
+      InkList: paths.map(function (path) {
+        return path.reduce(function (flat, point) {
+          return flat.concat(point);
+        }, []);
+      }),
+      BS: { W: width, S: "S" },
+      AP: { N: _appearance(PDFLib, doc, rect, content.join("\n")) },
+    };
+  }
+
+  /** A form XObject holding one annotation's drawing. @returns {PDFRef} */
+  function _appearance(PDFLib, doc, rect, content) {
+    return doc.context.register(
+      doc.context.flateStream(content, {
+        Type: "XObject",
+        Subtype: "Form",
+        BBox: rect,
+        Resources: {},
+      }),
+    );
+  }
+
+  /**
+   * One point of the map image, in user space.
+   *
+   * The flip is the whole of it: a canvas measures y downward from the top and
+   * a PDF measures it upward from the bottom, and getting that backwards
+   * mirrors every annotation about the middle of the card - which looks like a
+   * plausible card until somebody compares it with the preview.
+   */
+  function _onPage(point, area) {
+    if (!point || !isFinite(point[0]) || !isFinite(point[1])) return null;
+    return [
+      area.x + point[0] * area.width,
+      area.y + (1 - point[1]) * area.height,
+    ];
+  }
+
+  /** The rectangle enclosing every point, grown by `pad`. */
+  function _bounds(paths, pad) {
+    var x0 = Infinity;
+    var y0 = Infinity;
+    var x1 = -Infinity;
+    var y1 = -Infinity;
+    paths.forEach(function (path) {
+      path.forEach(function (point) {
+        x0 = Math.min(x0, point[0]);
+        y0 = Math.min(y0, point[1]);
+        x1 = Math.max(x1, point[0]);
+        y1 = Math.max(y1, point[1]);
+      });
+    });
+    return [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+  }
+
+  function _linePath(path) {
+    return path
+      .map(function (point, index) {
+        return _num(point[0]) + " " + _num(point[1]) + (index ? " l" : " m");
+      })
+      .join(" ");
+  }
+
+  /**
+   * A circle, as the four Bezier arcs PDF has instead of one.
+   *
+   * 0.5523 is the usual constant - 4/3 * (sqrt(2) - 1) - at which a cubic
+   * quarter-arc departs from a true circle by under a thousandth of the
+   * radius, which at this size is a fraction of a printer dot.
+   */
+  function _circlePath(cx, cy, r) {
+    var k = r * 0.5523;
+    function point(x, y) {
+      return _num(x) + " " + _num(y);
+    }
+    /** One arc: two control points and the point it ends on. */
+    function arc(c1x, c1y, c2x, c2y, x, y) {
+      return point(c1x, c1y) + " " + point(c2x, c2y) + " " + point(x, y) + " c";
+    }
+
+    return [
+      point(cx - r, cy) + " m",
+      arc(cx - r, cy + k, cx - k, cy + r, cx, cy + r),
+      arc(cx + k, cy + r, cx + r, cy + k, cx + r, cy),
+      arc(cx + r, cy - k, cx + k, cy - r, cx, cy - r),
+      arc(cx - k, cy - r, cx - r, cy - k, cx - r, cy),
+    ].join(" ");
+  }
+
+  /**
+   * A color-setting operator: "rg" fills in it, "RG" strokes in it.
+   *
+   * @param {number[]} color three components in 0..1, from _rgb
+   */
+  function _rgbOp(color, operator) {
+    return color
+      .map(_num)
+      .concat(operator)
+      .join(" ");
+  }
+
+  /** "#rrggbb" as the three 0..1 components a PDF color is written in. */
+  function _rgb(value) {
+    var match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(value || "");
+    if (!match) return [0, 0, 0];
+    return [1, 2, 3].map(function (group) {
+      return parseInt(match[group], 16) / 255;
+    });
+  }
+
+  /** Content streams are text, so a coordinate is written to the dot it needs. */
+  function _num(value) {
+    return (Math.round(value * 100) / 100).toString();
   }
 
   // EXTRACT - read a saved project back out of a printed card
@@ -879,6 +1147,13 @@ App.pdfdoc = (function () {
     _fieldsFor: _fieldsFor,
     _pathRects: _pathRects,
     _close: _close,
+    // Out for the tests as well: the flip in _onPage and the geometry either
+    // side of it are what put an annotation over the right piece of ground,
+    // and a card whose comments are all mirrored still looks like a card.
+    _annotate: _annotate,
+    _onPage: _onPage,
+    _rgb: _rgb,
+    _bounds: _bounds,
   };
 })();
 

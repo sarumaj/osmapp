@@ -154,6 +154,37 @@ App.network = (function () {
     return nearestNode([latlng.lng, latlng.lat], maxMeters);
   }
 
+  /**
+   * A screen radius in meters at the current zoom.
+   *
+   * Every tool that snaps to this graph wants its magnet measured in pixels
+   * rather than in meters: a fixed metric radius swallows the viewport when
+   * zoomed in and reaches nothing when zoomed out, whereas a pixel radius
+   * always matches how near the pointer looks. The conversion lives beside the
+   * graph because the tools that need it are the tools that ask this module
+   * questions, and two copies of it are two magnets that drift apart.
+   *
+   * @param {number} px the radius on screen
+   * @param {number} maxMeters ceiling, so a zoomed-out view cannot reach for
+   *   miles
+   * @returns {number} meters, at least 2 and never above maxMeters
+   */
+  function pixelRadiusM(px, maxMeters) {
+    var map = s && s.leafletMap;
+    if (!map) return maxMeters;
+    try {
+      var center = map.getCenter();
+      var at = map.latLngToContainerPoint(center);
+      var edge = map.containerPointToLatLng(L.point(at.x + px, at.y));
+      return Math.min(maxMeters, Math.max(2, center.distanceTo(edge)));
+    } catch (e) {
+      // Leaflet projects through the map's own size and CRS and throws
+      // before either is in place. The ceiling is the honest answer on that
+      // path: it is the radius the caller asked not to exceed.
+      return maxMeters;
+    }
+  }
+
   // ROUTING
 
   /**
@@ -232,6 +263,7 @@ App.network = (function () {
     nearestSegmentPoint: nearestSegmentPoint,
     nearestNode: nearestNode,
     nearestNodeAt: nearestNodeAt,
+    pixelRadiusM: pixelRadiusM,
     route: route,
     pathLength: pathLength,
     stats: stats,

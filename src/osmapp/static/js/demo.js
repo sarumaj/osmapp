@@ -110,6 +110,7 @@ App.demo = (function () {
 
   var _active = false;
   var _snapshot = null;
+  var _notes = [];
   var _view = null;
 
   function init() {
@@ -418,6 +419,11 @@ App.demo = (function () {
       return false;
     }
 
+    // Separately from the snapshot above, which needs a boundary: notes do
+    // not, so somebody who annotated the map without ever drawing one would
+    // otherwise have nothing put back when the sample is cleared away.
+    _notes = App.notes.all();
+
     _view = {
       center: s.leafletMap.getCenter(),
       zoom: s.leafletMap.getZoom(),
@@ -473,6 +479,12 @@ App.demo = (function () {
     } catch (e) {
       console.error(">>> Could not restore your work after the tour:", e);
     }
+
+    // After either branch, and unconditionally: the snapshot path has already
+    // restored the same list through applyPayload, and putting it back twice
+    // costs a redraw where getting it wrong costs the notes.
+    App.notes.restore(_notes);
+    _notes = [];
 
     if (_view) {
       try {

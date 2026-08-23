@@ -249,6 +249,7 @@ App.print = (function () {
     "grayscale",
     "scale",
     "compass",
+    "notes",
     "erase-size",
     "locality",
     "attach",
@@ -1536,6 +1537,12 @@ App.print = (function () {
     ctx.drawImage(_borderCanvas, 0, 0);
     ctx.restore();
 
+    // Over the border, because a note is a remark about what is underneath it
+    // - including the border - and under the furniture for the same reason
+    // the border is: a scale bar with somebody's handwriting through it is
+    // not a scale bar.
+    _drawNotes(ctx);
+
     // Last, on top of everything including the border. A scale bar with a red
     // territory outline drawn through it is not a scale bar, and the eraser
     // is aimed at the border rather than at the furniture.
@@ -1931,6 +1938,284 @@ App.print = (function () {
     ctx.restore();
   }
 
+  // NOTES
+
+  /**
+   * How a note is drawn onto the card: points on paper, except the last,
+   * which is a share of the card's width.
+   *
+   * A card is read at arm's length in daylight, so these are larger than the
+   * same marks are on screen: the dot has to be findable without looking for
+   * it, and the callout has to be readable without being brought closer.
+   */
+  var NOTE_FONT_PT = 9;
+  var NOTE_DOT_PT = 3.5;
+  var NOTE_PAD_PT = 3;
+  var NOTE_GAP_PT = 5; // between a mark and the text beside it
+  var NOTE_MAX_WIDTH = 0.34; // of the card, before the text wraps
+
+  /**
+   * Set while the raster behind a PDF is being taken.
+   *
+   * The preview always shows the notes, because what is on screen has to be
+   * what comes out. A PDF card, though, carries them as annotations rather
+   * than as pixels, and a note both drawn into the map *and* attached as a
+   * comment is the same remark twice - once in ink that cannot be moved and
+   * once in a sticky note that can. So the one snapshot handed to pdfdoc.js is
+   * taken with this on.
+   */
+  var _suppressNotes = false;
+
+  function _notes() {
+    return _opts().notes ? App.notes.all() : [];
+  }
+
+  /**
+   * The notes, on the card itself.
+   *
+   * Everything here is drawn in canvas space rather than through the map
+   * transform, for the reason the scale bar is: a rotated frame would
+   * otherwise hand somebody a card with the notes written up the side of it.
+   * The positions still come through the transform, so a note stays on the
+   * spot it was put on however the frame is turned.
+   */
+  function _drawNotes(ctx) {
+    if (_suppressNotes || !_view) return;
+    var notes = _notes();
+    if (!notes.length) return;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.font = NOTE_FONT_PT * PX_PER_PT + "px Arial, sans-serif";
+
+    // Lines first, then the marks and their text: a stroke along a street
+    // passes under the notes rather than through their lettering.
+    notes.forEach(function (note) {
+      if (note.kind === "line") _drawNoteLine(ctx, note);
+    });
+    notes.forEach(function (note) {
+      if (note.kind !== "line") _drawNoteMark(ctx, note);
+    });
+
+    ctx.restore();
+  }
+
+  function _drawNoteLine(ctx, note) {
+    ctx.strokeStyle = note.color;
+    ctx.lineWidth = Math.max(1, note.width * PX_PER_PT);
+    if (_trace(ctx, note.points, false)) ctx.stroke();
+  }
+
+  function _drawNoteMark(ctx, note) {
+    var at = _toCanvas(note.points[0][0], note.points[0][1], _view);
+    var radius = NOTE_DOT_PT * PX_PER_PT;
+
+    // The same dot for a note and for a pin. The two differ in what is
+    // attached to them - a pin is a place, a note is a sentence about one --
+    // and on paper that difference is the text beside the mark rather than the
+    // shape of the mark itself.
+    ctx.beginPath();
+    ctx.arc(at[0], at[1], radius, 0, Math.PI * 2);
+    ctx.fillStyle = note.color;
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, radius * 0.45);
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
+
+    if (note.text) _drawNoteText(ctx, note, at[0] + radius, at[1]);
+  }
+
+  /**
+   * The text of a note, in a box beside its mark.
+   *
+   * A box rather than the halo the attribution and the compass use. Those are
+   * a handful of characters over ground the reader is not looking at; a note
+   * is a sentence, and a sentence in white outline over a street map is
+   * legible only where the map happens to be pale.
+   */
+  function _drawNoteText(ctx, note, x, y) {
+    var size = NOTE_FONT_PT * PX_PER_PT;
+    var pad = NOTE_PAD_PT * PX_PER_PT;
+    var lines = _wrapNote(ctx, note.text, RENDER_W * NOTE_MAX_WIDTH);
+    var width = lines.reduce(function (widest, line) {
+      return Math.max(widest, ctx.measureText(line).width);
+    }, 0);
+    var height = lines.length * size * 1.25;
+
+    // Flipped to the other side rather than allowed to run off the card. The
+    // mark is where the note belongs; which side its text sits on is not.
+    var left = x + NOTE_GAP_PT * PX_PER_PT;
+    if (left + width + pad * 2 > RENDER_W)
+      left = x - NOTE_GAP_PT * PX_PER_PT - width - pad * 2;
+    var top = Math.max(0, Math.min(RENDER_H - height - pad * 2, y - height / 2));
+
+    ctx.fillStyle = "rgba(255,255,255,0.88)";
+    ctx.strokeStyle = note.color;
+    ctx.lineWidth = Math.max(1, PX_PER_PT);
+    ctx.beginPath();
+    ctx.rect(left, top, width + pad * 2, height + pad * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = INK;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+    lines.forEach(function (line, i) {
+      ctx.fillText(line, left + pad, top + pad + i * size * 1.25);
+    });
+  }
+
+  /** Break a note's text into lines that fit, honoring the ones it already has. */
+  function _wrapNote(ctx, text, maxWidth) {
+    var lines = [];
+    String(text)
+      .split(/\r?\n/)
+      .forEach(function (paragraph) {
+        var line = "";
+        paragraph.split(/\s+/).forEach(function (word) {
+          if (!word) return;
+          var candidate = line ? line + " " + word : word;
+          // A single word wider than the box is left to overflow rather than
+          // broken: it is a street name or a house number, and a hyphen in the
+          // middle of either reads as part of it.
+          if (line && ctx.measureText(candidate).width > maxWidth) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = candidate;
+          }
+        });
+        lines.push(line);
+      });
+    return lines;
+  }
+
+  /**
+   * The notes as pdfdoc.js wants them: fractions of the map image.
+   *
+   * Fractions rather than points on the page, because which points those are
+   * depends on where the placeholder sits on the template and how the image
+   * was fitted into it - arithmetic that already exists, once, in pdfdoc.js.
+   * This module knows where a note is on the map; that one knows where the map
+   * is on the page.
+   *
+   * @returns {Array<{kind:string, at?:number[], paths?:Array<Array<number[]>>,
+   *                  text:string, color:string, width:number}>}
+   */
+  function _noteSpecs() {
+    var out = [];
+    _notes().forEach(function (note) {
+      var points = note.points.map(function (coord) {
+        var at = _toCanvas(coord[0], coord[1], _view);
+        return [at[0] / RENDER_W, at[1] / RENDER_H];
+      });
+
+      if (note.kind !== "line") {
+        // A mark outside the frame is a mark on ground this card does not
+        // show. Kept, it would be an annotation floating on the form beside
+        // the map.
+        if (!_inFrame(points[0])) return;
+        out.push({
+          kind: note.kind,
+          at: points[0],
+          text: note.text,
+          color: note.color,
+          width: note.width,
+        });
+        return;
+      }
+
+      var paths = clipToFrame(points);
+      if (!paths.length) return;
+      // One annotation with several paths rather than one per path: a stroke
+      // that leaves the frame and comes back is still one mark somebody made,
+      // and splitting it would put the same remark in the reader's comment
+      // list twice.
+      out.push({
+        kind: "line",
+        paths: paths,
+        text: note.text,
+        color: note.color,
+        width: note.width,
+      });
+    });
+    return out;
+  }
+
+  function _inFrame(point) {
+    return point[0] >= 0 && point[0] <= 1 && point[1] >= 0 && point[1] <= 1;
+  }
+
+  /**
+   * Cut a polyline down to the part of it that is on the card.
+   *
+   * Pure, and exported, because it is the piece that decides what a PDF
+   * annotation's geometry is - and a wrong answer here is an ink stroke drawn
+   * across the printed form beside the map, which is the one place on a card
+   * nothing is supposed to reach.
+   *
+   * Liang-Barsky per segment, with consecutive surviving segments joined back
+   * up: a line that leaves the frame and returns is two runs, and one that
+   * never leaves is one run identical to the input.
+   *
+   * @param {Array<number[]>} points in fractions of the frame, y downward
+   * @returns {Array<Array<number[]>>} the runs inside the unit square
+   */
+  function clipToFrame(points) {
+    var runs = [];
+    var current = null;
+    for (var i = 0; i + 1 < points.length; i++) {
+      var seg = _clipSegment(points[i], points[i + 1]);
+      if (!seg) {
+        current = null;
+        continue;
+      }
+      if (current && _samePoint(current[current.length - 1], seg[0])) {
+        current.push(seg[1]);
+      } else {
+        current = [seg[0], seg[1]];
+        runs.push(current);
+      }
+    }
+    return runs;
+  }
+
+  /** @returns {Array<number[]>|null} the visible part of a-b, or null. */
+  function _clipSegment(a, b) {
+    var dx = b[0] - a[0];
+    var dy = b[1] - a[1];
+    var t0 = 0;
+    var t1 = 1;
+    var edge = [-dx, dx, -dy, dy];
+    var slack = [a[0], 1 - a[0], a[1], 1 - a[1]];
+
+    for (var i = 0; i < 4; i++) {
+      if (edge[i] === 0) {
+        // Parallel to this edge: either wholly inside it or wholly outside.
+        if (slack[i] < 0) return null;
+        continue;
+      }
+      var t = slack[i] / edge[i];
+      if (edge[i] < 0) {
+        if (t > t1) return null;
+        if (t > t0) t0 = t;
+      } else {
+        if (t < t0) return null;
+        if (t < t1) t1 = t;
+      }
+    }
+    return [
+      [a[0] + t0 * dx, a[1] + t0 * dy],
+      [a[0] + t1 * dx, a[1] + t1 * dy],
+    ];
+  }
+
+  function _samePoint(a, b) {
+    return Math.abs(a[0] - b[0]) < 1e-9 && Math.abs(a[1] - b[1]) < 1e-9;
+  }
+
   // DIALOG
 
   function _setBusy(busy) {
@@ -2250,7 +2535,7 @@ App.print = (function () {
 
     // The furniture is composited on the finished card rather than mixed into
     // the tile mosaic, so switching either one costs a repaint and no refetch.
-    ["scale", "compass"].forEach(function (role) {
+    ["scale", "compass", "notes"].forEach(function (role) {
       var box = D.role(_dialog, role);
       if (!box) return;
       box.addEventListener("change", function () {
@@ -2641,6 +2926,7 @@ App.print = (function () {
       territory: D.role(_dialog, "territory").value.trim(),
       scale: _checked("scale"),
       compass: _checked("compass"),
+      notes: _checked("notes"),
       // Only meaningful on the template path: the no-template path hands a
       // PNG to the browser's own print dialog, and there is no PDF of ours to
       // attach anything to.
@@ -2903,23 +3189,50 @@ App.print = (function () {
    */
   function _compose() {
     var o = _opts();
+    // Only the template path has anywhere to put them. Without one the card
+    // is a PNG, and the notes are already drawn into it.
+    var notes = _templateFile ? _noteSpecs() : [];
     _setStatus(T("print.waitingTiles"));
     return _awaitTiles()
       .then(function () {
         _setStatus(T("print.encoding"));
-        return new Promise(function (resolve) {
-          _preview.toBlob(resolve, "image/png");
-        });
+        return _snapshot();
       })
       .then(function (blob) {
         if (!blob) throw new Error(T("print.errRender"));
         if (!_templateFile)
           return { blob: blob, name: _fileName(o, "png"), pdf: false };
         _setStatus(T("print.buildingPdf"));
-        return _composePdf(blob, o).then(function (pdf) {
+        return _composePdf(blob, o, notes).then(function (pdf) {
           return { blob: pdf, name: _fileName(o, "pdf"), pdf: true };
         });
       });
+  }
+
+  /**
+   * The preview canvas as a PNG, with the notes left out of a PDF's copy.
+   *
+   * toBlob() copies the bitmap while it is called and encodes it afterwards,
+   * so the canvas can be repainted on the next line rather than in the
+   * callback. That is what keeps the suppressed state off the screen: it
+   * exists only inside this one task, and the browser paints between tasks.
+   *
+   * @returns {Promise<Blob|null>}
+   */
+  function _snapshot() {
+    var hide = !!_templateFile && !!_notes().length;
+    if (hide) {
+      _suppressNotes = true;
+      _paint();
+    }
+    var encoding = new Promise(function (resolve) {
+      _preview.toBlob(resolve, "image/png");
+    });
+    if (hide) {
+      _suppressNotes = false;
+      _paint();
+    }
+    return encoding;
   }
 
   /**
@@ -3094,7 +3407,7 @@ App.print = (function () {
    *
    * @returns {Promise<Blob>}
    */
-  function _composePdf(blob, o) {
+  function _composePdf(blob, o, notes) {
     var spec = {
       template: _templateFile,
       image: blob,
@@ -3108,6 +3421,10 @@ App.print = (function () {
         height: PLACEHOLDER.height,
       },
       fields: [],
+      // Real annotations rather than ink pressed into the map: a card is
+      // handed to somebody who may want to answer one, and a comment they can
+      // open, move or delete is worth more than a picture of one.
+      notes: notes || [],
       project: null,
     };
 
@@ -3164,6 +3481,7 @@ App.print = (function () {
     // not, and a card is read away from the screen that drew it.
     scaleFor: scaleFor,
     compassVector: compassVector,
+    clipToFrame: clipToFrame,
     layout: function () {
       // A getter, not a reference: PLACEHOLDER and FIELDS are reassigned
       // whenever a template loads, so an exported object would go stale.

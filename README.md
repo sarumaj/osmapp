@@ -34,7 +34,9 @@ Jehovah's Witnesses carrying out their missionary work
 3. **Split it** — choose a number of territories ("40") or a target size ("~25
    buildings each").
 4. **Adjust by hand** — merge, cut, drag boundaries, or delete. `Ctrl+Z` undoes.
-5. **Print** — right-click a territory → Print. Set line color/thickness,
+5. **Annotate, if you need to** — write notes, drop pins on places, and mark
+   streets freehand or snapped to the road network.
+6. **Print** — right-click a territory → Print. Set line color/thickness,
    rotate/zoom, erase border segments, export PDF.
 
 Your work is saved in the browser — a refresh or accidental tab close won't lose
@@ -191,6 +193,7 @@ that doesn't need the server.
 | Open app, restore last session                |   yes    |
 | Pan/zoom over previously viewed tiles         |   yes    |
 | Draw, cut, merge, split, undo/redo            |   yes    |
+| Write notes, drop pins, mark streets          |   yes    |
 | Export GeoJSON                                |   yes    |
 | Load template, print card, export PDF         |   yes    |
 | Import a printed card back into a session     |   yes    |
@@ -282,6 +285,7 @@ not in the list is precached, shipped, and never runs).
 | `gaps`          | Parts of the area belonging to no territory                    |
 | `footprints`    | Boundaries drawn through buildings, moved onto the wall        |
 | `autoheal`      | Repairing the faults the territory list can name               |
+| `notes`         | Annotations over the area: notes, pins, street marks           |
 | `print-filters` | Basemap filters for the print preview                          |
 | `print`         | Canvas map rendering, framing, eraser, card layout             |
 | `boundary`      | Turn a geocoder hit into the outer polygon                     |
@@ -358,6 +362,33 @@ to used glyphs — the standard 14 fonts lack `ł ą ę ś ż ź ć ń`).
 No server needed for any of this: a template file never leaves the machine it
 was opened on.
 
+### Notes
+
+Annotations are a separate document from the territories: a note survives a
+re-partition, may sit outside the boundary, and is switched on and off without
+touching any geometry. Three kinds, one record — `{ id, kind, points, text,
+color, width }` — where a note and a pin have one point and a mark has many.
+
+Marks are drawn either freehand or with the street tool, which snaps each click
+onto the network and routes between clicks along it, under the same detour
+limits the cut tool uses. They ride along in the session, the GeoJSON export and
+the card attachment.
+
+**On a card they change form, deliberately:**
+
+| Output | What a note becomes                                                       |
+|--------|---------------------------------------------------------------------------|
+| PNG    | Drawn onto the map — a dot, and the text in a callout box beside it       |
+| PDF    | A real annotation: `/Text` for a note or a pin, `/Ink` for a mark          |
+
+A PDF card is a document, and the person holding one is the person most likely
+to want to answer a remark on it. As an annotation it can be opened, moved,
+replied to and deleted in any reader; pressed into the map image it is a picture
+of a remark. Each carries its own appearance stream and the print flag, so it
+looks the same in every viewer instead of however that viewer chooses to draw a
+comment — and `print.js` hands `pdfdoc.js` positions as fractions of the map
+image, so only one place in the app knows where the map sits on the page.
+
 ---
 
 ## Translations
@@ -414,6 +445,7 @@ multi-worker deployment) handed users each other's areas.
 | `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
 | `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
+| `A`                                     | Notes tool; `1`–`4` pick note, pin, freehand, street        |
 | Right-click                             | Context menu — on a territory, empty ground, or boundary    |
 
 All bindings live in one registry in `shortcuts.js`, which is both the
@@ -434,6 +466,10 @@ dispatcher and the source the `?` sheet renders from.
   (visible in the preview before export).
 - **Server errors are English** regardless of interface language. If that matters,
   return error *codes* and map them to `alert.*` keys client-side.
+- **A note's text is not printed onto a PDF card.** It is the annotation's
+  contents, which is what makes it a comment rather than ink — readers show it
+  in a popup or a comment list. Print the PNG instead where the words have to be
+  on the paper.
 
 ---
 
@@ -478,8 +514,12 @@ Zeugen Jehovas ([mehr dazu](https://www.jw.org/finder?wtlocale=X&docid=502013361
 3. **Aufteilen** — Anzahl Gebiete („40") oder Zielgröße („~25 Gebäude") wählen.
 4. **Anpassen** — Gebiete zusammenfügen, aufteilen, Grenzen verschieben, löschen.
    `Strg+Z` macht rückgängig.
-5. **Drucken** — Rechtsklick auf ein Gebiet → „Drucken". Linienfarbe/-stärke
+5. **Anmerken** — Notizen schreiben, Nadeln auf Orte setzen, Straßen freihand
+   oder am Straßennetz eingerastet markieren.
+6. **Drucken** — Rechtsklick auf ein Gebiet → „Drucken". Linienfarbe/-stärke
    festlegen, Karte drehen/zoomen, Umrandungsteile löschen, PDF exportieren.
+   Auf einer PDF-Karte werden die Anmerkungen zu echten Kommentaren, auf einem
+   PNG in die Karte gezeichnet.
 
 Deine Arbeit wird im Browser gespeichert. Exportiere alles in eine Datei, um sie
 später auf einem anderen Rechner zu laden.
@@ -528,8 +568,11 @@ parafialne, trasy dostawcze. Główną grupą docelową są zbory Świadków Jeh
 3. **Podziel obszar** — liczba terytoriów („40") lub wielkość („~25 budynków").
 4. **Dopasuj ręcznie** — połącz, podziel, przeciągnij granice, usuń. `Ctrl+Z`
    cofa.
-5. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
-   obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF.
+5. **Dodaj notatki** — pisz notatki, wstawiaj pinezki, zaznaczaj ulice
+   odręcznie lub z przyciąganiem do sieci dróg.
+6. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
+   obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF. Na karcie PDF
+   notatki stają się prawdziwymi komentarzami, na PNG są rysowane na mapie.
 
 Praca jest zapisywana w przeglądarce. Eksportuj do pliku, aby załadować później
 na innym komputerze.
@@ -579,9 +622,12 @@ principal est constitué des congrégations des Témoins de Jéhovah
 3. **Divisez** — nombre de secteurs (« 40 ») ou taille cible (« ~25 bâtiments »).
 4. **Ajustez manuellement** — fusionnez, réduisez, déplacez une limite, supprimez.
    `Ctrl+Z` annule.
-5. **Imprimez** — clic droit sur un territoire → « Imprimer ». Définissez
+5. **Annotez** — écrivez des notes, posez des épingles, marquez des rues à main
+   levée ou aimantées au réseau routier.
+6. **Imprimez** — clic droit sur un territoire → « Imprimer ». Définissez
    couleur/épaisseur du trait, pivotez/zoomez, effacez des parties de la limite,
-   exportez le PDF.
+   exportez le PDF. Sur une carte PDF les notes deviennent de vrais
+   commentaires ; sur un PNG elles sont dessinées sur la carte.
 
 Votre travail est conservé dans le navigateur. Exportez tout vers un fichier pour
 le recharger plus tard sur un autre ordinateur.
