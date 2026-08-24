@@ -398,6 +398,14 @@ a note without any is a note thought better of, while a pin and a mark are kept
 either way. Notes ride along in the session, the GeoJSON export and the card
 attachment.
 
+**A line being drawn is stepped through, not only cancelled.** While one is open
+`Ctrl+Z` and `Backspace` take back the last thing the hand did — a clicked
+point, or a whole freehand sweep, since half a sweep is a start point with
+nothing drawn from it — and `Ctrl+Y` puts it back. That holds past the first
+point too: the line leaves the map but the steps that made it do not, so one
+`Ctrl+Z` too many costs nothing. Undo answers for the note list again once the
+line is stored or `Esc` gives it up.
+
 **A mark keeps its skeleton, so it can be corrected.** Alongside the geometry
 everything downstream draws, a mark stores the points somebody placed and what
 the app did between each pair — `{ at, snapped, via, bend, sweep }` per node,
@@ -511,7 +519,7 @@ multi-worker deployment) handed users each other's areas.
 | Key                                     | Action                                                      |
 |-----------------------------------------|-------------------------------------------------------------|
 | `?` or `F1`                             | Shortcut sheet (reachable inside dialogs)                   |
-| `Ctrl/Cmd + Z`                          | Undo (territory geometry, or print eraser in that dialog)   |
+| `Ctrl/Cmd + Z`                          | Undo (territory geometry, a mark being drawn, or the print eraser) |
 | `Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z` | Redo                                                        |
 | `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |

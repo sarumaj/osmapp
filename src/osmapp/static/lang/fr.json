@@ -113,8 +113,12 @@
     "labelLayerNotes": "Notes",
     "undoNoteCount": "Annuler la dernière modification des notes ({count} disponibles)",
     "undoNoteNone": "Rien à annuler",
+    "undoNoteStepCount": "Annuler la dernière étape du tracé ({count} disponibles)",
+    "undoNoteStepNone": "Rien à annuler",
     "redoNoteCount": "Rétablir une modification des notes ({count} disponibles)",
-    "redoNoteNone": "Rien à rétablir"
+    "redoNoteNone": "Rien à rétablir",
+    "redoNoteStepCount": "Rétablir une étape du tracé ({count} disponibles)",
+    "redoNoteStepNone": "Rien à rétablir"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -896,7 +900,7 @@
     "noteToolNote": "Écrire une note",
     "noteToolPin": "Poser une épingle",
     "noteFinish": "Terminer la ligne",
-    "noteBack": "Reprendre le dernier point",
+    "noteBack": "Annuler la dernière étape du tracé",
     "noteCancel": "Quitter l'outil notes",
     "noteDrag": "Dessiner à main levée",
     "groupNoteText": "Cette note",

@@ -113,8 +113,12 @@
     "labelLayerNotes": "Notizen",
     "undoNoteCount": "Letzte Änderung an den Notizen rückgängig machen ({count} verfügbar)",
     "undoNoteNone": "Nichts rückgängig zu machen",
+    "undoNoteStepCount": "Letzten Zeichenschritt zurücknehmen ({count} verfügbar)",
+    "undoNoteStepNone": "Nichts zurückzunehmen",
     "redoNoteCount": "Änderung an den Notizen wiederherstellen ({count} verfügbar)",
-    "redoNoteNone": "Nichts wiederherzustellen"
+    "redoNoteNone": "Nichts wiederherzustellen",
+    "redoNoteStepCount": "Zeichenschritt zurückholen ({count} verfügbar)",
+    "redoNoteStepNone": "Nichts zurückzuholen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -896,7 +900,7 @@
     "noteToolNote": "Eine Notiz schreiben",
     "noteToolPin": "Eine Nadel setzen",
     "noteFinish": "Die Linie beenden",
-    "noteBack": "Letzten Punkt zurücknehmen",
+    "noteBack": "Letzten Zeichenschritt zurücknehmen",
     "noteCancel": "Notizwerkzeug verlassen",
     "noteDrag": "Freihand zeichnen",
     "groupNoteText": "Diese Notiz",

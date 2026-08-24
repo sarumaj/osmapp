@@ -113,8 +113,12 @@
     "labelLayerNotes": "Notes",
     "undoNoteCount": "Undo the last change to the notes ({count} available)",
     "undoNoteNone": "Nothing to undo",
+    "undoNoteStepCount": "Take back the last drawing step ({count} available)",
+    "undoNoteStepNone": "Nothing to take back",
     "redoNoteCount": "Redo a change to the notes ({count} available)",
-    "redoNoteNone": "Nothing to redo"
+    "redoNoteNone": "Nothing to redo",
+    "redoNoteStepCount": "Put back a drawing step ({count} available)",
+    "redoNoteStepNone": "Nothing to put back"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -896,7 +900,7 @@
     "noteToolNote": "Write a note",
     "noteToolPin": "Drop a pin",
     "noteFinish": "Finish the line",
-    "noteBack": "Take back the last point",
+    "noteBack": "Take back the last drawing step",
     "noteCancel": "Leave the notes tool",
     "noteDrag": "Draw freehand",
     "groupNoteText": "This note",

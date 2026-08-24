@@ -120,6 +120,12 @@ App.notes = (function () {
   var _preview = null;
   var _snapDot = null;
 
+  // The line's own history: what it looked like before each gesture that added
+  // to it, so that a half-drawn mark can be stepped back and forward like
+  // anything else. See the UNDO section.
+  var _draftUndo = [];
+  var _draftRedo = [];
+
   // The handles on the marks already drawn, and the dots on the one being
   // drawn. A layer group of its own so the pen can put them up and take them
   // down without redrawing the notes underneath.
@@ -379,11 +385,22 @@ App.notes = (function () {
 
   // UNDO
   //
-  // Snapshots of the whole list rather than a log of operations. A note list
-  // is a few kilobytes at the outside, and every gesture here - adding,
-  // editing the text, recoloring, deleting, moving a point, bending a hop,
-  // taking a point out - is one snapshot rather than an inverse operation per
-  // kind of edit, kept in step with a set of kinds that keeps growing.
+  // Two stacks, because "undo" means two things here.
+  //
+  // With no line in progress it means the note list: snapshots of the whole
+  // list rather than a log of operations. A note list is a few kilobytes at
+  // the outside, and every gesture - adding, editing the text, recoloring,
+  // deleting, moving a point, bending a hop, taking a point out - is one
+  // snapshot rather than an inverse operation per kind of edit, kept in step
+  // with a set of kinds that keeps growing.
+  //
+  // While a line is being drawn it means that line, the way it does in the cut
+  // tool: a half-drawn mark is not a document, it is the gesture that will
+  // eventually make one, and taking back the point just placed must not reach
+  // past it into notes that are already finished. Same shape as above -
+  // snapshots of the skeleton, one per gesture - and for the same reason: a
+  // sweep adds one node or two depending on where it began, so a step is the
+  // gesture rather than the node.
 
   function _remember() {
     _undo.push(_clone(s.notes));
@@ -399,28 +416,89 @@ App.notes = (function () {
     _changed();
   }
 
+  /** The skeleton as it stands, or the empty one a first gesture starts from. */
+  function _draftState() {
+    return _draft ? _clone(_draft) : { nodes: [], times: [] };
+  }
+
+  /** Record the line before a gesture adds to it. */
+  function _rememberDraft() {
+    _draftUndo.push(_draftState());
+    if (_draftUndo.length > MAX) _draftUndo.shift();
+    _draftRedo = [];
+  }
+
+  function _swapDraft(from, to) {
+    if (!from.length) return;
+    to.push(_draftState());
+    _applyDraft(from.pop());
+    App.history.sync();
+  }
+
+  /**
+   * Put the line back into a state one of the stacks held.
+   *
+   * A state with no nodes is the ground before the first point, so the preview
+   * comes down - but through _clearDraft rather than _discardDraft, because
+   * the steps that made the line are what redo is about to put back and
+   * throwing them away here is what would make one Ctrl+Z too many
+   * unrecoverable.
+   */
+  function _applyDraft(state) {
+    if (!state.nodes.length) {
+      _clearDraft();
+      return;
+    }
+    // Puts the preview back up when undo had taken it down; a no-op otherwise.
+    _startDraft();
+    _draft = state;
+    _renderHandles();
+    _syncDraft();
+  }
+
+  /**
+   * Whether undo and redo belong to the line rather than to the note list.
+   *
+   * True from the first point until the line is finished or thrown away, and
+   * so also true after stepping back past that first point: the stacks are
+   * what say a line is being drawn, not the preview, and handing the keys back
+   * to the note list at zero points would put a Ctrl+Z and the Ctrl+Y undoing
+   * it on two different timelines.
+   */
+  function _drawing() {
+    return !!_draft || _draftUndo.length > 0 || _draftRedo.length > 0;
+  }
+
   var NOTES_SCOPE = {
     id: "notes",
     undo: function () {
-      _swap(_undo, _redo);
+      if (_drawing()) _swapDraft(_draftUndo, _draftRedo);
+      else _swap(_undo, _redo);
     },
     redo: function () {
-      _swap(_redo, _undo);
+      if (_drawing()) _swapDraft(_draftRedo, _draftUndo);
+      else _swap(_redo, _undo);
     },
     canUndo: function () {
-      return _undo.length > 0;
+      return (_drawing() ? _draftUndo : _undo).length > 0;
     },
     canRedo: function () {
-      return _redo.length > 0;
+      return (_drawing() ? _draftRedo : _redo).length > 0;
     },
     undoDepth: function () {
-      return _undo.length;
+      return (_drawing() ? _draftUndo : _undo).length;
     },
     redoDepth: function () {
-      return _redo.length;
+      return (_drawing() ? _draftRedo : _redo).length;
     },
-    undoKey: "toolbar.undoNote",
-    redoKey: "toolbar.redoNote",
+    // Functions rather than strings, because what this scope's undo means
+    // changes while it is on the stack. See the scope contract in history.js.
+    undoKey: function () {
+      return _drawing() ? "toolbar.undoNoteStep" : "toolbar.undoNote";
+    },
+    redoKey: function () {
+      return _drawing() ? "toolbar.redoNoteStep" : "toolbar.redoNote";
+    },
   };
 
   // THE LAYER
@@ -1138,6 +1216,7 @@ App.notes = (function () {
         if (press.opened) _discardDraft();
         return;
       }
+      _rememberDraft();
       _startDraft();
       _addVertex(s.leafletMap.mouseEventToLatLng(e));
       return;
@@ -1146,7 +1225,11 @@ App.notes = (function () {
     // The samples become the hop, and the last of them the node that ends it.
     // A sweep onto empty ground also has to leave a node where it started,
     // since a hop is drawn from the node before it.
+    //
+    // Recorded before either node goes on, so that taking the sweep back takes
+    // the whole of it: one gesture of the hand, one step.
     if (press.sweep.length) {
+      _rememberDraft();
       var run = press.sweep;
       if (!_draft.nodes.length) {
         _pushNode({ at: run[0] });
@@ -1332,15 +1415,18 @@ App.notes = (function () {
   }
 
   /**
-   * Throw the line being drawn away: the dashed preview, the dots on its
-   * points, and the gesture still making it.
+   * Take the line off the map: the dashed preview, the dots on its points, and
+   * the gesture still making it.
    *
    * The press goes with them. It carries the samples of the sweep under way
    * and pushes them onto the draft when the button comes up, so a press left
    * behind by an Escape mid-stroke would either resurrect the line that was
    * just cancelled or reach for a draft that is no longer there.
+   *
+   * The steps that made the line are not touched. Undo takes a line down this
+   * way and redo puts it back; only _discardDraft forgets them.
    */
-  function _discardDraft() {
+  function _clearDraft() {
     if (_preview) s.leafletMap.removeLayer(_preview);
     _hideSnapDot();
     _preview = null;
@@ -1348,6 +1434,21 @@ App.notes = (function () {
     _press = null;
     _renderHandles();
     _sync();
+  }
+
+  /**
+   * Give up on the line entirely: what is on the map, and the way back to it.
+   *
+   * Every way a line stops being drawn without being stored comes through
+   * here - Escape, a change of pen, leaving the tool - and each of them ends
+   * the gesture rather than stepping inside it, so the line's own history goes
+   * with it and undo answers for the note list again.
+   */
+  function _discardDraft() {
+    _clearDraft();
+    _draftUndo = [];
+    _draftRedo = [];
+    App.history.sync();
   }
 
   /** Redraw the line being drawn, including the sweep under the hand. */
@@ -1496,19 +1597,6 @@ App.notes = (function () {
     _openEditor(
       _add({ kind: "line", points: geometry, nodes: nodes, text: "" }),
     );
-  }
-
-  /** Take back the last vertex of a street line still being drawn. */
-  function popVertex() {
-    if (!_draft || !_draft.nodes.length) return;
-    _draft.nodes.pop();
-    _draft.times.pop();
-    if (!_draft.nodes.length) {
-      _discardDraft();
-      return;
-    }
-    _renderHandles();
-    _syncDraft();
   }
 
   /** @returns {Object} the sanitized record now in the list, not the argument. */
@@ -1764,19 +1852,24 @@ App.notes = (function () {
       {
         combos: ["Backspace", "Delete"],
         labelKey: "shortcuts.noteBack",
+        // The same step Ctrl+Z takes, under the key the hand is already on
+        // while drawing. Two ways to take a point back that took back
+        // different amounts would be two things to learn about one line.
         when: function () {
-          return !!_draft && _draft.nodes.length > 0;
+          return _drawing() && NOTES_SCOPE.canUndo();
         },
-        run: popVertex,
+        run: NOTES_SCOPE.undo,
       },
       {
         // Escape backs out one step at a time rather than closing the tool
         // from under a half-drawn line, which is the same courtesy the cut
-        // tool extends to a half-drawn cut.
+        // tool extends to a half-drawn cut. A line stepped back past its first
+        // point is still a line being drawn - its steps are what redo would
+        // put back - so Escape gives that up before it gives up the tool.
         combos: ["Escape"],
         labelKey: "shortcuts.noteCancel",
         run: function () {
-          if (_draft) _discardDraft();
+          if (_drawing()) _discardDraft();
           else toggle();
         },
       },
@@ -1830,8 +1923,11 @@ App.notes = (function () {
     });
 
     D.onRole(_toolbar, "finish", finishLine);
-    D.onRole(_toolbar, "undo", NOTES_SCOPE.undo);
-    D.onRole(_toolbar, "redo", NOTES_SCOPE.redo);
+    // Through the stack rather than straight at this scope: a button that
+    // means Ctrl+Z has to be answered by whoever Ctrl+Z is answered by, and
+    // that is what refreshes the toolbar's own undo tiles afterwards.
+    D.onRole(_toolbar, "undo", App.history.undo);
+    D.onRole(_toolbar, "redo", App.history.redo);
     D.onRole(_toolbar, "done", toggle);
   }
 
@@ -1890,8 +1986,19 @@ App.notes = (function () {
       drawing ? T("notes.vertices", { count: _draft.nodes.length }) : "",
     );
 
-    D.toggleClass(D.role(_toolbar, "undo"), "is-disabled", !_undo.length);
-    D.toggleClass(D.role(_toolbar, "redo"), "is-disabled", !_redo.length);
+    // Asked of the scope, not of the note stacks: while a line is being drawn
+    // these two step that line, and a greyed tile over a line with three
+    // points in it would say there is nothing to take back.
+    D.toggleClass(
+      D.role(_toolbar, "undo"),
+      "is-disabled",
+      !NOTES_SCOPE.canUndo(),
+    );
+    D.toggleClass(
+      D.role(_toolbar, "redo"),
+      "is-disabled",
+      !NOTES_SCOPE.canRedo(),
+    );
   }
 
   return {

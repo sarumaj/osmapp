@@ -113,8 +113,12 @@
     "labelLayerNotes": "Notatki",
     "undoNoteCount": "Cofnij ostatnią zmianę w notatkach (dostępne: {count})",
     "undoNoteNone": "Nie ma czego cofnąć",
+    "undoNoteStepCount": "Cofnij ostatni krok rysowania (dostępne: {count})",
+    "undoNoteStepNone": "Nie ma czego cofnąć",
     "redoNoteCount": "Ponów zmianę w notatkach (dostępne: {count})",
-    "redoNoteNone": "Nie ma czego ponowić"
+    "redoNoteNone": "Nie ma czego ponowić",
+    "redoNoteStepCount": "Ponów krok rysowania (dostępne: {count})",
+    "redoNoteStepNone": "Nie ma czego ponowić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -937,7 +941,7 @@
     "noteToolNote": "Napisz notatkę",
     "noteToolPin": "Wstaw pinezkę",
     "noteFinish": "Zakończ linię",
-    "noteBack": "Cofnij ostatni punkt",
+    "noteBack": "Cofnij ostatni krok rysowania",
     "noteCancel": "Wyjdź z narzędzia notatek",
     "noteDrag": "Rysuj odręcznie",
     "groupNoteText": "Ta notatka",

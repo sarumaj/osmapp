@@ -230,3 +230,86 @@ def test_the_furniture_over_the_map_is_not_the_map(app_page: Page):
     app_page.wait_for_timeout(200)
     assert app_page.evaluate("() => window.App.notes.count()") == 1
     expect(app_page.locator(".note-handle--draft")).to_have_count(0)
+
+
+def draft_dots(page: Page) -> int:
+    return page.locator(".note-handle--draft").count()
+
+
+def test_undo_steps_back_through_the_line_being_drawn(app_page: Page):
+    """Ctrl+Z belongs to the mark under the hand, not to the ones behind it.
+
+    Which is the cut tool's rule: a half-drawn line is not a document, it is
+    the gesture that will make one, and taking back the point just placed must
+    not reach past it into notes that are already finished.
+    """
+    box = open_the_pen(app_page)
+    click_out_a_line(app_page, box)
+    assert draft_dots(app_page) == 3
+
+    app_page.keyboard.press("Control+z")
+    app_page.keyboard.press("Control+z")
+    assert draft_dots(app_page) == 1
+
+    app_page.keyboard.press("Control+y")
+    assert draft_dots(app_page) == 2
+
+    # Back past the first point and forward again. The line is off the map in
+    # between, and the steps that made it have to survive that: they are what
+    # the next Ctrl+Y puts back.
+    app_page.keyboard.press("Control+z")
+    app_page.keyboard.press("Control+z")
+    assert draft_dots(app_page) == 0
+    app_page.keyboard.press("Control+y")
+    assert draft_dots(app_page) == 1
+
+    # Forward to all three and store the mark.
+    app_page.keyboard.press("Control+y")
+    app_page.keyboard.press("Control+y")
+    assert draft_dots(app_page) == 3
+    app_page.keyboard.press("Enter")
+    app_page.fill(".note-dialog textarea", "Odd numbers")
+    app_page.locator(".note-dialog [data-role=save]").click()
+    expect(app_page.locator(".note-dialog")).to_have_count(0)
+    assert app_page.evaluate("() => window.App.notes.count()") == 1
+
+    # With no line in progress the same key answers for the note list again -
+    # twice, because storing the mark and writing on it are two edits to it.
+    app_page.keyboard.press("Control+z")
+    app_page.keyboard.press("Control+z")
+    app_page.wait_for_timeout(200)
+    assert app_page.evaluate("() => window.App.notes.count()") == 0
+
+
+def test_a_sweep_is_one_step_to_take_back(app_page: Page):
+    """A hand-drawn hop goes back whole, under Ctrl+Z and under Backspace.
+
+    It reaches the skeleton as one node or two depending on whether the line
+    was already open, so a step that took back a node would sometimes take
+    back half a sweep - a start point with nothing drawn from it, which is not
+    a step anybody took.
+    """
+    box = open_the_pen(app_page)
+    app_page.mouse.click(box["x"] + POINTS[0][0], box["y"] + POINTS[0][1])
+    app_page.wait_for_timeout(120)
+
+    start_x, start_y = SWEEP_FROM
+    app_page.mouse.move(box["x"] + start_x, box["y"] + start_y)
+    app_page.mouse.down()
+    for step in range(1, 20):
+        app_page.mouse.move(
+            box["x"] + start_x + step * SWEEP_STEP,
+            box["y"] + start_y + (step % 4) * 10,
+        )
+    app_page.mouse.up()
+    app_page.wait_for_timeout(200)
+    assert draft_dots(app_page) == 2
+
+    app_page.keyboard.press("Control+z")
+    assert draft_dots(app_page) == 1
+
+    # And Backspace is the same step, not a smaller one.
+    app_page.keyboard.press("Control+y")
+    assert draft_dots(app_page) == 2
+    app_page.keyboard.press("Backspace")
+    assert draft_dots(app_page) == 1
