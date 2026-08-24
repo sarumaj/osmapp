@@ -236,7 +236,7 @@ App.notes = (function () {
       kind: raw.kind,
       points: raw.kind === "line" ? points : points.slice(0, 1),
       text: typeof raw.text === "string" ? raw.text : "",
-      color: /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : _pen.color,
+      color: HEX_COLOR.test(raw.color) ? raw.color : _pen.color,
       width: isFinite(raw.width) ? Math.min(20, Math.max(0.5, raw.width)) : 2,
     };
     // Absent rather than null on a mark that has none, so a session written
@@ -381,8 +381,9 @@ App.notes = (function () {
   //
   // Snapshots of the whole list rather than a log of operations. A note list
   // is a few kilobytes at the outside, and every gesture here - adding,
-  // editing the text, recoloring, deleting - is one snapshot rather than four
-  // kinds of inverse operation to keep in step with the four kinds of edit.
+  // editing the text, recoloring, deleting, moving a point, bending a hop,
+  // taking a point out - is one snapshot rather than an inverse operation per
+  // kind of edit, kept in step with a set of kinds that keeps growing.
 
   function _remember() {
     _undo.push(_clone(s.notes));
@@ -472,7 +473,7 @@ App.notes = (function () {
       {
         pane: "notesPane",
         color: note.color,
-        weight: Math.max(2, note.width * 1.5),
+        weight: _strokeWeight(note.width),
         opacity: 0.9,
         lineCap: "round",
         lineJoin: "round",
@@ -555,9 +556,24 @@ App.notes = (function () {
     });
   }
 
+  /** What a stored color has to look like to be one. */
+  var HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
   /** A color safe to interpolate into markup, or the pen's default. */
   function _cssColor(value) {
-    return /^#[0-9a-f]{6}$/i.test(value) ? value : "#d40000";
+    return HEX_COLOR.test(value) ? value : "#d40000";
+  }
+
+  /**
+   * How thick a mark of the given pen width is drawn on screen.
+   *
+   * Not the stored width itself: that is a thickness in points, which the card
+   * strokes at print resolution. On screen the same number is a line that has
+   * to be seen and aimed at, so it is scaled up and floored - a half-point
+   * mark is otherwise one nobody can find again.
+   */
+  function _strokeWeight(width) {
+    return Math.max(2, width * 1.5);
   }
 
   /**
@@ -788,12 +804,22 @@ App.notes = (function () {
     return _visible;
   }
 
+  /**
+   * Show or hide the notes.
+   *
+   * The handles go with them. They are grab points for marks that would no
+   * longer be on screen, and a map wearing those over nothing is a map with
+   * an edit gesture aimed at something invisible.
+   */
   function setVisible(on) {
     _visible = !!on;
-    var group = s.notesLayerGroup;
-    if (!group || !s.leafletMap) return;
-    if (_visible) s.leafletMap.addLayer(group);
-    else s.leafletMap.removeLayer(group);
+    var map = s.leafletMap;
+    if (!map) return;
+    [s.notesLayerGroup, _handles].forEach(function (group) {
+      if (!group) return;
+      if (_visible) map.addLayer(group);
+      else map.removeLayer(group);
+    });
   }
 
   // MODE
@@ -905,7 +931,7 @@ App.notes = (function () {
    * Map dragging is the one thing that has to move with it: a freehand stroke
    * is a drag, so while the draw tool is selected the left button belongs to
    * the pen and the map is panned with the right one instead - the same
-   * bargain the cut tool makes, for the same reason. The other two tools leave
+   * bargain the cut tool makes, for the same reason. The other tools leave
    * panning alone, which is what makes a note on the far side of town two
    * gestures rather than a mode change.
    */
@@ -1035,6 +1061,10 @@ App.notes = (function () {
     }
     nodes.push(made);
     _draft.times.push(Date.now());
+    // Here rather than in _syncDraft, which a sweep calls once per sample: the
+    // dots follow the nodes, and the nodes do not move under a hand that is
+    // still drawing the hop between two of them.
+    _renderHandles();
     _syncDraft();
   }
 
@@ -1049,6 +1079,9 @@ App.notes = (function () {
   function _onPointerDown(e) {
     if (!s.noteMode || _tool !== "draw") return;
     if (e.button !== undefined && e.button !== 0) return;
+    // A press on the bar, the banner, the menu or a dialog is a press on the
+    // furniture, not on the ground under it.
+    if (!_onGround(e.target)) return;
     // A press that starts on a note is that note's click, not a new stroke
     // beginning underneath it - and one that starts on a handle belongs to
     // the handle, which is about to be dragged.
@@ -1086,8 +1119,10 @@ App.notes = (function () {
 
     // With no button down there is no stroke, but there is a magnet, and a dot
     // under the cursor is the only thing that says where the next click will
-    // actually land.
-    _moveSnapDot(e);
+    // actually land. Over the furniture there is no next click, and a dot
+    // sitting under a dialog reads as a point somebody placed by accident.
+    if (_onGround(e.target)) _moveSnapDot(e);
+    else _hideSnapDot();
   }
 
   function _onPointerUp(e) {
@@ -1112,8 +1147,11 @@ App.notes = (function () {
     // A sweep onto empty ground also has to leave a node where it started,
     // since a hop is drawn from the node before it.
     if (press.sweep.length) {
-      if (!_draft.nodes.length) _pushNode({ at: press.sweep[0] });
-      var run = press.sweep.slice(_draft.nodes.length === 1 ? 1 : 0);
+      var run = press.sweep;
+      if (!_draft.nodes.length) {
+        _pushNode({ at: run[0] });
+        run = run.slice(1);
+      }
       if (run.length) {
         _pushNode({
           at: run[run.length - 1],
@@ -1218,22 +1256,42 @@ App.notes = (function () {
     L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-right-panning");
   }
 
+  /** Everything this module puts on the map that answers a press of its own. */
+  var OWN_LAYERS = ".note-marker, .note-caption, .note-handle";
+
   /**
    * Whether the pointer went down on something this module drew.
    *
    * The freehand tool swallows the press before Leaflet turns it into a click,
    * so without this a stroke that starts on an existing note replaces that
    * note's own click - and the editor becomes unreachable in the one tool
-   * where the pointer is most likely to be over one.
+   * where the pointer is most likely to be over one. A handle is the same
+   * bargain the other way round: the press belongs to the drag about to
+   * happen, not to a stroke starting underneath it.
    */
   function _overOwnLayer(target) {
-    var node = target;
-    while (node && node !== document.body) {
-      if (node.classList && node.classList.contains("note-marker")) return true;
-      if (node.classList && node.classList.contains("note-handle")) return true;
-      node = node.parentNode;
-    }
-    return false;
+    return !!(target && target.closest && target.closest(OWN_LAYERS));
+  }
+
+  /**
+   * Whether a press landed on the ground rather than on the furniture over it.
+   *
+   * Everything this app mounts over the map - the notes bar, the hint banner,
+   * the context menu, the text dialog and its veil - is a child of the very
+   * container these pointer handlers are bound to. Leaflet's
+   * disableClickPropagation silences the mouse events it knows about there,
+   * but pointer events are not among them, so without this the press that
+   * reaches for Save is also a press on the map: it places a vertex under the
+   * dialog it was aiming at, and swallows the caret the textarea wanted.
+   *
+   * Asked of the map pane rather than of a list of overlay classes, because
+   * the pane is what "the ground" means to Leaflet and it does not grow a new
+   * name every time this app mounts something new.
+   */
+  function _onGround(target) {
+    var map = s.leafletMap;
+    var pane = map.getPane("mapPane");
+    return target === map.getContainer() || !!(pane && pane.contains(target));
   }
 
   /** Points closer together than this are the same point at this zoom. */
@@ -1266,26 +1324,36 @@ App.notes = (function () {
     _preview = L.polyline([], {
       pane: "notesPane",
       color: _pen.color,
-      weight: Math.max(2, _pen.width * 1.5),
+      weight: _strokeWeight(_pen.width),
       opacity: 0.75,
       dashArray: "6 4",
       interactive: false,
     }).addTo(s.leafletMap);
   }
 
+  /**
+   * Throw the line being drawn away: the dashed preview, the dots on its
+   * points, and the gesture still making it.
+   *
+   * The press goes with them. It carries the samples of the sweep under way
+   * and pushes them onto the draft when the button comes up, so a press left
+   * behind by an Escape mid-stroke would either resurrect the line that was
+   * just cancelled or reach for a draft that is no longer there.
+   */
   function _discardDraft() {
     if (_preview) s.leafletMap.removeLayer(_preview);
     _hideSnapDot();
     _preview = null;
     _draft = null;
+    _press = null;
+    _renderHandles();
     _sync();
   }
 
-  /** Redraw the line being drawn, its handles, and the sweep under the hand. */
+  /** Redraw the line being drawn, including the sweep under the hand. */
   function _syncDraft() {
     if (!_draft || !_preview) return;
     _preview.setLatLngs(_latlngs(_geometry()));
-    _renderHandles();
     _sync();
   }
 
@@ -1435,8 +1503,12 @@ App.notes = (function () {
     if (!_draft || !_draft.nodes.length) return;
     _draft.nodes.pop();
     _draft.times.pop();
-    if (!_draft.nodes.length) _discardDraft();
-    else _syncDraft();
+    if (!_draft.nodes.length) {
+      _discardDraft();
+      return;
+    }
+    _renderHandles();
+    _syncDraft();
   }
 
   /** @returns {Object} the sanitized record now in the list, not the argument. */
@@ -1597,10 +1669,22 @@ App.notes = (function () {
     });
 
     items.push({ separator: true });
+    // Both switches, because the draw pen turns left-drag into the stroke and
+    // the right button into everything else: this menu is the only pointer
+    // way to either of them while that pen is out.
+    items.push({
+      labelKey: "notes.freeform",
+      icon: s.noteFreeform ? "fa-square-check" : "fa-square",
+      checked: !!s.noteFreeform,
+      onClick: function () {
+        _setFreeform(!s.noteFreeform);
+      },
+    });
     items.push({
       labelKey: "notes.snap",
       icon: s.noteSnap ? "fa-square-check" : "fa-square",
       checked: !!s.noteSnap,
+      disabled: !!s.noteFreeform,
       onClick: function () {
         _setSnap(!s.noteSnap);
       },
@@ -1729,8 +1813,7 @@ App.notes = (function () {
     width.addEventListener("input", function () {
       _pen.width = parseFloat(width.value);
       _savePen();
-      if (_preview)
-        _preview.setStyle({ weight: Math.max(2, _pen.width * 1.5) });
+      if (_preview) _preview.setStyle({ weight: _strokeWeight(_pen.width) });
       _sync();
     });
 

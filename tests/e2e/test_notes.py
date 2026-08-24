@@ -1,38 +1,57 @@
-"""Editing a mark by its handles, which is a thing only a real map can do.
+"""Drawing and correcting a mark, which is a thing only a real map can do.
 
 The geometry these gestures produce is pinned in `tests/js/notes.test.mjs`,
 where a skeleton can be handed to the module directly. What cannot be checked
 there is the half of it that is Leaflet's: that a handle is on screen where the
 point is, that dragging one moves that point and not the map underneath it, and
 that a click on one is told apart from a drag of it.
+
+Two more live here for the same reason, and they are about what the pen must
+*not* draw: a cancelled line has to leave nothing behind, and a press on the
+furniture the app lays over the map -- a toolbar, a banner, a dialog -- is not
+a press on the ground under it. Both are questions about which element an
+event reached, so neither has an answer outside a browser.
 """
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import FloatRect, Page, expect
 
 # Where the three points of the mark every test starts from are clicked,
 # measured from the map's top-left corner. Far enough apart that no two
-# handles overlap at the default zoom.
+# handles overlap at the default zoom, and clear of the tool panel: that panel
+# is mounted inside the map container, and a gesture on it is a gesture on the
+# furniture rather than on the ground.
 POINTS = ((420, 220), (620, 240), (720, 380))
 
+# Where a freehand sweep is drawn, as a start and a step. Same rule: on the
+# map, not on anything the app has laid over it.
+SWEEP_FROM = (420, 300)
+SWEEP_STEP = 14
 
-def draw_a_mark(page: Page) -> None:
-    """Open the notes tool, pick the draw pen, click out a three-point mark."""
+
+def open_the_pen(page: Page) -> FloatRect:
+    """Open the notes tool with the draw pen out, and return the map's box."""
     page.evaluate("() => window.App.notes.toggle()")
     page.wait_for_selector(".notes-toolbar")
     page.keyboard.press("3")
-
     box = page.locator("#map").bounding_box()
-    assert box
+    assert box is not None
+    return box
+
+
+def click_out_a_line(page: Page, box: FloatRect) -> None:
+    """Place the three points of POINTS, leaving the line open."""
     for x, y in POINTS:
         page.mouse.click(box["x"] + x, box["y"] + y)
         page.wait_for_timeout(120)
 
+
+def draw_a_mark(page: Page) -> None:
+    """Open the notes tool, pick the draw pen, click out a three-point mark."""
+    click_out_a_line(page, open_the_pen(page))
     page.keyboard.press("Enter")
     page.fill(".note-dialog textarea", "Odd numbers")
-    page.evaluate(
-        "() => document.querySelector('.note-dialog [data-role=save]').click()"
-    )
+    page.locator(".note-dialog [data-role=save]").click()
     expect(page.locator(".note-dialog")).to_have_count(0)
 
 
@@ -129,34 +148,85 @@ def test_freeform_draws_only_what_the_hand_does(app_page: Page):
     And nothing on a swept mark is a handle: the hop is a run of samples of
     where the hand went, and moving one end of it would leave the rest behind.
     """
-    app_page.evaluate("() => window.App.notes.toggle()")
-    app_page.wait_for_selector(".notes-toolbar")
-    app_page.keyboard.press("3")
+    box = open_the_pen(app_page)
     app_page.keyboard.press("F")
 
     snap = app_page.locator(".notes-toolbar [data-role='snap']")
     expect(snap).to_be_disabled()
 
-    box = app_page.locator("#map").bounding_box()
-    assert box
-    app_page.mouse.click(box["x"] + 300, box["y"] + 160)
+    start_x, start_y = SWEEP_FROM
+    app_page.mouse.click(box["x"] + start_x, box["y"] + start_y - 120)
     app_page.wait_for_timeout(200)
     assert app_page.evaluate("() => window.App.notes.count()") == 0
 
-    app_page.mouse.move(box["x"] + 250, box["y"] + 200)
+    app_page.mouse.move(box["x"] + start_x, box["y"] + start_y)
     app_page.mouse.down()
     for step in range(1, 20):
         app_page.mouse.move(
-            box["x"] + 250 + step * 14, box["y"] + 200 + (step % 4) * 10
+            box["x"] + start_x + step * SWEEP_STEP,
+            box["y"] + start_y + (step % 4) * 10,
         )
     app_page.mouse.up()
     app_page.wait_for_timeout(300)
     app_page.fill(".note-dialog textarea", "Swept")
-    app_page.evaluate(
-        "() => document.querySelector('.note-dialog [data-role=save]').click()"
-    )
+    app_page.locator(".note-dialog [data-role=save]").click()
 
     mark = app_page.evaluate("() => window.App.notes.all()[0]")
     assert len(mark["points"]) > 5
     assert len(mark["nodes"]) == 2
     expect(app_page.locator(".leaflet-vertex-icon")).to_have_count(0)
+
+
+def test_escape_takes_the_half_drawn_line_off_the_map(app_page: Page):
+    """A cancelled line leaves nothing behind, dots included.
+
+    The dots live in a layer of their own, so that the pen can put them up and
+    take them down without redrawing the marks underneath - which is also how
+    a discard that only removed the dashed preview left a row of points on the
+    map with no line through them and no record behind them.
+    """
+    box = open_the_pen(app_page)
+    click_out_a_line(app_page, box)
+    expect(app_page.locator(".note-handle--draft")).to_have_count(3)
+
+    app_page.keyboard.press("Escape")
+    app_page.wait_for_timeout(200)
+
+    expect(app_page.locator(".note-handle--draft")).to_have_count(0)
+    assert app_page.evaluate("() => window.App.notes.count()") == 0
+    # One step, not two: Escape backs out of the line, not out of the pen.
+    expect(app_page.locator(".notes-toolbar")).to_have_count(1)
+
+
+def test_the_furniture_over_the_map_is_not_the_map(app_page: Page):
+    """A press on the bar or on a dialog is not a press on the ground.
+
+    Both are mounted inside the map container, which is where the pen listens
+    for its pointer events, and Leaflet only silences the mouse events it
+    knows about there. So reaching for Save was also a press on the map: it
+    placed a vertex beneath the dialog, opened a line nobody started, and took
+    the caret away from the textarea on the way past.
+    """
+    box = open_the_pen(app_page)
+    click_out_a_line(app_page, box)
+    app_page.keyboard.press("Enter")
+
+    # Typed and saved with the mouse, the way somebody would.
+    app_page.locator(".note-dialog textarea").click()
+    app_page.keyboard.type("Odd numbers")
+    app_page.locator(".note-dialog [data-role=save]").click()
+    expect(app_page.locator(".note-dialog")).to_have_count(0)
+    app_page.wait_for_timeout(200)
+
+    assert app_page.evaluate("() => window.App.notes.count()") == 1
+    assert app_page.evaluate("() => window.App.notes.all()[0].text") == "Odd numbers"
+    expect(app_page.locator(".note-handle--draft")).to_have_count(0)
+    # Which the bar says too: the Finish button is only up while a line is.
+    expect(app_page.locator(".notes-toolbar [data-role=finish]")).to_be_hidden()
+
+    # And the bar itself: every button on it is a press on the map behind it.
+    app_page.locator(".notes-toolbar [data-role='tool-pin']").click()
+    app_page.locator(".notes-toolbar [data-role='tool-draw']").click()
+    app_page.wait_for_timeout(200)
+    assert app_page.evaluate("() => window.App.notes.count()") == 1
+    expect(app_page.locator(".note-handle--draft")).to_have_count(0)
