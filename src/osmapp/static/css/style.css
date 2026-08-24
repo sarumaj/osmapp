@@ -2852,6 +2852,15 @@ body {
 .print-dialog__body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 292px;
+  /* The one row is the band's own height rather than its contents'.
+
+     `minmax(0, 1fr)` rather than the implicit `auto`: an auto row is sized by
+     what is in it and only then stretched into whatever space is left over, so
+     a preview taller than the band makes the row that tall and the dialog
+     clips it — which is what a portrait sheet is. It also makes the row a
+     definite height, which is what lets the preview below cap the canvas at a
+     percentage of it. */
+  grid-template-rows: minmax(0, 1fr);
   gap: 20px;
   align-items: stretch;
   /* Both are needed for the child to scroll instead of stretching its parent:
@@ -2860,8 +2869,20 @@ body {
   min-height: 0;
 }
 
+/* The preview is a stage the sheet is centred on rather than a frame around
+   it, which is why the border and the paper color are on the canvas below.
+
+   A card is wider than it is tall and fills the column, so a stage the size of
+   the column was the same thing as a stage the size of the card. A wall map in
+   portrait is not: at A3 the sheet is 1.4 times as tall as it is wide, which
+   at this column width is half as tall again as the whole dialog. The dialog
+   does not scroll in this layout - the settings column does, and the preview
+   is meant to stay put beside it - so the bottom third of the sheet was simply
+   cut off with no way to reach it. Fitting it beats scrolling it either way: a
+   frame is judged by looking at the whole of it at once. */
 .print-preview {
-  align-self: start;
+  align-self: stretch;
+  min-height: 0;
 }
 
 /* The footer band.
@@ -2997,7 +3018,16 @@ body {
 
   .print-dialog__body {
     grid-template-columns: minmax(0, 1fr);
+    /* Two stacked rows, each its own height: here the dialog scrolls as one
+       piece and there is no band for a fraction of to be taken. */
+    grid-template-rows: auto;
     min-height: auto;
+  }
+
+  /* Nothing to fit into: the row is as tall as the sheet, so the canvas is
+     capped by the column width alone and the dialog scrolls past it. */
+  .print-preview {
+    align-self: start;
   }
 
   .print-controls {
@@ -3008,16 +3038,33 @@ body {
 
 .print-preview {
   position: relative;
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-sm);
-  background: #f2efe9;
+  /* Centred rather than filled: the canvas is capped on both axes below, so
+     whichever axis it does not fill leaves a margin, and that margin belongs
+     on both sides of the sheet rather than under it. */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
 }
 
 .print-preview canvas {
   display: block;
-  width: 100%;
+  /* Its own size, capped on both axes, so the sheet keeps its aspect ratio
+     however the space that is left over is shaped: a card runs out of width
+     first and a portrait wall map runs out of height first. The height cap is
+     a percentage of the stage, which the definite row above is what makes
+     resolvable. */
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  /* So the cap covers the border it is drawn with rather than the paper
+     inside it: at the column width a content-box cap is two pixels of card
+     hanging over the edge of the stage, which .print-preview then clips. */
+  box-sizing: border-box;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: #f2efe9;
   touch-action: none; /* pointer events drive the eraser */
 }
 

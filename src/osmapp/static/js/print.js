@@ -1307,6 +1307,33 @@ App.print = (function () {
     ctx.restore();
   }
 
+  // WHAT IS BEING PRINTED, WORKED OUT ONCE
+  //
+  // Everything cached here is a function of the project rather than of the
+  // frame: which shapes are on the sheet, where each chip goes and what it
+  // says, what the surveyed boundary looks like, and what the notes are. None
+  // of it can change while the dialog is up - the map underneath is behind a
+  // veil - and all of it was being recomputed inside _paint, which runs on
+  // every pointer move of a pan and on every step of the zoom and rotation
+  // sliders.
+  //
+  // On a card that was wasteful. On a wall map it is quadratic in the number
+  // of territories and the arithmetic is not cheap to begin with: an interior
+  // point per territory is a pole of inaccessibility, a chip's fallback number
+  // is a linear scan of the cluster list, the outline is the whole boundary
+  // converted out of Leaflet and validity-checked by turf, and the notes are a
+  // deep copy of every mark on the map. Forty territories made each dragged
+  // frame pay for all four.
+  //
+  // Lazy rather than filled at open: the outline and the chips are only wanted
+  // when their switches are on, and a card wants neither.
+  var _cache = {};
+
+  function _cached(key, build) {
+    if (!(key in _cache)) _cache[key] = build();
+    return _cache[key];
+  }
+
   function _featureCoords(feature) {
     var out = [];
     G.polygonParts(feature).forEach(function (part) {
@@ -1323,7 +1350,14 @@ App.print = (function () {
    * genuinely tightens rather than leaving the old slack.
    */
   function _fitViewFor(feature, rotation) {
-    var coords = _featureCoords(feature);
+    // Refitting is not a paint, but the rotation slider fires one of these per
+    // pixel of drag and _syncFrameControls asks for the fit zoom on each.
+    var coords =
+      feature === _feature
+        ? _cached("coords", function () {
+            return _featureCoords(feature);
+          })
+        : _featureCoords(feature);
     var r = -rotation * DEG;
     var cos = Math.cos(r);
     var sin = Math.sin(r);
@@ -2058,7 +2092,6 @@ App.print = (function () {
    * through it is a territory nobody can refer to.
    */
   function _drawNumbers(ctx, o) {
-    var features = (_feature && _feature.features) || [];
     var size = WALL_NUMBER_PT * PX_PER_PT;
     var height = size * 1.7;
 
@@ -2069,12 +2102,10 @@ App.print = (function () {
     ctx.textBaseline = "middle";
     ctx.lineWidth = Math.max(1, size * 0.09);
 
-    features.forEach(function (feature, index) {
-      var coord = G.interiorCoord(feature);
-      if (!coord) return;
-      var at = _toCanvas(coord[0], coord[1], _view);
+    _chips().forEach(function (chip) {
+      var at = _toCanvas(chip.coord[0], chip.coord[1], _view);
 
-      var text = _territoryText(feature, index);
+      var text = chip.text;
       // A pill rather than a disc, sized to the text: a single digit comes out
       // round, and "S-13" or "Mainz 7" - which is what the field holds once a
       // congregation has typed its own numbering into it - comes out as a
@@ -2103,6 +2134,29 @@ App.print = (function () {
       ctx.fillText(text, at[0], at[1]);
     });
     ctx.restore();
+  }
+
+  /**
+   * One chip per territory: the spot it is pinned to, and what it says.
+   *
+   * Both halves are the project rather than the frame - the interior point of
+   * a shape and the name it goes by - so they are worked out once for the life
+   * of the dialog. A territory with no interior point is dropped here rather
+   * than skipped on every paint.
+   *
+   * @returns {Array<{coord:number[], text:string}>}
+   */
+  function _chips() {
+    return _cached("chips", function () {
+      var features = (_feature && _feature.features) || [];
+      return features
+        .map(function (feature, index) {
+          var coord = G.interiorCoord(feature);
+          if (!coord) return null;
+          return { coord: coord, text: _territoryText(feature, index) };
+        })
+        .filter(Boolean);
+    });
   }
 
   /**
@@ -2211,13 +2265,18 @@ App.print = (function () {
    * reads as "and this is the edge of all of it" without adding a key.
    */
   function _drawOutline(ctx, o) {
-    if (!s.outerPolygonLayer) return;
-    var outer;
-    try {
-      outer = G.outerFeature(s.outerPolygonLayer);
-    } catch (e) {
-      return;
-    }
+    // Out of the Leaflet layer once rather than once a frame: outerFeature
+    // deep-copies the whole boundary through toGeoJSON and then hands every
+    // ring of it to turf to be checked for validity and measured.
+    var outer = _cached("outline", function () {
+      if (!s.outerPolygonLayer) return null;
+      try {
+        return G.outerFeature(s.outerPolygonLayer);
+      } catch (e) {
+        return null;
+      }
+    });
+    if (!outer) return;
 
     ctx.save();
     ctx.strokeStyle = o.color;
@@ -2266,8 +2325,20 @@ App.print = (function () {
    */
   var _suppressNotes = false;
 
+  /**
+   * The notes, as they stood when the dialog opened.
+   *
+   * A snapshot rather than a fresh copy each time: App.notes.all() deep-copies
+   * every mark on the map, and _drawNotes asks for them on every paint. The
+   * list cannot move underneath this - the dialog is modal and the note tool
+   * is behind it - and taking it once means the card and its preview are drawn
+   * from the same records besides.
+   */
   function _notes() {
-    return _opts().notes ? App.notes.all() : [];
+    if (!_opts().notes) return [];
+    return _cached("notes", function () {
+      return App.notes.all();
+    });
   }
 
   /**
@@ -2840,6 +2911,9 @@ App.print = (function () {
     App.shortcuts.pop("print");
     _dialog = null;
     _feature = null;
+    // Holds a copy of the notes and of the boundary, so it goes with the
+    // canvases rather than sitting in memory until the next card.
+    _cache = {};
     _eraseCursor = null;
     _preview = _borderCanvas = _filterCanvas = null;
     _view = null;
@@ -2891,6 +2965,7 @@ App.print = (function () {
 
     _mode = mode;
     _feature = feature;
+    _cache = {};
     _strokes = [];
     _redoStack = [];
     App.history.pushScope(ERASE_SCOPE);

@@ -556,7 +556,9 @@ App.notes = (function () {
         lineCap: "round",
         lineJoin: "round",
       },
-    ).bindTooltip(note.text || T("notes.kindMark"), { sticky: true });
+    ).bindTooltip(_escapeHtml(note.text) || T("notes.kindMark"), {
+      sticky: true,
+    });
   }
 
   /**
@@ -600,7 +602,7 @@ App.notes = (function () {
     });
 
     if (note.text) {
-      marker.bindTooltip(note.text, {
+      marker.bindTooltip(_escapeHtml(note.text), {
         permanent: !pin,
         direction: "right",
         className: "note-tooltip",
@@ -657,9 +659,13 @@ App.notes = (function () {
   /**
    * Text safe to interpolate into markup.
    *
-   * A caption is drawn through L.divIcon, which takes a string of HTML and no
-   * other kind of content, so this is the one place in the app where something
-   * somebody typed is turned into markup rather than into a text node.
+   * A caption is drawn through L.divIcon and a tooltip through bindTooltip,
+   * and both take a string of HTML and no other kind of content: Leaflet
+   * assigns a string straight to innerHTML. So these are the places in this
+   * module where something somebody typed is turned into markup rather than
+   * into a text node - and the text is not necessarily this user's, since
+   * restore() takes it from a project file that arrived from somewhere else.
+   * polygons.js escapes its own tooltips for the same reason.
    */
   function _escapeHtml(value) {
     return String(value == null ? "" : value).replace(
@@ -1015,7 +1021,11 @@ App.notes = (function () {
    */
   function _setTool(tool) {
     if (TOOLS.indexOf(tool) < 0) return;
-    if (_draft && tool !== _tool) _discardDraft();
+    // _drawing() rather than _draft: a line stepped back past its first point
+    // has no preview left but still owns undo, and leaving its stacks standing
+    // under another pen means a Ctrl+Z that steps a line nobody can see
+    // instead of taking back the note just placed.
+    if (tool !== _tool && _drawing()) _discardDraft();
     _tool = tool;
 
     var map = s.leafletMap;
