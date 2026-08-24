@@ -141,6 +141,18 @@ App.trim = (function () {
     pane: PANE,
   };
 
+  /**
+   * The boundary area this run is trimming, frozen when the tool opened.
+   *
+   * A trim shrinks one outline onto its own buildings, and the raster, the
+   * ring tracing and the corridor logic below all assume one ring. On a
+   * project holding several areas the tool takes the one being looked at --
+   * see App.polygons.workingOuter - and holds on to it: resolving it again
+   * per recompute would hand the tool a different village the moment somebody
+   * panned to check a corner.
+   */
+  var _area = null;
+
   var _pool = null; // [{ feature, key, centroid, big }] - candidates
   var _byFeature = null; // feature -> key, so painting a building is not a scan
   // Who decided what
@@ -231,6 +243,7 @@ App.trim = (function () {
     _ignoreRedo = [];
     _result = null;
     _scaleCache = null;
+    _area = _workingArea();
     _pool = _buildPool();
 
     App.shortcuts.push(TRIM_KEYS);
@@ -290,6 +303,7 @@ App.trim = (function () {
     _ignored = new Set();
     _ignoreUndo = [];
     _ignoreRedo = [];
+    _area = null;
     _pool = null;
     _byFeature = null;
     _scaleCache = null;
@@ -307,9 +321,19 @@ App.trim = (function () {
 
   // SELECTION
 
+  /** The area to trim, or null when there is no usable boundary. */
+  function _workingArea() {
+    try {
+      return App.polygons.workingOuter();
+    } catch (e) {
+      console.warn(">>> Nothing to trim:", e.message);
+      return null;
+    }
+  }
+
   /**
    * Buildings that can be trimmed away: everything downloaded that currently
-   * sits inside the boundary, keyed and with a centroid cached.
+   * sits inside the area being trimmed, keyed and with a centroid cached.
    *
    * Keyed on the OSM id where there is one. Object identity would do for a
    * single session, but a key survives the filtered view being rebuilt, which
@@ -318,12 +342,8 @@ App.trim = (function () {
   function _buildPool() {
     var pool = [];
     _byFeature = new Map();
-    var outer = null;
-    try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
-    } catch (e) {
-      return pool;
-    }
+    var outer = _area;
+    if (!outer) return pool;
     var box = turf.bbox(outer);
 
     (s.cachedBuildings.features || []).forEach(function (feature, index) {
@@ -1059,12 +1079,8 @@ App.trim = (function () {
 
   /** The live proposal, read out of the map and the current selection. */
   function compute() {
-    var outer;
-    try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
-    } catch (e) {
-      return { error: "failed" };
-    }
+    var outer = _area || _workingArea();
+    if (!outer) return { error: "failed" };
     if (!_ignored) _ignored = new Set();
     if (!_pool) _pool = _buildPool();
 
@@ -1605,8 +1621,7 @@ App.trim = (function () {
     if (_lost && s.leafletMap) s.leafletMap.removeLayer(_lost);
     _lost = null;
     try {
-      var outer = G.getOuterFeature(s.outerPolygonLayer);
-      var lostShape = G.difference(outer, feature);
+      var lostShape = G.difference(_area, feature);
       if (lostShape && lostShape.geometry) {
         _lost = L.geoJSON(lostShape, LOST_STYLE).addTo(s.leafletMap);
         _lost.bringToBack();
@@ -2050,7 +2065,7 @@ App.trim = (function () {
    * Swap in the trimmed boundary and bring the territories with it.
    *
    * The clipping, the printed marks and the empty-partition fallback all live
-   * in App.polygons.replaceOuter now: the outline editor does exactly the
+   * in App.polygons.replaceOuterPart now: the outline editor does exactly the
    * same six things after exactly the same kind of change, and two copies of
    * "what happens to a territory that is now half outside" is one copy too
    * many. What is still this tool's own business is the sanity of the ring
@@ -2067,6 +2082,10 @@ App.trim = (function () {
       return;
     }
 
+    // Read before the mode closes, which clears it. The shape that comes back
+    // replaces this one area of the boundary and leaves the rest alone.
+    var area = _area;
+
     if (App.history) App.history.push();
 
     // Before the swap: the tool is holding markers and a preview over a
@@ -2077,12 +2096,12 @@ App.trim = (function () {
     // re-tests every building - the heaviest thing in the app after the
     // partition itself, and long enough that it needs a spinner over it.
     App.ui.busy("loading.boundary", function () {
-      _swap(poly);
+      _swap(poly, area);
     });
   }
 
-  function _swap(poly) {
-    var stats = App.polygons.replaceOuter(poly);
+  function _swap(poly, area) {
+    var stats = App.polygons.replaceOuterPart(area, poly);
     if (!stats) {
       alert(T("trim.failed"));
       return;
@@ -2110,9 +2129,8 @@ App.trim = (function () {
       /* an unrepairable ring is still worth clipping */
     }
     try {
-      var outer = G.getOuterFeature(s.outerPolygonLayer);
-      var clipped = G.largestPolygon(G.intersect(healed, outer));
-      if (clipped) healed = _fillHoles(clipped, outer);
+      var clipped = G.largestPolygon(G.intersect(healed, _area));
+      if (clipped) healed = _fillHoles(clipped, _area);
     } catch (e) {
       return null;
     }

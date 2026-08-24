@@ -184,7 +184,7 @@ App.gaps = (function () {
 
     var outer;
     try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
+      outer = G.outerFeature(s.outerPolygonLayer);
     } catch (e) {
       return [];
     }
@@ -556,7 +556,7 @@ App.gaps = (function () {
   function _touchesOuterNow(feature) {
     if (!s.outerPolygonLayer) return false;
     try {
-      return _touchesOuter(feature, G.getOuterFeature(s.outerPolygonLayer));
+      return _touchesOuter(feature, G.outerFeature(s.outerPolygonLayer));
     } catch (e) {
       return false;
     }
@@ -663,13 +663,13 @@ App.gaps = (function () {
   function _dissolveOne(feature) {
     var outer;
     try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
+      outer = G.outerFeature(s.outerPolygonLayer);
     } catch (e) {
       return false;
     }
     if (!outer || !outer.geometry) return false;
     return _touchesOuter(feature, outer)
-      ? _trimOuter(feature, outer)
+      ? _trimOuter(feature, G.partAt(outer, feature))
       : _absorb(feature);
   }
 
@@ -682,13 +682,27 @@ App.gaps = (function () {
    */
   function _touchesOuter(feature, outer) {
     var eps = s.GAP_OPEN_M || 0.5;
+    var probe;
     try {
-      var probe = turf.buffer(feature, eps * 2, { units: "meters" });
-      if (!probe || !probe.geometry) return false;
-      return !!turf.booleanIntersects(probe, turf.polygonToLine(outer));
+      probe = turf.buffer(feature, eps * 2, { units: "meters" });
     } catch (e) {
       return false;
     }
+    if (!probe || !probe.geometry) return false;
+
+    // Ring by ring rather than polygonToLine on the whole boundary: that
+    // returns a collection as soon as there is a hole or a second area in it,
+    // and booleanIntersects throws on a collection - so on a project holding
+    // two villages every gap would report that it touches nothing.
+    return G.polygonParts(outer).some(function (part) {
+      return part.geometry.coordinates.some(function (ring) {
+        try {
+          return !!turf.booleanIntersects(probe, turf.lineString(ring));
+        } catch (e) {
+          return false;
+        }
+      });
+    });
   }
 
   /**
@@ -702,8 +716,14 @@ App.gaps = (function () {
    * before the subtraction: a territory that lost half a meter would be
    * clipped by replaceOuter and would lose its printed mark for a change
    * nobody asked for.
+   *
+   * Scoped to the one area the gap lies in, not to the boundary. The pieces
+   * the subtraction leaves behind are weighed by _keepInhabited, which drops
+   * the uninhabited ones - correct for the two halves a cut leaves, and quite
+   * wrong for a village on the other side of the county that has yet to be
+   * divided into territories.
    */
-  function _trimOuter(feature, outer) {
+  function _trimOuter(feature, area) {
     var eps = s.GAP_OPEN_M || 0.5;
     var cut = feature;
     try {
@@ -719,7 +739,7 @@ App.gaps = (function () {
 
     var next = null;
     try {
-      next = G.difference(outer, cut);
+      next = G.difference(area, cut);
     } catch (e) {
       next = null;
     }
@@ -728,7 +748,7 @@ App.gaps = (function () {
     next = _keepInhabited(next);
     if (!next || !next.geometry) return false;
 
-    if (!App.polygons.replaceOuter(next)) return false;
+    if (!App.polygons.replaceOuterPart(area, next)) return false;
     console.log(
       ">>> Gap dissolved into the boundary —",
       Math.round(G.area(feature)),

@@ -1,19 +1,20 @@
 /**
- * print.js - territory card printing.
+ * print.js - territory card and wall map printing.
  *
  * Rather than screenshotting the live Leaflet map, this renders a fresh map
- * onto a canvas: basemap tiles, then this cluster's border, and nothing else.
- * That guarantees no buildings, no streets and no neighboring borders, and it
- * decouples output resolution from the screen, so the card prints at 300 dpi
- * regardless of window size.
+ * onto a canvas: basemap tiles, then the border of whatever is being printed,
+ * and nothing else. That guarantees no buildings, no streets and, on a card,
+ * no neighboring borders either - and it decouples output resolution from the
+ * screen, so a card prints at 300 dpi regardless of window size.
  *
  * Layout
- *   Where the map goes on the card is measured from the template, not
+ *   Where the map goes on a card is measured from the template, not
  *   hardcoded. App.pdfdoc.inspectTemplate finds the placeholder rectangle and
  *   the field anchors; the placement dialog corrects that guess by hand; the
  *   result is remembered per template, keyed on a hash of its bytes. The
  *   canvas takes its aspect ratio from the resolved placeholder, so editing
- *   the card cannot silently letterbox the map.
+ *   the card cannot silently letterbox the map. A wall map has no template to
+ *   measure and draws its own sheet - see "Cards and wall maps" below.
  *
  * Tiles
  *   Tiles are fetched below the display zoom and upscaled, so the basemap is
@@ -36,6 +37,17 @@
  * Erase strokes are stored in lng/lat with a width in meters, not canvas
  * pixels, so they stay pinned to the street name they were drawn over when the
  * frame is panned, zoomed or rotated afterwards.
+ *
+ * Cards and wall maps
+ *   A card is one territory on a template, which is what somebody carries down
+ *   a street. A wall map is every territory of the project on one sheet, which
+ *   is what hangs in the hall so a round can be read at a glance. They share
+ *   this whole file - the same projection, the same tiles, the same framing,
+ *   the same eraser, the same PDF - and differ in three things: what is drawn
+ *   (one outline, against all of them numbered), what it is drawn on (a
+ *   template, against a page of a chosen size), and what happens afterwards (a
+ *   card marks its territory printed; a wall map marks nothing, because a
+ *   poster of forty territories is not forty cards).
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -83,9 +95,58 @@ App.print = (function () {
 
   var DPI = 300;
   var PT_PER_INCH = 72;
+
+  /**
+   * Render resolution, in canvas pixels per PDF point.
+   *
+   * Reassigned by _applyLayout, like PLACEHOLDER and RENDER_W beside it, and
+   * for the same reason: it depends on how big the sheet is.
+   *
+   * A card is A4 and 300 dpi across it is nine megapixels, which every browser
+   * will allocate. A wall map can be A0, and 300 dpi across that is a hundred
+   * and forty - past what any canvas will hold, and past what a wall map needs
+   * besides, since it is read from across a room rather than at arm's length.
+   * So the resolution is whatever fits under the two ceilings below, up to
+   * DPI, and everything measured in points on the canvas is multiplied by this
+   * rather than derived from DPI - which is what keeps a 2 pt border 2 pt on
+   * the page whichever resolution it works out to be.
+   */
   var PX_PER_PT = DPI / PT_PER_INCH;
+
+  // Chrome refuses a canvas over 16384 px on a side and every browser has a
+  // total-area limit it will not say out loud; Safari's is the tightest. These
+  // sit well under both, because a canvas that fails to allocate does not
+  // throw - it comes back blank, and a blank poster is a wasted sheet of A1.
+  //
+  // The area ceiling is set by memory rather than by any of those limits.
+  // Three canvases are held at this size at once - the preview, the border and
+  // the tile mosaic - at four bytes a pixel, so twenty megapixels is already
+  // two hundred and forty megabytes of image before a single tile is decoded.
+  // It works out at about 115 dpi on A0 and the full 300 on anything up to A3.
+  var MAX_RENDER_SIDE_PX = 8000;
+  var MAX_RENDER_PX = 20e6;
+
   var RENDER_W = Math.round((PLACEHOLDER.width / PT_PER_INCH) * DPI);
   var RENDER_H = Math.round((PLACEHOLDER.height / PT_PER_INCH) * DPI);
+
+  // WALL MAP
+  //
+  // The sheet sizes offered when there is no template to take one from. ISO A,
+  // in points, portrait; the orientation switch swaps the pair.
+  var PAGE_SIZES = [
+    { id: "a4", width: 595.28, height: 841.89 },
+    { id: "a3", width: 841.89, height: 1190.55 },
+    { id: "a2", width: 1190.55, height: 1683.78 },
+    { id: "a1", width: 1683.78, height: 2383.94 },
+    { id: "a0", width: 2383.94, height: 3370.39 },
+  ];
+
+  var WALL_MARGIN_PT = 28; // about a centimeter, inside every printer's grip
+  var WALL_TITLE_PT = 22; // the title's cap height, and its band is 1.6 of it
+  var WALL_NUMBER_PT = 11; // the number on a territory, on the page
+
+  var MODE_CARD = "card";
+  var MODE_WALL = "wall";
 
   var DEG = Math.PI / 180;
 
@@ -160,6 +221,10 @@ App.print = (function () {
   var COMPASS_RADIUS_PT = 20;
   var COMPASS_FONT_PT = 9;
   var COMPASS_NEEDLE = "#c0392b";
+  // The surveyed area's own outline, as a share of the territory border's
+  // width. Thin enough to sit behind them and heavy enough to survive being
+  // printed at half a millimeter.
+  var OUTLINE_WIDTH_SHARE = 0.6;
   var HALO = "rgba(255,255,255,0.9)";
   var INK = "#333";
 
@@ -173,6 +238,8 @@ App.print = (function () {
 
   // Session state
   var _dialog = null;
+  var _mode = MODE_CARD;
+  /** One territory in card mode; every territory, as a collection, in wall. */
   var _feature = null;
   var _preview = null;
   var _borderCanvas = null;
@@ -254,6 +321,14 @@ App.print = (function () {
     "erase-size",
     "locality",
     "attach",
+    // Wall map. Absent from the card dialog, and _loadPreferences skips a role
+    // it cannot find, so the two share one record without either seeing the
+    // other's controls.
+    "title-text",
+    "page-size",
+    "landscape",
+    "numbers",
+    "outline",
   ];
 
   /**
@@ -407,8 +482,11 @@ App.print = (function () {
     FIELDS = _layout.fields || DEFAULT_LAYOUT.fields;
     _candidates = _layout.candidates || [];
 
-    RENDER_W = Math.round((PLACEHOLDER.width / PT_PER_INCH) * DPI);
-    RENDER_H = Math.round((PLACEHOLDER.height / PT_PER_INCH) * DPI);
+    PX_PER_PT = _renderScale(PLACEHOLDER);
+    // Down, not to nearest. Rounding a canvas that is already at the area
+    // ceiling costs a pixel on each side and puts the product back over it.
+    RENDER_W = Math.max(1, Math.floor(PLACEHOLDER.width * PX_PER_PT));
+    RENDER_H = Math.max(1, Math.floor(PLACEHOLDER.height * PX_PER_PT));
 
     if (!_dialog || !_preview || !_feature) return;
 
@@ -425,6 +503,79 @@ App.print = (function () {
     _syncFrameControls();
     _sizeEraseCursor();
     _retile();
+  }
+
+  /**
+   * Pixels per point for a frame this size: DPI, or as close as fits.
+   *
+   * Both ceilings, not either: a long thin frame trips the side limit while
+   * its area is modest, and a square A1 trips the area limit with both sides
+   * inside the other. The square root is what turns an area budget back into
+   * the per-axis scale that spends it.
+   */
+  function _renderScale(box) {
+    var longest = Math.max(box.width, box.height);
+    var area = Math.max(1, box.width * box.height);
+    return Math.min(
+      DPI / PT_PER_INCH,
+      MAX_RENDER_SIDE_PX / Math.max(1, longest),
+      Math.sqrt(MAX_RENDER_PX / area),
+    );
+  }
+
+  /**
+   * The layout for a wall map: the sheet, less a margin and a title band.
+   *
+   * Nothing is detected because nothing is being aligned to - this is the app
+   * drawing its own page rather than filling in somebody's pre-printed one, so
+   * the placeholder is simply what is left over.
+   *
+   * @param {string} sizeId one of PAGE_SIZES
+   * @param {boolean} landscape
+   */
+  function _wallLayout(sizeId, landscape) {
+    var size = PAGE_SIZES[0];
+    for (var i = 0; i < PAGE_SIZES.length; i++) {
+      if (PAGE_SIZES[i].id === sizeId) size = PAGE_SIZES[i];
+    }
+
+    var width = landscape ? size.height : size.width;
+    var height = landscape ? size.width : size.height;
+    var band = WALL_TITLE_PT * 1.6;
+
+    return {
+      page: 0,
+      pageWidth: width,
+      pageHeight: height,
+      // Marks the layout as this app's own, so nothing tries to save it
+      // against a template hash or offer to adjust it by hand.
+      source: "wall",
+      placeholder: {
+        x: WALL_MARGIN_PT,
+        y: WALL_MARGIN_PT,
+        width: width - 2 * WALL_MARGIN_PT,
+        height: height - 2 * WALL_MARGIN_PT - band,
+      },
+      // PDF measures from the bottom left, so the title sits a cap height
+      // below the top margin rather than at it.
+      fields: {
+        title: {
+          x: WALL_MARGIN_PT,
+          y: height - WALL_MARGIN_PT - WALL_TITLE_PT,
+          size: WALL_TITLE_PT,
+        },
+      },
+      candidates: [],
+    };
+  }
+
+  /** Rebuild the sheet from the two controls that describe it. */
+  function _applyWallLayout() {
+    _applyLayout(_wallLayout(_value("page-size", "a3"), _checked("landscape")));
+  }
+
+  function _isWall() {
+    return _mode === MODE_WALL;
   }
 
   // TEMPLATE FILE
@@ -531,10 +682,10 @@ App.print = (function () {
    * than no checkbox: it promises the card is a restore point when it is not.
    */
   function _syncAttach() {
-    var row = D.role(_dialog, "attach-row");
-    if (row) D.toggle(row, !!_templateFile);
-    var hint = D.role(_dialog, "attach-hint");
-    if (hint) D.toggle(hint, !!_templateFile);
+    // A wall map is always a PDF of this app's own making, so there is always
+    // somewhere to put the project - and a sheet on the hall wall is the copy
+    // of the round most likely to still exist next year.
+    D.toggleRole(_dialog, "attach-group", !!_templateFile || _isWall());
   }
 
   /** Owns the template label - callers must not write it themselves. */
@@ -1893,9 +2044,109 @@ App.print = (function () {
     ctx.restore();
   }
 
+  /**
+   * What each territory is called, on the territory.
+   *
+   * This is the one thing a wall map is read for - somebody is looking for 23,
+   * not for a shape - so it is drawn as a chip rather than as bare text: a
+   * filled pill under it survives being over a dark roof, a park and a
+   * motorway shield, which plain text with a halo does not.
+   *
+   * Furniture rather than part of the border, for both of the reasons the
+   * scale bar is. The border canvas is composited at the border's opacity and
+   * the eraser cuts holes in it, and a number at 30% or with a stroke swept
+   * through it is a territory nobody can refer to.
+   */
+  function _drawNumbers(ctx, o) {
+    var features = (_feature && _feature.features) || [];
+    var size = WALL_NUMBER_PT * PX_PER_PT;
+    var height = size * 1.7;
+
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.font = "bold " + Math.round(size) + "px Arial, sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = Math.max(1, size * 0.09);
+
+    features.forEach(function (feature, index) {
+      var coord = G.interiorCoord(feature);
+      if (!coord) return;
+      var at = _toCanvas(coord[0], coord[1], _view);
+
+      var text = _territoryText(feature, index);
+      // A pill rather than a disc, sized to the text: a single digit comes out
+      // round, and "S-13" or "Mainz 7" - which is what the field holds once a
+      // congregation has typed its own numbering into it - comes out as a
+      // rounded box instead of four characters hanging over the rim of a
+      // circle drawn for one.
+      var width = Math.max(height, ctx.measureText(text).width + size * 0.7);
+
+      // Measured before the cull rather than after it, because how far off the
+      // sheet a chip can start and still show depends on how wide it is. One
+      // drawn as a sliver against the edge reads as a territory cut in half.
+      if (
+        at[0] < -width / 2 ||
+        at[1] < -height / 2 ||
+        at[0] > RENDER_W + width / 2 ||
+        at[1] > RENDER_H + height / 2
+      ) {
+        return;
+      }
+
+      _chipPath(ctx, at[0], at[1], width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fill();
+      ctx.strokeStyle = o.color;
+      ctx.stroke();
+      ctx.fillStyle = INK;
+      ctx.fillText(text, at[0], at[1]);
+    });
+    ctx.restore();
+  }
+
+  /**
+   * What to write on a territory: what a card called it, else its number.
+   *
+   * The number is this session's position in the list - an index, not a name.
+   * A congregation's own numbering is what somebody typed into the card's
+   * "Territory no." field, and once a card has carried it, that is what the
+   * territory is called and what a wall map has to agree with. See
+   * App.polygons.setLabel.
+   *
+   * The index is still the fallback rather than nothing, because a project
+   * whose cards have not been printed yet is exactly when a wall map is most
+   * useful: it is how the round gets planned.
+   */
+  function _territoryText(feature, index) {
+    var label = App.polygons.labelOf(feature);
+    if (label) return label;
+    var number = App.labels ? App.labels.numberOf(feature) : null;
+    return App.i18n.n(number || index + 1);
+  }
+
+  /**
+   * A rounded rectangle, centred on (x, y), as the current path.
+   *
+   * Hand-rolled rather than ctx.roundRect: that landed in Safari only in 16,
+   * and an unsupported call here throws in the middle of a paint rather than
+   * degrading to a square corner.
+   */
+  function _chipPath(ctx, x, y, width, height) {
+    var r = height / 2;
+    var left = x - width / 2 + r;
+    var right = x + width / 2 - r;
+    ctx.beginPath();
+    ctx.arc(right, y, r, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(left, y + r);
+    ctx.arc(left, y, r, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
+  }
+
   function _drawDecorations(ctx) {
     if (!_view) return;
     var o = _opts();
+    if (o.numbers) _drawNumbers(ctx, o);
     if (o.scale) _drawScaleBar(ctx);
     if (o.compass) _drawCompass(ctx);
   }
@@ -1906,6 +2157,11 @@ App.print = (function () {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, RENDER_W, RENDER_H);
 
+    // Under the territories, and before the eraser below can reach it: the
+    // outline says where the surveyed area ends, and a swept-away stretch of
+    // it looks like an area that ends there.
+    if (o.outline) _drawOutline(ctx, o);
+
     // Drawn fully opaque here; opacity is applied once at composite time so
     // overlapping segments do not stack into a darker line.
     ctx.save();
@@ -1914,20 +2170,10 @@ App.print = (function () {
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
-    G.polygonParts(_feature).forEach(function (part) {
-      part.geometry.coordinates.forEach(function (ring) {
-        if (ring.length < 2) return;
-        ctx.beginPath();
-        var p = _toCanvas(ring[0][0], ring[0][1], _view);
-        ctx.moveTo(p[0], p[1]);
-        for (var i = 1; i < ring.length; i++) {
-          p = _toCanvas(ring[i][0], ring[i][1], _view);
-          ctx.lineTo(p[0], p[1]);
-        }
-        ctx.closePath();
-        ctx.stroke();
-      });
-    });
+    // polygonParts flattens a collection of territories exactly as it
+    // flattens one territory left in two pieces by a cut, so a wall map and a
+    // card are the same loop.
+    _strokeRings(ctx, _feature);
     ctx.restore();
 
     // Erased spans punch through the border only - the map beneath is intact.
@@ -1955,6 +2201,40 @@ App.print = (function () {
       ctx.stroke();
     });
     ctx.restore();
+  }
+
+  /**
+   * The surveyed area, behind the territories that divide it.
+   *
+   * Thin and in the same ink rather than a color of its own: on a sheet where
+   * every territory is already outlined, a second weight of the same line
+   * reads as "and this is the edge of all of it" without adding a key.
+   */
+  function _drawOutline(ctx, o) {
+    if (!s.outerPolygonLayer) return;
+    var outer;
+    try {
+      outer = G.outerFeature(s.outerPolygonLayer);
+    } catch (e) {
+      return;
+    }
+
+    ctx.save();
+    ctx.strokeStyle = o.color;
+    ctx.lineWidth = Math.max(1, o.widthPt * PX_PER_PT * OUTLINE_WIDTH_SHARE);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    _strokeRings(ctx, outer);
+    ctx.restore();
+  }
+
+  /** Every ring of every part of a polygonal feature, in the current style. */
+  function _strokeRings(ctx, feature) {
+    G.polygonParts(feature).forEach(function (part) {
+      part.geometry.coordinates.forEach(function (ring) {
+        if (_trace(ctx, ring, true)) ctx.stroke();
+      });
+    });
   }
 
   // NOTES
@@ -2574,6 +2854,7 @@ App.print = (function () {
     _templateFile = null;
     _layoutId = null;
     _busy = false;
+    _mode = MODE_CARD;
   }
 
   function printCluster(feature) {
@@ -2581,11 +2862,34 @@ App.print = (function () {
       alert(T("print.errNoGeometry"));
       return;
     }
+    _open(MODE_CARD, feature);
+  }
 
+  /**
+   * Every territory of the project on one sheet.
+   *
+   * The subject is a collection rather than a shape, and everything that
+   * frames or draws it already walks one: _featureCoords and _drawBorder both
+   * go through G.polygonParts, which flattens a FeatureCollection as readily
+   * as it flattens a territory that a cut has left in two pieces. So the
+   * fitting, the rotation, the tiles and the eraser need to know nothing about
+   * this mode at all.
+   */
+  function printWallCard() {
+    var features = App.polygons.clusterFeatures();
+    if (!features.length) {
+      alert(T("print.errNoTerritories"));
+      return;
+    }
+    _open(MODE_WALL, { type: "FeatureCollection", features: features });
+  }
+
+  function _open(mode, feature) {
     // openDialog closes whatever is already open, and that teardown clears
     // module state - so nothing may be assigned before this line.
     _dialog = App.ui.openDialog("tpl-print-dialog", _teardown);
 
+    _mode = mode;
     _feature = feature;
     _strokes = [];
     _redoStack = [];
@@ -2605,6 +2909,7 @@ App.print = (function () {
     _filterCanvas = document.createElement("canvas");
 
     _wireControls();
+    _applyMode();
     // Only when it would be a surprise. Someone printing from the OSM view
     // gets what they see and needs no explanation; someone who has been
     // looking at satellite imagery for the last ten minutes is about to get
@@ -2616,12 +2921,50 @@ App.print = (function () {
     // sharpen does not come back checked in one that cannot.
     _applyFilterSupport();
 
+    if (_isWall()) {
+      // After the preferences, which is where the sheet size and orientation
+      // come back from. Sizes both canvases, fits the view, picks the tile
+      // zoom and starts the prefetch.
+      _applyWallLayout();
+      return;
+    }
+
     // Sizes both canvases, fits the view, picks the tile zoom and starts the
     // prefetch - everything downstream of the frame's aspect ratio.
     _applyLayout(DEFAULT_LAYOUT);
 
     // May replace the layout a moment later, which redoes all of the above.
     _restoreTemplate();
+  }
+
+  /**
+   * Dress the one dialog as whichever of the two things it is this time.
+   *
+   * Two templates would be the other way to do this, and they would drift: the
+   * frame controls, the basemap, the decorations, the notes, the border and
+   * the eraser are the same six fieldsets either way, and a copy of them is a
+   * copy that gets a fix once.
+   *
+   * The title's key is rewritten rather than only its text, so that switching
+   * language with the dialog open re-renders the right one - App.i18n reads
+   * the attribute, not what was last written into the node.
+   */
+  function _applyMode() {
+    var wall = _isWall();
+    var key = wall ? "print.wallTitle" : "print.title";
+    var title = D.role(_dialog, "title");
+    if (title) {
+      title.setAttribute("data-i18n", key);
+      title.textContent = T(key);
+    }
+    _dialog.setAttribute("data-i18n-attrs", "aria-label=" + key);
+    _dialog.setAttribute("aria-label", T(key));
+
+    D.toggleRole(_dialog, "card-only", !wall);
+    D.toggleRole(_dialog, "wall-only", wall);
+    // Owned by the template path everywhere else, which a wall map does not
+    // take - so this is the one call that shows the backup box for one.
+    _syncAttach();
   }
 
   /**
@@ -2647,6 +2990,11 @@ App.print = (function () {
    * congregation moves to the next village.
    */
   function _suggestNames() {
+    if (_isWall()) {
+      _suggestTitle();
+      return;
+    }
+
     var localityInput = D.role(_dialog, "locality");
     var territoryInput = D.role(_dialog, "territory");
     if (!localityInput || !territoryInput) return;
@@ -2679,6 +3027,24 @@ App.print = (function () {
         localityInput.placeholder = top;
       _suggestTerritory(territoryInput, localityInput.value.trim() || top);
     });
+  }
+
+  /**
+   * A heading for the wall map, from the same tally the cards use.
+   *
+   * naming.localityCandidates falls back to ranking every downloaded building
+   * when the feature it is handed has no geometry of its own - which a
+   * collection of territories has not - and that fallback is exactly the right
+   * question here: the most common place name across the whole project.
+   */
+  function _suggestTitle() {
+    var input = D.role(_dialog, "title-text");
+    if (!input) return;
+    var localities = App.naming ? App.naming.localityCandidates(_feature) : [];
+    var recent = _recentLocalities();
+    var best = localities.length ? localities[0].value : recent[0] || "";
+    if (!input.value.trim() && best) input.placeholder = best;
+    _fillOptions("title-options", input, _values(localities).concat(recent));
   }
 
   /** The number, its zero-padded form, and the locality-qualified form. */
@@ -2783,6 +3149,32 @@ App.print = (function () {
 
     D.role(_dialog, "locality").addEventListener("change", _savePreferences);
     D.role(_dialog, "erase").addEventListener("change", _syncEraseMode);
+
+    // The sheet, and what goes on it. All five belong to the wall map and are
+    // only reachable there - hidden rather than removed on a card, so they are
+    // bound either way and _opts() gates on the mode instead.
+    ["page-size", "landscape"].forEach(function (role) {
+      var input = D.role(_dialog, role);
+      if (!input) return;
+      input.addEventListener("change", function () {
+        _savePreferences();
+        // Resizes both canvases and refits, which is why this is not a repaint:
+        // the frame's aspect ratio has changed underneath the view.
+        _applyWallLayout();
+      });
+    });
+
+    ["numbers", "outline"].forEach(function (role) {
+      var input = D.role(_dialog, role);
+      if (!input) return;
+      input.addEventListener("change", function () {
+        _savePreferences();
+        _schedulePaint();
+      });
+    });
+
+    var titleText = D.role(_dialog, "title-text");
+    if (titleText) titleText.addEventListener("change", _savePreferences);
 
     var zoomInput = D.role(_dialog, "zoom");
     zoomInput.addEventListener("input", function (e) {
@@ -3236,6 +3628,7 @@ App.print = (function () {
   };
 
   function _opts() {
+    var wall = _isWall();
     return {
       color: D.role(_dialog, "color").value,
       widthPt: parseFloat(D.role(_dialog, "width").value),
@@ -3248,6 +3641,13 @@ App.print = (function () {
       compass: _checked("compass"),
       notes: _checked("notes"),
       noteText: _checked("note-text"),
+      // Wall map only. Gated on the mode rather than on the controls being
+      // there: they are in the dialog either way - hidden, not removed - so a
+      // card would otherwise be drawn with the area outline that is ticked by
+      // default over in the fieldset it cannot see.
+      title: wall ? _value("title-text", "").trim() : "",
+      numbers: wall && _checked("numbers"),
+      outline: wall && _checked("outline"),
       // Only meaningful on the template path: the no-template path hands a
       // PNG to the browser's own print dialog, and there is no PDF of ours to
       // attach anything to.
@@ -3259,6 +3659,12 @@ App.print = (function () {
   function _checked(role) {
     var box = D.role(_dialog, role);
     return !!(box && box.checked);
+  }
+
+  /** The same, for anything with a value. */
+  function _value(role, fallback) {
+    var input = D.role(_dialog, role);
+    return input && input.value != null ? input.value : fallback;
   }
 
   // POINTER - erase or pan, depending on the mode
@@ -3476,7 +3882,12 @@ App.print = (function () {
     // resolves. markPrinted() looks the feature up in the cluster list and
     // shrugs if it has since been cut, merged or deleted.
     var target = _feature;
-    var locality = _opts().locality;
+    var wall = _isWall();
+    // Empty on a wall map: the dropdown this feeds is the card's locality
+    // list, and a heading naming a circuit is not a locality anybody wants
+    // offered on the next card.
+    var locality = wall ? "" : _opts().locality;
+    var territory = wall ? "" : _opts().territory;
     _setBusy(true);
 
     _compose()
@@ -3493,7 +3904,19 @@ App.print = (function () {
         // the shelf. A territory wrongly marked is one right-click away from
         // being un-marked, while one wrongly left unmarked is a card printed
         // twice.
+        //
+        // A wall map marks nothing. The mark means "this territory's card has
+        // been produced", and a poster of forty territories is not forty
+        // cards - marking them all would wipe out, in one click, the record of
+        // which ones have actually been handed out.
+        if (wall) return;
         App.polygons.markPrinted(target, true);
+        // And it names it. What went in the field is what the congregation
+        // calls this territory, and until it was kept the same number had to
+        // be typed again for every reprint and the wall map had nothing to
+        // show but this session's index. Blank clears it, which is the honest
+        // reading of a card printed without a number.
+        App.polygons.setLabel(target, territory);
       })
       .catch(function (err) {
         _setStatus(err.message, false);
@@ -3510,9 +3933,11 @@ App.print = (function () {
    */
   function _compose() {
     var o = _opts();
-    // Only the template path has anywhere to put them. Without one the card
-    // is a PNG, and the notes are already drawn into it.
-    var notes = _templateFile ? _noteSpecs() : [];
+    // Only a PDF has anywhere to put them. A card with no template is a PNG
+    // handed to the browser's print dialog, and its notes are already drawn
+    // into the pixels; a wall map is always a PDF of this app's own.
+    var pdf = !!_templateFile || _isWall();
+    var notes = pdf ? _noteSpecs() : [];
     _setStatus(T("print.waitingTiles"));
     return _awaitTiles()
       .then(function () {
@@ -3521,11 +3946,10 @@ App.print = (function () {
       })
       .then(function (blob) {
         if (!blob) throw new Error(T("print.errRender"));
-        if (!_templateFile)
-          return { blob: blob, name: _fileName(o, "png"), pdf: false };
+        if (!pdf) return { blob: blob, name: _fileName(o, "png"), pdf: false };
         _setStatus(T("print.buildingPdf"));
-        return _composePdf(blob, o, notes).then(function (pdf) {
-          return { blob: pdf, name: _fileName(o, "pdf"), pdf: true };
+        return _composePdf(blob, o, notes).then(function (out) {
+          return { blob: out, name: _fileName(o, "pdf"), pdf: true };
         });
       });
   }
@@ -3541,7 +3965,7 @@ App.print = (function () {
    * @returns {Promise<Blob|null>}
    */
   function _snapshot() {
-    var hide = !!_templateFile && !!_notes().length;
+    var hide = (!!_templateFile || _isWall()) && !!_notes().length;
     if (hide) {
       _suppressNotes = true;
       _paint();
@@ -3557,24 +3981,31 @@ App.print = (function () {
   }
 
   /**
-   * What the card is called on disk, in either format.
+   * What the sheet is called on disk, in either format.
    *
-   * The timestamp is a fallback for an unnumbered territory only: two cards
-   * of number 12 are meant to overwrite each other, two cards of nothing in
-   * particular are not.
+   * On a card the timestamp is a fallback for an unnumbered territory only:
+   * two cards of number 12 are meant to overwrite each other, two cards of
+   * nothing in particular are not. A wall map always carries one, because it
+   * has no number to be overwritten by and the sheet printed after tonight's
+   * changes is a different sheet from the one printed last month.
    */
   function _fileName(o, ext) {
-    var name =
-      "territory_map" +
-      (o.locality ? "-" + o.locality.replace(/\s+/g, "_") : "") +
-      (o.territory
-        ? "-" + o.territory.replace(/\s+/g, "_")
-        : "-" + Math.floor(Date.now() / 1000)) +
-      "." +
-      ext;
+    var name = _isWall()
+      ? "wall_map" + _part(o.title) + "-" + _stamp()
+      : "territory_map" + _part(o.locality) + (_part(o.territory) || "-" + _stamp());
 
     // make sure name contains only filename-safe characters
-    return name.replace(/[^a-zA-Z0-9_\-\.]/g, "_").toLowerCase();
+    return (name + "." + ext).replace(/[^a-zA-Z0-9_\-\.]/g, "_").toLowerCase();
+  }
+
+  /** One dash-prefixed part of a file name, or nothing when there is no name. */
+  function _part(value) {
+    return value ? "-" + value.replace(/\s+/g, "_") : "";
+  }
+
+  /** Whole seconds since the epoch, which is as precise as a sheet needs. */
+  function _stamp() {
+    return String(Math.floor(Date.now() / 1000));
   }
 
   /**
@@ -3731,6 +4162,10 @@ App.print = (function () {
   function _composePdf(blob, o, notes) {
     var spec = {
       template: _templateFile,
+      // Only without a template, where there is no sheet to take a size from.
+      pageSize: _templateFile
+        ? null
+        : { width: _layout.pageWidth, height: _layout.pageHeight },
       image: blob,
       // page lives on the layout, not the placeholder: PLACEHOLDER carries no
       // page, so reading it here would hand pdfdoc.js an undefined page number.
@@ -3749,7 +4184,7 @@ App.print = (function () {
       project: null,
     };
 
-    ["locality", "territory"].forEach(function (name) {
+    (_isWall() ? ["title"] : ["locality", "territory"]).forEach(function (name) {
       if (!o[name] || !FIELDS[name]) return;
       spec.fields.push({
         name: name,
@@ -3793,6 +4228,7 @@ App.print = (function () {
     isOpen: isOpen,
     setBasemapOverlay: setBasemapOverlay,
     printCluster: printCluster,
+    printWallCard: printWallCard,
     close: close,
     undo: undo,
     redo: redo,
@@ -3803,6 +4239,25 @@ App.print = (function () {
     scaleFor: scaleFor,
     compassVector: compassVector,
     clipToFrame: clipToFrame,
+    /**
+     * The sheet a wall map is drawn on, and the canvas it is drawn at.
+     *
+     * Here for the same reason as the two above: both numbers are wrong in
+     * ways that do not look wrong. A placeholder that runs off the page is
+     * refused by pdfdoc.js with a message about a rectangle, several seconds
+     * after the button; a canvas over the browser's limit is not refused at
+     * all - it allocates, comes back blank, and the first anyone knows of it
+     * is a white A1 in the printer.
+     */
+    wallSheet: function (sizeId, landscape) {
+      var layout = _wallLayout(sizeId, landscape);
+      var scale = _renderScale(layout.placeholder);
+      return {
+        layout: layout,
+        renderWidth: Math.max(1, Math.floor(layout.placeholder.width * scale)),
+        renderHeight: Math.max(1, Math.floor(layout.placeholder.height * scale)),
+      };
+    },
     layout: function () {
       // A getter, not a reference: PLACEHOLDER and FIELDS are reassigned
       // whenever a template loads, so an exported object would go stale.

@@ -228,11 +228,22 @@ App.naming = (function () {
    * @param {string} [locality] the locality about to be printed beside it
    */
   function territoryCandidates(feature, locality) {
+    var out = [];
+
+    // First, and ahead of anything derived from the index: a territory whose
+    // card has been printed already has a name, and it is the one somebody
+    // typed. Offering "7" to a congregation that spent last month calling this
+    // one S-13 is asking them to retype it on every reprint - and the
+    // placeholder is taken from the head of this list, so first is what
+    // decides whether they have to.
+    var known = App.polygons ? App.polygons.labelOf(feature) : "";
+    if (known) out.push({ value: known, kind: "printed" });
+
     var number = App.labels ? App.labels.numberOf(feature) : null;
-    if (!number) return [];
+    if (!number) return out;
 
     var text = App.i18n ? App.i18n.n(number) : String(number);
-    var out = [{ value: text, kind: "number" }];
+    if (text !== known) out.push({ value: text, kind: "number" });
     if (number < 10) out.push({ value: "0" + text, kind: "padded" });
     if (locality)
       out.push({ value: locality + " " + text, kind: "qualified" });

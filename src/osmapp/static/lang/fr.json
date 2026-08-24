@@ -29,7 +29,7 @@
     "redoStrokeNone": "Aucun tracé de gomme à rétablir",
     "redoCount": "Rétablir la dernière modification annulée ({count} disponible(s))",
     "locate": "Afficher ma position",
-    "import": "Importer un export GeoJSON ou une carte imprimée",
+    "import": "Importer un export GeoJSON ou une fiche imprimée, ou l'ajouter à ce projet",
     "export": "Tout exporter en GeoJSON",
     "refetch": "Retélécharger les données OSM pour la limite extérieure",
     "partition": "Diviser la zone en territoires",
@@ -118,7 +118,9 @@
     "redoNoteCount": "Rétablir une modification des notes ({count} disponibles)",
     "redoNoteNone": "Rien à rétablir",
     "redoNoteStepCount": "Rétablir une étape du tracé ({count} disponibles)",
-    "redoNoteStepNone": "Rien à rétablir"
+    "redoNoteStepNone": "Rien à rétablir",
+    "labelWallCard": "Carte murale",
+    "wallCard": "Imprimer tous les territoires sur une seule feuille"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -159,7 +161,8 @@
     "retrying": "Nouvelle tentative… (tentative {attempt} sur {total})",
     "readingCard": "Lecture de la carte…",
     "restoring": "Restauration de votre travail…",
-    "importing": "Ouverture du projet…"
+    "importing": "Ouverture du projet…",
+    "areaProgress": "(zone {index} sur {total})"
   },
   "phase": {
     "samples": "Collecte des points d'échantillon",
@@ -311,7 +314,7 @@
     "locality": "Localité",
     "localityHint": "Suggestion tirée des adresses OpenStreetMap de ce territoire. Saisissez votre propre libellé pour le remplacer.",
     "territoryNo": "N° de territoire",
-    "territoryHint": "Suggestion tirée du numéro affiché sur la carte. Saisissez votre propre numéro pour le remplacer.",
+    "territoryHint": "Suggéré à partir du numéro affiché sur la carte, ou de la façon dont la dernière fiche a nommé ce territoire. Remplacez-le par votre propre numérotation : ce qui est imprimé est conservé et sert aussi à la carte murale.",
     "template": "Modèle PDF",
     "noTemplate": "Aucun modèle — la carte s'imprime seule.",
     "clearTemplate": "Effacer le modèle",
@@ -375,7 +378,18 @@
     "notes": "Inclure les notes",
     "notesHint": "Une carte PDF les porte comme de vraies annotations — un dessin par note, épingle et marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte.",
     "noteText": "Dessiner le texte sur la carte",
-    "noteTextHint": "Désactivé, une note garde sa marque et ses mots ne vont que dans les commentaires du PDF, ce qui garde lisible une carte chargée. Une légende n'est que du texte : elle est dessinée dans tous les cas."
+    "noteTextHint": "Désactivé, une note garde sa marque et ses mots ne vont que dans les commentaires du PDF, ce qui garde lisible une carte chargée. Une légende n'est que du texte : elle est dessinée dans tous les cas.",
+    "wallTitle": "Imprimer la carte murale",
+    "wall": "Carte murale",
+    "wallHint": "Tous les territoires du projet sur une seule feuille, à la taille choisie ici. Rien n'est marqué comme imprimé — une affiche n'est pas une pile de fiches.",
+    "pageSize": "Feuille",
+    "landscape": "Paysage",
+    "wallTitleField": "Titre",
+    "wallTitleHint": "Imprimé en haut de la feuille. Suggéré à partir des adresses OpenStreetMap du projet ; remplacez-le par votre propre formulation.",
+    "wallNumbers": "Numéroter les territoires",
+    "wallOutline": "Tracer le contour de la zone",
+    "backup": "Sauvegarde",
+    "errNoTerritories": "Il n'y a pas encore de territoires à mettre sur une carte murale."
   },
   "place": {
     "title": "Positionner la carte",
@@ -588,7 +602,15 @@
     "reset": "Réinitialiser",
     "clearPrintedTitle": "Effacer les marques d'impression ?",
     "clearPrinted": "Effacer",
-    "editInstead": "Modifier plutôt"
+    "editInstead": "Modifier plutôt",
+    "importTitle": "Ajouter à ce projet ?",
+    "importMessage": "Un projet est déjà ouvert. Ajouter le conserve et place les zones importées à côté ; remplacer le supprime.",
+    "importDetail": {
+      "one": "{count} fichier sélectionné.",
+      "other": "{count} fichiers sélectionnés."
+    },
+    "importAdd": "Ajouter",
+    "importReplace": "Remplacer"
   },
   "cut": {
     "vertices": "{count} sommets",
@@ -674,7 +696,7 @@
       },
       "print": {
         "title": "La fiche",
-        "body": "L'aperçu peut être déplacé, zoomé et pivoté ; les réglages à côté définissent la taille des étiquettes, la couleur et l'épaisseur de la bordure, efface les portions de bordure qui traversent une maison, et prend la localité et le numéro de territoire. Chargez votre propre formulaire PDF et la carte y est insérée. Les territoires dont la fiche a été créée passent au vert et portent une coche, ce qui rend visibles d'un coup d'œil ceux qui restent."
+        "body": "L'aperçu se déplace, se zoome et pivote ; les réglages à côté fixent la taille des libellés et la limite, effacent les portions qui traversent une maison, et reçoivent la localité et le numéro de territoire. Ce numéro reste attaché au territoire : la fiche suivante le repropose, la carte murale l'inscrit. Chargez votre propre formulaire PDF et la carte s'y place. Un territoire dont la fiche est faite passe au vert avec une coche."
       },
       "clearPrinted": {
         "title": "Le prochain cycle",
@@ -710,7 +732,7 @@
       },
       "importFiles": {
         "title": "… et le récupérer",
-        "body": "L'import relit un tel fichier, remplaçant ce qui est sur la carte. C'est aussi ainsi qu'un travail commencé sur un ordinateur de bureau est repris sur un téléphone."
+        "body": "Importer relit un tel fichier - ou une fiche imprimée, qui porte le projet en elle. Si quelque chose est déjà sur la carte, l'application demande s'il faut l'ajouter ou le remplacer, et plusieurs fichiers peuvent être choisis à la fois : c'est ainsi que les localités d'une circonscription se retrouvent dans un seul projet. Remodeler, rogner et diviser travaillent alors sur une zone à la fois - celle que vous regardez."
       },
       "reset": {
         "title": "Recommencer à zéro",
@@ -779,6 +801,10 @@
       "autohealScope": {
         "title": "Une annulation, ou une ligne",
         "body": "Toute la réparation ne fait qu'une annulation, et la baguette sur une ligne fait la même chose pour cette ligne seule. Pour revenir à cette liste à tout moment : le bouton « Imprimer » de la barre d'outils, ou le nombre de territoires dans le panneau en bas à droite."
+      },
+      "wallCard": {
+        "title": "Une feuille pour le mur",
+        "body": "Dessine tous les territoires du projet sur une seule feuille, jusqu'au A0. Le même aperçu qu'une fiche - déplacer, zoomer, pivoter, échelle, boussole - avec la taille de la feuille choisie à côté. Chaque territoire porte ce que sa fiche l'a appelé, ou son numéro tant qu'aucune fiche n'a été faite. Rien n'est marqué comme imprimé : le relevé des fiches déjà distribuées reste intact."
       }
     }
   },
@@ -912,7 +938,8 @@
     "noteHandle": "Déplacer un point · un clic le retire",
     "noteBend": "Courber un segment droit par sa poignée centrale",
     "noteClick": "Poser un point",
-    "noteToolText": "Écrire une légende"
+    "noteToolText": "Écrire une légende",
+    "goWallCard": "Imprimer la carte murale"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",

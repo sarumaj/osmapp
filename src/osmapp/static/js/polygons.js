@@ -307,6 +307,20 @@ App.polygons = (function () {
   // matches it. Territories a cut passed through untouched keep theirs,
   // because the same feature object is carried forward.
 
+  /**
+   * The cluster entry a feature belongs to, or null.
+   *
+   * Not a failure worth shouting about when there is none: the territory may
+   * have been cut, merged or deleted while a PDF was being composed, which is
+   * exactly when print.js comes back holding one of these.
+   */
+  function _entryFor(feature) {
+    for (var i = 0; i < s.clusters.length; i++) {
+      if (s.clusters[i].feature === feature) return s.clusters[i];
+    }
+    return null;
+  }
+
   /** @returns {string|null} ISO timestamp of the last card, or null. */
   function printedAt(feature) {
     var props = feature && feature.properties;
@@ -335,15 +349,7 @@ App.polygons = (function () {
    * @returns {boolean} whether anything changed
    */
   function markPrinted(feature, printed, opts) {
-    var entry = null;
-    for (var i = 0; i < s.clusters.length; i++) {
-      if (s.clusters[i].feature === feature) {
-        entry = s.clusters[i];
-        break;
-      }
-    }
-    // Not a failure worth shouting about: the territory may have been cut,
-    // merged or deleted while a PDF was being composed.
+    var entry = _entryFor(feature);
     if (!entry) return false;
 
     var next = printed ? (opts && opts.at) || new Date().toISOString() : null;
@@ -386,6 +392,59 @@ App.polygons = (function () {
 
   function _syncPrintedCount() {
     if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
+  }
+
+  // WHAT A TERRITORY IS CALLED
+  //
+  // The app numbers territories 1..N by their position in the list, and that
+  // is an index rather than a name: it changes when one is deleted, and it is
+  // this session's bookkeeping rather than anybody's numbering. A congregation
+  // has its own - "S-13", "12a", "Mainz 7" - and types it into the card's
+  // "Territory no." field, which is why that field is a text box with a
+  // suggestion in it rather than a number.
+  //
+  // Until now that typing went onto the card and nowhere else, so it had to be
+  // done again for every reprint and the wall map could only show the index.
+  // Kept in properties like the printed mark, and for the same reasons: it
+  // rides along with setClusters, buildPayload, the session and the card
+  // attachment without any of them learning about it, and it is optional in
+  // both directions so PAYLOAD_VERSION stays where it is.
+  //
+  // Clearing the printed marks does not clear these. Starting a new round is
+  // a statement about which cards have been produced, not about what the
+  // territories are called.
+
+  /** @returns {string} what a card called this territory, or "". */
+  function labelOf(feature) {
+    var props = feature && feature.properties;
+    var value = props && props.label;
+    return typeof value === "string" ? value : "";
+  }
+
+  /**
+   * Remember what a card called this territory.
+   *
+   * Blank removes it rather than storing an empty string, so "printed without
+   * a number" leaves the territory unnamed rather than named nothing - the
+   * difference matters to every caller, all of which fall back to the index.
+   *
+   * @param {Object} feature the cluster feature, not the layer
+   * @param {string} text as typed into the card
+   * @returns {boolean} whether anything changed
+   */
+  function setLabel(feature, text) {
+    var entry = _entryFor(feature);
+    if (!entry) return false;
+
+    var next = (text || "").trim();
+    if (labelOf(entry.feature) === next) return false;
+
+    entry.feature.properties = entry.feature.properties || {};
+    if (next) entry.feature.properties.label = next;
+    else delete entry.feature.properties.label;
+
+    if (App.session) App.session.markDirty();
+    return true;
   }
 
   // Where the check lives
@@ -477,20 +536,28 @@ App.polygons = (function () {
    * Give the outer polygon a cluster of its own when nothing else exists, so a
    * freshly drawn territory is immediately printable and exportable without
    * running the partitioner.
+   *
+   * One per area rather than one for the boundary: a project holding three
+   * villages would otherwise get a single territory made of three disjoint
+   * pieces, which prints as one card sending somebody to three places.
    */
   function ensureDefaultCluster() {
     if (s.clusters.length > 0 || !s.outerPolygonLayer) return false;
-    var outer;
-    try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
-    } catch (e) {
-      console.warn(">>> Cannot create the default cluster:", e.message);
+    var parts = G.outerParts(s.outerPolygonLayer);
+    if (!parts.length) {
+      console.warn(">>> Cannot create the default cluster: no usable boundary");
       return false;
     }
-    setClusters([
-      { type: "Feature", geometry: outer.geometry, properties: { auto: true } },
-    ]);
-    console.log(">>> Whole area set as a single cluster");
+    setClusters(
+      parts.map(function (part) {
+        return {
+          type: "Feature",
+          geometry: part.geometry,
+          properties: { auto: true },
+        };
+      }),
+    );
+    console.log(">>> Whole area set as", parts.length, "cluster(s)");
     return true;
   }
 
@@ -506,10 +573,7 @@ App.polygons = (function () {
 
     if (s.outerPolygonLayer) {
       try {
-        var clipped = G.intersect(
-          candidate,
-          G.getOuterFeature(s.outerPolygonLayer),
-        );
+        var clipped = G.intersect(candidate, G.outerFeature(s.outerPolygonLayer));
         if (clipped && clipped.geometry) candidate = clipped;
       } catch (e) {
         /* keep the unclipped shape */
@@ -1422,6 +1486,84 @@ App.polygons = (function () {
     return stats;
   }
 
+  /**
+   * The one boundary area the single-area tools act on.
+   *
+   * Reshaping an outline, trimming it onto its buildings and splitting it into
+   * territories are each a statement about one place, and each walks a single
+   * ring besides. On a project holding one area - which is every project drawn
+   * rather than assembled - this is the boundary, and these tools behave
+   * exactly as they always have.
+   *
+   * On a project assembled from several imports it is the area being looked
+   * at. That is deliberately not a stored mode with a control of its own:
+   * every one of these tools puts its handles, its preview or its result on
+   * the area it chose, so the choice is visible the moment the tool opens and
+   * corrected by panning to the other village.
+   *
+   * @param {Array<number>|Object} [anchor] where the user was pointing --
+   *   [lng, lat], or a feature to take an interior point from. Defaults to the
+   *   selected territory, then to the middle of the screen.
+   * @returns {Object} Feature<Polygon>
+   * @throws when there is no usable boundary, as getOuterFeature does
+   */
+  function workingOuter(anchor) {
+    return G.getOuterFeature(s.outerPolygonLayer, anchor || _workingAnchor());
+  }
+
+  function _workingAnchor() {
+    var picked = s.selectedClusters && s.selectedClusters[0];
+    if (picked && picked.feature) return G.interiorCoord(picked.feature);
+    if (!s.leafletMap) return null;
+    var centre = s.leafletMap.getCenter();
+    return [centre.lng, centre.lat];
+  }
+
+  /**
+   * Put an edited area back into the boundary, leaving the others alone.
+   *
+   * The swap is done with geometry rather than by index, because the shape
+   * handed back is the point of the exercise: a trimmed area is smaller than
+   * the one it replaces and a reshaped one need not resemble it at all, so
+   * there is nothing to match on. Subtracting the area as it was leaves
+   * exactly the other areas, and the union puts the new one beside them --
+   * merging it in if a reshape has grown it into a neighbor, which is the
+   * right answer for two outlines that now overlap.
+   *
+   * With one area in the boundary the difference is empty and this is
+   * replaceOuter() with an extra pair of turf calls.
+   *
+   * @param {Object} before the area as workingOuter() handed it over
+   * @param {Object} after its replacement
+   * @returns {{kept:number, dropped:number, unmarked:number}|null}
+   */
+  function replaceOuterPart(before, after) {
+    if (!after || !after.geometry) return null;
+    if (!before || !before.geometry) return replaceOuter(after);
+
+    var others = null;
+    try {
+      others = G.difference(G.outerFeature(s.outerPolygonLayer), before);
+    } catch (e) {
+      others = null;
+    }
+    if (!others || !others.geometry) return replaceOuter(after);
+
+    var next = null;
+    try {
+      next = G.union(others, after);
+    } catch (e) {
+      next = null;
+    }
+    if (!next || !next.geometry) {
+      // Rather than silently dropping the areas the union could not carry:
+      // the edit is refused and the boundary stays as it was.
+      console.warn(">>> Could not put the edited area back into the boundary");
+      return null;
+    }
+    return replaceOuter(next);
+  }
+
   // FILTERED VIEW
 
   /**
@@ -1712,6 +1854,8 @@ App.polygons = (function () {
     isPrinted: isPrinted,
     printedCount: printedCount,
     markPrinted: markPrinted,
+    labelOf: labelOf,
+    setLabel: setLabel,
     clearPrinted: clearPrinted,
     setClusters: setClusters,
     ensureDefaultCluster: ensureDefaultCluster,
@@ -1723,6 +1867,8 @@ App.polygons = (function () {
     attachProxyEvents: attachProxyEvents,
     setOuterLayer: setOuterLayer,
     replaceOuter: replaceOuter,
+    replaceOuterPart: replaceOuterPart,
+    workingOuter: workingOuter,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
     selectCluster: selectCluster,

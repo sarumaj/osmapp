@@ -39,6 +39,10 @@ Jehovah's Witnesses carrying out their missionary work
    onto the map.
 6. **Print** — right-click a territory → Print. Set line color/thickness,
    rotate/zoom, erase border segments, export PDF.
+7. **Put it all on one wall map** — import as many saved projects into one as
+   you like (Import offers *Add* alongside *Replace*, and takes several files
+   at once), then Wall map draws every territory of every one of them onto a
+   single numbered sheet, up to A0.
 
 Your work is saved in the browser — a refresh or accidental tab close won't lose
 it. Export to a file to load later on another machine.
@@ -285,9 +289,9 @@ not in the list is precached, shipped, and never runs).
 | `ui`            | Loading overlay, info panel, context menu, dialogs             |
 | `polygons`      | Territory lifecycle, hover info, filtered street/building view |
 | `labels`        | Numbered chips on parts sharing a territory number             |
-| `naming`        | Territory names read off the OSM data already on the map       |
+| `naming`        | Territory names, from the OSM data and from what cards said    |
 | `pdfdoc`        | Reads/writes PDFs: template measuring, preview, composition    |
-| `data`          | Overpass fetching, rendering, GeoJSON export/import            |
+| `data`          | Overpass fetching, rendering, export/import, merging projects  |
 | `session`       | Debounced save and restore of working state                    |
 | `clustering`    | K-Means → Voronoi → street-routed boundaries                   |
 | `editing`       | Cut lines, merging, cleanup                                    |
@@ -298,7 +302,7 @@ not in the list is precached, shipped, and never runs).
 | `autoheal`      | Repairing the faults the territory list can name               |
 | `notes`         | Annotations over the area: notes, pins, marks, captions        |
 | `print-filters` | Basemap filters for the print preview                          |
-| `print`         | Canvas map rendering, framing, eraser, card layout             |
+| `print`         | Canvas map rendering, framing, eraser, card and wall-map sheet |
 | `boundary`      | Turn a geocoder hit into the outer polygon                     |
 | `history`       | Undo/redo                                                      |
 | `controls`      | Toolbar, language picker, reset                                |
@@ -332,6 +336,34 @@ back. A plain `turf.union` on nearly-coincident boundaries returns a MultiPolygo
 of touching pieces with visible internal outlines; the grow/shrink closes sub-meter
 gaps so the union genuinely dissolves.
 
+### Areas: a project made of several boundaries
+
+A project drawn in one sitting has one outer boundary. A project assembled by
+importing others has one per import, disjoint and often kilometers apart, and
+the boundary is then a **MultiPolygon**. Two questions come out of that, and the
+code keeps them apart deliberately:
+
+- **"Inside the boundary"** — coverage, gaps, clipping a hand-drawn territory,
+  what a wall map frames, what a download covers. That is the whole boundary:
+  `geometry.outerFeature()`.
+- **"Which one area"** — reshaping an outline, trimming it onto its buildings,
+  splitting it into territories. Each of those is a statement about one place,
+  and walks a single ring besides. That is `polygons.workingOuter()`, which
+  takes the area holding the selected territory, else the middle of the screen,
+  else the largest. The choice needs no control of its own because every one of
+  those tools puts its handles, its preview or its result on the area it chose.
+
+`polygons.replaceOuterPart()` puts an edited area back by subtracting the shape
+it replaced and unioning the new one, so the areas nobody touched come out
+untouched. Downloads run one area at a time — the server takes a single polygon
+and guards its size, and one request over the bounding box of three villages is
+a request for the farmland between them.
+
+Merging two projects appends territories minus the ground already covered
+(territories not overlapping is the invariant the building counts, the gap
+finder and the printed marks all read), de-duplicates streets and buildings by
+OSM id, and appends notes. See the block comment in `data.js`.
+
 ### Printing
 
 The card is **rendered from scratch onto a canvas** — not screenshotted from Leaflet.
@@ -348,6 +380,30 @@ Three surfaces compose the result:
 The canvas is fixed to the template placeholder's aspect ratio, so cropping is
 choosing which slice of the world lands on it. Drag to pan, scroll/slide to zoom,
 buttons for quarter turns.
+
+A **wall map** is the same dialog and the same three surfaces, given every
+territory instead of one. It differs in three places: the subject is a
+`FeatureCollection` (which `polygonParts` flattens exactly as it flattens a
+territory a cut left in two pieces, so framing and drawing need no special
+case); there is no template, so the sheet is an ISO A size with a margin and a
+heading band; and nothing is marked as printed afterwards, because a poster of
+forty territories is not forty cards. The chips are drawn on the furniture
+layer, beside the scale bar and the compass rather than onto the border, so
+neither the border's opacity nor the eraser reaches them.
+
+What a chip says is **what a card called that territory**, falling back to its
+number. The number is this session's position in the list — an index, not a
+name — while a congregation has its own ("S-13", "12a"), which it types into
+the card's *Territory no.* field. That typing is now kept on the territory
+(`properties.label`, alongside the printed mark and carried by the same
+payload), so it survives into the wall map, into the next card's suggestion,
+and into an export. Chips are pills rather than discs for it: a single digit
+still comes out round.
+
+Resolution is not fixed at 300 dpi. A0 at 300 dpi is 140 megapixels, which no
+browser will allocate — and does not refuse, it hands back a blank canvas. So
+`PX_PER_PT` is derived per sheet from a side and an area ceiling, and everything
+measured in points multiplies by it rather than by `DPI`.
 
 Key details: tiles are fetched **once** (one zoom level, cached as decoded `Image`
 objects for the dialog's lifetime — softness above that level is the tradeoff).
@@ -525,6 +581,7 @@ multi-worker deployment) handed users each other's areas.
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
 | `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
 | `A`                                     | Notes tool; `1`–`4` pick the pen; `S` snapping, `F` freeform |
+| `W`                                     | Wall map — every territory on one sheet                     |
 | Right-click                             | Context menu — on a territory, empty ground, or boundary    |
 
 All bindings live in one registry in `shortcuts.js`, which is both the
@@ -541,6 +598,18 @@ dispatcher and the source the `?` sheet renders from.
   and give coarser results.
 - **Single-page rectangular placeholders.** Multi-page or rotated placeholders
   need changes to `PLACEHOLDER` in `print.js` and `compose` in `pdfdoc.js`.
+- **A project of several areas opens as one on an older build.** The boundary
+  is a MultiPolygon in the same `outerPolygon` field a single area has always
+  used, so nothing about the file format changed and every existing session
+  and export still loads. A build from before this feature reads that field
+  with `largestPolygon()` and keeps the biggest area without saying so. The
+  version gate was left alone deliberately: raising it would refuse every
+  session and every export already out there.
+- **A wall map above A3 prints below 300 dpi.** The canvas it is composed on
+  is capped at twenty megapixels, which is about 115 dpi across an A0 sheet.
+  Raising `MAX_RENDER_PX` costs memory in threes — the preview, the border and
+  the tile mosaic are all held at that size — and a browser that cannot
+  allocate one returns a blank canvas rather than an error.
 - **Offline printing uses cached tiles only.** Unseen ground comes out blank
   (visible in the preview before export).
 - **Server errors are English** regardless of interface language. If that matters,
@@ -605,6 +674,10 @@ Zeugen Jehovas ([mehr dazu](https://www.jw.org/finder?wtlocale=X&docid=502013361
    festlegen, Karte drehen/zoomen, Umrandungsteile löschen, PDF exportieren.
    Auf einer PDF-Karte werden die Anmerkungen zu echten Kommentaren, auf einem
    PNG in die Karte gezeichnet.
+7. **Alles auf eine Wandkarte** — beliebig viele gespeicherte Projekte in eines
+   importieren (Import bietet „Hinzufügen" neben „Ersetzen" und nimmt mehrere
+   Dateien auf einmal), dann zeichnet „Wandkarte" alle Gebiete nummeriert auf
+   ein einziges Blatt, bis zu A0.
 
 Deine Arbeit wird im Browser gespeichert. Exportiere alles in eine Datei, um sie
 später auf einem anderen Rechner zu laden.
@@ -658,6 +731,10 @@ parafialne, trasy dostawcze. Główną grupą docelową są zbory Świadków Jeh
 6. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
    obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF. Na karcie PDF
    notatki stają się prawdziwymi komentarzami, na PNG są rysowane na mapie.
+7. **Wszystko na jednej mapie ściennej** — zaimportuj do jednego projektu
+   dowolnie wiele zapisanych („Import" proponuje „Dodaj" obok „Zastąp"
+   i przyjmuje kilka plików naraz), a „Mapa ścienna" narysuje wszystkie tereny
+   z numerami na jednym arkuszu, nawet A0.
 
 Praca jest zapisywana w przeglądarce. Eksportuj do pliku, aby załadować później
 na innym komputerze.
@@ -713,6 +790,10 @@ principal est constitué des congrégations des Témoins de Jéhovah
    couleur/épaisseur du trait, pivotez/zoomez, effacez des parties de la limite,
    exportez le PDF. Sur une carte PDF les notes deviennent de vrais
    commentaires ; sur un PNG elles sont dessinées sur la carte.
+7. **Tout sur une carte murale** — importez autant de projets enregistrés que
+   vous voulez dans un seul (« Importer » propose « Ajouter » à côté de
+   « Remplacer » et accepte plusieurs fichiers à la fois), puis « Carte murale »
+   dessine tous les territoires numérotés sur une seule feuille, jusqu'au A0.
 
 Votre travail est conservé dans le navigateur. Exportez tout vers un fichier pour
 le recharger plus tard sur un autre ordinateur.

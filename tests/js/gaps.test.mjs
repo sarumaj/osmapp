@@ -71,7 +71,9 @@ function box(west, south, east, north) {
  * The subtraction is the thing under test, so geometry.js and turf are the real
  * ones; App.dom, App.ui, App.controls and App.history are inert, and the layer
  * group only records what was added to it. `outer` is what
- * geometry.getOuterFeature returns, since the boundary is one of the two inputs.
+ * geometry.outerFeature returns, since the boundary is one of the two inputs --
+ * coverage is a question about the whole boundary, every area of it, rather
+ * than about the single area the reshaping tools work on.
  */
 function setup({ clusters = [], outer = box(0, 0, 0.02, 0.02) } = {}) {
   const noop = () => {};
@@ -112,7 +114,7 @@ function setup({ clusters = [], outer = box(0, 0, 0.02, 0.02) } = {}) {
   // what these tests are about is what the work does, not when.
   App.ui = { showContextMenu: noop, busy: (key, work) => work() };
   // The one thing the real module cannot do here is build a Leaflet layer.
-  App.geometry.getOuterFeature = () => outer;
+  App.geometry.outerFeature = () => outer;
   App.polygons = {
     clusterFeatures: () => current,
     setClusters: (next) => {

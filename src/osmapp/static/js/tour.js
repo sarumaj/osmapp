@@ -475,6 +475,10 @@ App.tour = (function () {
     // Export is half a step: the half that gets you a file, not the half
     // that gets it back.
     { id: "importFiles", target: '[data-action="import"]', placement: "right" },
+    // After import rather than beside the print step, because the two belong
+    // together: importing several projects is what puts more than one place
+    // on a wall map in the first place.
+    { id: "wallCard", target: '[data-action="wallcard"]', placement: "right" },
     { id: "reset", target: '[data-action="reset"]', placement: "right" },
     { id: "language", target: '[data-action="language"]', placement: "right" },
     { id: "offline" },

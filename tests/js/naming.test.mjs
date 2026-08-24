@@ -290,6 +290,45 @@ test("a two-digit number is not offered padded", () => {
   assert.deepEqual(values(App.naming.territoryCandidates(clusters[11])), ["12"]);
 });
 
+test("the name a card gave a territory is offered ahead of its number", () => {
+  // The placeholder is the head of this list, so first is what decides
+  // whether a congregation retypes its own numbering on every reprint.
+  const App = setup([]);
+  const named = polygon(0, 0);
+  named.properties.label = "S-13";
+  withLabels(App, [named, polygon(50, 50)]);
+  App.polygons = { labelOf: (f) => (f.properties && f.properties.label) || "" };
+
+  assert.deepEqual(values(App.naming.territoryCandidates(named, "Mainz")), [
+    "S-13",
+    "1",
+    "01",
+    "Mainz 1",
+  ]);
+});
+
+test("a name that is already the number is not offered twice", () => {
+  const App = setup([]);
+  const named = polygon(0, 0);
+  named.properties.label = "1";
+  withLabels(App, [named]);
+  App.polygons = { labelOf: (f) => (f.properties && f.properties.label) || "" };
+
+  assert.deepEqual(values(App.naming.territoryCandidates(named)), ["1", "01"]);
+});
+
+test("a named shape that is no longer a territory still offers its name", () => {
+  // Nothing else can supply it: the index is gone with the territory, and the
+  // name is the one thing about it that was never derived from the index.
+  const App = setup([]);
+  const named = polygon(50, 50);
+  named.properties.label = "S-13";
+  withLabels(App, [polygon(0, 0)]);
+  App.polygons = { labelOf: (f) => (f.properties && f.properties.label) || "" };
+
+  assert.deepEqual(values(App.naming.territoryCandidates(named)), ["S-13"]);
+});
+
 test("a shape that is not one of the current territories has no number", () => {
   // After a cut the old feature is gone from s.clusters. Offering it the
   // number it used to have would be worse than offering nothing.

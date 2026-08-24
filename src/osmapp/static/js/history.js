@@ -230,11 +230,15 @@ App.history = (function () {
    * adding to it. The trim tool breaks that: it reshapes the boundary and clips
    * the territories to the result in one action, and undoing only the second
    * half leaves territories spilling outside the outline they belong to.
+   *
+   * The whole boundary, every area of it. A trim or a reshape works on one
+   * area and leaves the others alone, so a snapshot of the one that changed is
+   * a snapshot that deletes the rest on the way back.
    */
   function _snapshot() {
     return JSON.stringify({
       outer: s.outerPolygonLayer
-        ? App.geometry.getOuterFeature(s.outerPolygonLayer).geometry
+        ? App.geometry.outerFeature(s.outerPolygonLayer).geometry
         : null,
       clusters: App.polygons.clusterFeatures(),
     });
@@ -258,7 +262,7 @@ App.history = (function () {
     var current = null;
     try {
       current = s.outerPolygonLayer
-        ? App.geometry.getOuterFeature(s.outerPolygonLayer).geometry
+        ? App.geometry.outerFeature(s.outerPolygonLayer).geometry
         : null;
     } catch (e) {
       /* an unreadable current boundary is one worth replacing */

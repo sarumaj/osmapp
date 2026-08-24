@@ -39,11 +39,15 @@ function setup() {
     DomUtil: { addClass() {}, removeClass() {} },
   };
 
-  let ring = SQUARE.slice();
+  // One ring, nested the way Leaflet nests a Polygon's latlngs. The tool
+  // snapshots and restores that whole tree rather than a bare ring, so the
+  // stub has to hand back exactly what it was given.
+  let latlngs = [SQUARE.slice()];
+  const ring = () => latlngs[0];
   const layer = {
-    getLatLngs: () => [ring],
+    getLatLngs: () => latlngs,
     setLatLngs: (next) => {
-      ring = next;
+      latlngs = next;
     },
     enableEdit() {},
     disableEdit() {},
@@ -90,13 +94,14 @@ function setup() {
   App.geometry = {
     // outline.js measures the ring through geometry.js, not turf directly.
     area: (feature) => (feature ? 100 : 0),
-    getOuterFeature: () => ({
+    outerFeature: () => ({
       type: "Feature",
       geometry: {
         type: "Polygon",
-        coordinates: [ring.map((p) => [p.lng, p.lat])],
+        coordinates: [ring().map((p) => [p.lng, p.lat])],
       },
     }),
+    polygonParts: (feature) => [feature],
   };
   App.state = {
     outlineMode: false,
@@ -123,17 +128,19 @@ function setup() {
     App,
     outline: App.outline,
     history: App.history,
-    ring: () => ring,
-    corners: () => ring.length,
+    ring: () => ring(),
+    corners: () => ring().length,
     /** Move a corner the way a drag would, then report it the way the editor does. */
     moveCorner(index, lat, lng) {
-      ring = ring.slice();
-      ring[index] = ll(lat, lng);
+      const next = ring().slice();
+      next[index] = ll(lat, lng);
+      latlngs = [next];
       mapHandlers["editable:vertex:dragend"]();
     },
     deleteCorner(index) {
-      ring = ring.slice();
-      ring.splice(index, 1);
+      const next = ring().slice();
+      next.splice(index, 1);
+      latlngs = [next];
       mapHandlers["editable:vertex:deleted"]();
     },
   };
