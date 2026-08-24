@@ -384,15 +384,28 @@ App.print = (function () {
   }
 
   /**
-   * The words switch follows the notes switch.
+   * What the Notes fieldset says, and whether it is there to say it.
    *
-   * With the notes off there is nothing for it to draw, and a live control
-   * that changes nothing on the card reads as one that is broken.
+   * The whole group goes when the map carries no annotations. Both switches
+   * are about what to do with the notes, and with none to do anything with
+   * they are two questions about nothing in a column that is already five
+   * fieldsets long - and a card composed with them either way comes out the
+   * same, which is the definition of a control worth removing.
+   *
+   * Hidden rather than removed, and the boxes keep their state: the setting is
+   * remembered across cards, and a project that gains a note between one card
+   * and the next gets the switches back exactly as they were left. The count
+   * cannot move while the dialog is up, so this settles once at open.
+   *
+   * The words switch then follows the notes switch, for the same reason at a
+   * smaller scale: with the notes off there is nothing for it to draw, and a
+   * live control that changes nothing on the card reads as one that is broken.
    */
   function _syncNoteControls() {
     var notes = D.role(_dialog, "notes");
     var words = D.role(_dialog, "note-text");
     if (!notes || !words) return;
+    D.toggleRole(_dialog, "notes-group", App.notes.count() > 0);
     words.disabled = !notes.checked;
     var label = words.parentNode;
     if (label && label.classList) {
