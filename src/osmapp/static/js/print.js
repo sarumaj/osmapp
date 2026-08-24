@@ -2045,25 +2045,22 @@ App.print = (function () {
   }
 
   /**
-   * The number of each territory, on the territory.
+   * What each territory is called, on the territory.
    *
-   * The number is the one thing a wall map is read for - somebody is looking
-   * for 23, not for a shape - so it is drawn as a chip rather than as bare
-   * text: a filled disc under it survives being over a dark roof, a park and a
+   * This is the one thing a wall map is read for - somebody is looking for 23,
+   * not for a shape - so it is drawn as a chip rather than as bare text: a
+   * filled pill under it survives being over a dark roof, a park and a
    * motorway shield, which plain text with a halo does not.
    *
    * Furniture rather than part of the border, for both of the reasons the
    * scale bar is. The border canvas is composited at the border's opacity and
    * the eraser cuts holes in it, and a number at 30% or with a stroke swept
    * through it is a territory nobody can refer to.
-   *
-   * Taken from App.labels rather than from the loop counter, so the sheet and
-   * the screen cannot disagree about which territory is which.
    */
   function _drawNumbers(ctx, o) {
     var features = (_feature && _feature.features) || [];
     var size = WALL_NUMBER_PT * PX_PER_PT;
-    var radius = size * 0.85; // the floor, for a single digit
+    var height = size * 1.7;
 
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2076,26 +2073,28 @@ App.print = (function () {
       var coord = G.interiorCoord(feature);
       if (!coord) return;
       var at = _toCanvas(coord[0], coord[1], _view);
-      // A chip whose centre is off the sheet would be drawn as a sliver
-      // against the edge, which reads as a territory cut in half.
+
+      var text = _territoryText(feature, index);
+      // A pill rather than a disc, sized to the text: a single digit comes out
+      // round, and "S-13" or "Mainz 7" - which is what the field holds once a
+      // congregation has typed its own numbering into it - comes out as a
+      // rounded box instead of four characters hanging over the rim of a
+      // circle drawn for one.
+      var width = Math.max(height, ctx.measureText(text).width + size * 0.7);
+
+      // Measured before the cull rather than after it, because how far off the
+      // sheet a chip can start and still show depends on how wide it is. One
+      // drawn as a sliver against the edge reads as a territory cut in half.
       if (
-        at[0] < -radius ||
-        at[1] < -radius ||
-        at[0] > RENDER_W + radius ||
-        at[1] > RENDER_H + radius
+        at[0] < -width / 2 ||
+        at[1] < -height / 2 ||
+        at[0] > RENDER_W + width / 2 ||
+        at[1] > RENDER_H + height / 2
       ) {
         return;
       }
 
-      var number = App.labels ? App.labels.numberOf(feature) : null;
-      var text = App.i18n.n(number || index + 1);
-      // Grown to fit rather than fixed: a project can hold two hundred
-      // territories, and "137" set in a disc sized for "7" is three digits
-      // hanging over the rim of a white circle.
-      var chip = Math.max(radius, ctx.measureText(text).width / 2 + size * 0.3);
-
-      ctx.beginPath();
-      ctx.arc(at[0], at[1], chip, 0, Math.PI * 2);
+      _chipPath(ctx, at[0], at[1], width, height);
       ctx.fillStyle = "#ffffff";
       ctx.fill();
       ctx.strokeStyle = o.color;
@@ -2104,6 +2103,44 @@ App.print = (function () {
       ctx.fillText(text, at[0], at[1]);
     });
     ctx.restore();
+  }
+
+  /**
+   * What to write on a territory: what a card called it, else its number.
+   *
+   * The number is this session's position in the list - an index, not a name.
+   * A congregation's own numbering is what somebody typed into the card's
+   * "Territory no." field, and once a card has carried it, that is what the
+   * territory is called and what a wall map has to agree with. See
+   * App.polygons.setLabel.
+   *
+   * The index is still the fallback rather than nothing, because a project
+   * whose cards have not been printed yet is exactly when a wall map is most
+   * useful: it is how the round gets planned.
+   */
+  function _territoryText(feature, index) {
+    var label = App.polygons.labelOf(feature);
+    if (label) return label;
+    var number = App.labels ? App.labels.numberOf(feature) : null;
+    return App.i18n.n(number || index + 1);
+  }
+
+  /**
+   * A rounded rectangle, centred on (x, y), as the current path.
+   *
+   * Hand-rolled rather than ctx.roundRect: that landed in Safari only in 16,
+   * and an unsupported call here throws in the middle of a paint rather than
+   * degrading to a square corner.
+   */
+  function _chipPath(ctx, x, y, width, height) {
+    var r = height / 2;
+    var left = x - width / 2 + r;
+    var right = x + width / 2 - r;
+    ctx.beginPath();
+    ctx.arc(right, y, r, -Math.PI / 2, Math.PI / 2);
+    ctx.lineTo(left, y + r);
+    ctx.arc(left, y, r, Math.PI / 2, -Math.PI / 2);
+    ctx.closePath();
   }
 
   function _drawDecorations(ctx) {
@@ -3850,6 +3887,7 @@ App.print = (function () {
     // list, and a heading naming a circuit is not a locality anybody wants
     // offered on the next card.
     var locality = wall ? "" : _opts().locality;
+    var territory = wall ? "" : _opts().territory;
     _setBusy(true);
 
     _compose()
@@ -3871,7 +3909,14 @@ App.print = (function () {
         // been produced", and a poster of forty territories is not forty
         // cards - marking them all would wipe out, in one click, the record of
         // which ones have actually been handed out.
-        if (!wall) App.polygons.markPrinted(target, true);
+        if (wall) return;
+        App.polygons.markPrinted(target, true);
+        // And it names it. What went in the field is what the congregation
+        // calls this territory, and until it was kept the same number had to
+        // be typed again for every reprint and the wall map had nothing to
+        // show but this session's index. Blank clears it, which is the honest
+        // reading of a card printed without a number.
+        App.polygons.setLabel(target, territory);
       })
       .catch(function (err) {
         _setStatus(err.message, false);

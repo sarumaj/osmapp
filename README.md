@@ -289,7 +289,7 @@ not in the list is precached, shipped, and never runs).
 | `ui`            | Loading overlay, info panel, context menu, dialogs             |
 | `polygons`      | Territory lifecycle, hover info, filtered street/building view |
 | `labels`        | Numbered chips on parts sharing a territory number             |
-| `naming`        | Territory names read off the OSM data already on the map       |
+| `naming`        | Territory names, from the OSM data and from what cards said    |
 | `pdfdoc`        | Reads/writes PDFs: template measuring, preview, composition    |
 | `data`          | Overpass fetching, rendering, export/import, merging projects  |
 | `session`       | Debounced save and restore of working state                    |
@@ -387,9 +387,18 @@ territory instead of one. It differs in three places: the subject is a
 territory a cut left in two pieces, so framing and drawing need no special
 case); there is no template, so the sheet is an ISO A size with a margin and a
 heading band; and nothing is marked as printed afterwards, because a poster of
-forty territories is not forty cards. Territory numbers are drawn as chips on
-the furniture layer, beside the scale bar and the compass rather than onto the
-border, so neither the border's opacity nor the eraser reaches them.
+forty territories is not forty cards. The chips are drawn on the furniture
+layer, beside the scale bar and the compass rather than onto the border, so
+neither the border's opacity nor the eraser reaches them.
+
+What a chip says is **what a card called that territory**, falling back to its
+number. The number is this session's position in the list — an index, not a
+name — while a congregation has its own ("S-13", "12a"), which it types into
+the card's *Territory no.* field. That typing is now kept on the territory
+(`properties.label`, alongside the printed mark and carried by the same
+payload), so it survives into the wall map, into the next card's suggestion,
+and into an export. Chips are pills rather than discs for it: a single digit
+still comes out round.
 
 Resolution is not fixed at 300 dpi. A0 at 300 dpi is 140 megapixels, which no
 browser will allocate — and does not refuse, it hands back a blank canvas. So

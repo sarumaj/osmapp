@@ -314,7 +314,7 @@
     "locality": "Locality",
     "localityHint": "Suggested from the OpenStreetMap addresses in this territory. Type over it to use your own wording.",
     "territoryNo": "Territory no.",
-    "territoryHint": "Suggested from the number shown on the map. Type over it to use your own numbering.",
+    "territoryHint": "Suggested from the number shown on the map, or from what the last card called this territory. Type over it to use your own numbering - what you print is remembered, and the wall map uses it too.",
     "template": "PDF template",
     "noTemplate": "No template — the map prints on its own.",
     "clearTemplate": "Clear template",

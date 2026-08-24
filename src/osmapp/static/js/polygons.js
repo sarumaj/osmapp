@@ -307,6 +307,20 @@ App.polygons = (function () {
   // matches it. Territories a cut passed through untouched keep theirs,
   // because the same feature object is carried forward.
 
+  /**
+   * The cluster entry a feature belongs to, or null.
+   *
+   * Not a failure worth shouting about when there is none: the territory may
+   * have been cut, merged or deleted while a PDF was being composed, which is
+   * exactly when print.js comes back holding one of these.
+   */
+  function _entryFor(feature) {
+    for (var i = 0; i < s.clusters.length; i++) {
+      if (s.clusters[i].feature === feature) return s.clusters[i];
+    }
+    return null;
+  }
+
   /** @returns {string|null} ISO timestamp of the last card, or null. */
   function printedAt(feature) {
     var props = feature && feature.properties;
@@ -335,15 +349,7 @@ App.polygons = (function () {
    * @returns {boolean} whether anything changed
    */
   function markPrinted(feature, printed, opts) {
-    var entry = null;
-    for (var i = 0; i < s.clusters.length; i++) {
-      if (s.clusters[i].feature === feature) {
-        entry = s.clusters[i];
-        break;
-      }
-    }
-    // Not a failure worth shouting about: the territory may have been cut,
-    // merged or deleted while a PDF was being composed.
+    var entry = _entryFor(feature);
     if (!entry) return false;
 
     var next = printed ? (opts && opts.at) || new Date().toISOString() : null;
@@ -386,6 +392,59 @@ App.polygons = (function () {
 
   function _syncPrintedCount() {
     if (App.ui && App.ui.setPrintedCount) App.ui.setPrintedCount(printedCount());
+  }
+
+  // WHAT A TERRITORY IS CALLED
+  //
+  // The app numbers territories 1..N by their position in the list, and that
+  // is an index rather than a name: it changes when one is deleted, and it is
+  // this session's bookkeeping rather than anybody's numbering. A congregation
+  // has its own - "S-13", "12a", "Mainz 7" - and types it into the card's
+  // "Territory no." field, which is why that field is a text box with a
+  // suggestion in it rather than a number.
+  //
+  // Until now that typing went onto the card and nowhere else, so it had to be
+  // done again for every reprint and the wall map could only show the index.
+  // Kept in properties like the printed mark, and for the same reasons: it
+  // rides along with setClusters, buildPayload, the session and the card
+  // attachment without any of them learning about it, and it is optional in
+  // both directions so PAYLOAD_VERSION stays where it is.
+  //
+  // Clearing the printed marks does not clear these. Starting a new round is
+  // a statement about which cards have been produced, not about what the
+  // territories are called.
+
+  /** @returns {string} what a card called this territory, or "". */
+  function labelOf(feature) {
+    var props = feature && feature.properties;
+    var value = props && props.label;
+    return typeof value === "string" ? value : "";
+  }
+
+  /**
+   * Remember what a card called this territory.
+   *
+   * Blank removes it rather than storing an empty string, so "printed without
+   * a number" leaves the territory unnamed rather than named nothing - the
+   * difference matters to every caller, all of which fall back to the index.
+   *
+   * @param {Object} feature the cluster feature, not the layer
+   * @param {string} text as typed into the card
+   * @returns {boolean} whether anything changed
+   */
+  function setLabel(feature, text) {
+    var entry = _entryFor(feature);
+    if (!entry) return false;
+
+    var next = (text || "").trim();
+    if (labelOf(entry.feature) === next) return false;
+
+    entry.feature.properties = entry.feature.properties || {};
+    if (next) entry.feature.properties.label = next;
+    else delete entry.feature.properties.label;
+
+    if (App.session) App.session.markDirty();
+    return true;
   }
 
   // Where the check lives
@@ -1795,6 +1854,8 @@ App.polygons = (function () {
     isPrinted: isPrinted,
     printedCount: printedCount,
     markPrinted: markPrinted,
+    labelOf: labelOf,
+    setLabel: setLabel,
     clearPrinted: clearPrinted,
     setClusters: setClusters,
     ensureDefaultCluster: ensureDefaultCluster,

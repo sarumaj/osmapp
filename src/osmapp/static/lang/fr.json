@@ -314,7 +314,7 @@
     "locality": "Localité",
     "localityHint": "Suggestion tirée des adresses OpenStreetMap de ce territoire. Saisissez votre propre libellé pour le remplacer.",
     "territoryNo": "N° de territoire",
-    "territoryHint": "Suggestion tirée du numéro affiché sur la carte. Saisissez votre propre numéro pour le remplacer.",
+    "territoryHint": "Suggéré à partir du numéro affiché sur la carte, ou de la façon dont la dernière fiche a nommé ce territoire. Remplacez-le par votre propre numérotation : ce qui est imprimé est conservé et sert aussi à la carte murale.",
     "template": "Modèle PDF",
     "noTemplate": "Aucun modèle — la carte s'imprime seule.",
     "clearTemplate": "Effacer le modèle",

@@ -210,11 +210,22 @@ test("every wall-map control is remembered between sheets", () => {
   }
 });
 
-test("a wall map marks no territory as printed", () => {
-  // The mark means "this territory's card has been produced". A poster of
-  // forty territories is not forty cards, and marking them all would wipe the
-  // record of which ones have actually been handed out.
-  assert.match(PRINT, /if \(!wall\) App\.polygons\.markPrinted\(target, true\)/);
+test("a wall map neither marks a territory printed nor renames one", () => {
+  // The mark means "this territory's card has been produced" and the label is
+  // what that card called it. A poster of forty territories is not forty
+  // cards: marking them all would wipe the record of which ones have actually
+  // been handed out, and naming them all would give every territory on the
+  // project the wall map's heading.
+  const run = PRINT.slice(PRINT.indexOf("function _run("), PRINT.indexOf("function _compose("));
+  assert.match(run, /if \(wall\) return;/);
+  const after = run.slice(run.indexOf("if (wall) return;"));
+  assert.match(after, /App\.polygons\.markPrinted\(target, true\)/);
+  assert.match(after, /App\.polygons\.setLabel\(target, territory\)/);
+});
+
+test("the sheet writes what a card called a territory, else its number", () => {
+  assert.match(PRINT, /var label = App\.polygons\.labelOf\(feature\);\n\s*if \(label\) return label;/);
+  assert.match(PRINT, /_territoryText\(feature, index\)/);
 });
 
 test("the sheet is reachable without knowing it exists", () => {

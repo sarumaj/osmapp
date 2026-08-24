@@ -314,7 +314,7 @@
     "locality": "Ort",
     "localityHint": "Vorschlag aus den OpenStreetMap-Adressen in diesem Gebiet. Einfach überschreiben, um eigene Bezeichnungen zu verwenden.",
     "territoryNo": "Gebiet Nr.",
-    "territoryHint": "Vorschlag aus der auf der Karte angezeigten Nummer. Einfach überschreiben, um eine eigene Nummerierung zu verwenden.",
+    "territoryHint": "Vorgeschlagen aus der auf der Karte angezeigten Nummer oder daraus, wie die letzte Gebietskarte dieses Gebiet genannt hat. Einfach überschreiben - was gedruckt wird, wird gemerkt und auch auf der Wandkarte verwendet.",
     "template": "PDF-Vorlage",
     "noTemplate": "Keine Vorlage — die Karte wird allein gedruckt.",
     "clearTemplate": "Vorlage löschen",

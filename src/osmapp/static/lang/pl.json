@@ -339,7 +339,7 @@
     "locality": "Miejscowość",
     "localityHint": "Propozycja na podstawie adresów OpenStreetMap w tym terenie. Wpisz własną nazwę, aby ją zmienić.",
     "territoryNo": "Teren nr",
-    "territoryHint": "Propozycja na podstawie numeru pokazanego na mapie. Wpisz własny numer, aby go zmienić.",
+    "territoryHint": "Propozycja pochodzi z numeru widocznego na mapie albo z tego, jak ten teren nazwała ostatnia karta. Można ją nadpisać - to, co zostanie wydrukowane, jest zapamiętywane i używane także na mapie ściennej.",
     "template": "Szablon PDF",
     "noTemplate": "Brak szablonu — mapa zostanie wydrukowana samodzielnie.",
     "clearTemplate": "Usuń szablon",

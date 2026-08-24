@@ -14,6 +14,9 @@
  * of this made it fainter than an unprinted one, which is what a deleted
  * shape looks like; the fill is now the stronger of the two, and the
  * assertions below pin that direction rather than the exact numbers.
+ *
+ * `properties.label` - what a card called the territory - is read the same
+ * way and out of the same slot, so it is pinned here too.
  */
 
 import test from "node:test";
@@ -68,6 +71,91 @@ test("a territory from an older export is simply unprinted", () => {
 });
 
 // ── Painting it ──────────────────────────────────────────────────────────────
+
+// ── What a card called it ────────────────────────────────────────────────────
+
+test("a name is handed back as it was stored", () => {
+  assert.equal(P.labelOf(feature({ label: "S-13" })), "S-13");
+});
+
+test("anything that is not a string is not a name", () => {
+  // The same slot, the same hand-edited files, and the same reason: a name
+  // read out of `true` or `7` would be drawn onto a wall map as "true".
+  for (const value of [true, 7, null, undefined, {}, []]) {
+    assert.equal(P.labelOf(feature({ label: value })), "", String(value));
+  }
+  assert.equal(P.labelOf(feature({})), "");
+  assert.equal(P.labelOf(null), "");
+});
+
+test("a territory nobody has printed a card for is unnamed, not un-numbered", () => {
+  // "" rather than null, because every caller falls back to the index and
+  // wants one answer to test rather than two.
+  assert.equal(P.labelOf(feature({ printed: "2026-01-01T00:00:00.000Z" })), "");
+});
+
+/**
+ * polygons.js standing up over the little it needs to find a territory.
+ *
+ * `P` above is the module read without an init(), which is all the pure
+ * readers require. setLabel writes into the cluster list, so it needs one.
+ */
+function withClusters(features) {
+  const noop = () => {};
+  const group = () => ({ on: noop, clearLayers: noop, addLayer: noop });
+  const App = loadApp(["util.js", "polygons.js"], { window: {}, document: {} });
+  App.i18n = { t: (key) => key };
+  App.geometry = {};
+  App.session = { markDirty: noop };
+  App.state = {
+    clusters: features.map((feature) => ({ feature, layer: fakeLayer({}) })),
+    streetsLayerGroup: group(),
+    buildingsLayerGroup: group(),
+  };
+  App.polygons.init();
+  return App;
+}
+
+test("a name is stored trimmed, and blank takes it off again", () => {
+  const territory = feature({});
+  const App = withClusters([territory]);
+
+  assert.equal(App.polygons.setLabel(territory, "  S-13  "), true);
+  assert.equal(App.polygons.labelOf(territory), "S-13");
+
+  // Removed rather than stored empty: "printed without a number" has to leave
+  // the territory unnamed, or every caller's fallback to the index is dead.
+  assert.equal(App.polygons.setLabel(territory, "   "), true);
+  assert.equal(App.polygons.labelOf(territory), "");
+  assert.equal("label" in territory.properties, false);
+});
+
+test("naming a territory the same thing twice changes nothing", () => {
+  const territory = feature({ label: "S-13" });
+  const App = withClusters([territory]);
+  assert.equal(App.polygons.setLabel(territory, "S-13"), false);
+});
+
+test("a territory that is no longer on the map is not named", () => {
+  // print.js holds a feature across an async composition, and it can be cut,
+  // merged or deleted in the meantime. Writing onto the orphan would put the
+  // name somewhere nothing will ever read it.
+  const gone = feature({});
+  const App = withClusters([feature({})]);
+  assert.equal(App.polygons.setLabel(gone, "S-13"), false);
+  assert.equal(App.polygons.labelOf(gone), "");
+});
+
+test("a name outlives the printed mark it was typed beside", () => {
+  // Clearing the marks starts a new round. It says nothing about what the
+  // territories are called.
+  const territory = feature({});
+  const App = withClusters([territory]);
+  App.polygons.setLabel(territory, "S-13");
+  App.polygons.markPrinted(territory, true);
+  App.polygons.markPrinted(territory, false);
+  assert.equal(App.polygons.labelOf(territory), "S-13");
+});
 
 test("a printed territory is drawn green", () => {
   const layer = fakeLayer({ _printed: true });
