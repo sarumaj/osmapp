@@ -110,7 +110,11 @@ App.controls = (function () {
   }
 
   function hasAnything() {
-    return hasBoundary() || hasClusters();
+    return hasBoundary() || hasClusters() || hasNotes();
+  }
+
+  function hasNotes() {
+    return App.notes.count() > 0;
   }
 
   /**
@@ -283,6 +287,44 @@ App.controls = (function () {
       ],
     },
     {
+      // Its own group rather than a tile in Territories: a note is a remark
+      // about the ground, not a subdivision of it. It outlives a
+      // re-partition, it may sit outside the boundary, and nothing in the
+      // group above has an opinion about one - which is three reasons the two
+      // do not belong under the same heading.
+      key: "notes",
+      titleKey: "toolbar.groupNotes",
+      buttons: [
+        {
+          id: "notes",
+          icon: "fa-pen-to-square",
+          labelKey: "toolbar.labelNotes",
+          titleKey: "toolbar.notes",
+          accent: "orange",
+          shortcut: "A",
+          active: function () {
+            return !!s.noteMode;
+          },
+          onClick: function () {
+            App.notes.toggle();
+          },
+        },
+        {
+          // Disabled rather than hidden, like Clear marks beside it: a greyed
+          // tile says there is nothing to clear, a missing one says nothing
+          // at all.
+          id: "clear-notes",
+          icon: "fa-eraser",
+          labelKey: "toolbar.labelClearNotes",
+          titleKey: "toolbar.clearNotes",
+          disabledTitleKey: "toolbar.needsNotes",
+          accent: "red",
+          enabled: hasNotes,
+          onClick: _clearNotes,
+        },
+      ],
+    },
+    {
       // What is on screen, as opposed to what is in the document: no switch
       // here changes a territory, a boundary or a download, which is what
       // separates the group from every other one in the panel.
@@ -401,6 +443,23 @@ App.controls = (function () {
           onClick: function () {
             if (!App.gaps) return;
             App.gaps.setVisible(!App.gaps.isVisible());
+            refresh();
+          },
+        },
+        {
+          // Beside the other overlays rather than with the Notes group: this
+          // draws or hides them, which is the same kind of switch as Streets
+          // and Buildings and a different kind of thing from writing one.
+          id: "layer-notes",
+          icon: "fa-note-sticky",
+          labelKey: "toolbar.labelLayerNotes",
+          accent: "orange",
+          active: function () {
+            return App.notes.isVisible();
+          },
+          titleFn: _overlayTitle("layers.notes"),
+          onClick: function () {
+            App.notes.setVisible(!App.notes.isVisible());
             refresh();
           },
         },
@@ -674,6 +733,13 @@ App.controls = (function () {
           },
         },
         {
+          combos: ["A"],
+          labelKey: "shortcuts.goNotes",
+          run: function () {
+            App.notes.toggle();
+          },
+        },
+        {
           combos: ["H"],
           labelKey: "shortcuts.goTour",
           run: function () {
@@ -686,7 +752,8 @@ App.controls = (function () {
 
   /** No modal tool is running and no boundary is being drawn. */
   function _idle() {
-    if (s.editMode || s.mergeMode || s.trimMode || s.outlineMode) return false;
+    if (s.editMode || s.mergeMode || s.trimMode || s.outlineMode || s.noteMode)
+      return false;
     var tools = s.leafletMap && s.leafletMap.editTools;
     return !(tools && tools.drawing());
   }
@@ -1299,6 +1366,8 @@ App.controls = (function () {
     if (s.mergeMode) App.editing.toggleMergeMode();
     if (s.trimMode) App.trim.toggle();
     if (s.outlineMode) App.outline.toggle();
+    if (s.noteMode) App.notes.toggle();
+    App.notes.clear();
 
     [
       s.streetsLayerGroup,
@@ -1331,6 +1400,26 @@ App.controls = (function () {
     if (App.session && !(opts && opts.keepSession)) App.session.clear();
     refresh();
     s.leafletMap.setView([47.3769, 8.5417], 13);
+  }
+
+  /**
+   * Throw every annotation away, after asking.
+   *
+   * Asked rather than undoable, unlike a single deletion: the note tool's undo
+   * stack lives only while the tool is open, so by the time this button is
+   * reachable there is nothing left to take it back.
+   */
+  function _clearNotes() {
+    App.ui
+      .confirm({
+        titleKey: "notes.clearTitle",
+        messageKey: "notes.clearMessage",
+        okKey: "notes.clearOk",
+        danger: true,
+      })
+      .then(function (yes) {
+        if (yes) App.notes.clear();
+      });
   }
 
   function isCollapsed() {

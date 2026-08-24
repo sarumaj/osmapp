@@ -8,7 +8,8 @@
     "buildings": "Budynki",
     "clusters": "Tereny",
     "aidNote": "Tylko pomoc na ekranie. Karty terenów są zawsze drukowane na warstwie OpenStreetMap.",
-    "gaps": "Obszary bez terenu"
+    "gaps": "Obszary bez terenu",
+    "notes": "Notatki"
   },
   "map": {
     "youAreHere": "Jesteś tutaj"
@@ -102,7 +103,22 @@
     "zoomIn": "Przybliż o jeden poziom",
     "zoomOut": "Oddal o jeden poziom",
     "atMaxZoom": "To już najbliżej, jak sięga to tło",
-    "atMinZoom": "To już najdalej, jak sięga to tło"
+    "atMinZoom": "To już najdalej, jak sięga to tło",
+    "groupNotes": "Notatki",
+    "labelNotes": "Notatki",
+    "notes": "Pisz notatki, wstawiaj pinezki i zaznaczaj ulice",
+    "labelClearNotes": "Wyczyść",
+    "clearNotes": "Usuń wszystkie notatki, pinezki i zaznaczenia",
+    "needsNotes": "Nie ma jeszcze żadnych notatek",
+    "labelLayerNotes": "Notatki",
+    "undoNoteCount": "Cofnij ostatnią zmianę w notatkach (dostępne: {count})",
+    "undoNoteNone": "Nie ma czego cofnąć",
+    "undoNoteStepCount": "Cofnij ostatni krok rysowania (dostępne: {count})",
+    "undoNoteStepNone": "Nie ma czego cofnąć",
+    "redoNoteCount": "Ponów zmianę w notatkach (dostępne: {count})",
+    "redoNoteNone": "Nie ma czego ponowić",
+    "redoNoteStepCount": "Ponów krok rysowania (dostępne: {count})",
+    "redoNoteStepNone": "Nie ma czego ponowić"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -379,7 +395,12 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "W"
+    "compassW": "W",
+    "notesGroup": "Notatki",
+    "notes": "Dołącz notatki",
+    "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — po jednym rysunku na notatkę, pinezkę i zaznaczenie — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie.",
+    "noteText": "Rysuj tekst na karcie",
+    "noteTextHint": "Wyłączone: notatka zachowuje swój znacznik, a jej treść trafia tylko do komentarzy PDF, dzięki czemu zatłoczona karta pozostaje czytelna. Podpis to sam tekst, więc jest rysowany zawsze."
   },
   "place": {
     "title": "Umieść mapę",
@@ -708,6 +729,14 @@
         "title": "Cofnij cokolwiek",
         "body": "Cofnij i ponów przechodzą wstecz przez zmiany granicy, cięcia i łączenia, Ctrl+Z też działa. W narzędziu cięcia, edytorze granicy i gumce cofają zamiast tego punkty, narożniki i pociągnięcia — cofnięcie zawsze dotyczy tego, co zrobiłeś ostatnio."
       },
+      "notesButton": {
+        "title": "Notatki na mapie",
+        "body": "Nie wszystko, co warto wiedzieć o terenie, jest granicą. Brama od podwórza, blok bez skrzynek, strona ulicy, którą chodzi ktoś inny — to trafia właśnie tutaj. Notatki leżą na terenach, a nie w nich, więc dzielenie, cięcie i łączenie zostawiają każdą dokładnie tam, gdzie ją postawiono. Ta przykładowa okolica ma trzy."
+      },
+      "notes": {
+        "title": "Cztery pióra",
+        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, ołówek rysuje po terenie, a ostatnie pióro pisze podpis wprost na mapie. Przeciągnij ołówek, aby rysować odręcznie, albo klikaj punkt po punkcie; przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej. „Odręcznie” działa odwrotnie: rysuje tylko ręka, a kliknięcie nic nie stawia. Gotowe zaznaczenie ma te same uchwyty co obszar — przeciągnij punkt, aby go przesunąć, kliknij, aby go usunąć, a środkowy punkt prostego odcinka go wygina. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
+      },
       "layers": {
         "title": "Co jest widoczne",
         "body": "Ta grupa dotyczy obrazu, nie pracy. Para przycisków u góry przybliża i oddala mapę, a lista rozwijana obok nich wybiera, co leży pod mapą — sama mapa, zdjęcia lotnicze, rzeźba terenu — bo pod nią naraz jest tylko jedno. Warstwy pomocnicze służą wyłącznie do pracy na ekranie: karty zawsze drukują się na warstwie OpenStreetMap. Pod linią każdy przełącznik zdejmuje jedną rzecz z mapy, nie usuwając jej z projektu: granicę, ulice, domy, kształty terenów."
@@ -795,7 +824,10 @@
     }
   },
   "demo": {
-    "street": "Ulica Przykładowa {n}"
+    "street": "Ulica Przykładowa {n}",
+    "notePin": "Niebieska brama z tyłu",
+    "noteText": "Droga za drugim gospodarstwem nieutwardzona",
+    "noteLine": "Tylko numery nieparzyste"
   },
   "shortcuts": {
     "title": "Klawiatura i mysz",
@@ -903,7 +935,25 @@
     "listZoom": "Powiększ teren na mapie",
     "listPick": "Dodaj teren do zaznaczenia",
     "listRange": "Zaznacz wszystkie tereny aż do tego",
-    "listClose": "Zamknij listę"
+    "listClose": "Zamknij listę",
+    "groupNotes": "Narzędzie notatek",
+    "goNotes": "Rób notatki",
+    "noteToolNote": "Napisz notatkę",
+    "noteToolPin": "Wstaw pinezkę",
+    "noteFinish": "Zakończ linię",
+    "noteBack": "Cofnij ostatni krok rysowania",
+    "noteCancel": "Wyjdź z narzędzia notatek",
+    "noteDrag": "Rysuj odręcznie",
+    "groupNoteText": "Ta notatka",
+    "noteTextSave": "Zapisz notatkę",
+    "noteTextCancel": "Zostaw notatkę bez zmian",
+    "noteToolDraw": "Narysuj zaznaczenie",
+    "noteSnap": "Przyciągaj punkty do ulic",
+    "noteFreeform": "Rysuj tylko odręcznie",
+    "noteHandle": "Przesuń punkt · kliknięcie go usuwa",
+    "noteBend": "Wygnij prosty odcinek za środkowy uchwyt",
+    "noteClick": "Postaw jeden punkt",
+    "noteToolText": "Napisz podpis"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -951,5 +1001,55 @@
   },
   "dialog": {
     "help": "Klawisze dla tego widoku"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} notatka",
+      "few": "{count} notatki",
+      "many": "{count} notatek",
+      "other": "{count} notatki"
+    },
+    "vertices": {
+      "one": "{count} punkt",
+      "few": "{count} punkty",
+      "many": "{count} punktów",
+      "other": "{count} punktu"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Notatka",
+    "toolPin": "Pinezka",
+    "color": "Kolor",
+    "width": "Grubość",
+    "finish": "Zakończ linię",
+    "done": "Gotowe",
+    "undo": "Cofnij ostatnią zmianę w notatkach",
+    "redo": "Ponów zmianę w notatkach",
+    "hintNote": "Kliknij tam, gdzie ma być notatka · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "hintPin": "Kliknij miejsce lub budynek do oznaczenia · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "titleNote": "Notatka",
+    "titlePin": "Podpis pinezki",
+    "titleLine": "Podpis zaznaczenia",
+    "placeholder": "Co ma tu być napisane?",
+    "textHint": "Ctrl+Enter zapisuje. Na wydruku PDF powstaje z tego komentarz, który każdy czytnik otworzy; na PNG jest rysowane na mapie.",
+    "save": "Zapisz",
+    "cancel": "Anuluj",
+    "menuEdit": "Zmień tekst",
+    "menuRecolor": "Przemaluj bieżącym piórem",
+    "menuDelete": "Usuń tę notatkę",
+    "clearTitle": "Usunąć wszystkie notatki?",
+    "clearMessage": "Znikną wszystkie notatki, pinezki i zaznaczenia. Tego nie da się cofnąć.",
+    "clearOk": "Usuń je",
+    "toolDraw": "Rysuj",
+    "kindNote": "Notatka",
+    "kindPin": "Pinezka",
+    "kindMark": "Zaznaczenie",
+    "snap": "Przyciągaj do ulic",
+    "freeform": "Odręcznie",
+    "hintDraw": "Przeciągnij, aby rysować · Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Prawy przycisk przesuwa mapę",
+    "hintText": "Kliknij tam, gdzie ma być tekst · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "hintFree": "Przeciągnij, aby rysować · Kliknięcie nic nie stawia · Esc kończy · ? pokaże klawisze",
+    "toolText": "Tekst",
+    "titleText": "Podpis",
+    "kindText": "Podpis"
   }
 }

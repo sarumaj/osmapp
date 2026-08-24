@@ -34,7 +34,10 @@ Jehovah's Witnesses carrying out their missionary work
 3. **Split it** — choose a number of territories ("40") or a target size ("~25
    buildings each").
 4. **Adjust by hand** — merge, cut, drag boundaries, or delete. `Ctrl+Z` undoes.
-5. **Print** — right-click a territory → Print. Set line color/thickness,
+5. **Annotate, if you need to** — write notes, drop pins on places, mark
+   streets freehand or snapped to the road network, and set captions straight
+   onto the map.
+6. **Print** — right-click a territory → Print. Set line color/thickness,
    rotate/zoom, erase border segments, export PDF.
 
 Your work is saved in the browser — a refresh or accidental tab close won't lose
@@ -191,6 +194,7 @@ that doesn't need the server.
 | Open app, restore last session                |   yes    |
 | Pan/zoom over previously viewed tiles         |   yes    |
 | Draw, cut, merge, split, undo/redo            |   yes    |
+| Write notes, drop pins, mark streets          |   yes    |
 | Export GeoJSON                                |   yes    |
 | Load template, print card, export PDF         |   yes    |
 | Import a printed card back into a session     |   yes    |
@@ -220,6 +224,16 @@ on next navigation. No manual cache-busting needed.
 **Updates are never silent.** A new worker installs and waits; the page offers
 a reload. The undo stack lives in memory and isn't part of the IndexedDB session,
 so activating mid-edit would discard it.
+
+**Registration does not wait for an event already past.** It is held back to
+`load` so it does not compete with the first Overpass fetch, but start-up runs
+from a timer after `DOMContentLoaded` and reaches `pwa.js` last, by which time a
+page whose assets are all in the HTTP cache — every visit after the first — has
+finished loading. `pwa.js` checks `document.readyState` and registers straight
+away in that case. Nothing on screen reports a worker that never registered:
+the app is already in memory, and the first thing to go missing is a card
+composed with the connection down, because DejaVuSans is fetched when a PDF is
+built rather than when the page loads.
 
 ### Deliberately not done: bulk tile pre-fetch
 
@@ -282,6 +296,7 @@ not in the list is precached, shipped, and never runs).
 | `gaps`          | Parts of the area belonging to no territory                    |
 | `footprints`    | Boundaries drawn through buildings, moved onto the wall        |
 | `autoheal`      | Repairing the faults the territory list can name               |
+| `notes`         | Annotations over the area: notes, pins, marks, captions        |
 | `print-filters` | Basemap filters for the print preview                          |
 | `print`         | Canvas map rendering, framing, eraser, card layout             |
 | `boundary`      | Turn a geocoder hit into the outer polygon                     |
@@ -358,6 +373,101 @@ to used glyphs — the standard 14 fonts lack `ł ą ę ś ż ź ć ń`).
 No server needed for any of this: a template file never leaves the machine it
 was opened on.
 
+### Notes
+
+Annotations are a separate document from the territories: a note survives a
+re-partition, may sit outside the boundary, and is switched on and off without
+touching any geometry. Four kinds, one record — `{ kind, points, text, color,
+width }` — where a mark has many points and everything else has one:
+
+| Kind | What it is | On the map |
+|------|------------|------------|
+| note | a sentence pinned to a spot | sticky glyph, words always shown |
+| pin | a place or a building | teardrop, tip on the spot, words on hover |
+| mark | a stroke along the ground | line, freehand or street-snapped, with handles on its points |
+| caption | words and nothing else | the words themselves, no glyph |
+
+Marks come from one pen, and the gesture picks the kind: a drag is a freehand
+sweep, a click places a vertex. With **Snap to streets** on, a clicked vertex is
+pulled onto the network and the hop before it is routed along the road, under
+the same detour limits the cut tool uses — so "this street, not the next one" is
+a mark that lies on the street. **Freeform** is the other end of that: only the
+hand draws, a click places nothing, and the magnet goes quiet under it because a
+sweep has no vertices to pull. Every kind asks for its words when it is made:
+a note without any is a note thought better of, while a pin and a mark are kept
+either way. Notes ride along in the session, the GeoJSON export and the card
+attachment.
+
+**A line being drawn is stepped through, not only cancelled.** While one is open
+`Ctrl+Z` and `Backspace` take back the last thing the hand did — a clicked
+point, or a whole freehand sweep, since half a sweep is a start point with
+nothing drawn from it — and `Ctrl+Y` puts it back. That holds past the first
+point too: the line leaves the map but the steps that made it do not, so one
+`Ctrl+Z` too many costs nothing. Undo answers for the note list again once the
+line is stored or `Esc` gives it up.
+
+**A mark keeps its skeleton, so it can be corrected.** Alongside the geometry
+everything downstream draws, a mark stores the points somebody placed and what
+the app did between each pair — `{ at, snapped, via, bend, sweep }` per node,
+where `via` is a run the hop follows (a routed street path, or the samples of a
+sweep), `bend` is the control point of a curve, and neither is a straight line.
+The geometry is derived from that and never trusted from a file, so an edit and
+a reload cannot disagree.
+
+While the pencil is the selected pen, every mark wears the polygon editor's own
+handles — the same shape for the same gesture:
+
+| Handle | Gesture | What happens |
+|--------|---------|--------------|
+| point | drag | the point moves, and its two hops are worked out again — re-snapped and re-routed if the magnet is on |
+| point | click | the point comes out, down to the two a line needs |
+| middle of a straight hop | drag | the hop bends into a curve through the handle |
+| middle of a bent hop | click | the bend comes out and the hop is straight again |
+
+The ends of a swept hop wear none: that hop is a run of samples of where the
+hand went, and moving one end of it would leave the rest behind. Nor does a mark
+drawn before this existed — there is no skeleton in the file to edit, and the
+mark is drawn from its geometry as it always was.
+
+**Both cards show the same thing.** A PNG is a picture, so everything is drawn
+into it. A PDF is a document, so the same marks are drawn *and* carried as real
+annotations — one per note, so a glyph and the words beside it are one thing to
+open, move or delete:
+
+| Kind | On a PDF |
+|------|----------|
+| note, pin, mark | `/Ink` — the glyph or stroke, with the words in the same appearance |
+| caption | `/FreeText` — the subtype a reader opens for typing |
+
+Ink rather than the sticky-note `/Text` a pin more closely resembles, because a
+popup note is not among the types a reader will let you select and delete, and a
+pin nobody can rub out is worse than one filed under the wrong subtype.
+
+Each annotation carries its own appearance stream and the print flag, so a card
+looks the same in every viewer instead of however that viewer chooses to draw a
+comment, and it carries what a comment list reads — `/T`, `/Contents`, `/M`,
+`/CreationDate`, `/Subj` and a linked `/Popup`. `print.js` builds the glyph
+outlines and the boxes of words and hands `pdfdoc.js` everything as fractions of
+the map image, so one place in the app knows what a pin looks like and one knows
+where the map sits on the page. The box is measured twice — Arial for the
+preview, DejaVu for the card — and kept at whichever is wider, since a box sized
+for the narrower face clips the last word off every label.
+
+A caption is drawn in the pen's color, the way the map draws it, while a
+mark's label stays black in its box, where black is what survives being printed
+over a street map. Both are written so that a reader which rebuilds the
+appearance itself lands in the same place: the color is in `/DA` — on a
+`/FreeText` that is where the lettering's color lives, while `/C` is what gets
+painted *behind* it — the intent is `/FreeTextTypeWriter`, which is words and
+no box, and the face is named in the document's form resources, because that is
+where `/DA` is resolved (PDF 32000-1, 12.7.3.3) and a caption re-typed without
+it comes back in a substituted font with the Polish diacritics gone.
+
+**"Draw the words on the card"** turns the boxes off for a crowded card: the
+glyphs and strokes stay and the words go only into the PDF's comments. A caption
+is nothing but words, so it is drawn either way. The switch is off-limits while
+the notes themselves are off, since there would be nothing for it to draw.
+
 ---
 
 ## Translations
@@ -409,11 +519,12 @@ multi-worker deployment) handed users each other's areas.
 | Key                                     | Action                                                      |
 |-----------------------------------------|-------------------------------------------------------------|
 | `?` or `F1`                             | Shortcut sheet (reachable inside dialogs)                   |
-| `Ctrl/Cmd + Z`                          | Undo (territory geometry, or print eraser in that dialog)   |
+| `Ctrl/Cmd + Z`                          | Undo (territory geometry, a mark being drawn, or the print eraser) |
 | `Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z` | Redo                                                        |
 | `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
 | `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
+| `A`                                     | Notes tool; `1`–`4` pick the pen; `S` snapping, `F` freeform |
 | Right-click                             | Context menu — on a territory, empty ground, or boundary    |
 
 All bindings live in one registry in `shortcuts.js`, which is both the
@@ -434,6 +545,15 @@ dispatcher and the source the `?` sheet renders from.
   (visible in the preview before export).
 - **Server errors are English** regardless of interface language. If that matters,
   return error *codes* and map them to `alert.*` keys client-side.
+- **Note labels do not avoid each other.** Each box is placed beside its own
+  mark and drawn where it lands, so two notes on the same corner overlap. The
+  "Draw the words on the card" switch is the answer for a card where that
+  matters.
+- **A PDF card's notes live in its annotation layer**, which is what makes them
+  openable and deletable — and what a reader set to hide or not print comments
+  hides. They carry the print flag, so printing takes them by default; a reader
+  told otherwise is being told otherwise. Flattening keeps them: `qpdf
+  --flatten-annotations=all` draws every note into the page.
 
 ---
 
@@ -478,8 +598,13 @@ Zeugen Jehovas ([mehr dazu](https://www.jw.org/finder?wtlocale=X&docid=502013361
 3. **Aufteilen** — Anzahl Gebiete („40") oder Zielgröße („~25 Gebäude") wählen.
 4. **Anpassen** — Gebiete zusammenfügen, aufteilen, Grenzen verschieben, löschen.
    `Strg+Z` macht rückgängig.
-5. **Drucken** — Rechtsklick auf ein Gebiet → „Drucken". Linienfarbe/-stärke
+5. **Anmerken** — Notizen schreiben, Nadeln auf Orte setzen, Straßen freihand
+   oder am Straßennetz eingerastet markieren, Beschriftungen auf die Karte
+   setzen.
+6. **Drucken** — Rechtsklick auf ein Gebiet → „Drucken". Linienfarbe/-stärke
    festlegen, Karte drehen/zoomen, Umrandungsteile löschen, PDF exportieren.
+   Auf einer PDF-Karte werden die Anmerkungen zu echten Kommentaren, auf einem
+   PNG in die Karte gezeichnet.
 
 Deine Arbeit wird im Browser gespeichert. Exportiere alles in eine Datei, um sie
 später auf einem anderen Rechner zu laden.
@@ -528,8 +653,11 @@ parafialne, trasy dostawcze. Główną grupą docelową są zbory Świadków Jeh
 3. **Podziel obszar** — liczba terytoriów („40") lub wielkość („~25 budynków").
 4. **Dopasuj ręcznie** — połącz, podziel, przeciągnij granice, usuń. `Ctrl+Z`
    cofa.
-5. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
-   obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF.
+5. **Dodaj notatki** — pisz notatki, wstawiaj pinezki, zaznaczaj ulice
+   odręcznie lub z przyciąganiem do sieci dróg, dodawaj podpisy na mapie.
+6. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
+   obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF. Na karcie PDF
+   notatki stają się prawdziwymi komentarzami, na PNG są rysowane na mapie.
 
 Praca jest zapisywana w przeglądarce. Eksportuj do pliku, aby załadować później
 na innym komputerze.
@@ -579,9 +707,12 @@ principal est constitué des congrégations des Témoins de Jéhovah
 3. **Divisez** — nombre de secteurs (« 40 ») ou taille cible (« ~25 bâtiments »).
 4. **Ajustez manuellement** — fusionnez, réduisez, déplacez une limite, supprimez.
    `Ctrl+Z` annule.
-5. **Imprimez** — clic droit sur un territoire → « Imprimer ». Définissez
+5. **Annotez** — écrivez des notes, posez des épingles, marquez des rues à main
+   levée ou aimantées au réseau routier, posez des légendes sur la carte.
+6. **Imprimez** — clic droit sur un territoire → « Imprimer ». Définissez
    couleur/épaisseur du trait, pivotez/zoomez, effacez des parties de la limite,
-   exportez le PDF.
+   exportez le PDF. Sur une carte PDF les notes deviennent de vrais
+   commentaires ; sur un PNG elles sont dessinées sur la carte.
 
 Votre travail est conservé dans le navigateur. Exportez tout vers un fichier pour
 le recharger plus tard sur un autre ordinateur.

@@ -82,6 +82,7 @@ App.outline = (function () {
       if (s.editMode) App.editing.toggleEditMode();
       if (s.mergeMode) App.editing.toggleMergeMode();
       if (s.trimMode) App.trim.toggle();
+      if (s.noteMode) App.notes.toggle();
       if (s.leafletMap.editTools) s.leafletMap.editTools.stopDrawing();
     }
 

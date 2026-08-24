@@ -8,7 +8,8 @@
     "buildings": "Gebäude",
     "clusters": "Gebiete",
     "aidNote": "Nur eine Orientierungshilfe am Bildschirm. Gebietskarten werden immer mit der OpenStreetMap-Ebene gedruckt.",
-    "gaps": "Nicht abgedeckte Flächen"
+    "gaps": "Nicht abgedeckte Flächen",
+    "notes": "Notizen"
   },
   "map": {
     "youAreHere": "Du bist hier"
@@ -102,7 +103,22 @@
     "zoomIn": "Eine Stufe hineinzoomen",
     "zoomOut": "Eine Stufe herauszoomen",
     "atMaxZoom": "Näher geht dieser Hintergrund nicht",
-    "atMinZoom": "Weiter heraus geht dieser Hintergrund nicht"
+    "atMinZoom": "Weiter heraus geht dieser Hintergrund nicht",
+    "groupNotes": "Notizen",
+    "labelNotes": "Notizen",
+    "notes": "Notizen schreiben, Nadeln setzen und Straßen markieren",
+    "labelClearNotes": "Löschen",
+    "clearNotes": "Alle Notizen, Nadeln und Markierungen löschen",
+    "needsNotes": "Es gibt noch keine Notizen",
+    "labelLayerNotes": "Notizen",
+    "undoNoteCount": "Letzte Änderung an den Notizen rückgängig machen ({count} verfügbar)",
+    "undoNoteNone": "Nichts rückgängig zu machen",
+    "undoNoteStepCount": "Letzten Zeichenschritt zurücknehmen ({count} verfügbar)",
+    "undoNoteStepNone": "Nichts zurückzunehmen",
+    "redoNoteCount": "Änderung an den Notizen wiederherstellen ({count} verfügbar)",
+    "redoNoteNone": "Nichts wiederherzustellen",
+    "redoNoteStepCount": "Zeichenschritt zurückholen ({count} verfügbar)",
+    "redoNoteStepNone": "Nichts zurückzuholen"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -354,7 +370,12 @@
     "compassN": "N",
     "compassE": "O",
     "compassS": "S",
-    "compassW": "W"
+    "compassW": "W",
+    "notesGroup": "Notizen",
+    "notes": "Notizen mitdrucken",
+    "notesHint": "Eine PDF-Karte trägt sie als echte Anmerkungen — je Notiz, Nadel und Markierung eine Zeichnung — die sich in jedem Programm öffnen, verschieben und löschen lassen. Ein PNG hat dafür keinen Platz, dort werden sie in die Karte gezeichnet.",
+    "noteText": "Den Text auf die Karte zeichnen",
+    "noteTextHint": "Aus behält eine Notiz ihre Markierung und ihr Text steht nur in den Kommentaren des PDFs, was eine volle Karte lesbar hält. Eine Beschriftung besteht nur aus Text und wird immer gezeichnet."
   },
   "place": {
     "title": "Karte positionieren",
@@ -667,6 +688,14 @@
         "title": "Alles rückgängig machen",
         "body": "Rückgängig und Wiederherstellen gehen durch Grenzänderungen, Schnitte und Zusammenführungen zurück, Strg+Z ebenso. Im Schneidewerkzeug, im Grenz-Editor und im Radierer nehmen sie stattdessen Punkte, Ecken und Striche zurück — rückgängig heißt also immer das, was Sie zuletzt getan haben."
       },
+      "notesButton": {
+        "title": "Notizen auf der Karte",
+        "body": "Nicht alles, was ein Gebiet ausmacht, ist eine Grenze. Ein Tor auf der Rückseite, ein Block ohne Briefkästen, die Straßenseite, die jemand anderes geht — dafür ist das hier. Notizen liegen über den Gebieten und nicht in ihnen, also lassen Aufteilen, Schneiden und Zusammenfügen jede einzelne genau dort, wo sie gesetzt wurde. Dieses Beispiel trägt drei davon."
+      },
+      "notes": {
+        "title": "Vier Stifte",
+        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, der Stift zeichnet auf dem Gelände, und der letzte schreibt eine Beschriftung direkt auf die Karte. Zieh den Stift für eine Freihandlinie oder klicke Punkt für Punkt; mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben. „Freihand“ geht den anderen Weg: nur die Hand zeichnet, ein Klick setzt nichts. Eine fertige Markierung trägt dieselben Griffe wie ein Gebiet — einen Punkt ziehen verschiebt ihn, ein Klick entfernt ihn, und der Punkt in der Mitte einer geraden Teilstrecke biegt sie. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
+      },
       "layers": {
         "title": "Was angezeigt wird",
         "body": "Diese Gruppe betrifft das Bild, nicht die Arbeit. Das Paar oben zoomt die Karte hinein und heraus, und das Auswahlfeld daneben entscheidet, was unter der Karte liegt — die Karte selbst, ein Luftbild, das Gelände —, denn darunter liegt immer nur eines. Die Hilfsebenen gelten nur für den Bildschirm: gedruckt wird stets auf der OpenStreetMap-Ebene. Unter der Linie nimmt jeder Schalter eine Sache von der Karte, ohne sie aus dem Projekt zu nehmen: die Grenze, die Straßen, die Häuser, die Gebietsformen."
@@ -754,7 +783,10 @@
     }
   },
   "demo": {
-    "street": "Musterstraße {n}"
+    "street": "Musterstraße {n}",
+    "notePin": "Blaues Tor auf der Rückseite",
+    "noteText": "Weg ab dem zweiten Hof unbefestigt",
+    "noteLine": "Nur ungerade Nummern"
   },
   "shortcuts": {
     "title": "Tastatur und Maus",
@@ -862,7 +894,25 @@
     "listZoom": "Auf ein Gebiet auf der Karte zoomen",
     "listPick": "Ein Gebiet zur Auswahl hinzufügen",
     "listRange": "Alle Gebiete bis hierher auswählen",
-    "listClose": "Liste schließen"
+    "listClose": "Liste schließen",
+    "groupNotes": "Notizwerkzeug",
+    "goNotes": "Notizen machen",
+    "noteToolNote": "Eine Notiz schreiben",
+    "noteToolPin": "Eine Nadel setzen",
+    "noteFinish": "Die Linie beenden",
+    "noteBack": "Letzten Zeichenschritt zurücknehmen",
+    "noteCancel": "Notizwerkzeug verlassen",
+    "noteDrag": "Freihand zeichnen",
+    "groupNoteText": "Diese Notiz",
+    "noteTextSave": "Notiz speichern",
+    "noteTextCancel": "Notiz unverändert lassen",
+    "noteToolDraw": "Eine Markierung zeichnen",
+    "noteSnap": "Punkte an den Straßen einrasten",
+    "noteFreeform": "Nur freihand zeichnen",
+    "noteHandle": "Punkt verschieben · Klick entfernt ihn",
+    "noteBend": "Gerade Teilstrecke am mittleren Griff biegen",
+    "noteClick": "Einen Punkt setzen",
+    "noteToolText": "Eine Beschriftung schreiben"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -906,5 +956,51 @@
   },
   "dialog": {
     "help": "Tasten für diese Ansicht"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} Notiz",
+      "other": "{count} Notizen"
+    },
+    "vertices": {
+      "one": "{count} Punkt",
+      "other": "{count} Punkte"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Notiz",
+    "toolPin": "Nadel",
+    "color": "Farbe",
+    "width": "Stärke",
+    "finish": "Linie beenden",
+    "done": "Fertig",
+    "undo": "Letzte Änderung an den Notizen rückgängig machen",
+    "redo": "Änderung an den Notizen wiederherstellen",
+    "hintNote": "Klicke dorthin, wo die Notiz hingehört · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "hintPin": "Klicke den Ort oder das Gebäude an · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "titleNote": "Notiz",
+    "titlePin": "Beschriftung der Nadel",
+    "titleLine": "Beschriftung der Markierung",
+    "placeholder": "Was soll hier stehen?",
+    "textHint": "Strg+Enter speichert. Auf einer PDF-Karte wird daraus ein Kommentar, den jedes Programm öffnen kann; auf einem PNG wird er in die Karte gezeichnet.",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "menuEdit": "Text ändern",
+    "menuRecolor": "Mit dem aktuellen Stift einfärben",
+    "menuDelete": "Diese Notiz löschen",
+    "clearTitle": "Alle Notizen löschen?",
+    "clearMessage": "Alle Notizen, Nadeln und Markierungen verschwinden. Das lässt sich nicht rückgängig machen.",
+    "clearOk": "Löschen",
+    "toolDraw": "Zeichnen",
+    "kindNote": "Notiz",
+    "kindPin": "Nadel",
+    "kindMark": "Markierung",
+    "snap": "An Straßen einrasten",
+    "freeform": "Freihand",
+    "hintDraw": "Zum Zeichnen ziehen · Klicken setzt Punkte · Enter oder Doppelklick beendet · Rechte Taste verschiebt die Karte",
+    "hintText": "Klicke dorthin, wo der Text stehen soll · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "hintFree": "Zum Zeichnen ziehen · Ein Klick setzt nichts · Esc beendet · ? zeigt alle Tasten",
+    "toolText": "Text",
+    "titleText": "Beschriftung",
+    "kindText": "Beschriftung"
   }
 }

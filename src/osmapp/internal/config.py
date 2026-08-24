@@ -144,5 +144,4 @@ BOUNDARY_MAX_THRESHOLD = 0.01
 #
 # The only bodies the app accepts are the GeoJSON polygons the fetch routes
 # take; template PDFs are composed in the browser and never cross the wire.
-
 MAX_UPLOAD_BYTES = 25 * 1024 * 1024

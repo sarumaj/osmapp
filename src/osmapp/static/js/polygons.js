@@ -1030,6 +1030,11 @@ App.polygons = (function () {
           );
         return;
       }
+      // While notes are being taken the click belongs to the pen: forwarding
+      // it would zoom to the territory under a pin rather than drop the pin.
+      // Returning rather than stopping the event lets it carry on to the map,
+      // which is where App.notes is listening.
+      if (s.noteMode) return;
       var found = clusterAt(e.latlng);
       if (!found) return;
       found.entry.layer.fire(e.type, e, true);
@@ -1225,8 +1230,10 @@ App.polygons = (function () {
           return;
         }
         // In draw mode let the event through so Leaflet.Editable's vertex
-        // handles and the draw tool's map click both still work.
-        if (s.editMode) return;
+        // handles and the draw tool's map click both still work. Note mode is
+        // the same bargain: the click is a note being placed on the ground,
+        // which happens to have a territory drawn over it.
+        if (s.editMode || s.noteMode) return;
 
         L.DomEvent.stopPropagation(e);
         App.ui.closeContextMenu();
@@ -1249,6 +1256,10 @@ App.polygons = (function () {
         // territory under them.
         if (s.mergeMode) {
           App.editing.handleModeContextMenu(e.containerPoint, layer, feature);
+          return;
+        }
+        if (s.noteMode) {
+          App.notes.handleContextMenu(e.containerPoint);
           return;
         }
         if (s.editMode || s.trimMode) return;
@@ -1330,6 +1341,10 @@ App.polygons = (function () {
       // merge.
       if (s.outlineMode) {
         App.outline.handleContextMenu(e.containerPoint);
+        return;
+      }
+      if (s.noteMode) {
+        App.notes.handleContextMenu(e.containerPoint);
         return;
       }
       if (s.editMode || s.mergeMode || s.trimMode) return;

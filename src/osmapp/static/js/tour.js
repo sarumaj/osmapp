@@ -289,6 +289,30 @@ App.tour = (function () {
       },
     },
     {
+      // After the territory tools rather than among them: a note is a remark
+      // about the ground, and the point of the step is that splitting,
+      // cutting and merging - all of which have just been shown - leave one
+      // exactly where it was put.
+      id: "notesButton",
+      demo: true,
+      target: '[data-action="notes"]',
+      placement: "right",
+    },
+    {
+      id: "notes",
+      demo: true,
+      target: ".notes-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="notes"]',
+      enter: function () {
+        if (!App.state.noteMode) App.notes.toggle();
+      },
+      exit: function () {
+        if (App.state.noteMode) App.notes.toggle();
+      },
+    },
+    {
       // Inside the sample block: this step introduces the group, and the two
       // that follow point at the switches in it that say nothing without
       // territories on screen.
@@ -686,6 +710,7 @@ App.tour = (function () {
       if (App.state.mergeMode && App.editing) App.editing.toggleMergeMode();
       if (App.state.trimMode && App.trim) App.trim.toggle();
       if (App.state.outlineMode && App.outline) App.outline.cancel();
+      if (App.state.noteMode && App.notes) App.notes.toggle();
     } catch (e) {
       console.warn(">>> Tour could not close a mode:", e && e.message);
     }

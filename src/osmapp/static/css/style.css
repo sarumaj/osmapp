@@ -652,7 +652,8 @@ body {
 .cut-toolbar,
 .merge-toolbar,
 .trim-toolbar,
-.outline-toolbar {
+.outline-toolbar,
+.notes-toolbar {
   background: var(--c-surface);
   border: 2px solid var(--c-border-strong);
   border-top-width: 4px;
@@ -686,7 +687,8 @@ body {
   .cut-toolbar,
   .merge-toolbar,
   .trim-toolbar,
-  .outline-toolbar {
+  .outline-toolbar,
+  .notes-toolbar {
     animation: none;
   }
 }
@@ -987,6 +989,29 @@ body {
 .leaflet-container.is-trimming .leaflet-middle-icon,
 .leaflet-container.is-outlining .leaflet-middle-icon {
   background-color: #0e6655;
+}
+
+/* The notes tool borrows these handles rather than drawing its own: a point
+   on a mark is moved, taken out and bent the way a corner of a territory is,
+   and a second shape for the same gesture would be a second thing to learn.
+   The color is the notes bar's own, so it is clear which tool put them there
+   -- and the half-handle bends its hop rather than adding a point, which is
+   why it is hollow where the editor's is filled. */
+.leaflet-container.is-annotating .leaflet-vertex-icon {
+  border-color: var(--c-warn);
+}
+
+.leaflet-container.is-annotating .leaflet-middle-icon {
+  background-color: transparent;
+  border-color: var(--c-warn);
+  border-width: 2px;
+}
+
+/* The line still being drawn wears the same handle without the reach: the
+   invisible margin the shared rule gives a handle is what a click on the next
+   point would land on instead. */
+.note-handle--draft::after {
+  content: none;
 }
 
 /* ── The eraser ────────────────────────────────────────────────────────
@@ -1667,11 +1692,18 @@ body {
      is part of the sum. */
   .leaflet-top .tb-panel.leaflet-control {
     margin-top: calc(var(--m-edge) + var(--m-search-h) + var(--m-gap));
-    /* 58 px of that is above the panel; the rest is the bottom edge, where a
-       mode bar, the hint banner and the attribution live. A panel that runs
-       the full height is a panel with no map under it. */
-    max-height: calc(100vh - 150px);
-    max-height: calc(100dvh - 150px);
+    /* A panel that runs the full height is a panel with no map under it, so
+       the cap is a share of the screen rather than a fixed subtraction: 58 px
+       of the margin above plus this has to leave the map a quarter of the
+       phone at every height, and a subtraction alone leaves less of one the
+       taller the screen is. The 70 px is that margin and the panel's own
+       border, so what the share governs is what is actually left over.
+
+       The panel scrolls, so a list too long for the cap costs a swipe rather
+       than a row - which is the trade the toolbar has been making since it
+       had more groups than a phone has height. */
+    max-height: calc(72vh - 70px);
+    max-height: calc(72dvh - 70px);
   }
 
   /* ── Collapsed is closed, not "icons only" ──────────────────── */
@@ -1783,6 +1815,226 @@ body {
   background: var(--c-surface-hover);
   font: 10px/1.4 var(--ui-font);
   color: var(--c-text-dim);
+}
+
+/* ── Notes toolbar ─────────────────────────────────────────────────────
+   Orange, like the Notes group in the panel and the note layer switch beside
+   the other overlays: three places name the same feature, and the color is
+   what says so before any of the three has been read. */
+.notes-toolbar {
+  border-top-color: var(--c-warn);
+  width: min(420px, calc(100vw - 24px));
+}
+
+.notes-toolbar__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.notes-toolbar__count {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.notes-toolbar__status {
+  font-size: var(--ui-fs-sm);
+  color: var(--c-text-dim);
+  text-align: right;
+}
+
+/* Equal columns rather than a flex row: the labels are one word in English
+   and two or three in French, and a row that reflowed between languages would
+   put the last tool on a second line in one of them. */
+.notes-toolbar__tools {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.notes-tool {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  font: var(--ui-fs-sm) / 1.2 var(--ui-font);
+  color: var(--c-text);
+  cursor: pointer;
+  /* The four labels differ in length by more than the tile is wide, and a
+     wrapped one would make its tile taller than the other three. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-tool:hover {
+  background: var(--c-surface-hover);
+}
+
+.notes-tool.is-active {
+  border-color: var(--c-warn);
+  background: rgba(243, 156, 18, 0.14);
+  font-weight: 600;
+}
+
+.notes-tool i {
+  font-size: 14px;
+}
+
+.notes-tool kbd {
+  padding: 0 4px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.notes-toolbar__pen {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+/* Same shape as the cut toolbar's option rows, which is where a switch over a
+   map already looks like a switch in this app. */
+.notes-toolbar__opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--ui-fs-sm);
+  cursor: pointer;
+}
+
+.notes-toolbar__opt span {
+  flex: 1;
+}
+
+/* The switch is the draw tool's; the other two pens leave it where it is and
+   pay no attention to it. */
+.notes-toolbar__opt.is-disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.notes-toolbar__opt kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--c-border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  background: var(--c-surface-hover);
+  font: 10px/1.4 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.notes-toolbar__field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--ui-fs-sm);
+}
+
+.notes-toolbar__field > span {
+  flex: 0 0 70px;
+}
+
+.notes-toolbar__field input[type="range"] {
+  flex: 1;
+  min-width: 0;
+}
+
+.notes-toolbar__field output {
+  flex: 0 0 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-dim);
+}
+
+.notes-toolbar__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.notes-toolbar__actions .btn {
+  flex: 1;
+}
+
+.notes-toolbar__actions .btn--icon {
+  flex: 0 0 auto;
+  min-width: 34px;
+  padding: 5px 8px;
+}
+
+/* ── Notes on the map ──────────────────────────────────────────────────
+   The glyph is drawn by the icon font and colored inline by notes.js, so all
+   this has to do is centre it and give it something to be legible against. */
+.note-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  /* The drop shadow rather than a halo: a note lands on a printed-looking map
+     of grey buildings and white roads, and an outline in either color
+     disappears against one of them. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+.note-marker--pin {
+  /* The tip of the pin is the coordinate, so the glyph hangs above it. */
+  align-items: flex-end;
+  font-size: 22px;
+}
+
+/* A caption is its own words: no glyph, no anchor, just text on the ground.
+   Centred by a transform because the box is as wide as what was typed, and
+   Leaflet can only place an icon it was given a size for. */
+.note-caption {
+  transform: translate(-50%, -50%);
+  max-width: 220px;
+  padding: 2px 5px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.85);
+  font: 600 var(--ui-fs-md) / 1.3 var(--ui-font);
+  white-space: pre-wrap;
+  text-align: center;
+  /* Sized by its content, which Leaflet's own width and height would fight. */
+  width: max-content;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.note-tooltip {
+  max-width: 220px;
+  white-space: pre-wrap;
+  font: var(--ui-fs-sm) / 1.35 var(--ui-font);
+}
+
+/* The pointer is a pen: the arrow says "click something", and there is
+   nothing under it to click. touch-action, because the freehand tool is a
+   drag and on a touch screen a drag is a scroll until something says
+   otherwise. */
+.leaflet-container.is-annotating {
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.note-dialog__text {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  font: var(--ui-fs-md) / 1.4 var(--ui-font);
+  resize: vertical;
 }
 
 /* The one tooltip row that is an instruction rather than a fact. Quieter than

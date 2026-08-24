@@ -110,6 +110,7 @@ App.demo = (function () {
 
   var _active = false;
   var _snapshot = null;
+  var _savedNotes = [];
   var _view = null;
 
   function init() {
@@ -182,6 +183,46 @@ App.demo = (function () {
    */
   function _streetName(index) {
     return App.i18n.t("demo.street", { n: index + 1 });
+  }
+
+  /**
+   * Three annotations, so the notes step has something to point at.
+   *
+   * The same reason the outlying farms and the uncovered patch exist: a tool
+   * demonstrated on a sample where it has produced nothing teaches that it
+   * does nothing. One of each kind, and the words go through App.i18n like the
+   * street names do. Only the mark names a width: a glyph is drawn at a fixed
+   * size, so App.notes fills in the default for the other two.
+   */
+  function _notes() {
+    return [
+      {
+        kind: "pin",
+        points: [_project(STREETS[1] + 40, AVENUES[1] + HOUSE_OFFSET)],
+        text: App.i18n.t("demo.notePin"),
+        color: "#d40000",
+      },
+      {
+        kind: "note",
+        points: [_project(FARMS[1], FARM_Y + 90)],
+        text: App.i18n.t("demo.noteText"),
+        color: "#d40000",
+      },
+      {
+        // Along an avenue rather than across one, and through the crossing in
+        // the middle of it, so the mark reads as "this street" rather than as
+        // a line that happens to be near one.
+        kind: "line",
+        points: [
+          _project(STREETS[1], AVENUES[1]),
+          _project(STREETS[2], AVENUES[1]),
+          _project(STREETS[3], AVENUES[1]),
+        ],
+        color: "#0066cc",
+        text: App.i18n.t("demo.noteLine"),
+        width: 3,
+      },
+    ];
   }
 
   /** East edge of the working area: far enough out to hold the last farm. */
@@ -388,6 +429,7 @@ App.demo = (function () {
       streets: { type: "FeatureCollection", features: _streets() },
       buildings: { type: "FeatureCollection", features: _buildings() },
       clusters: _clusters(),
+      notes: _notes(),
     };
   }
 
@@ -417,6 +459,11 @@ App.demo = (function () {
       // to put back, and the tour is not worth someone's afternoon.
       return false;
     }
+
+    // Separately from the snapshot above, which needs a boundary: notes do
+    // not, so somebody who annotated the map without ever drawing one would
+    // otherwise have nothing put back when the sample is cleared away.
+    _savedNotes = App.notes.all();
 
     _view = {
       center: s.leafletMap.getCenter(),
@@ -473,6 +520,12 @@ App.demo = (function () {
     } catch (e) {
       console.error(">>> Could not restore your work after the tour:", e);
     }
+
+    // After either branch, and unconditionally: the snapshot path has already
+    // restored the same list through applyPayload, and putting it back twice
+    // costs a redraw where getting it wrong costs the notes.
+    App.notes.restore(_savedNotes);
+    _savedNotes = [];
 
     if (_view) {
       try {

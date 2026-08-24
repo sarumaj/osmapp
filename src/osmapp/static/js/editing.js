@@ -119,20 +119,14 @@ App.editing = (function () {
   // Snapping
 
   /**
-   * The pixel radius in meters at the current zoom, so the magnet has the
-   * same reach on screen however far in or out the map is.
+   * The cut tool's magnet, in meters at the current zoom.
+   *
+   * The conversion itself belongs to App.network, which every snapping tool
+   * asks the same question; what is the cut tool's own is which two constants
+   * go into it.
    */
   function _snapRadiusM() {
-    var map = s.leafletMap;
-    if (!map) return s.CUT_SNAP_MAX_M;
-    try {
-      var center = map.getCenter();
-      var p = map.latLngToContainerPoint(center);
-      var q = map.containerPointToLatLng(L.point(p.x + s.CUT_SNAP_PX, p.y));
-      return Math.min(s.CUT_SNAP_MAX_M, Math.max(2, center.distanceTo(q)));
-    } catch (e) {
-      return s.CUT_SNAP_MAX_M;
-    }
+    return N.pixelRadiusM(s.CUT_SNAP_PX, s.CUT_SNAP_MAX_M);
   }
 
   /** Alt inverts the toolbar setting for as long as it is held. */
@@ -405,6 +399,7 @@ App.editing = (function () {
       if (s.mergeMode) toggleMergeMode();
       if (s.trimMode) App.trim.toggle();
       if (s.outlineMode) App.outline.toggle();
+      if (s.noteMode) App.notes.toggle();
     }
 
     s.editMode = next;
@@ -1408,6 +1403,7 @@ App.editing = (function () {
       if (s.editMode) toggleEditMode();
       if (s.trimMode) App.trim.toggle();
       if (s.outlineMode) App.outline.toggle();
+      if (s.noteMode) App.notes.toggle();
       s.selectedClusters = [];
       _deselected = [];
       // Selecting means clicking the shape, so the tooltip is pinned above it

@@ -1072,6 +1072,161 @@
          of items. Every editing mode that has a toolbar also gets a
          right-click context menu using this same template. -->
 
+    <!-- ═══════════════════════════════════════════════════════════════════
+         NOTES — the annotation tool's furniture.
+
+         One bar for the four tools, one banner whose wording notes.js
+         re-targets as the tool changes, and the dialog that asks for the text
+         of a note or a pin.
+         ═══════════════════════════════════════════════════════════ -->
+    <template id="tpl-notes-toolbar">
+      <div class="notes-toolbar" role="toolbar" aria-label="Notes">
+        <div class="notes-toolbar__head">
+          <span class="notes-toolbar__count" data-role="count">0 notes</span>
+          <span
+            class="notes-toolbar__status"
+            data-role="status"
+            aria-live="polite"
+          ></span>
+        </div>
+
+        <div class="notes-toolbar__tools" role="group">
+          <button type="button" class="notes-tool" data-role="tool-note">
+            <i class="fa-solid fa-note-sticky" aria-hidden="true"></i>
+            <span data-i18n="notes.toolNote">Note</span>
+            <kbd>1</kbd>
+          </button>
+          <button type="button" class="notes-tool" data-role="tool-pin">
+            <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+            <span data-i18n="notes.toolPin">Pin</span>
+            <kbd>2</kbd>
+          </button>
+          <button type="button" class="notes-tool" data-role="tool-draw">
+            <i class="fa-solid fa-pencil" aria-hidden="true"></i>
+            <span data-i18n="notes.toolDraw">Draw</span>
+            <kbd>3</kbd>
+          </button>
+          <button type="button" class="notes-tool" data-role="tool-text">
+            <i class="fa-solid fa-font" aria-hidden="true"></i>
+            <span data-i18n="notes.toolText">Text</span>
+            <kbd>4</kbd>
+          </button>
+        </div>
+
+        <div class="notes-toolbar__pen">
+          <label class="notes-toolbar__opt" data-role="freeform-row">
+            <input type="checkbox" data-role="freeform" />
+            <span data-i18n="notes.freeform">Freeform</span>
+            <kbd>F</kbd>
+          </label>
+          <label class="notes-toolbar__opt" data-role="snap-row">
+            <input type="checkbox" data-role="snap" />
+            <span data-i18n="notes.snap">Snap to streets</span>
+            <kbd>S</kbd>
+          </label>
+          <label class="notes-toolbar__field">
+            <span data-i18n="notes.color">Color</span>
+            <input type="color" data-role="color" value="#d40000" />
+          </label>
+          <label class="notes-toolbar__field">
+            <span data-i18n="notes.width">Thickness</span>
+            <input
+              type="range"
+              data-role="width"
+              min="0.5"
+              max="8"
+              step="0.5"
+              value="2"
+            />
+            <output data-role="width-out"></output>
+          </label>
+        </div>
+
+        <div class="notes-toolbar__actions">
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="finish"
+            data-i18n="notes.finish"
+            hidden
+          >
+            Finish line
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost btn--icon"
+            data-role="undo"
+            data-i18n-attrs="title=notes.undo;aria-label=notes.undo"
+          >
+            <i class="fa-solid fa-rotate-left" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost btn--icon"
+            data-role="redo"
+            data-i18n-attrs="title=notes.redo;aria-label=notes.redo"
+          >
+            <i class="fa-solid fa-rotate-right" aria-hidden="true"></i>
+          </button>
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="done"
+            data-i18n="notes.done"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <template id="tpl-notes-hint">
+      <div class="draw-hint" role="status" data-i18n="notes.hintNote">
+        Click where the note belongs · Right-click for the tools · Esc leaves ·
+        ? for all keys
+      </div>
+    </template>
+
+    <template id="tpl-note-dialog">
+      <div
+        class="app-dialog note-dialog"
+        role="dialog"
+        aria-modal="true"
+        data-i18n-attrs="aria-label=notes.titleNote"
+        aria-label="Note"
+      >
+        <h2 class="app-dialog__title" data-role="title">Note</h2>
+        <textarea
+          class="note-dialog__text"
+          data-role="text"
+          rows="4"
+          data-i18n-attrs="placeholder=notes.placeholder"
+        ></textarea>
+        <p class="app-dialog__hint" data-i18n="notes.textHint">
+          Ctrl+Enter saves. On a printed PDF this becomes a comment any reader
+          can open; on a PNG it is drawn onto the map.
+        </p>
+        <div class="app-dialog__actions">
+          <button
+            type="button"
+            class="btn btn--ghost"
+            data-role="cancel"
+            data-i18n="notes.cancel"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="save"
+            data-i18n="notes.save"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </template>
+
     <template id="tpl-context-menu">
       <div class="polygon-context-menu" role="menu"></div>
     </template>
@@ -1291,6 +1446,29 @@
                 Drawn on top of the finished card. The compass turns with the
                 map so that north keeps pointing north; its letters and the
                 scale bar stay upright.
+              </p>
+            </fieldset>
+
+            <fieldset class="print-controls__group">
+              <legend data-i18n="print.notesGroup">Notes</legend>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="notes" checked />
+                <span data-i18n="print.notes">Include the notes</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.notesHint">
+                A PDF card carries them as real annotations - one ink drawing
+                per note, pin and mark - which any reader can open, move or
+                delete. A PNG has nowhere to put those, so they are drawn onto
+                the map instead.
+              </p>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="note-text" checked />
+                <span data-i18n="print.noteText">Draw the words on the card</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.noteTextHint">
+                Off, a note keeps its mark and its words go only into the PDF's
+                comments, which leaves a crowded card readable. A caption is
+                nothing but words, so it is drawn either way.
               </p>
             </fieldset>
 
@@ -1698,6 +1876,8 @@
     <script src="{{ url_for('static', filename='js/gaps.js') }}"></script>
     <script src="{{ url_for('static', filename='js/footprints.js') }}"></script>
     <script src="{{ url_for('static', filename='js/autoheal.js') }}"></script>
+    <!-- Before print.js, which asks it for what to draw on a card. -->
+    <script src="{{ url_for('static', filename='js/notes.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
     <script src="{{ url_for('static', filename='js/print.js') }}"></script>
     <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>

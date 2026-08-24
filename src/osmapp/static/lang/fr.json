@@ -8,7 +8,8 @@
     "buildings": "Bâtiments",
     "clusters": "Territoires",
     "aidNote": "Aide à l'écran uniquement. Les fiches de territoire sont toujours imprimées sur le fond OpenStreetMap.",
-    "gaps": "Zones non couvertes"
+    "gaps": "Zones non couvertes",
+    "notes": "Notes"
   },
   "map": {
     "youAreHere": "Vous êtes ici"
@@ -102,7 +103,22 @@
     "zoomIn": "Zoomer d'un niveau",
     "zoomOut": "Dézoomer d'un niveau",
     "atMaxZoom": "Ce fond ne va pas plus près",
-    "atMinZoom": "Ce fond ne va pas plus loin"
+    "atMinZoom": "Ce fond ne va pas plus loin",
+    "groupNotes": "Notes",
+    "labelNotes": "Notes",
+    "notes": "Écrire des notes, poser des épingles et marquer des rues",
+    "labelClearNotes": "Effacer",
+    "clearNotes": "Supprimer toutes les notes, épingles et marques",
+    "needsNotes": "Il n'y a pas encore de notes",
+    "labelLayerNotes": "Notes",
+    "undoNoteCount": "Annuler la dernière modification des notes ({count} disponibles)",
+    "undoNoteNone": "Rien à annuler",
+    "undoNoteStepCount": "Annuler la dernière étape du tracé ({count} disponibles)",
+    "undoNoteStepNone": "Rien à annuler",
+    "redoNoteCount": "Rétablir une modification des notes ({count} disponibles)",
+    "redoNoteNone": "Rien à rétablir",
+    "redoNoteStepCount": "Rétablir une étape du tracé ({count} disponibles)",
+    "redoNoteStepNone": "Rien à rétablir"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -354,7 +370,12 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "O"
+    "compassW": "O",
+    "notesGroup": "Notes",
+    "notes": "Inclure les notes",
+    "notesHint": "Une carte PDF les porte comme de vraies annotations — un dessin par note, épingle et marque — que tout lecteur peut ouvrir, déplacer ou supprimer. Un PNG n'a pas de place pour cela : elles y sont dessinées sur la carte.",
+    "noteText": "Dessiner le texte sur la carte",
+    "noteTextHint": "Désactivé, une note garde sa marque et ses mots ne vont que dans les commentaires du PDF, ce qui garde lisible une carte chargée. Une légende n'est que du texte : elle est dessinée dans tous les cas."
   },
   "place": {
     "title": "Positionner la carte",
@@ -667,6 +688,14 @@
         "title": "Annuler n'importe quoi",
         "body": "Annuler et rétablir remontent les modifications de limite, les découpes et les fusions, et Ctrl+Z fonctionne aussi. Dans l’outil de découpe, l’éditeur de limite et la gomme, ils reprennent plutôt des sommets, des coins et des traits : annuler désigne toujours votre dernière action."
       },
+      "notesButton": {
+        "title": "Des notes sur la carte",
+        "body": "Tout ce qui compte dans un territoire n'est pas une limite. Un portail à l'arrière, un immeuble sans boîte aux lettres, le côté de rue que quelqu'un d'autre parcourt — c'est ici que cela se note. Les notes reposent sur les territoires plutôt qu'à l'intérieur, si bien que diviser, découper et fusionner les laissent exactement là où elles ont été posées. Cet exemple en porte trois."
+      },
+      "notes": {
+        "title": "Quatre stylos",
+        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, le crayon dessine sur le terrain, et le dernier stylo pose une légende à même la carte. Faites glisser le crayon pour une ligne à main levée, ou cliquez point par point ; avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté. « Main levée » fait l'inverse : seule la main dessine, et un clic ne pose rien. Une marque terminée porte les mêmes poignées qu'un territoire — faites glisser un point pour le déplacer, cliquez-le pour le retirer, et faites glisser le point au milieu d'un segment droit pour le courber. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
+      },
       "layers": {
         "title": "Ce qui est affiché",
         "body": "Ce groupe concerne l'image, pas le travail. La paire en haut rapproche et éloigne la carte, et la liste déroulante à côté choisit ce qui se trouve sous la carte — la carte elle-même, l'imagerie aérienne, le terrain — puisqu'un seul fond à la fois est possible. Les couches d'aide sont uniquement pour l'écran : une fiche est toujours imprimée sur le fond OpenStreetMap. Sous la ligne, chaque interrupteur retire une chose de la carte sans la retirer du projet : la limite, les rues, les maisons, les formes des territoires."
@@ -754,7 +783,10 @@
     }
   },
   "demo": {
-    "street": "Rue exemple {n}"
+    "street": "Rue exemple {n}",
+    "notePin": "Portail bleu à l'arrière",
+    "noteText": "Chemin non revêtu après la deuxième ferme",
+    "noteLine": "Numéros impairs seulement"
   },
   "shortcuts": {
     "title": "Clavier et souris",
@@ -862,7 +894,25 @@
     "listZoom": "Zoomer sur un territoire de la carte",
     "listPick": "Ajouter un territoire à la sélection",
     "listRange": "Sélectionner tous les territoires jusqu’à celui-ci",
-    "listClose": "Fermer la liste"
+    "listClose": "Fermer la liste",
+    "groupNotes": "Outil notes",
+    "goNotes": "Prendre des notes",
+    "noteToolNote": "Écrire une note",
+    "noteToolPin": "Poser une épingle",
+    "noteFinish": "Terminer la ligne",
+    "noteBack": "Annuler la dernière étape du tracé",
+    "noteCancel": "Quitter l'outil notes",
+    "noteDrag": "Dessiner à main levée",
+    "groupNoteText": "Cette note",
+    "noteTextSave": "Enregistrer la note",
+    "noteTextCancel": "Laisser la note telle quelle",
+    "noteToolDraw": "Dessiner une marque",
+    "noteSnap": "Aimanter les points aux rues",
+    "noteFreeform": "Dessiner uniquement à main levée",
+    "noteHandle": "Déplacer un point · un clic le retire",
+    "noteBend": "Courber un segment droit par sa poignée centrale",
+    "noteClick": "Poser un point",
+    "noteToolText": "Écrire une légende"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -906,5 +956,51 @@
   },
   "dialog": {
     "help": "Touches de cet écran"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} note",
+      "other": "{count} notes"
+    },
+    "vertices": {
+      "one": "{count} point",
+      "other": "{count} points"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Note",
+    "toolPin": "Épingle",
+    "color": "Couleur",
+    "width": "Épaisseur",
+    "finish": "Terminer la ligne",
+    "done": "Terminé",
+    "undo": "Annuler la dernière modification des notes",
+    "redo": "Rétablir une modification des notes",
+    "hintNote": "Cliquez où la note doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "hintPin": "Cliquez le lieu ou le bâtiment à marquer · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "titleNote": "Note",
+    "titlePin": "Étiquette de l'épingle",
+    "titleLine": "Étiquette de la marque",
+    "placeholder": "Que doit-elle dire ?",
+    "textHint": "Ctrl+Entrée enregistre. Sur une carte PDF cela devient un commentaire que tout lecteur peut ouvrir ; sur un PNG c'est dessiné sur la carte.",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "menuEdit": "Modifier le texte",
+    "menuRecolor": "Recolorer avec le stylo courant",
+    "menuDelete": "Supprimer cette note",
+    "clearTitle": "Supprimer toutes les notes ?",
+    "clearMessage": "Toutes les notes, épingles et marques disparaîtront. C'est irréversible.",
+    "clearOk": "Les supprimer",
+    "toolDraw": "Dessiner",
+    "kindNote": "Note",
+    "kindPin": "Épingle",
+    "kindMark": "Marque",
+    "snap": "Aimanter aux rues",
+    "freeform": "Main levée",
+    "hintDraw": "Faites glisser pour dessiner · Cliquez pour poser des points · Entrée ou double-clic termine · Le clic droit déplace la carte",
+    "hintText": "Cliquez où le texte doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "hintFree": "Faites glisser pour dessiner · Un clic ne pose rien · Échap termine · ? pour toutes les touches",
+    "toolText": "Texte",
+    "titleText": "Légende",
+    "kindText": "Légende"
   }
 }

@@ -8,7 +8,8 @@
     "buildings": "Buildings",
     "clusters": "Territories",
     "aidNote": "An on-screen aid only. Territory cards are always printed on the OpenStreetMap layer.",
-    "gaps": "Uncovered areas"
+    "gaps": "Uncovered areas",
+    "notes": "Notes"
   },
   "map": {
     "youAreHere": "You are here"
@@ -102,7 +103,22 @@
     "zoomIn": "Zoom in one step",
     "zoomOut": "Zoom out one step",
     "atMaxZoom": "Already as close in as this background goes",
-    "atMinZoom": "Already as far out as this background goes"
+    "atMinZoom": "Already as far out as this background goes",
+    "groupNotes": "Notes",
+    "labelNotes": "Notes",
+    "notes": "Write notes, drop pins and mark streets",
+    "labelClearNotes": "Clear",
+    "clearNotes": "Delete every note, pin and mark",
+    "needsNotes": "There are no notes yet",
+    "labelLayerNotes": "Notes",
+    "undoNoteCount": "Undo the last change to the notes ({count} available)",
+    "undoNoteNone": "Nothing to undo",
+    "undoNoteStepCount": "Take back the last drawing step ({count} available)",
+    "undoNoteStepNone": "Nothing to take back",
+    "redoNoteCount": "Redo a change to the notes ({count} available)",
+    "redoNoteNone": "Nothing to redo",
+    "redoNoteStepCount": "Put back a drawing step ({count} available)",
+    "redoNoteStepNone": "Nothing to put back"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -354,7 +370,12 @@
     "compassN": "N",
     "compassE": "E",
     "compassS": "S",
-    "compassW": "W"
+    "compassW": "W",
+    "notesGroup": "Notes",
+    "notes": "Include the notes",
+    "notesHint": "A PDF card carries them as real annotations - one ink drawing per note, pin and mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead.",
+    "noteText": "Draw the words on the card",
+    "noteTextHint": "Off, a note keeps its mark and its words go only into the PDF's comments, which leaves a crowded card readable. A caption is nothing but words, so it is drawn either way."
   },
   "place": {
     "title": "Position the map",
@@ -667,6 +688,14 @@
         "title": "Undo anything",
         "body": "Undo and redo step back through boundary edits, cuts and merges, and Ctrl+Z works too. Inside the cut tool, the outline editor and the eraser they take back points, corners and strokes instead, so undo always means whatever you last did."
       },
+      "notesButton": {
+        "title": "Notes on the map",
+        "body": "Not everything worth knowing about a round is a boundary. A gate round the back, a block with no letterbox, the side of a street somebody else is walking — this is where those go. Notes lie over the territories rather than inside them, so splitting, cutting and merging leave every one of them exactly where it was put. This sample carries three."
+      },
+      "notes": {
+        "title": "Four pens",
+        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, the pencil draws along the ground, and the last pen writes a caption straight onto the map. Drag the pencil for a freehand line or click point by point; with “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it. “Freeform” goes the other way: only the hand draws, and a click places nothing. A finished mark wears the same handles a territory does — drag a point to move it, click one to take it out, and drag the dot halfway along a straight hop to bend it. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
+      },
       "layers": {
         "title": "What is shown",
         "body": "This group is the picture rather than the work. The pair at the top steps the map in and out, and the drop-down beside them chooses what is under it — the map itself, aerial imagery, terrain — since only one thing can be under it at a time. The aid layers are for the screen only: a card is always printed on the OpenStreetMap layer. Below the line, each switch takes one thing off the map without taking it out of the project: the boundary, the streets, the houses, the territory shapes."
@@ -754,7 +783,10 @@
     }
   },
   "demo": {
-    "street": "Sample street {n}"
+    "street": "Sample street {n}",
+    "notePin": "Blue gate at the back",
+    "noteText": "Track is unpaved past the second farm",
+    "noteLine": "Odd numbers only"
   },
   "shortcuts": {
     "title": "Keyboard and mouse",
@@ -862,7 +894,25 @@
     "listZoom": "Zoom to a territory on the map",
     "listPick": "Add one territory to the selection",
     "listRange": "Select every territory up to this one",
-    "listClose": "Close the list"
+    "listClose": "Close the list",
+    "groupNotes": "Notes tool",
+    "goNotes": "Take notes",
+    "noteToolNote": "Write a note",
+    "noteToolPin": "Drop a pin",
+    "noteFinish": "Finish the line",
+    "noteBack": "Take back the last drawing step",
+    "noteCancel": "Leave the notes tool",
+    "noteDrag": "Draw freehand",
+    "groupNoteText": "This note",
+    "noteTextSave": "Save the note",
+    "noteTextCancel": "Leave the note as it was",
+    "noteToolDraw": "Draw a mark",
+    "noteSnap": "Snap points to the streets",
+    "noteFreeform": "Draw freeform only",
+    "noteHandle": "Move a point · click one to take it out",
+    "noteBend": "Bend a straight hop by its middle handle",
+    "noteClick": "Place one point",
+    "noteToolText": "Write a caption"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
@@ -906,5 +956,51 @@
   },
   "dialog": {
     "help": "Keys for this screen"
+  },
+  "notes": {
+    "count": {
+      "one": "{count} note",
+      "other": "{count} notes"
+    },
+    "vertices": {
+      "one": "{count} point",
+      "other": "{count} points"
+    },
+    "widthValue": "{value} pt",
+    "toolNote": "Note",
+    "toolPin": "Pin",
+    "color": "Color",
+    "width": "Thickness",
+    "finish": "Finish line",
+    "done": "Done",
+    "undo": "Undo the last change to the notes",
+    "redo": "Redo a change to the notes",
+    "hintNote": "Click where the note belongs · Right-click for the tools · Esc leaves · ? for all keys",
+    "hintPin": "Click the place or building to mark · Right-click for the tools · Esc leaves · ? for all keys",
+    "titleNote": "Note",
+    "titlePin": "Pin label",
+    "titleLine": "Mark label",
+    "placeholder": "What should this say?",
+    "textHint": "Ctrl+Enter saves. On a printed PDF this becomes a comment any reader can open; on a PNG it is drawn onto the map.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "menuEdit": "Edit the text",
+    "menuRecolor": "Recolor to the current pen",
+    "menuDelete": "Delete this note",
+    "clearTitle": "Delete every note?",
+    "clearMessage": "Every note, pin and mark goes. This cannot be undone.",
+    "clearOk": "Delete them",
+    "toolDraw": "Draw",
+    "kindNote": "Note",
+    "kindPin": "Pin",
+    "kindMark": "Mark",
+    "snap": "Snap to streets",
+    "freeform": "Freeform",
+    "hintDraw": "Drag to draw · Click to place points · Enter or double-click finishes · Right-drag pans",
+    "hintText": "Click where the words belong · Right-click for the tools · Esc leaves · ? for all keys",
+    "hintFree": "Drag to draw · A click places nothing · Esc leaves · ? for all keys",
+    "toolText": "Text",
+    "titleText": "Caption",
+    "kindText": "Caption"
   }
 }

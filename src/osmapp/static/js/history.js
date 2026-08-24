@@ -39,6 +39,11 @@
  *     redoKey:   string
  *   }
  *
+ * A scope whose undo means different things at different moments - the notes
+ * pen steps a half-drawn mark while there is one and the note list otherwise -
+ * gives a function for either key instead of a string. The tooltip is where
+ * somebody reads what Ctrl+Z is about to do, so it has to follow.
+ *
  * Modes never call push(). push() records document state, and a half-drawn
  * split line or an eraser stroke is not document state - it is the gesture
  * that will eventually produce one.
@@ -192,11 +197,15 @@ App.history = (function () {
 
   /** i18n prefix for the active scope; controls.js appends Count / None. */
   function undoKey() {
-    return _active().undoKey;
+    return _key(_active().undoKey);
   }
 
   function redoKey() {
-    return _active().redoKey;
+    return _key(_active().redoKey);
+  }
+
+  function _key(value) {
+    return typeof value === "function" ? value() : value;
   }
 
   // SNAPSHOT / RESTORE

@@ -33,6 +33,7 @@ App.state = {
   buildingsLayerGroup: null,
   innerPolygonsLayerGroup: null,
   gapsLayerGroup: null,
+  notesLayerGroup: null,
   outerPolygonLayerGroup: null,
   outerPolygonLayer: null,
 
@@ -54,6 +55,14 @@ App.state = {
   outerPolygonDrawn: false, // whether an outer boundary exists yet
   clusters: [], // [{ feature: GeoJSON Feature, layer: L.Layer }]
 
+  // Notes
+  //
+  // Annotations laid over the working area: written notes, pins on places, and
+  // marks drawn along streets. Records rather than layers - App.notes owns
+  // what they look like - because they are also what a session, an export and
+  // a printed card carry. See notes.js.
+  notes: [], // [{ kind, points, text, color, width }]
+
   // UI / misc
   contextMenu: null, // the open context menu element, if any
   userLocationMarker: null,
@@ -67,6 +76,7 @@ App.state = {
   mergeMode: false, // joining territories together
   trimMode: false, // shrinking the boundary onto the buildings
   outlineMode: false, // reshaping the boundary vertex by vertex
+  noteMode: false, // writing annotations over the area
   selectedClusters: [], // [{ layer, feature }]
 
   // Trim tool (live, flipped from the trim toolbar)
@@ -83,6 +93,19 @@ App.state = {
   // and in farmland. See TRIM_OUTLIER_* below for how the unit is derived.
   trimOutlierFactor: 3, // far: this many times the median spacing
   trimOutlierGroupMax: 8, // small: at most this many buildings in the group
+
+  // Notes tool toggle (live, flipped from the notes toolbar)
+  //
+  // Whether a clicked vertex of a mark is pulled onto the street network and
+  // the hop before it routed along one. A freehand sweep ignores it: a sweep
+  // is a statement about where the hand went.
+  noteSnap: true,
+
+  // Whether the pen draws only what the hand does. With it on a click places
+  // nothing, so a mark is one swept curve and cannot come out with a straight
+  // hop in it - and there is nothing on it to snap, which is why the two
+  // switches are never both live.
+  noteFreeform: false,
 
   // Cut tool toggles (live, flipped from the cut toolbar)
   cutSnap: true, // snap vertices to the street network

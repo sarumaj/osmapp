@@ -115,7 +115,13 @@ App.gaps = (function () {
    * preview is noise even when it cannot be clicked.
    */
   function _suppressed() {
-    return !!(s.editMode || s.mergeMode || s.trimMode || s.outlineMode);
+    return !!(
+      s.editMode ||
+      s.mergeMode ||
+      s.trimMode ||
+      s.outlineMode ||
+      s.noteMode
+    );
   }
 
   // COMPUTE
