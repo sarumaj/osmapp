@@ -557,6 +557,23 @@ App.controls = (function () {
           },
         },
         {
+          // Beside Export rather than with the territory list: this is a sheet
+          // that leaves the app, like a file does, and it is about the project
+          // as a whole rather than about any one territory - which is the
+          // difference between it and every other way of printing here.
+          id: "wallcard",
+          icon: "fa-map",
+          labelKey: "toolbar.labelWallCard",
+          titleKey: "toolbar.wallCard",
+          disabledTitleKey: "toolbar.needsTerritories",
+          accent: "purple",
+          shortcut: "W",
+          enabled: hasClusters,
+          onClick: function () {
+            App.print.printWallCard();
+          },
+        },
+        {
           id: "reset",
           icon: "fa-trash",
           labelKey: "toolbar.labelReset",
@@ -730,6 +747,14 @@ App.controls = (function () {
           when: hasClusters,
           run: function () {
             App.labels.openList();
+          },
+        },
+        {
+          combos: ["W"],
+          labelKey: "shortcuts.goWallCard",
+          when: hasClusters,
+          run: function () {
+            App.print.printWallCard();
           },
         },
         {
@@ -1241,6 +1266,11 @@ App.controls = (function () {
     // and the territories in every PDF it builds, so the sheet on somebody's
     // desk is a restore point.
     input.accept = ".geojson,.json,.pdf";
+    // Several at once, because that is what assembling a wall map of a circuit
+    // is: the villages were surveyed on different evenings and saved as
+    // different files, and picking them one at a time means answering the
+    // replace-or-add question once per village.
+    input.multiple = true;
     input.hidden = true;
     document.body.appendChild(input);
 
@@ -1252,12 +1282,58 @@ App.controls = (function () {
     });
 
     L.DomEvent.on(input, "change", function (e) {
-      var file = e.target.files[0];
-      if (file) {
-        App.data.importData(file);
-        input.value = "";
-      }
+      var files = Array.prototype.slice.call(e.target.files || []);
+      input.value = "";
+      if (files.length) _import(files);
     });
+  }
+
+  /**
+   * Ask what an import means when there is already something to lose.
+   *
+   * Import has always replaced, and a project can now also be added to, so the
+   * two have to be told apart before the first file is read. Adding is the
+   * primary answer even though replacing is the older behavior: adding is the
+   * one that cannot destroy an evening's work, and somebody who meant to
+   * replace loses nothing by reading one more line first.
+   *
+   * With nothing open there is no question - the answer would be the same
+   * either way - and the dialog is skipped.
+   */
+  function _import(files) {
+    if (!hasAnything()) return _importAll(files, false);
+
+    return App.ui
+      .confirm({
+        titleKey: "confirm.importTitle",
+        messageKey: "confirm.importMessage",
+        detail: T("confirm.importDetail", { count: files.length }),
+        okKey: "confirm.importAdd",
+        altKey: "confirm.importReplace",
+        cancelKey: "confirm.cancel",
+      })
+      .then(function (answer) {
+        if (!answer) return;
+        // "alt" is truthy, so it has to be tested before the boolean.
+        return _importAll(files, answer !== "alt");
+      });
+  }
+
+  /**
+   * One file after another, each merging into what the one before it left.
+   *
+   * Sequential rather than parallel: every import rewrites the boundary, the
+   * territories and the OSM cache, and two of them doing that at once would
+   * interleave into whichever finished reading first. Only the first file can
+   * replace - after that there is a project being assembled, and the rest join
+   * it.
+   */
+  function _importAll(files, merge) {
+    return files.reduce(function (previous, file, index) {
+      return previous.then(function () {
+        return App.data.importData(file, { merge: merge || index > 0 });
+      });
+    }, Promise.resolve());
   }
 
   // Language picker

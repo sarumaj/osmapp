@@ -1297,7 +1297,7 @@
         data-i18n-attrs="aria-label=print.title"
         aria-label="Print territory card"
       >
-        <h2 class="app-dialog__title" data-i18n="print.title">
+        <h2 class="app-dialog__title" data-role="title" data-i18n="print.title">
           Print territory card
         </h2>
 
@@ -1552,7 +1552,7 @@
               </div>
             </fieldset>
 
-            <fieldset class="print-controls__group">
+            <fieldset class="print-controls__group" data-role="card-only">
               <legend data-i18n="print.card">Card</legend>
               <!-- Both fields are suggested rather than filled: the guess goes
                    in the placeholder and every candidate goes in the datalist.
@@ -1596,27 +1596,6 @@
               >
                 No template — the map prints on its own.
               </p>
-              <!-- Checked by default so the project data is embedded
-                   automatically. The checkbox lets users exclude it when
-                   handing a single card to someone who shouldn't see the
-                   full territory plan. -->
-              <label
-                class="print-controls__check"
-                data-role="attach-row"
-                hidden
-              >
-                <input type="checkbox" data-role="attach" checked />
-                <span data-i18n="print.attach">Embed the project in the PDF</span>
-              </label>
-              <p
-                class="print-controls__hint"
-                data-role="attach-hint"
-                data-i18n="print.attachHint"
-                hidden
-              >
-                The card can then be imported to restore the boundary and the
-                territories.
-              </p>
               <div class="print-controls__row">
                 <button
                   type="button"
@@ -1637,6 +1616,82 @@
                   Adjust map area
                 </button>
               </div>
+            </fieldset>
+
+            <!-- ── The wall map ──────────────────────────────────────────
+                 Shown instead of the Card fieldset above. Everything else in
+                 this column - the frame, the basemap, the decorations, the
+                 notes, the border, the eraser - means the same thing for a
+                 poster as it does for a card, which is why there is one
+                 dialog rather than two. -->
+            <fieldset
+              class="print-controls__group"
+              data-role="wall-only"
+              hidden
+            >
+              <legend data-i18n="print.wall">Wall map</legend>
+              <label class="print-controls__field">
+                <span data-i18n="print.pageSize">Sheet</span>
+                <select data-role="page-size">
+                  <option value="a4">A4</option>
+                  <option value="a3" selected>A3</option>
+                  <option value="a2">A2</option>
+                  <option value="a1">A1</option>
+                  <option value="a0">A0</option>
+                </select>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="landscape" />
+                <span data-i18n="print.landscape">Landscape</span>
+              </label>
+              <!-- Suggested from the same tally of OpenStreetMap addresses
+                   the cards use for their locality, and offered rather than
+                   filled in: see print.js. -->
+              <label class="print-controls__field">
+                <span data-i18n="print.wallTitleField">Heading</span>
+                <input
+                  type="text"
+                  data-role="title-text"
+                  autocomplete="off"
+                  data-i18n-attrs="title=print.wallTitleHint"
+                />
+                <datalist data-role="title-options"></datalist>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="numbers" checked />
+                <span data-i18n="print.wallNumbers">Number the territories</span>
+              </label>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="outline" checked />
+                <span data-i18n="print.wallOutline">Draw the area outline</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.wallHint">
+                Every territory of the project on one sheet, at the size chosen
+                here. Nothing is marked as printed &mdash; a poster is not a
+                stack of cards.
+              </p>
+            </fieldset>
+
+            <!-- Its own group rather than a line inside the Card fieldset:
+                 both a card printed onto a template and a wall map are PDFs
+                 of this app's own making, and both can carry the project.
+                 Checked by default so the backup happens without being asked
+                 for; unticking it is for handing one card to somebody who
+                 should not have the whole plan. -->
+            <fieldset
+              class="print-controls__group"
+              data-role="attach-group"
+              hidden
+            >
+              <legend data-i18n="print.backup">Backup</legend>
+              <label class="print-controls__check">
+                <input type="checkbox" data-role="attach" checked />
+                <span data-i18n="print.attach">Embed the project in the PDF</span>
+              </label>
+              <p class="print-controls__hint" data-i18n="print.attachHint">
+                The card can then be imported to restore the boundary and the
+                territories.
+              </p>
             </fieldset>
           </div>
         </div>

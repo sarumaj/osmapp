@@ -581,20 +581,156 @@ App.geometry = (function () {
   }
 
   /**
-   * Normalize whatever the outer polygon layer produces into a Feature<Polygon>.
+   * The outer boundary, as the separate areas it is made of.
+   *
+   * A project drawn in one sitting has one area. A project assembled by
+   * importing several - three villages of a circuit onto one wall map - has
+   * one per import, disjoint and often kilometers apart, and the boundary is
+   * then a MultiPolygon. Both cases come through here as a list, so nothing
+   * downstream has to ask which it is holding.
    *
    * L.polygon.toGeoJSON() gives a Feature; L.geoJSON().toGeoJSON() gives a
    * FeatureCollection; either may be a MultiPolygon. Invalid geometry is
    * repaired with a zero buffer rather than rejected.
    *
+   * @returns {Array<Object>} Feature<Polygon>, largest first, possibly empty
+   */
+  function outerParts(layer) {
+    if (!layer) return [];
+    return polygonParts(layer.toGeoJSON())
+      .map(_repaired)
+      .filter(Boolean)
+      .sort(function (a, b) {
+        return area(b) - area(a);
+      });
+  }
+
+  /** A polygon turf will accept, or null if a zero buffer cannot save it. */
+  function _repaired(poly) {
+    if (!poly || !poly.geometry) return null;
+    if (!turf.booleanValid || turf.booleanValid(poly)) return poly;
+    try {
+      return turf.buffer(poly, 0) || poly;
+    } catch (e) {
+      return poly;
+    }
+  }
+
+  /**
+   * A list of single-Polygon Features as one Feature, or null when empty.
+   *
+   * The counterpart of largestPolygon() for the cases where the parts are the
+   * point rather than noise: a boundary holding three villages, whether it is
+   * being read off a layer, out of a file, or back from a repair that was
+   * applied to each part in turn.
+   *
+   * @param {Array<Object>} parts
+   * @returns {Object|null} Feature<Polygon|MultiPolygon>
+   */
+  function multiPolygonOf(parts) {
+    if (!parts || !parts.length) return null;
+    if (parts.length === 1) return parts[0];
+    return turf.multiPolygon(
+      parts.map(function (part) {
+        return part.geometry.coordinates;
+      }),
+    );
+  }
+
+  /**
+   * The whole outer boundary - every area in it - as one Feature.
+   *
+   * This is the function to reach for wherever "inside the boundary" is the
+   * question: what is covered, what is uncovered, what a card frames, what a
+   * hand-drawn territory is clipped against. getOuterFeature() below answers a
+   * different question, and asking it here is how a project holding three
+   * villages silently becomes a project holding the biggest one.
+   *
+   * @returns {Object} Feature<Polygon|MultiPolygon>
    * @throws when the layer is absent or holds nothing polygonal
    */
-  function getOuterFeature(layer) {
+  function outerFeature(layer) {
     if (!layer) throw new Error("No outer polygon");
-    var poly = largestPolygon(layer.toGeoJSON());
-    if (!poly) throw new Error("Outer polygon has no polygonal geometry");
-    if (!turf.booleanValid || turf.booleanValid(poly)) return poly;
-    return turf.buffer(poly, 0) || poly;
+    var whole = multiPolygonOf(outerParts(layer));
+    if (!whole) throw new Error("Outer polygon has no polygonal geometry");
+    return whole;
+  }
+
+  /**
+   * The single area a one-ring tool works on.
+   *
+   * Reshaping an outline, trimming it onto its buildings and splitting it into
+   * territories are all statements about one place. There is no sensible
+   * meaning for "trim these three villages onto their buildings" as a single
+   * gesture, and the ring-walking each of those tools does assumes one ring
+   * besides.
+   *
+   * `anchor` is where the user was pointing - the map centre, a right-click, a
+   * selected territory. The area containing it wins; failing that the nearest
+   * one; failing that the largest, which is what this function returned for
+   * every project before a boundary could have more than one area at all.
+   *
+   * @param {L.Layer} layer
+   * @param {Array<number>|Object} [anchor] [lng, lat], or anything with an
+   *   interior point - a Feature, a geometry, a cluster outline
+   * @returns {Object} Feature<Polygon>
+   * @throws when the layer is absent or holds nothing polygonal
+   */
+  function getOuterFeature(layer, anchor) {
+    if (!layer) throw new Error("No outer polygon");
+    var parts = outerParts(layer);
+    if (!parts.length) {
+      throw new Error("Outer polygon has no polygonal geometry");
+    }
+    if (parts.length === 1 || !anchor) return parts[0];
+    return partAt(parts, anchor) || parts[0];
+  }
+
+  /**
+   * Which of `parts` holds `anchor`, or the one nearest to it.
+   *
+   * Nearest rather than none: the anchor is a viewport centre as often as it
+   * is a click, and a centre falls between two areas whenever both are on
+   * screen. Answering "none" there would send the tool to the largest area
+   * rather than to the one being looked at, which is the failure this exists
+   * to avoid.
+   *
+   * @param {Array<Object>|Object} parts Feature<Polygon> list, or anything
+   *   polygonParts() accepts
+   * @param {Array<number>|Object} anchor [lng, lat] or a feature
+   * @returns {Object|null} one of `parts`
+   */
+  function partAt(parts, anchor) {
+    var list = Array.isArray(parts) ? parts : polygonParts(parts);
+    if (!list.length) return null;
+
+    var coord = Array.isArray(anchor) ? anchor : interiorCoord(anchor);
+    if (!coord || coord.length < 2) return list[0];
+    var point = turf.point(coord);
+
+    var nearest = null;
+    var best = Infinity;
+    for (var i = 0; i < list.length; i++) {
+      try {
+        if (turf.booleanPointInPolygon(point, list[i])) return list[i];
+        // The outer ring alone. turf.polygonToLine hands back a collection
+        // rather than a line as soon as a polygon has a hole in it, and
+        // pointToLineDistance throws on a collection - so a boundary with a
+        // lake in it would fall out of this loop entirely.
+        var d = turf.pointToLineDistance(
+          point,
+          turf.lineString(list[i].geometry.coordinates[0]),
+          { units: "meters" },
+        );
+        if (d < best) {
+          best = d;
+          nearest = list[i];
+        }
+      } catch (e) {
+        /* an unmeasurable part simply loses */
+      }
+    }
+    return nearest || list[0];
   }
 
   /**
@@ -1026,10 +1162,14 @@ App.geometry = (function () {
 
     // polygon normalization
     polygonParts: polygonParts,
+    multiPolygonOf: multiPolygonOf,
     largestPolygon: largestPolygon,
     interiorPoint: interiorPoint,
     interiorCoord: interiorCoord,
+    outerParts: outerParts,
+    outerFeature: outerFeature,
     getOuterFeature: getOuterFeature,
+    partAt: partAt,
     toLayer: toLayer,
 
     // math

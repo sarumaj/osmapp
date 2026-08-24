@@ -103,7 +103,7 @@ App.outline = (function () {
     _redo = [];
 
     try {
-      _original = JSON.parse(JSON.stringify(G.getOuterFeature(_layer).geometry));
+      _original = JSON.parse(JSON.stringify(G.outerFeature(_layer).geometry));
     } catch (e) {
       _original = null;
     }
@@ -174,43 +174,58 @@ App.outline = (function () {
     _redo = [];
   }
 
-  // RING
+  // RINGS
 
-  /**
-   * The outer ring as a plain array, or null.
-   *
-   * Leaflet nests latlngs by ring and by part, and how deep depends on
-   * whether the layer is a Polygon or a MultiPolygon - so this walks down to
-   * the first array of LatLngs rather than assuming a depth.
-   */
-  function _ring() {
+  // Leaflet nests latlngs by ring and by part, and how deep depends on whether
+  // the layer holds a Polygon or a MultiPolygon. Every function below walks
+  // that tree rather than assuming a depth, which is what lets the tool
+  // reshape a boundary made of several areas - a project assembled by
+  // importing three villages - with the same handles, the same undo stack and
+  // the same Apply as a boundary made of one.
+  //
+  // The leaf test is "an array whose first entry is a number", which is a
+  // coordinate pair. A ring of two points is not a ring, so nothing else in
+  // the tree can look like one.
+
+  /** A snapshot of the layer as nested [lat, lng] pairs, or null. */
+  function _snapshot() {
     if (!_layer || !_layer.getLatLngs) return null;
     var node = _layer.getLatLngs();
-    while (Array.isArray(node) && node.length && Array.isArray(node[0]))
-      node = node[0];
-    return Array.isArray(node) ? node : null;
+    return Array.isArray(node) ? _fromLatLngs(node) : null;
   }
 
+  function _fromLatLngs(node) {
+    if (Array.isArray(node)) return node.map(_fromLatLngs);
+    return [node.lat, node.lng];
+  }
+
+  function _toLatLngs(node) {
+    if (_isPair(node)) return L.latLng(node[0], node[1]);
+    return node.map(_toLatLngs);
+  }
+
+  function _isPair(node) {
+    return (
+      Array.isArray(node) && node.length === 2 && typeof node[0] === "number"
+    );
+  }
+
+  function _countPairs(node) {
+    if (_isPair(node)) return 1;
+    if (!Array.isArray(node)) return 0;
+    return node.reduce(function (total, child) {
+      return total + _countPairs(child);
+    }, 0);
+  }
+
+  /** Every corner the tool is holding handles for, across every area. */
   function _vertexCount() {
-    var ring = _ring();
-    return ring ? ring.length : 0;
-  }
-
-  function _snapshot() {
-    var ring = _ring();
-    if (!ring) return null;
-    return ring.map(function (point) {
-      return [point.lat, point.lng];
-    });
+    return _countPairs(_snapshot());
   }
 
   function _restore(snapshot) {
     if (!snapshot || !_layer) return;
-    _layer.setLatLngs(
-      snapshot.map(function (pair) {
-        return L.latLng(pair[0], pair[1]);
-      }),
-    );
+    _layer.setLatLngs(_toLatLngs(snapshot));
     // The editor caches a marker per vertex, so the handles have to be rebuilt
     // rather than left pointing at latlngs that are no longer in the ring.
     try {
@@ -256,7 +271,7 @@ App.outline = (function () {
     // with the shape the tool opened with - otherwise the very gesture most
     // likely to be a no-op, picking a corner up and putting it back, is the
     // one that always records one.
-    var last = _undo.length ? _undo[_undo.length - 1] : _originalRing();
+    var last = _undo.length ? _undo[_undo.length - 1] : _originalLatLngs();
     if (last && JSON.stringify(last) === JSON.stringify(shot)) return;
     _undo.push(shot);
     if (_undo.length > MAX) _undo.shift();
@@ -270,7 +285,7 @@ App.outline = (function () {
     // The stack holds the states *after* each change, so the one to return to
     // is the entry beneath the top - and the original when there is none.
     _undo.pop();
-    _restore(_undo.length ? _undo[_undo.length - 1] : _originalRing());
+    _restore(_undo.length ? _undo[_undo.length - 1] : _originalLatLngs());
     return true;
   }
 
@@ -282,14 +297,17 @@ App.outline = (function () {
     return true;
   }
 
-  function _originalRing() {
-    if (!_original) return null;
-    var coords = _original.coordinates;
-    while (Array.isArray(coords) && coords.length && Array.isArray(coords[0][0]))
-      coords = coords[0];
-    return (coords || []).map(function (pair) {
-      return [pair[1], pair[0]];
-    });
+  /** The shape the tool opened with, in the same nested form as a snapshot. */
+  function _originalLatLngs() {
+    if (!_original || !_original.coordinates) return null;
+    return _fromCoords(_original.coordinates);
+  }
+
+  function _fromCoords(node) {
+    // GeoJSON is [lng, lat] and Leaflet is [lat, lng]. The swap is the whole
+    // reason this is not _fromLatLngs with a different argument.
+    if (_isPair(node)) return [node[1], node[0]];
+    return node.map(_fromCoords);
   }
 
   var OUTLINE_SCOPE = {
@@ -468,7 +486,10 @@ App.outline = (function () {
   function _feature() {
     if (!_layer) return null;
     try {
-      var feature = G.getOuterFeature(_layer);
+      // The whole layer, every area of it: this is the shape Apply installs
+      // as the new boundary, so anything left out here is an area the reshape
+      // silently deletes.
+      var feature = G.outerFeature(_layer);
       return feature && feature.geometry ? feature : null;
     } catch (e) {
       return null;
@@ -480,14 +501,14 @@ App.outline = (function () {
     if (!_original || !_layer) return;
     _redo = [];
     _undo = [];
-    _restore(_originalRing());
+    _restore(_originalLatLngs());
   }
 
   function cancel() {
     // Leaving without applying must leave the boundary as it was found, and
     // the layer has been edited in place - so the shape is put back before
     // the mode ends rather than relying on the caller to notice.
-    if (_original && _layer && _undo.length) _restore(_originalRing());
+    if (_original && _layer && _undo.length) _restore(_originalLatLngs());
     if (s.outlineMode) toggle();
   }
 
@@ -636,25 +657,34 @@ App.outline = (function () {
     return count;
   }
 
-  /** Valid, single-ring, and big enough to be a boundary at all. */
+  /**
+   * Valid and big enough to be a boundary at all.
+   *
+   * Area by area rather than all at once, because the repair below is allowed
+   * to throw geometry away: largestPolygon on a boundary holding three
+   * villages would keep the largest village. Asking it per area keeps the
+   * meaning it was written with - of the two lobes a self-crossing ring
+   * splits into, keep the one worth having.
+   */
   function _sanitized() {
     var poly = _feature();
     if (!poly) return null;
     if (_vertexCount() < 3) return null;
 
-    var healed = poly;
-    try {
-      // A ring dragged by hand can cross itself, and a bow-tie is not a
-      // boundary - buffer(0) is the standard repair and largestPolygon picks
-      // the lobe worth keeping when it splits into two.
-      if (turf.booleanValid && !turf.booleanValid(healed)) {
-        healed = G.largestPolygon(turf.buffer(healed, 0)) || null;
+    var parts = [];
+    G.polygonParts(poly).forEach(function (part) {
+      var healed = part;
+      try {
+        if (turf.booleanValid && !turf.booleanValid(healed)) {
+          healed = G.largestPolygon(turf.buffer(healed, 0)) || null;
+        }
+      } catch (e) {
+        healed = null;
       }
-    } catch (e) {
-      healed = null;
-    }
-    if (!healed || !healed.geometry) return null;
-    return G.area(healed) > 0 ? healed : null;
+      if (healed && healed.geometry && G.area(healed) > 0) parts.push(healed);
+    });
+
+    return G.multiPolygonOf(parts);
   }
 
   function _round(value) {

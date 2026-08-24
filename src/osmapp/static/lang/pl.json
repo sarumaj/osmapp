@@ -29,7 +29,7 @@
     "redoStrokeNone": "Nie ma pociągnięcia do ponowienia",
     "redoCount": "Ponów cofniętą zmianę (dostępne: {count})",
     "locate": "Pokaż moją lokalizację",
-    "import": "Importuj eksport GeoJSON lub wydrukowaną kartę",
+    "import": "Zaimportuj eksport GeoJSON lub wydrukowaną kartę albo dodaj je do tego projektu",
     "export": "Zapisz wszystko do GeoJSON",
     "refetch": "Pobierz ponownie dane OSM dla granicy zewnętrznej",
     "partition": "Podziel obszar na tereny",
@@ -118,7 +118,9 @@
     "redoNoteCount": "Ponów zmianę w notatkach (dostępne: {count})",
     "redoNoteNone": "Nie ma czego ponowić",
     "redoNoteStepCount": "Ponów krok rysowania (dostępne: {count})",
-    "redoNoteStepNone": "Nie ma czego ponowić"
+    "redoNoteStepNone": "Nie ma czego ponowić",
+    "labelWallCard": "Mapa ścienna",
+    "wallCard": "Wydrukuj wszystkie tereny na jednym arkuszu"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -164,7 +166,8 @@
     "retrying": "Ponawianie… (próba {attempt} z {total})",
     "readingCard": "Odczytywanie karty…",
     "restoring": "Przywracanie pracy…",
-    "importing": "Otwieranie projektu…"
+    "importing": "Otwieranie projektu…",
+    "areaProgress": "(obszar {index} z {total})"
   },
   "phase": {
     "samples": "Zbieranie punktów próbnych",
@@ -400,7 +403,18 @@
     "notes": "Dołącz notatki",
     "notesHint": "Karta PDF niesie je jako prawdziwe adnotacje — po jednym rysunku na notatkę, pinezkę i zaznaczenie — które każdy czytnik otworzy, przesunie lub usunie. PNG nie ma na to miejsca, więc tam są po prostu narysowane na mapie.",
     "noteText": "Rysuj tekst na karcie",
-    "noteTextHint": "Wyłączone: notatka zachowuje swój znacznik, a jej treść trafia tylko do komentarzy PDF, dzięki czemu zatłoczona karta pozostaje czytelna. Podpis to sam tekst, więc jest rysowany zawsze."
+    "noteTextHint": "Wyłączone: notatka zachowuje swój znacznik, a jej treść trafia tylko do komentarzy PDF, dzięki czemu zatłoczona karta pozostaje czytelna. Podpis to sam tekst, więc jest rysowany zawsze.",
+    "wallTitle": "Drukuj mapę ścienną",
+    "wall": "Mapa ścienna",
+    "wallHint": "Wszystkie tereny projektu na jednym arkuszu, w wybranym tutaj rozmiarze. Nic nie zostaje oznaczone jako wydrukowane — plakat to nie plik kart.",
+    "pageSize": "Arkusz",
+    "landscape": "Poziomo",
+    "wallTitleField": "Nagłówek",
+    "wallTitleHint": "Drukowany u góry arkusza. Propozycja pochodzi z adresów OpenStreetMap w projekcie; można ją nadpisać.",
+    "wallNumbers": "Numeruj tereny",
+    "wallOutline": "Rysuj obrys obszaru",
+    "backup": "Kopia zapasowa",
+    "errNoTerritories": "Nie ma jeszcze terenów na mapę ścienną."
   },
   "place": {
     "title": "Umieść mapę",
@@ -619,7 +633,17 @@
     "reset": "Wyczyść",
     "clearPrintedTitle": "Usunąć oznaczenia wydruku?",
     "clearPrinted": "Usuń",
-    "editInstead": "Zamiast tego edytuj"
+    "editInstead": "Zamiast tego edytuj",
+    "importTitle": "Dodać do tego projektu?",
+    "importMessage": "Projekt jest już otwarty. Dodanie zachowa go i umieści zaimportowane obszary obok; zastąpienie go usunie.",
+    "importDetail": {
+      "one": "Wybrano {count} plik.",
+      "few": "Wybrano {count} pliki.",
+      "many": "Wybrano {count} plików.",
+      "other": "Wybrano {count} pliku."
+    },
+    "importAdd": "Dodaj",
+    "importReplace": "Zastąp"
   },
   "cut": {
     "vertices": {
@@ -750,8 +774,8 @@
         "body": "Zapis zapisuje granicę, pobrane dane i wszystkie tereny do jednego pliku GeoJSON. Tak powstaje kopia zapasowa — i pierwsza połowa drogi między urządzeniami."
       },
       "importFiles": {
-        "title": "… i przywróć ją z powrotem",
-        "body": "Wczytanie odczytuje taki plik z powrotem, zastępując to, co jest na mapie. Tak samo przenosi się na telefon pracę zaczętą na komputerze."
+        "title": "… i przywrócić",
+        "body": "Import wczytuje taki plik z powrotem - albo wydrukowaną kartę, która niesie projekt w sobie. Jeśli coś już jest na mapie, pojawia się pytanie, czy dodać, czy zastąpić; można wskazać kilka plików naraz. Tak właśnie miejscowości obwodu trafiają do jednego projektu."
       },
       "reset": {
         "title": "Zacznij od nowa",
@@ -820,6 +844,10 @@
       "autohealScope": {
         "title": "Jedno cofnięcie albo jeden wiersz",
         "body": "Cała naprawa to jedno cofnięcie, a różdżka przy jednym wierszu robi to samo tylko dla niego. Do tej listy wraca się w każdej chwili przyciskiem „Drukuj” w panelu narzędzi albo liczbą terenów w polu na dole po prawej."
+      },
+      "wallCard": {
+        "title": "Jeden arkusz na ścianę",
+        "body": "Rysuje wszystkie tereny projektu na jednym arkuszu, z numerami, aż do A0. Ten sam podgląd co przy karcie - przesuwanie, powiększanie, obrót, podziałka, kompas - z wyborem rozmiaru arkusza obok. Nic nie zostaje oznaczone jako wydrukowane, więc zapis wydanych kart pozostaje nienaruszony."
       }
     }
   },
@@ -953,7 +981,8 @@
     "noteHandle": "Przesuń punkt · kliknięcie go usuwa",
     "noteBend": "Wygnij prosty odcinek za środkowy uchwyt",
     "noteClick": "Postaw jeden punkt",
-    "noteToolText": "Napisz podpis"
+    "noteToolText": "Napisz podpis",
+    "goWallCard": "Wydrukuj mapę ścienną"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",

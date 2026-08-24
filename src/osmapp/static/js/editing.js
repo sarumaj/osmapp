@@ -1660,7 +1660,7 @@ App.editing = (function () {
         try {
           var clipped = G.intersect(
             merged,
-            G.getOuterFeature(s.outerPolygonLayer),
+            G.outerFeature(s.outerPolygonLayer),
           );
           if (clipped && clipped.geometry) merged = clipped;
         } catch (e) {

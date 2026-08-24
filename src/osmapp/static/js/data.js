@@ -44,48 +44,79 @@ App.data = (function () {
   var _cancelled = false;
 
   /**
-   * @param {Object} geojson polygon to download
-   * @param {boolean} [forceRefresh] accepted and ignored; there is no cache
-   *   to bypass, and the body below says why
+   * Download everything inside a boundary, one area at a time.
+   *
+   * The server takes a single polygon and refuses one over MAX_AREA_KM2,
+   * which is what keeps a careless drag off Overpass' back. A boundary holding
+   * three villages is therefore three pairs of requests rather than one pair
+   * over their common bounding box - which for villages twenty kilometers
+   * apart is a request for the farmland between them, and a refusal.
+   *
+   * @param {Object} geojson polygon or multipolygon to download
+   * @param {{force?: boolean, merge?: boolean}} [opts] `force` is accepted and
+   *   ignored; there is no cache to bypass, and the body below says why.
+   *   `merge` adds what comes back to the data already on screen, for an area
+   *   joining a project that is already open.
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>} always resolves
    */
-  function fetchData(geojson, forceRefresh) {
+  function fetchData(geojson, opts) {
+    opts = opts || {};
     // Every call downloads. There is no cache to consult: `s.cachedPolygon`,
     // the field a "have we already covered this area" check would read, is
-    // assigned nowhere in the app, and `forceRefresh` is accepted but never
+    // assigned nowhere in the app, and `opts.force` is accepted but never
     // read. Skipping a download the user has just confirmed also needs an
     // answer for what a confirmed download that then does not happen looks
     // like on screen.
+    var areas = G.polygonParts(geojson);
+    if (!areas.length) return Promise.resolve({ failed: true });
+
     _cancelled = false;
     App.ui.showBusy(
       T("loading.streets"),
-      T("loading.streetsStatus"),
+      _areaStatus("loading.streetsStatus", 0, areas.length),
       cancelFetch,
     );
 
-    var streets = null;
+    var streets = [];
+    var buildings = [];
+    var bounds = null;
 
-    return _post("/fetch_streets", geojson)
-      .then(function (data) {
-        streets = data.streets;
-        App.ui.setOverlayText(
-          T("loading.buildings"),
-          T("loading.buildingsStatus"),
-        );
-        return _post("/fetch_buildings", geojson);
-      })
-      .then(function (data) {
+    /** Recursive rather than a loop: each area is two awaited requests. */
+    function fetchArea(index) {
+      if (index >= areas.length) return Promise.resolve();
+      App.ui.setOverlayText(
+        T("loading.streets"),
+        _areaStatus("loading.streetsStatus", index, areas.length),
+      );
+      return _post("/fetch_streets", areas[index])
+        .then(function (data) {
+          streets = streets.concat((data.streets || {}).features || []);
+          App.ui.setOverlayText(
+            T("loading.buildings"),
+            _areaStatus("loading.buildingsStatus", index, areas.length),
+          );
+          return _post("/fetch_buildings", areas[index]);
+        })
+        .then(function (data) {
+          buildings = buildings.concat((data.buildings || {}).features || []);
+          bounds = _widen(bounds, data.bounds);
+          return fetchArea(index + 1);
+        });
+    }
+
+    return fetchArea(0)
+      .then(function () {
         App.ui.setOverlayText(T("loading.preparing"), "");
         App.ui.hideOverlay();
         s._skipOuterClear = true;
-        displayResults({
-          streets: { type: "FeatureCollection", features: streets.features },
-          buildings: {
-            type: "FeatureCollection",
-            features: data.buildings.features,
+        displayResults(
+          {
+            streets: { type: "FeatureCollection", features: streets },
+            buildings: { type: "FeatureCollection", features: buildings },
+            bounds: bounds,
           },
-          bounds: data.bounds,
-        });
+          { merge: !!opts.merge },
+        );
         s._skipOuterClear = false;
         return {};
       })
@@ -126,6 +157,9 @@ App.data = (function () {
    * neither should download on the spot: the click that ends a drawing is about
    * the drawing, and a search result is often only a way to pan the map.
    *
+   * @param {Object} geojson polygon or multipolygon to download
+   * @param {{force?: boolean, merge?: boolean}} [opts] passed through to
+   *   fetchData
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>}
    */
   function confirmAndFetch(geojson, opts) {
@@ -147,7 +181,7 @@ App.data = (function () {
           if (App.controls) App.controls.refresh();
           return { cancelled: true };
         }
-        return fetchData(geojson, opts.force);
+        return fetchData(geojson, opts);
       });
   }
 
@@ -161,6 +195,35 @@ App.data = (function () {
     } catch (e) {
       return "";
     }
+  }
+
+  /**
+   * The overlay's second line, told which area of how many it is on.
+   *
+   * Silent about it when there is only one, which is every project drawn
+   * rather than assembled: "area 1 of 1" is a progress report on a job with no
+   * progress to report.
+   */
+  function _areaStatus(key, index, total) {
+    var status = T(key);
+    if (total < 2) return status;
+    var progress = T("loading.areaProgress", {
+      index: index + 1,
+      total: total,
+    });
+    return status + " " + progress;
+  }
+
+  /** The smallest bounds box holding both, either of which may be missing. */
+  function _widen(box, next) {
+    if (!next) return box;
+    if (!box) return next;
+    return {
+      west: Math.min(box.west, next.west),
+      south: Math.min(box.south, next.south),
+      east: Math.max(box.east, next.east),
+      north: Math.max(box.north, next.north),
+    };
   }
 
   /** Abandon the download in flight, including a pending backoff. */
@@ -321,22 +384,31 @@ App.data = (function () {
 
   // RENDER
 
-  function displayResults(data) {
+  /**
+   * @param {Object} data streets, buildings and bounds to draw
+   * @param {{merge?: boolean}} [opts] merge folds the data into what is
+   *   already cached and leaves the territories alone, for an area joining a
+   *   project that is already open. Without it this is a fresh download and
+   *   the territories belong to the area being replaced.
+   */
+  function displayResults(data, opts) {
+    var merge = !!(opts && opts.merge);
+
     if (!s._skipOuterClear) {
       s.outerPolygonLayerGroup.clearLayers();
       s.outerPolygonLayer = null;
     }
-    App.polygons.setClusters([], { silent: true });
+    if (!merge) App.polygons.setClusters([], { silent: true });
 
-    s.cachedStreets = data.streets || {
-      type: "FeatureCollection",
-      features: [],
-    };
-    s.cachedBuildings = data.buildings || {
-      type: "FeatureCollection",
-      features: [],
-    };
-    s.cachedBounds = data.bounds || null;
+    s.cachedStreets = merge
+      ? _mergedCollection(s.cachedStreets, data.streets)
+      : data.streets || { type: "FeatureCollection", features: [] };
+    s.cachedBuildings = merge
+      ? _mergedCollection(s.cachedBuildings, data.buildings)
+      : data.buildings || { type: "FeatureCollection", features: [] };
+    s.cachedBounds = merge
+      ? _widen(s.cachedBounds, data.bounds)
+      : data.bounds || null;
     s.outerPolygonDrawn = !!s.outerPolygonLayer || s.outerPolygonDrawn;
 
     _indexStreetSegments(s.cachedStreets);
@@ -474,18 +546,23 @@ App.data = (function () {
    * Shared by file import and session restore.
    *
    * @param {{outerPolygon, streets, buildings, bounds, clusters, notes}} payload
+   * @param {{merge?: boolean}} [opts] merge adds the bundle to the project on
+   *   screen instead of replacing it - see _merged for what that means for
+   *   each part of it
    * @returns {number} how many territories were restored; a payload with none
    *   gets the default single territory covering the whole boundary
    * @throws when the version does not match or the boundary is unusable
    */
-  function applyPayload(payload) {
+  function applyPayload(payload, opts) {
     if (payload && payload.version != null && payload.version !== PAYLOAD_VERSION) {
       throw new Error("unsupported export version " + payload.version);
     }
 
     _ensureLayerGroups();
 
-    var outer = G.largestPolygon(payload.outerPolygon);
+    if (opts && opts.merge && s.outerPolygonLayer) payload = _merged(payload);
+
+    var outer = _boundary(payload.outerPolygon);
     if (!outer) throw new Error("no usable outer boundary");
 
     App.polygons.setOuterLayer(
@@ -503,7 +580,7 @@ App.data = (function () {
     // A payload with no notes in it clears them, which is what applying a
     // project means: the annotations on screen belong to the one being
     // replaced, and keeping them would scatter another area's remarks over
-    // this one.
+    // this one. A merge has already folded the two lists together.
     App.notes.restore(payload.notes);
 
     var restored = App.polygons.setClusters(payload.clusters || []);
@@ -515,6 +592,151 @@ App.data = (function () {
   }
 
   /**
+   * The boundary out of a payload, with every area of it kept.
+   *
+   * largestPolygon() stood here until a project could hold more than one area.
+   * It is the right answer for a file that has picked up a stray sliver from a
+   * clipping bug, and exactly the wrong one for a three-village project saved
+   * by this build: it would open as the biggest village, with the other two
+   * gone and nothing said.
+   *
+   * @returns {Object|null} Feature<Polygon|MultiPolygon>
+   */
+  function _boundary(x) {
+    return G.multiPolygonOf(G.polygonParts(x));
+  }
+
+  // MERGING TWO PROJECTS
+  //
+  // A wall map of a circuit is several projects: villages surveyed on
+  // different evenings, or one town split across two machines because nobody
+  // wanted to send a nine-megabyte file twice. Merging them is what turns that
+  // into one sheet - and it is the only operation in the app where two
+  // boundaries meet, which is why the rules are written down here rather than
+  // inferred from each helper.
+  //
+  //   - The **boundary** gains the incoming areas. Two that overlap are
+  //     dissolved into one; two that are disjoint stay separate, which is what
+  //     makes the boundary a MultiPolygon and the reason the rest of the app
+  //     learned to expect one.
+  //   - **Territories** are appended, minus any ground the project already
+  //     covers. Territories not overlapping is the one invariant the building
+  //     counts, the gap finder and the printed marks all read, and the shapes
+  //     already on screen are the ones somebody has been working on.
+  //   - **Streets and buildings** are appended and de-duplicated by OSM id, so
+  //     two downloads that shared a boundary street do not draw it twice.
+  //   - **Notes** are appended. They are somebody's own remarks about ground
+  //     that is still there, and there is no version of "the same note twice"
+  //     that can be recognized.
+
+  /** The project on screen with `incoming` folded into it. */
+  function _merged(incoming) {
+    var current = buildPayload();
+    var clusters = _fitted(incoming.clusters || [], current.clusters);
+
+    console.log(
+      ">>> Merging a project in —",
+      G.polygonParts(incoming.outerPolygon).length,
+      "area(s),",
+      clusters.length,
+      "of",
+      (incoming.clusters || []).length,
+      "territories kept",
+    );
+
+    return {
+      version: PAYLOAD_VERSION,
+      outerPolygon: G.unionAll(
+        G.polygonParts(current.outerPolygon).concat(
+          G.polygonParts(incoming.outerPolygon),
+        ),
+      ),
+      bounds: _widen(current.bounds, incoming.bounds),
+      streets: _mergedCollection(current.streets, incoming.streets),
+      buildings: _mergedCollection(current.buildings, incoming.buildings),
+      clusters: current.clusters.concat(clusters),
+      notes: (current.notes || []).concat(incoming.notes || []),
+    };
+  }
+
+  /**
+   * Incoming territories with the ground the project already covers taken off.
+   *
+   * Two projects that overlap is how an import goes wrong in practice: the
+   * same village exported twice, or a boundary redrawn one street wider before
+   * the second half of the round. Laying the newcomers on top would leave
+   * every building inside the overlap counted twice and belonging to two
+   * cards.
+   *
+   * What is left of a territory after the subtraction can be nothing, in which
+   * case it is dropped, or a scrap, in which case MIN_REMAINDER_M2 - the same
+   * floor a hand-drawn territory leaves behind - drops it too.
+   */
+  function _fitted(incoming, existing) {
+    if (!existing.length) return incoming.slice();
+
+    var boxes = existing.map(function (feature) {
+      return turf.bbox(feature);
+    });
+
+    return incoming
+      .map(function (feature) {
+        var box;
+        try {
+          box = turf.bbox(feature);
+        } catch (e) {
+          return null;
+        }
+
+        var kept = feature;
+        for (var i = 0; i < existing.length && kept; i++) {
+          if (!G.bboxOverlap(box, boxes[i])) continue;
+          try {
+            kept = G.difference(kept, existing[i]);
+          } catch (e) {
+            /* an unsubtractable pair leaves the shape as it was */
+          }
+        }
+
+        if (!kept || !kept.geometry) return null;
+        if (G.area(kept) < (s.MIN_REMAINDER_M2 || 50)) return null;
+        return {
+          type: "Feature",
+          geometry: kept.geometry,
+          properties: Object.assign({}, feature.properties || {}),
+        };
+      })
+      .filter(Boolean);
+  }
+
+  /**
+   * Two feature collections as one, without the features they share.
+   *
+   * Keyed on the OSM id, which every street and building the server hands back
+   * carries: two downloads over neighboring areas both return the road along
+   * the join, and drawing it twice doubles its weight on screen and its cost
+   * in every filtered-view pass. A feature with no id is kept unconditionally,
+   * since there is nothing to compare it on.
+   */
+  function _mergedCollection(a, b) {
+    var features = [];
+    var seen = Object.create(null);
+
+    [a, b].forEach(function (collection) {
+      ((collection && collection.features) || []).forEach(function (feature) {
+        var id = feature.properties && feature.properties.osmid;
+        if (id != null) {
+          if (seen[id]) return;
+          seen[id] = true;
+        }
+        features.push(feature);
+      });
+    });
+
+    return { type: "FeatureCollection", features: features };
+  }
+
+  /**
    * Import a saved project, from an export file or from a printed card.
    *
    * A card is a PDF with the project embedded in it, so the two paths differ
@@ -522,33 +744,48 @@ App.data = (function () {
    * hands back exactly what a .json export would have contained. Everything
    * after that is shared, including the failure messages, because "this file
    * is not a project" means the same thing whichever wrapper it arrived in.
+   *
+   * @param {File} file
+   * @param {{merge?: boolean}} [opts] merge adds the file to the project on
+   *   screen rather than replacing it
+   * @returns {Promise<boolean>} whether the project was applied. Resolves
+   *   rather than rejects on every failure - each has already been reported to
+   *   the user by the time this settles - so that importing a stack of files
+   *   carries on past the one that was a holiday photo.
    */
-  function importData(file) {
+  function importData(file, opts) {
     if (_looksLikePdf(file)) {
-      _readProjectFromPdf(file).then(function (payload) {
-        if (payload) _applyImported(payload);
+      return _readProjectFromPdf(file).then(function (payload) {
+        return payload ? _applyImported(payload, opts) : false;
       });
-      return;
     }
 
-    var reader = new FileReader();
+    return _readJson(file).then(function (payload) {
+      return payload ? _applyImported(payload, opts) : false;
+    });
+  }
 
-    reader.onerror = function () {
-      alert(T("alert.importUnreadable"));
-    };
+  /** @returns {Promise<Object|null>} null when it has already been reported */
+  function _readJson(file) {
+    return new Promise(function (resolve) {
+      var reader = new FileReader();
 
-    reader.onload = function (e) {
-      var payload;
-      try {
-        payload = JSON.parse(e.target.result);
-      } catch (err) {
-        alert(T("alert.importNotJson"));
-        return;
-      }
-      _applyImported(payload);
-    };
+      reader.onerror = function () {
+        alert(T("alert.importUnreadable"));
+        resolve(null);
+      };
 
-    reader.readAsText(file);
+      reader.onload = function (e) {
+        try {
+          resolve(JSON.parse(e.target.result));
+        } catch (err) {
+          alert(T("alert.importNotJson"));
+          resolve(null);
+        }
+      };
+
+      reader.readAsText(file);
+    });
   }
 
   function _looksLikePdf(file) {
@@ -574,25 +811,46 @@ App.data = (function () {
   }
 
 
-  function _applyImported(payload) {
+  /**
+   * @param {Object} payload the bundle as it arrived, before any merging
+   * @param {{merge?: boolean}} [opts]
+   * @returns {Promise<boolean>} whether it was applied
+   */
+  function _applyImported(payload, opts) {
+    var merge = !!(opts && opts.merge);
     var ok = false;
     // Behind the spinner for the same reason the session restore is, and with
     // the same `always` - see session.js. Opening a project is a second of
     // blocked main thread on a town, plus the gap recount behind it, and
     // nothing has measured this project yet to say so.
-    App.ui
+    return App.ui
       .busy(
         "loading.importing",
         function () {
+          // Before the merge rather than after it, so Ctrl+Z takes the added
+          // village back off and Ctrl+Y puts it on again. A replace has
+          // nothing worth returning to and clears the stack below instead.
+          if (merge && App.history) App.history.push();
+
           var restored;
           try {
-            restored = applyPayload(payload);
+            restored = applyPayload(payload, { merge: merge });
           } catch (err) {
             console.error(">>> Import failed:", err);
+            // The entry above describes a merge that did not happen. Left on
+            // the stack it is a step that undoes nothing, which reads as an
+            // undo that is broken rather than as an import that failed - and
+            // if the boundary was already swapped before the throw, this puts
+            // it back as well. The same recovery gaps.js uses for a dissolve
+            // that moved nothing.
+            if (merge && App.history) App.history.undo();
             alert(T("alert.importInvalid", { message: err.message }));
             return;
           }
-          if (App.history) App.history.clear();
+          // Not on a merge. The stack describes the project on screen, and
+          // the project on screen is still the one those steps were taken in --
+          // an added village does not make an hour of cutting unrepeatable.
+          if (!merge && App.history) App.history.clear();
           ok = true;
 
           console.log(
@@ -613,9 +871,19 @@ App.data = (function () {
         // it: the download is the slow part, and somebody who only wanted to
         // look at last round's territories should not have to wait for it.
         //
+        // The boundary offered is the one that arrived, not the merged
+        // whole: the areas already open have their streets, and re-downloading
+        // them is minutes of somebody's evening and of Overpass' time for data
+        // the app is already holding.
+        //
         // After the overlay comes down, not under it: this asks a question,
         // and a dialog behind a spinner is a dialog nobody can answer.
-        if (ok && payload && payload.partial) confirmAndFetch(payload.outerPolygon);
+        if (!ok || !payload || !payload.partial) return ok;
+        return confirmAndFetch(payload.outerPolygon, { merge: merge }).then(
+          function () {
+            return ok;
+          },
+        );
       });
   }
 

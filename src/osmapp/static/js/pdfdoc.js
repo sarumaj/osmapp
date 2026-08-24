@@ -626,11 +626,14 @@ App.pdfdoc = (function () {
     });
   }
 
-  // COMPOSE - stamp the map onto the template
+  // COMPOSE - stamp the map onto the template, or onto a page of its own
 
   /**
    * @param {Object} spec
-   * @param {File}   spec.template
+   * @param {File}   [spec.template] omit for a sheet of this app's own, and
+   *   give spec.pageSize instead
+   * @param {{width:number, height:number}} [spec.pageSize] in points, for a
+   *   sheet with no template behind it
    * @param {Blob}   spec.image      the finished map, as PNG
    * @param {number} spec.page
    * @param {Object} spec.box        {x, y, width, height} in points
@@ -640,13 +643,17 @@ App.pdfdoc = (function () {
    */
   function compose(spec) {
     ensure();
-    return Promise.all([_writer(), _bytes(spec.template), _bytes(spec.image)])
+    var template = spec.template ? _bytes(spec.template) : null;
+    return Promise.all([_writer(), template, _bytes(spec.image)])
       .then(function (parts) {
         var PDFLib = parts[0].lib;
         // No `ignoreEncryption`: an encrypted template is turned away rather
         // than opened. Cards get handed to other people, and silently taking
         // a password off one is not this app's decision to make.
-        return PDFLib.PDFDocument.load(parts[1]).then(function (doc) {
+        var opening = parts[1]
+          ? PDFLib.PDFDocument.load(parts[1])
+          : _blank(PDFLib, spec);
+        return opening.then(function (doc) {
           doc.registerFontkit(parts[0].fontkit);
           return _stamp(PDFLib, doc, parts[2], spec);
         });
@@ -654,6 +661,31 @@ App.pdfdoc = (function () {
       .then(function (bytes) {
         return new Blob([bytes], { type: "application/pdf" });
       });
+  }
+
+  /**
+   * One empty page, for output that is not stamped onto anything.
+   *
+   * A wall map is a poster rather than a card: there is no pre-printed sheet
+   * to align to, the size is chosen in the dialog, and what is a placeholder
+   * on a template is simply a margin here. Composing it through the same path
+   * as a card is what gives it the same PDF - real text in a real font, notes
+   * as annotations rather than as ink, and the project attached so the sheet
+   * on the wall is also the backup.
+   *
+   * @returns {Promise<Object>} a pdf-lib document with one page
+   */
+  function _blank(PDFLib, spec) {
+    var size = spec.pageSize;
+    if (!size || !(size.width > 0) || !(size.height > 0)) {
+      return Promise.reject(
+        new Error("A sheet with no template needs a page size."),
+      );
+    }
+    return PDFLib.PDFDocument.create().then(function (doc) {
+      doc.addPage([size.width, size.height]);
+      return doc;
+    });
   }
 
   function _stamp(PDFLib, doc, image, spec) {
@@ -747,11 +779,14 @@ App.pdfdoc = (function () {
           page.drawText(field.text, {
             x: media.x + field.x,
             y: media.y + field.y,
-            // A fixed 10 pt rather than field.size. The leader size detection
-            // reports is frequently 14, so obeying it would move the text on
-            // every card printed from a template somebody has already tuned
-            // to the 10 pt this has always written.
-            size: 10,
+            // A fixed 10 pt rather than field.size, on a template. The leader
+            // size detection reports is frequently 14, so obeying it would
+            // move the text on every card printed from a template somebody has
+            // already tuned to the 10 pt this has always written. On a sheet
+            // of this app's own there is no such history and no detection --
+            // the size is the one the caller chose, and a title set in 10 pt
+            // across an A1 poster is a title nobody can read.
+            size: spec.template ? 10 : field.size || 10,
             font: font,
           });
         });
@@ -1352,12 +1387,8 @@ App.pdfdoc = (function () {
    * dictionaries along without resolving either shape.
    */
   function _attachment(PDFLib, doc, name) {
-    var names = doc.catalog.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFDict);
-    if (!names) return null;
-    var tree = names.lookup(
-      PDFLib.PDFName.of("EmbeddedFiles"),
-      PDFLib.PDFDict,
-    );
+    var names = _typed(PDFLib, doc.catalog, "Names", PDFLib.PDFDict);
+    var tree = _typed(PDFLib, names, "EmbeddedFiles", PDFLib.PDFDict);
     if (!tree) return null;
 
     var found = null;
@@ -1366,8 +1397,13 @@ App.pdfdoc = (function () {
     });
     if (!found) return null;
 
-    var spec = doc.context.lookup(found, PDFLib.PDFDict) || found;
-    var ef = spec.lookup(PDFLib.PDFName.of("EF"), PDFLib.PDFDict);
+    var spec = found;
+    try {
+      spec = doc.context.lookup(found, PDFLib.PDFDict) || found;
+    } catch (e) {
+      /* already the dictionary rather than a reference to one */
+    }
+    var ef = _typed(PDFLib, spec, "EF", PDFLib.PDFDict);
     if (!ef) return null;
     var stream =
       ef.lookup(PDFLib.PDFName.of("F")) || ef.lookup(PDFLib.PDFName.of("UF"));
@@ -1379,18 +1415,44 @@ App.pdfdoc = (function () {
     return PDFLib.decodePDFRawStream(stream).decode();
   }
 
+  /**
+   * `node.lookup(key)` when what comes back is a `type`, and null otherwise.
+   *
+   * pdf-lib's own two-argument lookup() asserts rather than tests: a key that
+   * is simply absent throws "Expected instance of ..., but got instance of
+   * undefined". Every lookup around the attachment is asking whether an
+   * optional part of the file is there, and the one that is usually not is
+   * /Kids - a name tree small enough to be a single flat /Names array has no
+   * kids, which is exactly what pdf-lib writes, and therefore what every card
+   * this app has ever produced carries.
+   *
+   * @param {string|number} key a name in a dictionary, or an index in an array
+   */
+  function _typed(PDFLib, node, key, type) {
+    if (!node || typeof node.lookup !== "function") return null;
+    var value;
+    try {
+      value = node.lookup(
+        typeof key === "number" ? key : PDFLib.PDFName.of(key),
+      );
+    } catch (e) {
+      return null;
+    }
+    return value instanceof type ? value : null;
+  }
+
   function _walkNameTree(PDFLib, node, visit) {
-    var entries = node.lookup(PDFLib.PDFName.of("Names"), PDFLib.PDFArray);
+    var entries = _typed(PDFLib, node, "Names", PDFLib.PDFArray);
     if (entries) {
       for (var i = 0; i + 1 < entries.size(); i += 2) {
         var key = entries.lookup(i);
         visit(key && key.decodeText ? key.decodeText() : String(key), entries.get(i + 1));
       }
     }
-    var kids = node.lookup(PDFLib.PDFName.of("Kids"), PDFLib.PDFArray);
+    var kids = _typed(PDFLib, node, "Kids", PDFLib.PDFArray);
     if (kids) {
       for (var k = 0; k < kids.size(); k++) {
-        var kid = kids.lookup(k, PDFLib.PDFDict);
+        var kid = _typed(PDFLib, kids, k, PDFLib.PDFDict);
         if (kid) _walkNameTree(PDFLib, kid, visit);
       }
     }
@@ -1415,6 +1477,10 @@ App.pdfdoc = (function () {
     _onPage: _onPage,
     _rgb: _rgb,
     _bounds: _bounds,
+    // And this one, because the shape of a PDF name tree is not something a
+    // stub can be trusted to reproduce: the reader has to be run against a
+    // file pdf-lib actually wrote. See tests/js/pdf-attachment.test.mjs.
+    _attachment: _attachment,
   };
 })();
 

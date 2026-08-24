@@ -3143,9 +3143,23 @@ body {
 
 .print-controls__field input[type="text"],
 .print-controls__field input[type="file"],
-.print-controls__field input[type="range"] {
+.print-controls__field input[type="range"],
+.print-controls__field select {
   min-width: 0;
   width: 100%;
+}
+
+/* The sheet picker. Left to itself a <select> takes the platform's chrome,
+   which beside the framed color swatch and the text fields above it is the
+   one control in the panel that looks borrowed from another application. */
+.print-controls__field select {
+  padding: 3px 4px;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-sm);
+  background: var(--c-surface);
+  color: var(--c-text);
+  font: inherit;
+  cursor: pointer;
 }
 
 .print-controls__field input[type="file"] {

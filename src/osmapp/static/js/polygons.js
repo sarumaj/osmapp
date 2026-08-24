@@ -477,20 +477,28 @@ App.polygons = (function () {
    * Give the outer polygon a cluster of its own when nothing else exists, so a
    * freshly drawn territory is immediately printable and exportable without
    * running the partitioner.
+   *
+   * One per area rather than one for the boundary: a project holding three
+   * villages would otherwise get a single territory made of three disjoint
+   * pieces, which prints as one card sending somebody to three places.
    */
   function ensureDefaultCluster() {
     if (s.clusters.length > 0 || !s.outerPolygonLayer) return false;
-    var outer;
-    try {
-      outer = G.getOuterFeature(s.outerPolygonLayer);
-    } catch (e) {
-      console.warn(">>> Cannot create the default cluster:", e.message);
+    var parts = G.outerParts(s.outerPolygonLayer);
+    if (!parts.length) {
+      console.warn(">>> Cannot create the default cluster: no usable boundary");
       return false;
     }
-    setClusters([
-      { type: "Feature", geometry: outer.geometry, properties: { auto: true } },
-    ]);
-    console.log(">>> Whole area set as a single cluster");
+    setClusters(
+      parts.map(function (part) {
+        return {
+          type: "Feature",
+          geometry: part.geometry,
+          properties: { auto: true },
+        };
+      }),
+    );
+    console.log(">>> Whole area set as", parts.length, "cluster(s)");
     return true;
   }
 
@@ -506,10 +514,7 @@ App.polygons = (function () {
 
     if (s.outerPolygonLayer) {
       try {
-        var clipped = G.intersect(
-          candidate,
-          G.getOuterFeature(s.outerPolygonLayer),
-        );
+        var clipped = G.intersect(candidate, G.outerFeature(s.outerPolygonLayer));
         if (clipped && clipped.geometry) candidate = clipped;
       } catch (e) {
         /* keep the unclipped shape */
@@ -1422,6 +1427,84 @@ App.polygons = (function () {
     return stats;
   }
 
+  /**
+   * The one boundary area the single-area tools act on.
+   *
+   * Reshaping an outline, trimming it onto its buildings and splitting it into
+   * territories are each a statement about one place, and each walks a single
+   * ring besides. On a project holding one area - which is every project drawn
+   * rather than assembled - this is the boundary, and these tools behave
+   * exactly as they always have.
+   *
+   * On a project assembled from several imports it is the area being looked
+   * at. That is deliberately not a stored mode with a control of its own:
+   * every one of these tools puts its handles, its preview or its result on
+   * the area it chose, so the choice is visible the moment the tool opens and
+   * corrected by panning to the other village.
+   *
+   * @param {Array<number>|Object} [anchor] where the user was pointing --
+   *   [lng, lat], or a feature to take an interior point from. Defaults to the
+   *   selected territory, then to the middle of the screen.
+   * @returns {Object} Feature<Polygon>
+   * @throws when there is no usable boundary, as getOuterFeature does
+   */
+  function workingOuter(anchor) {
+    return G.getOuterFeature(s.outerPolygonLayer, anchor || _workingAnchor());
+  }
+
+  function _workingAnchor() {
+    var picked = s.selectedClusters && s.selectedClusters[0];
+    if (picked && picked.feature) return G.interiorCoord(picked.feature);
+    if (!s.leafletMap) return null;
+    var centre = s.leafletMap.getCenter();
+    return [centre.lng, centre.lat];
+  }
+
+  /**
+   * Put an edited area back into the boundary, leaving the others alone.
+   *
+   * The swap is done with geometry rather than by index, because the shape
+   * handed back is the point of the exercise: a trimmed area is smaller than
+   * the one it replaces and a reshaped one need not resemble it at all, so
+   * there is nothing to match on. Subtracting the area as it was leaves
+   * exactly the other areas, and the union puts the new one beside them --
+   * merging it in if a reshape has grown it into a neighbor, which is the
+   * right answer for two outlines that now overlap.
+   *
+   * With one area in the boundary the difference is empty and this is
+   * replaceOuter() with an extra pair of turf calls.
+   *
+   * @param {Object} before the area as workingOuter() handed it over
+   * @param {Object} after its replacement
+   * @returns {{kept:number, dropped:number, unmarked:number}|null}
+   */
+  function replaceOuterPart(before, after) {
+    if (!after || !after.geometry) return null;
+    if (!before || !before.geometry) return replaceOuter(after);
+
+    var others = null;
+    try {
+      others = G.difference(G.outerFeature(s.outerPolygonLayer), before);
+    } catch (e) {
+      others = null;
+    }
+    if (!others || !others.geometry) return replaceOuter(after);
+
+    var next = null;
+    try {
+      next = G.union(others, after);
+    } catch (e) {
+      next = null;
+    }
+    if (!next || !next.geometry) {
+      // Rather than silently dropping the areas the union could not carry:
+      // the edit is refused and the boundary stays as it was.
+      console.warn(">>> Could not put the edited area back into the boundary");
+      return null;
+    }
+    return replaceOuter(next);
+  }
+
   // FILTERED VIEW
 
   /**
@@ -1723,6 +1806,8 @@ App.polygons = (function () {
     attachProxyEvents: attachProxyEvents,
     setOuterLayer: setOuterLayer,
     replaceOuter: replaceOuter,
+    replaceOuterPart: replaceOuterPart,
+    workingOuter: workingOuter,
     setTooltipMode: setTooltipMode,
     clearHover: clearHover,
     selectCluster: selectCluster,

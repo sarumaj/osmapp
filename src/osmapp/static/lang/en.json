@@ -29,7 +29,7 @@
     "redoStrokeNone": "No eraser stroke to redo",
     "redoCount": "Redo last undone change ({count} available)",
     "locate": "Show my location",
-    "import": "Import a GeoJSON export or a printed card",
+    "import": "Import a GeoJSON export or a printed card, or add one to this project",
     "export": "Export everything to GeoJSON",
     "refetch": "Re-download OSM data for the outer boundary",
     "partition": "Split the area into territories",
@@ -118,7 +118,9 @@
     "redoNoteCount": "Redo a change to the notes ({count} available)",
     "redoNoteNone": "Nothing to redo",
     "redoNoteStepCount": "Put back a drawing step ({count} available)",
-    "redoNoteStepNone": "Nothing to put back"
+    "redoNoteStepNone": "Nothing to put back",
+    "labelWallCard": "Wall map",
+    "wallCard": "Print every territory on one sheet"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -159,7 +161,8 @@
     "retrying": "Trying again… (attempt {attempt} of {total})",
     "readingCard": "Reading the card…",
     "restoring": "Restoring your work…",
-    "importing": "Opening the project…"
+    "importing": "Opening the project…",
+    "areaProgress": "(area {index} of {total})"
   },
   "phase": {
     "samples": "Collecting sample points",
@@ -375,7 +378,18 @@
     "notes": "Include the notes",
     "notesHint": "A PDF card carries them as real annotations - one ink drawing per note, pin and mark - which any reader can open, move or delete. A PNG has nowhere to put those, so they are drawn onto the map instead.",
     "noteText": "Draw the words on the card",
-    "noteTextHint": "Off, a note keeps its mark and its words go only into the PDF's comments, which leaves a crowded card readable. A caption is nothing but words, so it is drawn either way."
+    "noteTextHint": "Off, a note keeps its mark and its words go only into the PDF's comments, which leaves a crowded card readable. A caption is nothing but words, so it is drawn either way.",
+    "wallTitle": "Print wall map",
+    "wall": "Wall map",
+    "wallHint": "Every territory of the project on one sheet, at the size chosen here. Nothing is marked as printed — a poster is not a stack of cards.",
+    "pageSize": "Sheet",
+    "landscape": "Landscape",
+    "wallTitleField": "Heading",
+    "wallTitleHint": "Printed across the top of the sheet. Suggested from the OpenStreetMap addresses in the project; type over it to use your own wording.",
+    "wallNumbers": "Number the territories",
+    "wallOutline": "Draw the area outline",
+    "backup": "Backup",
+    "errNoTerritories": "There are no territories to put on a wall map yet."
   },
   "place": {
     "title": "Position the map",
@@ -588,7 +602,15 @@
     "reset": "Reset",
     "clearPrintedTitle": "Clear the printed marks?",
     "clearPrinted": "Clear",
-    "editInstead": "Edit instead"
+    "editInstead": "Edit instead",
+    "importTitle": "Add to this project?",
+    "importMessage": "There is already a project open. Adding keeps it and puts the imported areas beside it; replacing throws it away.",
+    "importDetail": {
+      "one": "{count} file selected.",
+      "other": "{count} files selected."
+    },
+    "importAdd": "Add",
+    "importReplace": "Replace"
   },
   "cut": {
     "vertices": "{count} vertices",
@@ -710,7 +732,7 @@
       },
       "importFiles": {
         "title": "… and bring it back",
-        "body": "Import reads such a file back in, replacing whatever is on the map. It is also how work started on a desktop is picked up on a phone."
+        "body": "Import reads such a file back in - or a printed card, which carries the project inside it. With something already on the map it asks whether to add to it or replace it, and several files can be picked at once: that is how the villages of a circuit end up in one project."
       },
       "reset": {
         "title": "Start over",
@@ -779,6 +801,10 @@
       "autohealScope": {
         "title": "One undo, or one row",
         "body": "The whole repair is a single undo, and the wand on one row does the same for that row alone. To get back to this list at any time: the Print button in the toolbar, or the territory count in the panel at the bottom right."
+      },
+      "wallCard": {
+        "title": "One sheet for the wall",
+        "body": "Draws every territory of the project onto a single sheet, numbered, up to A0. The same preview as a card - pan, zoom, rotate, scale bar, compass - with the sheet size chosen beside it. Nothing is marked as printed, so the record of which cards have been handed out survives."
       }
     }
   },
@@ -912,7 +938,8 @@
     "noteHandle": "Move a point · click one to take it out",
     "noteBend": "Bend a straight hop by its middle handle",
     "noteClick": "Place one point",
-    "noteToolText": "Write a caption"
+    "noteToolText": "Write a caption",
+    "goWallCard": "Print the wall map"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",

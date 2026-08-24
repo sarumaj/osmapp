@@ -87,7 +87,7 @@ App.clustering = (function () {
 
     var outerArea = 0;
     try {
-      outerArea = turf.area(G.getOuterFeature(s.outerPolygonLayer));
+      outerArea = turf.area(App.polygons.workingOuter());
     } catch (e) {
       console.warn(">>> Could not measure outer polygon:", e.message);
     }
@@ -232,25 +232,53 @@ App.clustering = (function () {
 
   // PHASE 0 - sample points
 
+  /**
+   * Whether a sample point belongs to the area being split.
+   *
+   * The download covers the whole boundary, so on a project assembled from
+   * several imports the building list holds every village at once. Seeding
+   * k-means with points from the others produces centroids outside the area,
+   * and a centroid outside the area is a territory that clips away to nothing.
+   *
+   * The bounding box first: this runs once per building, and on a town that is
+   * twelve thousand point-in-polygon tests otherwise.
+   */
+  function _within(point, area, box) {
+    var c = point.geometry.coordinates;
+    if (c[0] < box[0] || c[0] > box[2] || c[1] < box[1] || c[1] > box[3]) {
+      return false;
+    }
+    try {
+      return turf.booleanPointInPolygon(point, area);
+    } catch (e) {
+      return false;
+    }
+  }
+
   function _phase0(k, mode) {
     App.ui.setPhase(0);
     _defer(function () {
       var outerFeature;
       try {
-        outerFeature = G.getOuterFeature(s.outerPolygonLayer);
+        // One area, not the whole boundary: k territories drawn across three
+        // villages is not a division anybody asked for, and every phase below
+        // walks `outerRing` as a single ring besides.
+        outerFeature = App.polygons.workingOuter();
       } catch (e) {
         _abort(T("alert.partitionInvalidOuter", { message: e.message }));
         return;
       }
 
       var outerRing = outerFeature.geometry.coordinates[0];
+      var outerBox = turf.bbox(outerFeature);
       var pts = [];
 
       if (s.cachedBuildings && s.cachedBuildings.features.length > 0) {
         s.cachedBuildings.features.forEach(function (f) {
           if (!f.geometry) return;
           try {
-            pts.push(turf.centroid(G.feat(f.geometry)));
+            var centroid = turf.centroid(G.feat(f.geometry));
+            if (_within(centroid, outerFeature, outerBox)) pts.push(centroid);
           } catch (e) {
             /* skip malformed building */
           }
@@ -268,7 +296,8 @@ App.clustering = (function () {
             for (var i = 0; i < coords.length - 1; i += 5) {
               var c1 = coords[i];
               var c2 = coords[Math.min(i + 1, coords.length - 1)];
-              pts.push(turf.point([(c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2]));
+              var mid = turf.point([(c1[0] + c2[0]) / 2, (c1[1] + c2[1]) / 2]);
+              if (_within(mid, outerFeature, outerBox)) pts.push(mid);
             }
           });
         });
@@ -664,10 +693,30 @@ App.clustering = (function () {
         return;
       }
 
+      // Territories that belong to the boundary's other areas are carried
+      // through untouched, printed marks and all. setClusters replaces the
+      // whole list, so splitting the second of three villages would otherwise
+      // wipe the two nobody touched.
+      var elsewhere = App.polygons.clusterFeatures().filter(function (feature) {
+        var coord = G.interiorCoord(feature);
+        if (!coord) return false;
+        try {
+          return !turf.booleanPointInPolygon(turf.point(coord), outerFeature);
+        } catch (e) {
+          return false;
+        }
+      });
+
       if (App.history) App.history.push();
-      App.polygons.setClusters(partitions);
+      App.polygons.setClusters(elsewhere.concat(partitions));
       App.ui.hideOverlay();
-      console.log(">>> Partition complete:", partitions.length, "clusters");
+      console.log(
+        ">>> Partition complete:",
+        partitions.length,
+        "clusters,",
+        elsewhere.length,
+        "kept from the other areas",
+      );
     });
   }
 
