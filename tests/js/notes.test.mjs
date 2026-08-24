@@ -120,6 +120,115 @@ test("a line needs two points, and an unknown kind is not a note at all", () => 
   assert.equal(N._sanitize({ kind: "arrow", points: [[1, 2]] }), null);
 });
 
+// -- The skeleton --------------------------------------------------------
+
+/** A straight two-node skeleton, which every case here starts from. */
+function skeleton(extra = {}) {
+  return [
+    { at: [0, 0], snapped: false },
+    Object.assign({ at: [10, 0], snapped: false }, extra),
+  ];
+}
+
+test("a skeleton of straight hops draws exactly its own points", () => {
+  const N = notes();
+  assert.deepEqual(N._shape(skeleton()), [
+    [0, 0],
+    [10, 0],
+  ]);
+});
+
+test("a hop that follows something draws what it follows", () => {
+  // A street path and a freehand sweep are the same thing to the geometry:
+  // a run of points the hop goes through on its way to the node.
+  const N = notes();
+  const shape = N._shape(
+    skeleton({
+      via: [
+        [3, 1],
+        [6, 2],
+      ],
+      sweep: true,
+    }),
+  );
+  assert.deepEqual(shape, [
+    [0, 0],
+    [3, 1],
+    [6, 2],
+    [10, 0],
+  ]);
+});
+
+test("a bent hop passes through the handle that bends it", () => {
+  // Which is the whole contract of the control point: the handle is dragged
+  // to a place on the map, and the curve has to arrive there rather than
+  // somewhere in the direction of it.
+  const N = notes();
+  const wanted = [5, 4];
+  // The control point that puts the middle of the curve under the handle.
+  const bend = [2 * wanted[0] - (0 + 10) / 2, 2 * wanted[1] - (0 + 0) / 2];
+  const shape = N._shape(skeleton({ bend }));
+
+  const middle = shape[(shape.length - 1) / 2];
+  assert.deepEqual(middle, wanted);
+  // And the ends stay where they were put.
+  assert.deepEqual(shape[0], [0, 0]);
+  assert.deepEqual(shape[shape.length - 1], [10, 0]);
+});
+
+test("a mark is drawn from its skeleton, not from the geometry beside it", () => {
+  // The two are stored together, so a file whose points disagree with its
+  // nodes has to have one of them win. The skeleton wins: it is what an edit
+  // acts on, so the first drag would replace the other one anyway.
+  const record = notes()._sanitize({
+    kind: "line",
+    points: [
+      [99, 99],
+      [98, 98],
+    ],
+    nodes: skeleton(),
+    text: "",
+  });
+  assert.deepEqual(record.points, [
+    [0, 0],
+    [10, 0],
+  ]);
+  assert.equal(record.nodes.length, 2);
+});
+
+test("a broken skeleton is dropped and the mark keeps its geometry", () => {
+  // Half a skeleton cannot be edited and must not be drawn from; the points
+  // beside it are still a mark somebody made.
+  const record = notes()._sanitize({
+    kind: "line",
+    points: [
+      [1, 1],
+      [2, 2],
+    ],
+    nodes: [{ at: [1, 1] }, { at: [Number.NaN, 2] }],
+    text: "",
+  });
+  assert.deepEqual(record.points, [
+    [1, 1],
+    [2, 2],
+  ]);
+  assert.equal(record.nodes, undefined);
+});
+
+test("a mark with no skeleton carries no key for one", () => {
+  // Absent rather than null: a session written before marks had a skeleton
+  // and one written after it are the same file.
+  const record = notes()._sanitize({
+    kind: "line",
+    points: [
+      [1, 1],
+      [2, 2],
+    ],
+    text: "",
+  });
+  assert.ok(!("nodes" in record));
+});
+
 test("a caption is a point kind, like a note and a pin", () => {
   const record = notes()._sanitize({
     kind: "text",

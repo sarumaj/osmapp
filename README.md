@@ -384,17 +384,42 @@ width }` — where a mark has many points and everything else has one:
 |------|------------|------------|
 | note | a sentence pinned to a spot | sticky glyph, words always shown |
 | pin | a place or a building | teardrop, tip on the spot, words on hover |
-| mark | a stroke along the ground | line, freehand or street-snapped |
+| mark | a stroke along the ground | line, freehand or street-snapped, with handles on its points |
 | caption | words and nothing else | the words themselves, no glyph |
 
 Marks come from one pen, and the gesture picks the kind: a drag is a freehand
 sweep, a click places a vertex. With **Snap to streets** on, a clicked vertex is
 pulled onto the network and the hop before it is routed along the road, under
 the same detour limits the cut tool uses — so "this street, not the next one" is
-a mark that lies on the street. Every kind asks for its words when it is made:
+a mark that lies on the street. **Freeform** is the other end of that: only the
+hand draws, a click places nothing, and the magnet goes quiet under it because a
+sweep has no vertices to pull. Every kind asks for its words when it is made:
 a note without any is a note thought better of, while a pin and a mark are kept
 either way. Notes ride along in the session, the GeoJSON export and the card
 attachment.
+
+**A mark keeps its skeleton, so it can be corrected.** Alongside the geometry
+everything downstream draws, a mark stores the points somebody placed and what
+the app did between each pair — `{ at, snapped, via, bend, sweep }` per node,
+where `via` is a run the hop follows (a routed street path, or the samples of a
+sweep), `bend` is the control point of a curve, and neither is a straight line.
+The geometry is derived from that and never trusted from a file, so an edit and
+a reload cannot disagree.
+
+While the pencil is the selected pen, every mark wears the polygon editor's own
+handles — the same shape for the same gesture:
+
+| Handle | Gesture | What happens |
+|--------|---------|--------------|
+| point | drag | the point moves, and its two hops are worked out again — re-snapped and re-routed if the magnet is on |
+| point | click | the point comes out, down to the two a line needs |
+| middle of a straight hop | drag | the hop bends into a curve through the handle |
+| middle of a bent hop | click | the bend comes out and the hop is straight again |
+
+The ends of a swept hop wear none: that hop is a run of samples of where the
+hand went, and moving one end of it would leave the rest behind. Nor does a mark
+drawn before this existed — there is no skeleton in the file to edit, and the
+mark is drawn from its geometry as it always was.
 
 **Both cards show the same thing.** A PNG is a picture, so everything is drawn
 into it. A PDF is a document, so the same marks are drawn *and* carried as real
@@ -491,7 +516,7 @@ multi-worker deployment) handed users each other's areas.
 | `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
 | `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
 | `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
-| `A`                                     | Notes tool; `1`–`4` pick the pen; `S` toggles snapping      |
+| `A`                                     | Notes tool; `1`–`4` pick the pen; `S` snapping, `F` freeform |
 | Right-click                             | Context menu — on a territory, empty ground, or boundary    |
 
 All bindings live in one registry in `shortcuts.js`, which is both the

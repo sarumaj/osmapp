@@ -689,8 +689,8 @@
         "body": "Nicht alles, was ein Gebiet ausmacht, ist eine Grenze. Ein Tor auf der Rückseite, ein Block ohne Briefkästen, die Straßenseite, die jemand anderes geht — dafür ist das hier. Notizen liegen über den Gebieten und nicht in ihnen, also lassen Aufteilen, Schneiden und Zusammenfügen jede einzelne genau dort, wo sie gesetzt wurde. Dieses Beispiel trägt drei davon."
       },
       "notes": {
-        "title": "Drei Stifte",
-        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, und der Stift zeichnet auf dem Gelände: ziehen für eine Freihandlinie, oder Punkt für Punkt klicken. Mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben — ausgeschaltet zeichnest du frei. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
+        "title": "Vier Stifte",
+        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, der Stift zeichnet auf dem Gelände, und der letzte schreibt eine Beschriftung direkt auf die Karte. Zieh den Stift für eine Freihandlinie oder klicke Punkt für Punkt; mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben. „Freihand“ geht den anderen Weg: nur die Hand zeichnet, ein Klick setzt nichts. Eine fertige Markierung trägt dieselben Griffe wie ein Gebiet — einen Punkt ziehen verschiebt ihn, ein Klick entfernt ihn, und der Punkt in der Mitte einer geraden Teilstrecke biegt sie. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
       },
       "layers": {
         "title": "Was angezeigt wird",
@@ -904,6 +904,9 @@
     "noteTextCancel": "Notiz unverändert lassen",
     "noteToolDraw": "Eine Markierung zeichnen",
     "noteSnap": "Punkte an den Straßen einrasten",
+    "noteFreeform": "Nur freihand zeichnen",
+    "noteHandle": "Punkt verschieben · Klick entfernt ihn",
+    "noteBend": "Gerade Teilstrecke am mittleren Griff biegen",
     "noteClick": "Einen Punkt setzen",
     "noteToolText": "Eine Beschriftung schreiben"
   },
@@ -988,8 +991,10 @@
     "kindPin": "Nadel",
     "kindMark": "Markierung",
     "snap": "An Straßen einrasten",
+    "freeform": "Freihand",
     "hintDraw": "Zum Zeichnen ziehen · Klicken setzt Punkte · Enter oder Doppelklick beendet · Rechte Taste verschiebt die Karte",
     "hintText": "Klicke dorthin, wo der Text stehen soll · Rechtsklick für die Werkzeuge · Esc beendet · ? zeigt alle Tasten",
+    "hintFree": "Zum Zeichnen ziehen · Ein Klick setzt nichts · Esc beendet · ? zeigt alle Tasten",
     "toolText": "Text",
     "titleText": "Beschriftung",
     "kindText": "Beschriftung"

@@ -52,6 +52,7 @@ def main():
                 channel_timeout=120,
                 max_request_body_size=MAX_UPLOAD_BYTES,
                 backlog=256,
+                ident="",
             )
     finally:
         cancel.set()

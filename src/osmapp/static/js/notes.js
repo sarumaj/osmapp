@@ -17,6 +17,12 @@
  * length one for everything but a line - so that everything downstream (the
  * layer, the session, the card) walks a single shape instead of four.
  *
+ * A line carries a second thing beside that geometry: the skeleton it was
+ * drawn from, which is what its handles move, take out and bend. The geometry
+ * is derived from the skeleton whenever there is one, so the two cannot drift
+ * apart - see _sanitizeNodes for the shape of it and _shape for the
+ * derivation.
+ *
  * Why they are not territories
  *
  * A territory is the document: it is partitioned, cut, merged and counted, and
@@ -106,14 +112,20 @@ App.notes = (function () {
   var _hint = null;
   var _visible = true;
 
-  // The line being drawn. `points` are committed lng/lat coordinates;
-  // `_preview` is the polyline showing them, including the routed geometry
-  // inserted between snapped clicks.
+  // The line being drawn. `_draft.nodes` is the skeleton described at
+  // _sanitizeNodes, `_draft.times` is when each node was placed, and
+  // `_preview` is the polyline showing the shape they make - the routed
+  // geometry between snapped clicks included.
   var _draft = null;
   var _preview = null;
   var _snapDot = null;
 
-  // The left button, from press to release: `moved` once it has travelled far
+  // The handles on the marks already drawn, and the dots on the one being
+  // drawn. A layer group of its own so the pen can put them up and take them
+  // down without redrawing the notes underneath.
+  var _handles = null;
+
+  // The left button, from press to release: `moved` once it has traveled far
   // enough to be a sweep rather than a click, and `opened` when there was no
   // line in progress when it went down.
   var _press = null;
@@ -211,16 +223,147 @@ App.notes = (function () {
       .map(function (point) {
         return [point[0], point[1]];
       });
+    var nodes = raw.kind === "line" ? _sanitizeNodes(raw.nodes) : null;
+    // Derived rather than trusted. A mark with nodes is drawn from them, so a
+    // stored geometry that disagrees with them - an older file, a hand-edited
+    // one - would be drawn once and thrown away by the first edit anyway.
+    if (nodes) points = _shape(nodes);
+
     if (!points.length) return null;
     if (raw.kind === "line" && points.length < 2) return null;
 
-    return {
+    var record = {
       kind: raw.kind,
       points: raw.kind === "line" ? points : points.slice(0, 1),
       text: typeof raw.text === "string" ? raw.text : "",
       color: /^#[0-9a-f]{6}$/i.test(raw.color) ? raw.color : _pen.color,
       width: isFinite(raw.width) ? Math.min(20, Math.max(0.5, raw.width)) : 2,
     };
+    // Absent rather than null on a mark that has none, so a session written
+    // before this existed and one written after it are the same file.
+    if (nodes) record.nodes = nodes;
+    return record;
+  }
+
+  /**
+   * The skeleton of a mark: the points somebody placed, and what the app did
+   * between them.
+   *
+   * Every node but the first also describes the hop that arrives at it, which
+   * is one of three things and never two: `via`, a run of points the hop
+   * follows - the street path a snapped pair earned, or the samples of a
+   * freehand sweep, told apart by `sweep`; `bend`, the control point of a
+   * curve; or neither, which is a straight line.
+   *
+   * @returns {Array|null} null for a mark with no editable skeleton, which is
+   *   every mark stored before this and every one swept in freeform
+   */
+  function _sanitizeNodes(raw) {
+    if (!Array.isArray(raw) || raw.length < 2) return null;
+
+    var nodes = [];
+    for (var i = 0; i < raw.length; i++) {
+      var node = raw[i] || {};
+      var at = _coord(node.at);
+      if (!at) return null;
+      nodes.push({
+        at: at,
+        snapped: !!node.snapped,
+        bend: i ? _coord(node.bend) : null,
+        via: i ? _coords(node.via) : null,
+        sweep: i ? !!node.sweep : false,
+      });
+    }
+    return nodes;
+  }
+
+  /** One lng/lat pair, or null for anything that is not one. */
+  function _coord(value) {
+    if (!Array.isArray(value)) return null;
+    if (!isFinite(value[0]) || !isFinite(value[1])) return null;
+    if (Math.abs(value[1]) > 90) return null;
+    return [value[0], value[1]];
+  }
+
+  /** A run of lng/lat pairs, or null for an empty or broken one. */
+  function _coords(value) {
+    if (!Array.isArray(value) || !value.length) return null;
+    var out = [];
+    for (var i = 0; i < value.length; i++) {
+      var point = _coord(value[i]);
+      if (!point) return null;
+      out.push(point);
+    }
+    return out;
+  }
+
+  /** How many straight hops a bent one is drawn with. */
+  var CURVE_STEPS = 16;
+
+  /**
+   * The geometry a skeleton draws: what the map, the card and the PDF all
+   * read, and the only shape any of them knows about.
+   */
+  function _shape(nodes) {
+    if (!nodes || !nodes.length) return [];
+    var out = [nodes[0].at.slice()];
+
+    for (var i = 1; i < nodes.length; i++) {
+      var node = nodes[i];
+      if (node.via) {
+        for (var j = 0; j < node.via.length; j++) out.push(node.via[j].slice());
+      } else if (node.bend) {
+        var curve = _curve(nodes[i - 1].at, node.bend, node.at);
+        for (var k = 0; k < curve.length; k++) out.push(curve[k]);
+      }
+      out.push(node.at.slice());
+    }
+    return out;
+  }
+
+  /**
+   * The inside of a quadratic curve, in lng/lat.
+   *
+   * Interpolated in degrees rather than on the sphere: a mark spans a street
+   * or two, and over that distance the difference between the two is far
+   * below the width of the line drawing it.
+   */
+  function _curve(from, control, to) {
+    var out = [];
+    for (var i = 1; i < CURVE_STEPS; i++) {
+      var t = i / CURVE_STEPS;
+      var u = 1 - t;
+      out.push([
+        u * u * from[0] + 2 * u * t * control[0] + t * t * to[0],
+        u * u * from[1] + 2 * u * t * control[1] + t * t * to[1],
+      ]);
+    }
+    return out;
+  }
+
+  /**
+   * Where the handle of a hop sits: on the drawn line, halfway along it.
+   *
+   * A quadratic curve does not pass through its control point, so the handle
+   * would otherwise float off the mark it bends - which reads as a handle for
+   * something else.
+   */
+  function _bendAnchor(from, node) {
+    if (!node.bend) {
+      return [(from[0] + node.at[0]) / 2, (from[1] + node.at[1]) / 2];
+    }
+    return [
+      (from[0] + 2 * node.bend[0] + node.at[0]) / 4,
+      (from[1] + 2 * node.bend[1] + node.at[1]) / 4,
+    ];
+  }
+
+  /** The control point that puts the middle of the curve under the handle. */
+  function _control(from, at, to) {
+    return [
+      2 * at[0] - (from[0] + to[0]) / 2,
+      2 * at[1] - (from[1] + to[1]) / 2,
+    ];
   }
 
   function _clone(value) {
@@ -296,10 +439,15 @@ App.notes = (function () {
     s.notes.forEach(function (note) {
       group.addLayer(_layerFor(note));
     });
+    _renderHandles();
   }
 
   function _layerFor(note) {
     var layer = note.kind === "line" ? _lineLayer(note) : _markerLayer(note);
+    // The record, hung off the layer rather than the other way round: a
+    // handle needs the line it is moving, and a note that pointed at a
+    // Leaflet layer could not be written to a session file.
+    layer._noteRef = note;
 
     layer.on("contextmenu", function (e) {
       L.DomEvent.stopPropagation(e);
@@ -436,6 +584,204 @@ App.notes = (function () {
     "'": "&#39;",
   };
 
+  // THE HANDLES
+  //
+  // A mark drawn from nodes is edited the way a territory is - drag a point to
+  // move it, click one to take it out - and it borrows the editor's own
+  // handles to say so. The half-handle on a straight hop differs: there it
+  // bends the hop rather than adding a point, which is what the hollow dot in
+  // the stylesheet is about.
+  //
+  // Only the draw pen puts them up. They are its editing surface, and a map
+  // wearing a handle on every corner of every mark is a map you read past.
+
+  /** Rebuild every handle: the marks' own, and the dots on the draft. */
+  function _renderHandles() {
+    if (!_handles) return;
+    _handles.clearLayers();
+    if (_tool !== "draw") return;
+
+    s.notes.forEach(function (note) {
+      if (note.kind !== "line" || !note.nodes) return;
+      note.nodes.forEach(function (node, index) {
+        if (_movable(note.nodes, index)) {
+          _handles.addLayer(_nodeHandle(note, index));
+        }
+        if (index && !node.via) _handles.addLayer(_bendHandle(note, index));
+      });
+    });
+
+    if (_draft) {
+      _draft.nodes.forEach(function (node) {
+        _handles.addLayer(_draftDot(node));
+      });
+    }
+  }
+
+  /**
+   * Whether a node can be moved.
+   *
+   * Not the ends of a swept hop: that hop is a run of samples of where the
+   * hand went, and moving one end of it would drag the end away and leave the
+   * hand's line behind.
+   */
+  function _movable(nodes, index) {
+    if (nodes[index].sweep) return false;
+    return !(nodes[index + 1] && nodes[index + 1].sweep);
+  }
+
+  function _nodeHandle(note, index) {
+    var nodes = note.nodes;
+    var moved = false;
+    var marker = _handleMarker(nodes[index].at, "leaflet-vertex-icon");
+
+    marker.on("dragstart", function () {
+      moved = false;
+    });
+    marker.on("drag", function (e) {
+      // Remembered on the first movement rather than on the press, so a
+      // handle picked up and put down does not fill the undo stack with
+      // states nobody asked for.
+      if (!moved) _remember();
+      moved = true;
+      nodes[index].at = [e.latlng.lng, e.latlng.lat];
+      _repaint(note);
+    });
+    marker.on("dragend", function (e) {
+      if (!moved) return;
+      // Snapped where it landed rather than where it was picked up: a point
+      // dragged onto a street with the magnet on is a point on that street,
+      // and the hops either side of it are routed again from there.
+      var hit = _snap(e.target.getLatLng());
+      nodes[index].at = [hit.lng, hit.lat];
+      nodes[index].snapped = hit.snapped;
+      _relink(note, index);
+      _commit(note);
+    });
+    marker.on("click", function (e) {
+      L.DomEvent.stop(e);
+      if (!moved) _dropNode(note, index);
+    });
+    return marker;
+  }
+
+  function _bendHandle(note, index) {
+    var nodes = note.nodes;
+    var moved = false;
+    var marker = _handleMarker(
+      _bendAnchor(nodes[index - 1].at, nodes[index]),
+      "leaflet-middle-icon",
+    );
+
+    marker.on("dragstart", function () {
+      moved = false;
+    });
+    marker.on("drag", function (e) {
+      if (!moved) _remember();
+      moved = true;
+      nodes[index].bend = _control(
+        nodes[index - 1].at,
+        [e.latlng.lng, e.latlng.lat],
+        nodes[index].at,
+      );
+      _repaint(note);
+    });
+    marker.on("dragend", function () {
+      if (moved) _commit(note);
+    });
+    marker.on("click", function (e) {
+      L.DomEvent.stop(e);
+      if (moved || !nodes[index].bend) return;
+      // A bend put back: the hop is a straight line again, and a straight one
+      // between two snapped points is a hop the streets may have an answer
+      // for.
+      _remember();
+      nodes[index].bend = null;
+      nodes[index].via = _routeBetween(nodes[index - 1], nodes[index]);
+      _commit(note);
+    });
+    return marker;
+  }
+
+  function _handleMarker(at, className) {
+    return L.marker([at[1], at[0]], {
+      icon: L.divIcon({
+        className: className + " note-handle",
+        iconSize: [11, 11],
+      }),
+      pane: "notesPane",
+      draggable: true,
+      keyboard: false,
+      // Over the marks rather than under them: a handle a stroke is drawn on
+      // top of is a handle nobody can grab.
+      zIndexOffset: 1000,
+    });
+  }
+
+  /**
+   * One point of the line being drawn.
+   *
+   * The same handle a finished mark wears, so that the points do not change
+   * shape the moment the line is closed - but deaf: the line is still being
+   * drawn, and a handle that swallowed the next click would be a point you
+   * cannot place on top of one you already did.
+   */
+  function _draftDot(node) {
+    return L.marker([node.at[1], node.at[0]], {
+      icon: L.divIcon({
+        className: "leaflet-vertex-icon note-handle note-handle--draft",
+        iconSize: [11, 11],
+      }),
+      pane: "notesPane",
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 1000,
+    });
+  }
+
+  /** Redraw one mark from its nodes, without disturbing anything else. */
+  function _repaint(note) {
+    var layer = _layerOf(note);
+    if (layer) layer.setLatLngs(_latlngs(_shape(note.nodes)));
+  }
+
+  function _layerOf(note) {
+    var found = null;
+    if (!s.notesLayerGroup) return null;
+    s.notesLayerGroup.eachLayer(function (layer) {
+      if (layer._noteRef === note) found = layer;
+    });
+    return found;
+  }
+
+  /** An edit to a mark's skeleton, finished: geometry, layers, session. */
+  function _commit(note) {
+    note.points = _shape(note.nodes);
+    _render();
+    _changed();
+  }
+
+  /** Work out again what the hops either side of a node follow. */
+  function _relink(note, index) {
+    var nodes = note.nodes;
+    [index, index + 1].forEach(function (i) {
+      if (i <= 0 || i >= nodes.length) return;
+      if (nodes[i].sweep) return;
+      nodes[i].via = _routeBetween(nodes[i - 1], nodes[i]);
+    });
+  }
+
+  function _dropNode(note, index) {
+    // Two is the fewest a line can be drawn between, so the last two stay: a
+    // mark is deleted from its own menu rather than taken apart point by
+    // point until it disappears.
+    if (note.nodes.length <= 2) return;
+    _remember();
+    note.nodes.splice(index, 1);
+    _relink(note, index);
+    _commit(note);
+  }
+
   // VISIBILITY
 
   function isVisible() {
@@ -512,6 +858,8 @@ App.notes = (function () {
       interactive: false,
     });
 
+    _handles = L.layerGroup().addTo(map);
+
     _hint = D.mountOnMap("tpl-notes-hint", s.leafletMap);
     _showToolbar();
     App.shortcuts.push(NOTES_KEYS);
@@ -541,6 +889,10 @@ App.notes = (function () {
     App.history.popScope("notes");
     App.ui.closeContextMenu();
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
+    if (_handles) {
+      map.removeLayer(_handles);
+      _handles = null;
+    }
     _snapDot = null;
     _press = null;
     _undo = [];
@@ -567,14 +919,21 @@ App.notes = (function () {
       if (tool === "draw") map.dragging.disable();
       else map.dragging.enable();
     }
-    if (_hint) {
-      _hint.setAttribute("data-i18n", _hintKey());
-      _hint.textContent = T(_hintKey());
-    }
+    _showHint();
+    _renderHandles();
     _sync();
   }
 
+  function _showHint() {
+    if (!_hint) return;
+    _hint.setAttribute("data-i18n", _hintKey());
+    _hint.textContent = T(_hintKey());
+  }
+
   function _hintKey() {
+    // Freeform is a different gesture rather than a setting of the same one -
+    // the hand draws and a click does nothing - so it gets its own line.
+    if (_tool === "draw" && s.noteFreeform) return "notes.hintFree";
     return "notes.hint" + _tool.charAt(0).toUpperCase() + _tool.slice(1);
   }
 
@@ -582,9 +941,25 @@ App.notes = (function () {
   function _setSnap(on) {
     s.noteSnap = !!on;
     if (!s.noteSnap) _hideSnapDot();
-    // A vertex already placed keeps whether it snapped, so the routing of the
-    // hops between the ones that did is what changes under this switch.
-    _syncDraft();
+    // Hops already drawn keep what they follow: the routing is worked out
+    // when a point is placed, so this switch is about the points still to
+    // come. A hop already routed is straightened by bending it or by moving
+    // one of its ends.
+    _sync();
+  }
+
+  /**
+   * The freeform switch: the pen follows the hand and nothing else.
+   *
+   * With it on a click places nothing, so a mark cannot come out with a
+   * straight hop in it, and there is nothing for the magnet to pull - which
+   * is why the snap switch goes quiet underneath it rather than sitting there
+   * claiming to do something.
+   */
+  function _setFreeform(on) {
+    s.noteFreeform = !!on;
+    if (s.noteFreeform) _hideSnapDot();
+    _showHint();
     _sync();
   }
 
@@ -608,6 +983,9 @@ App.notes = (function () {
   /** Close a line on the double-click that ended it. */
   function _onMapDblClick(e) {
     if (!s.noteMode || _tool !== "draw" || !_draft) return;
+    // In freeform there are no clicks to take back and no line left open by
+    // one: a sweep ends when the hand lifts.
+    if (s.noteFreeform) return;
     L.DomEvent.stopPropagation(e);
     L.DomEvent.preventDefault(e);
 
@@ -618,8 +996,7 @@ App.notes = (function () {
       _draft.times.length &&
       now - _draft.times[_draft.times.length - 1] < DBLCLICK_MS
     ) {
-      _draft.points.pop();
-      _draft.snapped.pop();
+      _draft.nodes.pop();
       _draft.times.pop();
       popped++;
     }
@@ -631,23 +1008,32 @@ App.notes = (function () {
   /** One clicked vertex, pulled onto the street network if snapping is on. */
   function _addVertex(latlng) {
     var hit = _snap(latlng);
-    _pushPoint(hit, hit.snapped);
+    _pushNode({ at: [hit.lng, hit.lat], snapped: hit.snapped });
   }
 
   /**
-   * Add one point to the draft and redraw it.
+   * Add one node to the draft and redraw it.
    *
-   * The three arrays are parallel and are kept that way here rather than at
-   * each of the three places a point comes from. `snapped` decides which hops
-   * the street tool may route, and `times` is what the double-click reaches
-   * back through - both indexed by point, and both silently wrong the moment
-   * one caller pushes to two of the three.
+   * The hop that arrives at it is worked out here, once, rather than each
+   * time the draft is drawn: a routed hop is a question for the street graph,
+   * and asking it on every pointer move would answer it a hundred times for
+   * one line.
    *
-   * @param {{lat:number, lng:number}} at
+   * @param {{at:number[], snapped?:boolean, via?:Array, sweep?:boolean}} node
    */
-  function _pushPoint(at, snapped) {
-    _draft.points.push([at.lng, at.lat]);
-    _draft.snapped.push(!!snapped);
+  function _pushNode(node) {
+    var nodes = _draft.nodes;
+    var made = {
+      at: node.at,
+      snapped: !!node.snapped,
+      bend: null,
+      via: node.via || null,
+      sweep: !!node.sweep,
+    };
+    if (nodes.length && !made.via) {
+      made.via = _routeBetween(nodes[nodes.length - 1], made);
+    }
+    nodes.push(made);
     _draft.times.push(Date.now());
     _syncDraft();
   }
@@ -664,10 +1050,17 @@ App.notes = (function () {
     if (!s.noteMode || _tool !== "draw") return;
     if (e.button !== undefined && e.button !== 0) return;
     // A press that starts on a note is that note's click, not a new stroke
-    // beginning underneath it.
+    // beginning underneath it - and one that starts on a handle belongs to
+    // the handle, which is about to be dragged.
     if (_overOwnLayer(e.target)) return;
     e.preventDefault();
-    _press = { x: e.clientX, y: e.clientY, moved: false, opened: !_draft };
+    _press = {
+      x: e.clientX,
+      y: e.clientY,
+      moved: false,
+      opened: !_draft,
+      sweep: [],
+    };
   }
 
   function _onPointerMove(e) {
@@ -677,11 +1070,17 @@ App.notes = (function () {
       // Below the threshold the press is still a click waiting to happen: a
       // pointer travels a pixel or two under any finger, and treating that as
       // a sweep would leave a two-point scribble everywhere somebody clicked.
-      if (!_press.moved && !_travelled(e)) return;
+      if (!_press.moved && !_traveled(e)) return;
       _press.moved = true;
       _startDraft();
       var at = s.leafletMap.mouseEventToLatLng(e);
-      if (_farEnough(at)) _pushPoint(at, false);
+      // Collected rather than pushed one node at a time: the whole sweep is
+      // one hop of the mark, so there is one node at the end of it and the
+      // samples in between are what that hop follows.
+      if (_farEnough(at)) {
+        _press.sweep.push([at.lng, at.lat]);
+        _syncDraft();
+      }
       return;
     }
 
@@ -698,9 +1097,30 @@ App.notes = (function () {
     if (!s.noteMode || _tool !== "draw") return;
 
     if (!press.moved) {
+      // In freeform a click places nothing: the hand is the only thing that
+      // draws, which is what keeps a straight hop out of the mark.
+      if (s.noteFreeform) {
+        if (press.opened) _discardDraft();
+        return;
+      }
       _startDraft();
       _addVertex(s.leafletMap.mouseEventToLatLng(e));
       return;
+    }
+
+    // The samples become the hop, and the last of them the node that ends it.
+    // A sweep onto empty ground also has to leave a node where it started,
+    // since a hop is drawn from the node before it.
+    if (press.sweep.length) {
+      if (!_draft.nodes.length) _pushNode({ at: press.sweep[0] });
+      var run = press.sweep.slice(_draft.nodes.length === 1 ? 1 : 0);
+      if (run.length) {
+        _pushNode({
+          at: run[run.length - 1],
+          sweep: true,
+          via: run.length > 1 ? run.slice(0, -1) : null,
+        });
+      }
     }
 
     // A sweep that began on empty ground is one whole mark, and letting go
@@ -722,8 +1142,8 @@ App.notes = (function () {
     _press = null;
   }
 
-  /** Whether the press has travelled far enough to be a sweep. */
-  function _travelled(e) {
+  /** Whether the press has traveled far enough to be a sweep. */
+  function _traveled(e) {
     return (
       Math.abs(e.clientX - _press.x) > DRAG_PX ||
       Math.abs(e.clientY - _press.y) > DRAG_PX
@@ -732,7 +1152,7 @@ App.notes = (function () {
 
   /** Show where the next click would land, or nothing when nothing is pulling. */
   function _moveSnapDot(e) {
-    if (!_snapDot || !s.noteSnap) return;
+    if (!_snapDot || !s.noteSnap || s.noteFreeform) return;
     var hit = _snap(s.leafletMap.mouseEventToLatLng(e));
     if (!hit.snapped) {
       _hideSnapDot();
@@ -810,6 +1230,7 @@ App.notes = (function () {
     var node = target;
     while (node && node !== document.body) {
       if (node.classList && node.classList.contains("note-marker")) return true;
+      if (node.classList && node.classList.contains("note-handle")) return true;
       node = node.parentNode;
     }
     return false;
@@ -822,9 +1243,10 @@ App.notes = (function () {
   var DRAG_PX = 4;
 
   function _farEnough(latlng) {
-    var points = _draft.points;
-    if (!points.length) return true;
-    var last = points[points.length - 1];
+    var last = _press.sweep.length
+      ? _press.sweep[_press.sweep.length - 1]
+      : _lastPoint(_draft.nodes);
+    if (!last) return true;
     var map = s.leafletMap;
     return (
       map.latLngToContainerPoint(latlng).distanceTo(
@@ -833,9 +1255,14 @@ App.notes = (function () {
     );
   }
 
+  /** Where the draft has reached, or null before it has started. */
+  function _lastPoint(nodes) {
+    return nodes.length ? nodes[nodes.length - 1].at : null;
+  }
+
   function _startDraft() {
     if (_draft) return;
-    _draft = { points: [], snapped: [], times: [] };
+    _draft = { nodes: [], times: [] };
     _preview = L.polyline([], {
       pane: "notesPane",
       color: _pen.color,
@@ -854,38 +1281,39 @@ App.notes = (function () {
     _sync();
   }
 
-  /** Redraw the line being drawn, routed where the street tool asked for it. */
+  /** Redraw the line being drawn, its handles, and the sweep under the hand. */
   function _syncDraft() {
     if (!_draft || !_preview) return;
-    _preview.setLatLngs(
-      _geometry().map(function (point) {
-        return [point[1], point[0]];
-      }),
-    );
+    _preview.setLatLngs(_latlngs(_geometry()));
+    _renderHandles();
     _sync();
   }
 
   /**
-   * The draft's full geometry: the clicked points, with street paths inserted
-   * between the pairs that earned one.
+   * The draft's full geometry, including the sweep the hand is still making.
+   *
+   * The live sweep is not a node yet - it becomes one when the button comes
+   * up - so it is appended here rather than stored, which is what lets the
+   * line follow the hand without a node per sample.
    */
   function _geometry() {
     if (!_draft) return [];
-
-    var out = [_draft.points[0]];
-    for (var i = 0; i + 1 < _draft.points.length; i++) {
-      var path = _route(i);
-      if (path) {
-        for (var j = 1; j < path.length - 1; j++)
-          out.push([path[j].lng, path[j].lat]);
-      }
-      out.push(_draft.points[i + 1]);
+    var out = _shape(_draft.nodes);
+    if (_press && _press.sweep.length) {
+      for (var i = 0; i < _press.sweep.length; i++) out.push(_press.sweep[i]);
     }
     return out;
   }
 
+  /** A geometry as Leaflet wants it. */
+  function _latlngs(points) {
+    return points.map(function (point) {
+      return [point[1], point[0]];
+    });
+  }
+
   /**
-   * The street path between two clicked vertices, or null for a straight line.
+   * The street path between two nodes, or null for a hop drawn as it is.
    *
    * The rule is the cut tool's, for the reason the cut tool has it: a vertex
    * placed by hand is a statement about where the mark goes, so only a pair
@@ -893,13 +1321,18 @@ App.notes = (function () {
    * small enough that the drawn line is recognizably the one that was asked
    * for. The difference here is that the mark does not have to separate
    * anything, so there is no extension out to a boundary.
+   *
+   * @returns {Array|null} the inside of the path, in lng/lat
    */
-  function _route(index) {
-    if (!_draft.snapped[index] || !_draft.snapped[index + 1]) return null;
+  function _routeBetween(before, node) {
+    // A swept hop is the hand's own line and a bent one is somebody's own
+    // curve. Neither is a claim about a street, so neither is routed.
+    if (node.sweep || node.bend) return null;
+    if (!before.snapped || !node.snapped) return null;
 
     var radius = _snapRadius();
-    var a = _draft.points[index];
-    var b = _draft.points[index + 1];
+    var a = before.at;
+    var b = node.at;
     var from = N.nearestNodeAt(L.latLng(a[1], a[0]), radius);
     var to = N.nearestNodeAt(L.latLng(b[1], b[0]), radius);
     if (!from || !to) return null;
@@ -911,7 +1344,13 @@ App.notes = (function () {
     var straight = L.latLng(a[1], a[0]).distanceTo(L.latLng(b[1], b[0]));
     if (routed > straight * s.CUT_ROUTE_MAX_DETOUR) return null;
     if (routed - straight > s.CUT_ROUTE_MAX_EXTRA_M) return null;
-    return path;
+
+    // The inside only: the ends of a routed path are the nodes themselves.
+    var inside = [];
+    for (var i = 1; i < path.length - 1; i++) {
+      inside.push([path[i].lng, path[i].lat]);
+    }
+    return inside.length ? inside : null;
   }
 
   function _snapRadius() {
@@ -929,7 +1368,9 @@ App.notes = (function () {
    * @returns {{lat:number, lng:number, snapped:boolean}}
    */
   function _snap(latlng) {
-    if (!s.noteSnap) return { lat: latlng.lat, lng: latlng.lng, snapped: false };
+    if (!s.noteSnap || s.noteFreeform) {
+      return { lat: latlng.lat, lng: latlng.lng, snapped: false };
+    }
 
     var radius = _snapRadius();
     var coord = [latlng.lng, latlng.lat];
@@ -968,7 +1409,8 @@ App.notes = (function () {
    */
   function finishLine() {
     if (!_draft) return;
-    var geometry = _geometry();
+    var nodes = _draft.nodes;
+    var geometry = _shape(nodes);
     _discardDraft();
     // One point is not a line - a tap rather than a sweep, or a double-click
     // on empty ground. Storing it would put an invisible annotation on the
@@ -983,16 +1425,17 @@ App.notes = (function () {
     // Asked at all, rather than left to the menu on the mark, because a mark
     // with no words reaches a PDF as a comment with nothing in it - which is
     // the one outcome that reads as the feature being broken.
-    _openEditor(_add({ kind: "line", points: geometry, text: "" }));
+    _openEditor(
+      _add({ kind: "line", points: geometry, nodes: nodes, text: "" }),
+    );
   }
 
   /** Take back the last vertex of a street line still being drawn. */
   function popVertex() {
-    if (!_draft || !_draft.points.length) return;
-    _draft.points.pop();
-    _draft.snapped.pop();
+    if (!_draft || !_draft.nodes.length) return;
+    _draft.nodes.pop();
     _draft.times.pop();
-    if (!_draft.points.length) _discardDraft();
+    if (!_draft.nodes.length) _discardDraft();
     else _syncDraft();
   }
 
@@ -1002,6 +1445,7 @@ App.notes = (function () {
     var stored = _sanitize({
       kind: record.kind,
       points: record.points,
+      nodes: record.nodes,
       text: record.text,
       color: _pen.color,
       width: _pen.width,
@@ -1165,7 +1609,7 @@ App.notes = (function () {
       items.push({
         labelKey: "notes.finish",
         icon: "fa-check",
-        disabled: _draft.points.length < 2,
+        disabled: _draft.nodes.length < 2,
         onClick: finishLine,
       });
     }
@@ -1219,10 +1663,17 @@ App.notes = (function () {
         },
       },
       {
+        combos: ["F"],
+        labelKey: "shortcuts.noteFreeform",
+        run: function () {
+          _setFreeform(!s.noteFreeform);
+        },
+      },
+      {
         combos: ["Enter"],
         labelKey: "shortcuts.noteFinish",
         when: function () {
-          return !!_draft && _draft.points.length >= 2;
+          return !!_draft && _draft.nodes.length >= 2;
         },
         run: finishLine,
       },
@@ -1230,7 +1681,7 @@ App.notes = (function () {
         combos: ["Backspace", "Delete"],
         labelKey: "shortcuts.noteBack",
         when: function () {
-          return !!_draft && _draft.points.length > 0;
+          return !!_draft && _draft.nodes.length > 0;
         },
         run: popVertex,
       },
@@ -1247,6 +1698,8 @@ App.notes = (function () {
       },
       { combos: ["Drag"], labelKey: "shortcuts.noteDrag", note: true },
       { combos: ["Click"], labelKey: "shortcuts.noteClick", note: true },
+      { combos: ["Drag"], labelKey: "shortcuts.noteHandle", note: true },
+      { combos: ["Drag"], labelKey: "shortcuts.noteBend", note: true },
       { combos: ["Right-drag"], labelKey: "shortcuts.panRight", note: true },
     ],
   };
@@ -1287,6 +1740,12 @@ App.notes = (function () {
       _setSnap(snap.checked);
     });
 
+    var freeform = D.role(_toolbar, "freeform");
+    freeform.checked = !!s.noteFreeform;
+    freeform.addEventListener("change", function () {
+      _setFreeform(freeform.checked);
+    });
+
     D.onRole(_toolbar, "finish", finishLine);
     D.onRole(_toolbar, "undo", NOTES_SCOPE.undo);
     D.onRole(_toolbar, "redo", NOTES_SCOPE.redo);
@@ -1314,10 +1773,19 @@ App.notes = (function () {
     // the height of a bar somebody is aiming at, and a control that vanishes
     // teaches nothing about what it was for - which is the same trade every
     // disabled tile in the toolbar makes.
-    D.toggleClass(D.role(_toolbar, "snap-row"), "is-disabled", _tool !== "draw");
+    var drawPen = _tool === "draw";
+    D.toggleClass(D.role(_toolbar, "freeform-row"), "is-disabled", !drawPen);
+    var freeform = D.role(_toolbar, "freeform");
+    freeform.checked = !!s.noteFreeform;
+    freeform.disabled = !drawPen;
+
+    // And the magnet goes quiet under freeform as well: a sweep has no
+    // vertices, so there is nothing for it to pull onto a street.
+    var magnetized = drawPen && !s.noteFreeform;
+    D.toggleClass(D.role(_toolbar, "snap-row"), "is-disabled", !magnetized);
     var snap = D.role(_toolbar, "snap");
     snap.checked = !!s.noteSnap;
-    snap.disabled = _tool !== "draw";
+    snap.disabled = !magnetized;
 
     D.text(_toolbar, "count", T("notes.count", { count: s.notes.length }));
     D.text(
@@ -1326,17 +1794,17 @@ App.notes = (function () {
       T("notes.widthValue", { value: App.i18n.n(_pen.width) }),
     );
 
-    var drawing = !!_draft && _draft.points.length > 0;
+    var drawing = !!_draft && _draft.nodes.length > 0;
     D.toggleRole(_toolbar, "finish", drawing);
     D.toggleClass(
       D.role(_toolbar, "finish"),
       "is-disabled",
-      !drawing || _draft.points.length < 2,
+      !drawing || _draft.nodes.length < 2,
     );
     D.text(
       _toolbar,
       "status",
-      drawing ? T("notes.vertices", { count: _draft.points.length }) : "",
+      drawing ? T("notes.vertices", { count: _draft.nodes.length }) : "",
     );
 
     D.toggleClass(D.role(_toolbar, "undo"), "is-disabled", !_undo.length);
@@ -1357,6 +1825,9 @@ App.notes = (function () {
     // in through, and a note it wrongly accepts is one that draws nothing and
     // says nothing about why.
     _sanitize: _sanitize,
+    // And the skeleton, which is the other half of the same seam: what a mark
+    // is drawn from, and what an edit to one has to produce.
+    _shape: _shape,
   };
 })();
 

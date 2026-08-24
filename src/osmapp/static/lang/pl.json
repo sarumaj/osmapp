@@ -730,8 +730,8 @@
         "body": "Nie wszystko, co warto wiedzieć o terenie, jest granicą. Brama od podwórza, blok bez skrzynek, strona ulicy, którą chodzi ktoś inny — to trafia właśnie tutaj. Notatki leżą na terenach, a nie w nich, więc dzielenie, cięcie i łączenie zostawiają każdą dokładnie tam, gdzie ją postawiono. Ta przykładowa okolica ma trzy."
       },
       "notes": {
-        "title": "Trzy pióra",
-        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, a ołówek rysuje po terenie: przeciągnij, aby rysować odręcznie, albo klikaj punkt po punkcie. Przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej — wyłącz to, aby rysować dowolnie. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
+        "title": "Cztery pióra",
+        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, ołówek rysuje po terenie, a ostatnie pióro pisze podpis wprost na mapie. Przeciągnij ołówek, aby rysować odręcznie, albo klikaj punkt po punkcie; przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej. „Odręcznie” działa odwrotnie: rysuje tylko ręka, a kliknięcie nic nie stawia. Gotowe zaznaczenie ma te same uchwyty co obszar — przeciągnij punkt, aby go przesunąć, kliknij, aby go usunąć, a środkowy punkt prostego odcinka go wygina. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
       },
       "layers": {
         "title": "Co jest widoczne",
@@ -945,6 +945,9 @@
     "noteTextCancel": "Zostaw notatkę bez zmian",
     "noteToolDraw": "Narysuj zaznaczenie",
     "noteSnap": "Przyciągaj punkty do ulic",
+    "noteFreeform": "Rysuj tylko odręcznie",
+    "noteHandle": "Przesuń punkt · kliknięcie go usuwa",
+    "noteBend": "Wygnij prosty odcinek za środkowy uchwyt",
     "noteClick": "Postaw jeden punkt",
     "noteToolText": "Napisz podpis"
   },
@@ -1037,8 +1040,10 @@
     "kindPin": "Pinezka",
     "kindMark": "Zaznaczenie",
     "snap": "Przyciągaj do ulic",
+    "freeform": "Odręcznie",
     "hintDraw": "Przeciągnij, aby rysować · Klikaj, aby stawiać punkty · Enter lub dwuklik kończy · Prawy przycisk przesuwa mapę",
     "hintText": "Kliknij tam, gdzie ma być tekst · Prawy przycisk otwiera narzędzia · Esc kończy · ? pokaże klawisze",
+    "hintFree": "Przeciągnij, aby rysować · Kliknięcie nic nie stawia · Esc kończy · ? pokaże klawisze",
     "toolText": "Tekst",
     "titleText": "Podpis",
     "kindText": "Podpis"

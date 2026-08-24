@@ -689,8 +689,8 @@
         "body": "Not everything worth knowing about a round is a boundary. A gate round the back, a block with no letterbox, the side of a street somebody else is walking — this is where those go. Notes lie over the territories rather than inside them, so splitting, cutting and merging leave every one of them exactly where it was put. This sample carries three."
       },
       "notes": {
-        "title": "Three pens",
-        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, and the pencil draws along the ground: drag it for a freehand line, or click point by point. With “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it — turn it off to draw wherever you like. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
+        "title": "Four pens",
+        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, the pencil draws along the ground, and the last pen writes a caption straight onto the map. Drag the pencil for a freehand line or click point by point; with “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it. “Freeform” goes the other way: only the hand draws, and a click places nothing. A finished mark wears the same handles a territory does — drag a point to move it, click one to take it out, and drag the dot halfway along a straight hop to bend it. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
       },
       "layers": {
         "title": "What is shown",
@@ -904,6 +904,9 @@
     "noteTextCancel": "Leave the note as it was",
     "noteToolDraw": "Draw a mark",
     "noteSnap": "Snap points to the streets",
+    "noteFreeform": "Draw freeform only",
+    "noteHandle": "Move a point · click one to take it out",
+    "noteBend": "Bend a straight hop by its middle handle",
     "noteClick": "Place one point",
     "noteToolText": "Write a caption"
   },
@@ -988,8 +991,10 @@
     "kindPin": "Pin",
     "kindMark": "Mark",
     "snap": "Snap to streets",
+    "freeform": "Freeform",
     "hintDraw": "Drag to draw · Click to place points · Enter or double-click finishes · Right-drag pans",
     "hintText": "Click where the words belong · Right-click for the tools · Esc leaves · ? for all keys",
+    "hintFree": "Drag to draw · A click places nothing · Esc leaves · ? for all keys",
     "toolText": "Text",
     "titleText": "Caption",
     "kindText": "Caption"

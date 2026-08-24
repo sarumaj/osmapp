@@ -689,8 +689,8 @@
         "body": "Tout ce qui compte dans un territoire n'est pas une limite. Un portail à l'arrière, un immeuble sans boîte aux lettres, le côté de rue que quelqu'un d'autre parcourt — c'est ici que cela se note. Les notes reposent sur les territoires plutôt qu'à l'intérieur, si bien que diviser, découper et fusionner les laissent exactement là où elles ont été posées. Cet exemple en porte trois."
       },
       "notes": {
-        "title": "Trois stylos",
-        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, et le crayon dessine sur le terrain : faites-le glisser pour une ligne à main levée, ou cliquez point par point. Avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté — désactivez-le pour dessiner librement. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
+        "title": "Quatre stylos",
+        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, le crayon dessine sur le terrain, et le dernier stylo pose une légende à même la carte. Faites glisser le crayon pour une ligne à main levée, ou cliquez point par point ; avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté. « Main levée » fait l'inverse : seule la main dessine, et un clic ne pose rien. Une marque terminée porte les mêmes poignées qu'un territoire — faites glisser un point pour le déplacer, cliquez-le pour le retirer, et faites glisser le point au milieu d'un segment droit pour le courber. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
       },
       "layers": {
         "title": "Ce qui est affiché",
@@ -904,6 +904,9 @@
     "noteTextCancel": "Laisser la note telle quelle",
     "noteToolDraw": "Dessiner une marque",
     "noteSnap": "Aimanter les points aux rues",
+    "noteFreeform": "Dessiner uniquement à main levée",
+    "noteHandle": "Déplacer un point · un clic le retire",
+    "noteBend": "Courber un segment droit par sa poignée centrale",
     "noteClick": "Poser un point",
     "noteToolText": "Écrire une légende"
   },
@@ -988,8 +991,10 @@
     "kindPin": "Épingle",
     "kindMark": "Marque",
     "snap": "Aimanter aux rues",
+    "freeform": "Main levée",
     "hintDraw": "Faites glisser pour dessiner · Cliquez pour poser des points · Entrée ou double-clic termine · Le clic droit déplace la carte",
     "hintText": "Cliquez où le texte doit aller · Clic droit pour les outils · Échap termine · ? pour toutes les touches",
+    "hintFree": "Faites glisser pour dessiner · Un clic ne pose rien · Échap termine · ? pour toutes les touches",
     "toolText": "Texte",
     "titleText": "Légende",
     "kindText": "Légende"

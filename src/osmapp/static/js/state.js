@@ -101,6 +101,12 @@ App.state = {
   // is a statement about where the hand went.
   noteSnap: true,
 
+  // Whether the pen draws only what the hand does. With it on a click places
+  // nothing, so a mark is one swept curve and cannot come out with a straight
+  // hop in it - and there is nothing on it to snap, which is why the two
+  // switches are never both live.
+  noteFreeform: false,
+
   // Cut tool toggles (live, flipped from the cut toolbar)
   cutSnap: true, // snap vertices to the street network
   cutSnapEdges: true, // ...and to existing territory outlines

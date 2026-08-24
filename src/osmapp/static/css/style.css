@@ -991,6 +991,29 @@ body {
   background-color: #0e6655;
 }
 
+/* The notes tool borrows these handles rather than drawing its own: a point
+   on a mark is moved, taken out and bent the way a corner of a territory is,
+   and a second shape for the same gesture would be a second thing to learn.
+   The color is the notes bar's own, so it is clear which tool put them there
+   -- and the half-handle bends its hop rather than adding a point, which is
+   why it is hollow where the editor's is filled. */
+.leaflet-container.is-annotating .leaflet-vertex-icon {
+  border-color: var(--c-warn);
+}
+
+.leaflet-container.is-annotating .leaflet-middle-icon {
+  background-color: transparent;
+  border-color: var(--c-warn);
+  border-width: 2px;
+}
+
+/* The line still being drawn wears the same handle without the reach: the
+   invisible margin the shared rule gives a handle is what a click on the next
+   point would land on instead. */
+.note-handle--draft::after {
+  content: none;
+}
+
 /* ── The eraser ────────────────────────────────────────────────────────
    While the key is held the handles stop answering the pointer: the sweep is
    a movement across them, and a movement that starts on one would otherwise
