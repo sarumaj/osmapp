@@ -696,7 +696,7 @@
       },
       "print": {
         "title": "The card",
-        "body": "The preview can be panned, zoomed and rotated; the settings beside it set the label size, the border color and thickness, erases the stretches of border that run through a house, and takes the locality and territory number. Load your own PDF form and the map is placed into it. Territories whose card has been made turn green and carry a tick, so what is left is visible at a glance."
+        "body": "The preview can be panned, zoomed and rotated; the settings beside it set the label size and the border, erase stretches that run through a house, and take the locality and territory number. That number stays with the territory: the next card offers it back, and the wall map writes it. Load your own PDF form and the map is placed into it. A territory whose card has been made turns green and carries a tick."
       },
       "clearPrinted": {
         "title": "The next round",
@@ -732,7 +732,7 @@
       },
       "importFiles": {
         "title": "… and bring it back",
-        "body": "Import reads such a file back in - or a printed card, which carries the project inside it. With something already on the map it asks whether to add to it or replace it, and several files can be picked at once: that is how the villages of a circuit end up in one project."
+        "body": "Import reads such a file back in - or a printed card, which carries the project inside it. With something already on the map it asks whether to add to it or replace it, and several files can be picked at once: that is how the villages of a circuit end up in one project. Reshaping, trimming and splitting then work on one of them at a time - the one you are looking at."
       },
       "reset": {
         "title": "Start over",
@@ -804,7 +804,7 @@
       },
       "wallCard": {
         "title": "One sheet for the wall",
-        "body": "Draws every territory of the project onto a single sheet, numbered, up to A0. The same preview as a card - pan, zoom, rotate, scale bar, compass - with the sheet size chosen beside it. Nothing is marked as printed, so the record of which cards have been handed out survives."
+        "body": "Draws every territory of the project onto a single sheet, up to A0. The same preview as a card - pan, zoom, rotate, scale bar, compass - with the sheet size chosen beside it. Each territory is marked with whatever its card called it, or with its number until a card has been made. Nothing is marked as printed, so the record of which cards have been handed out survives."
       }
     }
   },

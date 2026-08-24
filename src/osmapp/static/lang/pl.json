@@ -739,7 +739,7 @@
       },
       "print": {
         "title": "Karta terenu",
-        "body": "Podgląd można przesuwać, przybliżać i obracać; ustawienia obok określają wielkość podpisów, kolor i grubość obramowania, wymazuje odcinki granicy biegnące przez dom oraz przyjmuje miejscowość i numer terenu. Możesz wczytać własny formularz PDF — mapa zostanie w niego wstawiona. Tereny, których karta jest już gotowa, stają się zielone i dostają znacznik — od razu widać, co zostało."
+        "body": "Podgląd można przesuwać, powiększać i obracać; ustawienia obok regulują wielkość podpisów i linię granicy, wymazują jej fragmenty biegnące przez dom oraz przyjmują miejscowość i numer terenu. Ten numer zostaje przy terenie: następna karta go zaproponuje, a mapa ścienna go wypisze. Wczytaj własny formularz PDF, a mapa zostanie w niego wstawiona. Teren z gotową kartą staje się zielony i dostaje znaczek."
       },
       "clearPrinted": {
         "title": "Następna runda",
@@ -775,7 +775,7 @@
       },
       "importFiles": {
         "title": "… i przywrócić",
-        "body": "Import wczytuje taki plik z powrotem - albo wydrukowaną kartę, która niesie projekt w sobie. Jeśli coś już jest na mapie, pojawia się pytanie, czy dodać, czy zastąpić; można wskazać kilka plików naraz. Tak właśnie miejscowości obwodu trafiają do jednego projektu."
+        "body": "Import wczytuje taki plik z powrotem - albo wydrukowaną kartę, która niesie projekt w sobie. Jeśli coś już jest na mapie, pojawia się pytanie, czy dodać, czy zastąpić; można wskazać kilka plików naraz. Tak właśnie miejscowości obwodu trafiają do jednego projektu. Zmiana kształtu, przycinanie i podział działają wtedy na jednym obszarze naraz - na tym, który masz przed oczami."
       },
       "reset": {
         "title": "Zacznij od nowa",
@@ -847,7 +847,7 @@
       },
       "wallCard": {
         "title": "Jeden arkusz na ścianę",
-        "body": "Rysuje wszystkie tereny projektu na jednym arkuszu, z numerami, aż do A0. Ten sam podgląd co przy karcie - przesuwanie, powiększanie, obrót, podziałka, kompas - z wyborem rozmiaru arkusza obok. Nic nie zostaje oznaczone jako wydrukowane, więc zapis wydanych kart pozostaje nienaruszony."
+        "body": "Rysuje wszystkie tereny projektu na jednym arkuszu, aż do A0. Ten sam podgląd co przy karcie - przesuwanie, powiększanie, obrót, podziałka, kompas - z wyborem rozmiaru arkusza obok. Każdy teren jest opisany tak, jak nazwała go jego karta, albo numerem, dopóki karta nie powstała. Nic nie zostaje oznaczone jako wydrukowane, więc zapis wydanych kart pozostaje nienaruszony."
       }
     }
   },

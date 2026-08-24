@@ -696,7 +696,7 @@
       },
       "print": {
         "title": "Die Karte",
-        "body": "Die Vorschau lässt sich verschieben, zoomen und drehen; in den Einstellungen daneben werden Schriftgröße, Randfarbe und Randstärke eingestellt, Randstücke wegradiert, die mitten durch ein Haus laufen, und Ort und Gebietsnummer eingetragen. Ein eigenes PDF-Formular kann geladen werden, dann wird die Karte dort hineingesetzt. Gebiete, deren Karte fertig ist, werden grün und bekommen ein Häkchen — so ist auf einen Blick zu sehen, was noch offen ist."
+        "body": "Die Vorschau lässt sich verschieben, zoomen und drehen; die Einstellungen daneben regeln Schriftgröße und Grenzlinie, radieren Abschnitte weg, die durch ein Haus laufen, und übernehmen Ort und Gebietsnummer. Diese Nummer bleibt beim Gebiet: Die nächste Karte schlägt sie wieder vor, die Wandkarte schreibt sie. Lade dein eigenes PDF-Formular, und die Karte wird hineingesetzt. Ein Gebiet mit fertiger Karte wird grün und bekommt ein Häkchen."
       },
       "clearPrinted": {
         "title": "Die nächste Runde",
@@ -732,7 +732,7 @@
       },
       "importFiles": {
         "title": "… und zurückholen",
-        "body": "Import liest eine solche Datei wieder ein - oder eine gedruckte Karte, die das Projekt in sich trägt. Ist bereits etwas auf der Karte, wird gefragt, ob hinzugefügt oder ersetzt werden soll; mehrere Dateien lassen sich auf einmal auswählen. So landen die Orte eines Kreises in einem Projekt."
+        "body": "Import liest eine solche Datei wieder ein - oder eine gedruckte Karte, die das Projekt in sich trägt. Ist bereits etwas auf der Karte, wird gefragt, ob hinzugefügt oder ersetzt werden soll; mehrere Dateien lassen sich auf einmal auswählen. So landen die Orte eines Kreises in einem Projekt. Umformen, Zuschneiden und Aufteilen arbeiten dann an jeweils einer Fläche - an der, die du gerade ansiehst."
       },
       "reset": {
         "title": "Von vorn anfangen",
@@ -804,7 +804,7 @@
       },
       "wallCard": {
         "title": "Ein Blatt für die Wand",
-        "body": "Zeichnet alle Gebiete des Projekts nummeriert auf ein einziges Blatt, bis zu A0. Dieselbe Vorschau wie bei einer Karte - verschieben, zoomen, drehen, Maßstab, Kompass - mit der Blattgröße daneben. Nichts wird als gedruckt markiert, der Überblick über ausgegebene Karten bleibt also erhalten."
+        "body": "Zeichnet alle Gebiete des Projekts auf ein einziges Blatt, bis zu A0. Dieselbe Vorschau wie bei einer Karte - verschieben, zoomen, drehen, Maßstab, Kompass - mit der Blattgröße daneben. Jedes Gebiet trägt das, was seine Gebietskarte genannt hat, oder seine Nummer, solange noch keine gedruckt wurde. Nichts wird als gedruckt markiert, der Überblick über ausgegebene Karten bleibt also erhalten."
       }
     }
   },

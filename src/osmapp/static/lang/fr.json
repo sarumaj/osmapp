@@ -696,7 +696,7 @@
       },
       "print": {
         "title": "La fiche",
-        "body": "L'aperçu peut être déplacé, zoomé et pivoté ; les réglages à côté définissent la taille des étiquettes, la couleur et l'épaisseur de la bordure, efface les portions de bordure qui traversent une maison, et prend la localité et le numéro de territoire. Chargez votre propre formulaire PDF et la carte y est insérée. Les territoires dont la fiche a été créée passent au vert et portent une coche, ce qui rend visibles d'un coup d'œil ceux qui restent."
+        "body": "L'aperçu se déplace, se zoome et pivote ; les réglages à côté fixent la taille des libellés et la limite, effacent les portions qui traversent une maison, et reçoivent la localité et le numéro de territoire. Ce numéro reste attaché au territoire : la fiche suivante le repropose, la carte murale l'inscrit. Chargez votre propre formulaire PDF et la carte s'y place. Un territoire dont la fiche est faite passe au vert avec une coche."
       },
       "clearPrinted": {
         "title": "Le prochain cycle",
@@ -732,7 +732,7 @@
       },
       "importFiles": {
         "title": "… et le récupérer",
-        "body": "Importer relit un tel fichier - ou une fiche imprimée, qui porte le projet en elle. Si quelque chose est déjà sur la carte, l'application demande s'il faut l'ajouter ou le remplacer, et plusieurs fichiers peuvent être choisis à la fois : c'est ainsi que les localités d'une circonscription se retrouvent dans un seul projet."
+        "body": "Importer relit un tel fichier - ou une fiche imprimée, qui porte le projet en elle. Si quelque chose est déjà sur la carte, l'application demande s'il faut l'ajouter ou le remplacer, et plusieurs fichiers peuvent être choisis à la fois : c'est ainsi que les localités d'une circonscription se retrouvent dans un seul projet. Remodeler, rogner et diviser travaillent alors sur une zone à la fois - celle que vous regardez."
       },
       "reset": {
         "title": "Recommencer à zéro",
@@ -804,7 +804,7 @@
       },
       "wallCard": {
         "title": "Une feuille pour le mur",
-        "body": "Dessine tous les territoires du projet sur une seule feuille, numérotés, jusqu'au A0. Le même aperçu qu'une fiche - déplacer, zoomer, pivoter, échelle, boussole - avec la taille de la feuille choisie à côté. Rien n'est marqué comme imprimé : le relevé des fiches déjà distribuées reste intact."
+        "body": "Dessine tous les territoires du projet sur une seule feuille, jusqu'au A0. Le même aperçu qu'une fiche - déplacer, zoomer, pivoter, échelle, boussole - avec la taille de la feuille choisie à côté. Chaque territoire porte ce que sa fiche l'a appelé, ou son numéro tant qu'aucune fiche n'a été faite. Rien n'est marqué comme imprimé : le relevé des fiches déjà distribuées reste intact."
       }
     }
   },
