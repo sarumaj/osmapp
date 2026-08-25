@@ -78,7 +78,7 @@ jobs:
           (github.event_name == 'pull_request' && contains(github.actor, 'renovate'))
         run: |
           set -euo pipefail
-          git add -A src/osmapp/static/vendor \
+          git add -A src/osmapp/static/vendor src/osmapp/static/version.json \
             pyproject.toml package.json package-lock.json
           if git diff --cached --quiet; then
             echo "tree already matches the lockfile and the version"

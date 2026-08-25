@@ -1029,5 +1029,9 @@
     "toolText": "Texte",
     "titleText": "Légende",
     "kindText": "Légende"
+  },
+  "version": {
+    "server": "Serveur",
+    "client": "Client"
   }
 }

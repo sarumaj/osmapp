@@ -21,6 +21,7 @@ COPY pyproject.toml .
 COPY LICENSE .
 COPY src/ src/
 COPY --from=vendor /build/src/osmapp/static/vendor/ src/osmapp/static/vendor/
+COPY --from=vendor /build/src/osmapp/static/version.json src/osmapp/static/version.json
 
 RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --upgrade pip && \

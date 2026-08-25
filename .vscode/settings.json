@@ -268,6 +268,7 @@
     "tabindex",
     "TAPPABLE",
     "testpaths",
+    "tomllib",
     "topleft",
     "topright",
     "touchend",

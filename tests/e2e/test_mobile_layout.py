@@ -60,6 +60,7 @@ FURNITURE = [
     ".outline-toolbar",
     ".draw-hint",
     ".app-dialog",
+    "#version-banner",
 ]
 
 # Which of the above are on screen, and where. Returned as plain numbers rather

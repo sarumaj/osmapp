@@ -175,3 +175,46 @@ def test_the_shortcut_sheet_answers_for_the_mode_you_are_in(app_page: Page):
 
     app_page.keyboard.press("Escape")
     expect(sheet).to_have_count(0)
+
+
+def test_the_page_says_which_build_it_is(app_page: Page):
+    """Both numbers, on the page, without a console.
+
+    The banner is the answer to "which version are you on" in a bug report, so
+    it has to survive the trip those numbers make to get there: two files read
+    at import, a dict handed to the template, and markup rendered before any of
+    the client's scripts run. A number lost anywhere along that path renders as
+    an empty span, which is exactly the kind of nothing nobody notices.
+
+    Read as text rather than against the versions themselves — what the server
+    resolved is `tests/test_version.py`'s subject, and this one is about the
+    corner of the screen.
+    """
+    banner = app_page.locator("#version-banner")
+    expect(banner).to_be_visible()
+
+    for part, label in (("server", "Server"), ("client", "Client")):
+        row = banner.locator(f".version-banner__part:has([data-i18n='version.{part}'])")
+        expect(row.locator(".version-banner__label")).to_have_text(label)
+        expect(row.locator(".version-banner__value")).to_have_text(re.compile(r"^\S+$"))
+
+
+def test_the_build_number_does_not_cost_a_pan(app_page: Page):
+    """The map is dragged from anywhere on it, and the banner is on it.
+
+    A fixed box over the bottom-left corner takes the pointer events landing
+    there unless it is told not to, and a drag that starts on it then does
+    nothing at all — a corner of the map that has quietly stopped working, with
+    nothing on screen to say why. `pointer-events: none` in style.css is the
+    only thing between here and that, and it is one line that a later edit can
+    drop without any other test noticing.
+    """
+    box = app_page.locator("#version-banner").bounding_box()
+    assert box
+
+    hit = app_page.evaluate(
+        "point => { const node = document.elementFromPoint(point.x, point.y);"
+        " return node && node.closest('#version-banner') ? 'banner' : 'map'; }",
+        {"x": box["x"] + box["width"] / 2, "y": box["y"] + box["height"] / 2},
+    )
+    assert hit == "map", "the banner is taking the pointer events over the map"

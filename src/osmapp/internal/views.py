@@ -5,6 +5,7 @@ from werkzeug.wrappers import Response
 
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
 from .tiles import client_basemaps
+from .version import VERSIONS
 
 bp = Blueprint("views", __name__)
 
@@ -15,6 +16,7 @@ def _render_app(lang: str) -> str:
         lang=lang,
         lang_paths=language_paths(),
         basemaps=client_basemaps(),
+        versions=VERSIONS,
         i18n_bundle={
             "lang": lang,
             "messages": load_dictionary(lang),

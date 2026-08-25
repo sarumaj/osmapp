@@ -250,6 +250,37 @@
     </aside>
 
     <!-- ═══════════════════════════════════════════════════════════════════
+         VERSION BANNER — which build is on the screen.
+
+         Two numbers, because the halves ship separately: the server from
+         pyproject.toml, the assets in the browser from package.json. A release
+         stamps both with the tag, so reading the same number twice is the
+         ordinary case and reading two different ones is the finding. Either
+         way it answers "which build is this" without anyone asking for a
+         console.
+
+         Rendered here rather than mounted from JS, so a page whose scripts
+         never ran still names itself — which is the page the number is most
+         often wanted for. The labels carry data-i18n like the rest of the
+         static markup: the English below is what shows until i18n.js makes its
+         first pass, and the boot splash covers that span.
+         ═══════════════════════════════════════════════════════════════ -->
+    <div id="version-banner">
+      <span class="version-banner__part">
+        <span class="version-banner__label" data-i18n="version.server"
+          >Server</span
+        >
+        <span class="version-banner__value">{{ versions.server }}</span>
+      </span>
+      <span class="version-banner__part">
+        <span class="version-banner__label" data-i18n="version.client"
+          >Client</span
+        >
+        <span class="version-banner__value">{{ versions.client }}</span>
+      </span>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════
          TEMPLATES — <template> elements cloned by App.dom.render();
          never assembled via string concatenation.
          ═══════════════════════════════════════════════════════════════ -->
