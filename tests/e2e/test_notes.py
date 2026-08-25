@@ -313,3 +313,61 @@ def test_a_sweep_is_one_step_to_take_back(app_page: Page):
     assert draft_dots(app_page) == 2
     app_page.keyboard.press("Backspace")
     assert draft_dots(app_page) == 1
+
+
+def test_a_notes_words_reach_a_tooltip_as_words(app_page: Page):
+    """Leaflet assigns tooltip content straight to innerHTML.
+
+    Which makes a note's text markup unless something escapes it, and the text
+    is not necessarily this user's: restore() takes it out of a project file,
+    and a project file is handed around - it is what a printed card carries and
+    what an export is for. So the check is that the tag arrives as the
+    characters somebody typed rather than as an element.
+    """
+    app_page.evaluate(
+        """() => window.App.notes.restore([
+            {
+              kind: "pin",
+              points: [[8.54, 47.37]],
+              text: "<img src=x onerror=\\"window.__ran = true\\">back gate",
+              color: "#d40000",
+              width: 2,
+            },
+        ])"""
+    )
+    app_page.locator(".note-marker--pin").first.hover()
+    tooltip = app_page.locator(".note-tooltip")
+    expect(tooltip).to_be_visible()
+
+    assert tooltip.locator("img").count() == 0
+    assert "back gate" in tooltip.inner_text()
+    assert app_page.evaluate("() => window.__ran === true") is False
+
+
+def test_changing_pen_hands_undo_back_to_the_note_list(app_page: Page):
+    """A line stepped back to nothing still owns undo until it is given up.
+
+    Which is right while the pen is still out - redo is what puts it back -
+    and wrong the moment another tool is chosen: there the stacks are left
+    holding a line with no preview, and Ctrl+Z steps that instead of taking
+    back the note just placed.
+    """
+    box = open_the_pen(app_page)
+    app_page.mouse.click(box["x"] + POINTS[0][0], box["y"] + POINTS[0][1])
+    app_page.wait_for_timeout(120)
+    assert draft_dots(app_page) == 1
+
+    app_page.keyboard.press("Control+z")
+    assert draft_dots(app_page) == 0
+
+    # The pin tool, and then a pin.
+    app_page.keyboard.press("2")
+    app_page.mouse.click(box["x"] + POINTS[1][0], box["y"] + POINTS[1][1])
+    app_page.fill(".note-dialog textarea", "back gate")
+    app_page.locator(".note-dialog [data-role=save]").click()
+    expect(app_page.locator(".note-dialog")).to_have_count(0)
+    assert app_page.evaluate("() => window.App.notes.count()") == 1
+
+    app_page.keyboard.press("Control+z")
+    app_page.wait_for_timeout(200)
+    assert app_page.evaluate("() => window.App.notes.count()") == 0

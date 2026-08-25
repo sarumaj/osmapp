@@ -112,6 +112,36 @@ def test_a_card_is_two_clicks_from_a_loaded_territory(sample: Page):
     expect(dialog).to_have_count(0)
 
 
+def test_the_notes_group_is_only_there_when_there_are_notes(sample: Page):
+    """Two switches about the notes, on a map that carries none, decide nothing.
+
+    The sample ships three annotations, so the group is there to begin with -
+    which is what makes the second half of this worth asserting: it is the
+    same dialog, opened against the same project with the notes taken off it.
+    """
+    sample.evaluate(
+        "() => window.App.print.printCluster(window.App.state.clusters[0].feature)"
+    )
+    dialog = sample.locator(".app-dialog.print-dialog")
+    expect(dialog.locator("[data-role='notes-group']")).to_be_visible()
+    sample.keyboard.press("Escape")
+    expect(dialog).to_have_count(0)
+
+    sample.evaluate("() => window.App.notes.clear()")
+    assert sample.evaluate("() => window.App.notes.count()") == 0
+
+    sample.evaluate(
+        "() => window.App.print.printCluster(window.App.state.clusters[0].feature)"
+    )
+    expect(dialog).to_be_visible()
+    expect(dialog.locator("[data-role='notes-group']")).to_be_hidden()
+    # The switches keep their state behind it: the group comes back as it was
+    # left the moment the project has a note again.
+    expect(dialog.locator("[data-role='notes']")).to_be_checked()
+
+    sample.keyboard.press("Escape")
+
+
 def test_the_words_switch_follows_the_notes_switch(sample: Page):
     """A control that cannot change the card is shown as one that cannot.
 

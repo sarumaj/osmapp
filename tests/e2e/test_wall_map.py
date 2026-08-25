@@ -203,3 +203,46 @@ def test_a_wall_map_composes_a_pdf_and_marks_nothing_printed(
     # would wipe the record of which cards have actually been handed out.
     after = two_villages.evaluate("() => window.App.polygons.printedCount()")
     assert after == marked, (marked, after)
+
+
+def test_a_portrait_sheet_is_shown_whole(two_villages: Page):
+    """The preview is the point of the dialog, so none of it may be off screen.
+
+    A card is wider than it is tall and fills the column it is in. A sheet in
+    portrait is half as tall again as the whole dialog at that width, and this
+    layout does not scroll - the settings column beside it does - so a preview
+    left at its natural size simply has its bottom third cut off, with the
+    frame nobody can see being the part that decides what prints.
+    """
+    # Stated rather than inherited: the fit is what the two-column layout does,
+    # and that layout starts at 900 px. Below it the dialog scrolls as one
+    # piece and the sheet is reachable by scrolling instead.
+    two_villages.set_viewport_size({"width": 1280, "height": 720})
+
+    two_villages.locator('.tb-item[data-action="wallcard"]').click()
+    dialog = two_villages.locator(".app-dialog.print-dialog")
+    expect(dialog).to_be_visible()
+    dialog.locator("[data-role='page-size']").select_option("a4")
+    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=60_000)
+
+    fit = two_villages.evaluate(
+        """() => {
+            const box = document.querySelector('.app-dialog.print-dialog');
+            const canvas = document.querySelector('.print-preview canvas');
+            const outer = box.getBoundingClientRect();
+            const inner = canvas.getBoundingClientRect();
+            return {
+              inside: inner.top >= outer.top - 1 && inner.bottom <= outer.bottom + 1,
+              // The border is on the canvas, so the ratio to compare against
+              // the sheet is the one of the paper inside it.
+              shown: (inner.height - 2) / (inner.width - 2),
+              sheet: canvas.height / canvas.width,
+              tall: canvas.height > canvas.width,
+            };
+        }"""
+    )
+    assert fit["tall"] is True, fit
+    assert fit["inside"] is True, fit
+    # Fitted rather than squashed: a preview that lies about the shape of the
+    # sheet is worse than one that is cut off.
+    assert abs(fit["shown"] - fit["sheet"]) < 0.02, fit

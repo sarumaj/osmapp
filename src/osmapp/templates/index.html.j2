@@ -1449,7 +1449,11 @@
               </p>
             </fieldset>
 
-            <fieldset class="print-controls__group">
+            <!-- Hidden by print.js when the map carries no annotations: two
+                 switches over what to do with the notes are two questions
+                 about something that does not exist, in a column that is
+                 already five fieldsets long. -->
+            <fieldset class="print-controls__group" data-role="notes-group">
               <legend data-i18n="print.notesGroup">Notes</legend>
               <label class="print-controls__check">
                 <input type="checkbox" data-role="notes" checked />
