@@ -1029,5 +1029,9 @@
     "toolText": "Text",
     "titleText": "Beschriftung",
     "kindText": "Beschriftung"
+  },
+  "version": {
+    "server": "Server",
+    "client": "Client"
   }
 }

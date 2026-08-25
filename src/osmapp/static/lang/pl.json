@@ -1080,5 +1080,9 @@
     "toolText": "Tekst",
     "titleText": "Podpis",
     "kindText": "Podpis"
+  },
+  "version": {
+    "server": "Serwer",
+    "client": "Klient"
   }
 }

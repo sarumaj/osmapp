@@ -384,10 +384,65 @@ body {
    clicks whichever way the stacking goes. Below that width the mode is the
    task and the counts can wait: dom.js sets .has-map-bar for as long as a
    bar or the hint banner is on the map. */
+/* The version banner goes with it, and for the same reason: on a phone it has
+   moved up to the row a mode bar is anchored to — see the end of this file —
+   and a build number is not worth a bar drawn over. */
 @media (max-width: 979px) {
-  body.has-map-bar #info-panel {
+  body.has-map-bar #info-panel,
+  body.has-map-bar #version-banner {
     display: none;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Version banner
+
+   Bottom-left, which is the corner nothing else claims: the toolbar panel is
+   top-left, the search top-right, and the attribution bottom-right. Only on a
+   desktop, though — the attribution grows leftwards as the screen narrows and
+   takes the whole bottom row of a phone, which is what the rule at the end of
+   this file is about. Fixed rather than a Leaflet control, like the info panel
+   opposite it, because it is markup the server renders and not something JS
+   mounts.
+
+   `pointer-events: none` is the whole reason it can sit on the map at all. The
+   map is dragged from anywhere on it, including this corner, and a strip of
+   dead pixels there is a pan that does not start. The cost is a banner that
+   cannot be selected and copied, which is the cheaper half of the trade: a
+   version is five characters, and it is read off the screen far more often
+   than it is pasted anywhere.
+
+   It takes the map-UI level, under everything that is a control: a dialog, a
+   mode bar or the tour spotlight passing over the corner should cover it, and
+   none of them can be blocked by it.
+   ═══════════════════════════════════════════════════════════ */
+#version-banner {
+  position: fixed;
+  bottom: 3px;
+  left: 10px;
+  z-index: var(--z-map-ui);
+  display: flex;
+  gap: 6px;
+  pointer-events: none;
+  font: var(--ui-fs-sm) / 1.5 var(--ui-font);
+  color: var(--c-text-dim);
+  /* No panel behind it — a box in the corner reads as a control, and this one
+     does nothing when clicked. What it needs is legibility over whatever tile
+     is under it, and a halo does that without claiming to be a thing. */
+  text-shadow:
+    0 0 3px var(--c-surface),
+    0 0 3px var(--c-surface),
+    0 0 3px var(--c-surface);
+}
+
+.version-banner__part + .version-banner__part::before {
+  content: "·";
+  margin-right: 6px;
+}
+
+.version-banner__value {
+  color: var(--c-text);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -3994,6 +4049,14 @@ body {
   right: calc(20px + env(safe-area-inset-right, 0px));
 }
 
+/* The opposite corner, and the same two insets. The bottom is overridden once
+   more at the end of this file, where a phone lifts the banner clear of the
+   attribution — the inset has to be carried through that one too. */
+#version-banner {
+  bottom: calc(3px + env(safe-area-inset-bottom, 0px));
+  left: calc(10px + env(safe-area-inset-left, 0px));
+}
+
 .pwa-update {
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
 }
@@ -4019,5 +4082,21 @@ body {
     /* The pill is centred by a translate, which at left: 10px would take half
        of it off the side of the screen. */
     transform: none;
+  }
+
+  /* The version banner moves up by exactly as much, onto the same row.
+
+     The bottom row of a phone is not free after all: Leaflet's attribution
+     grows leftwards as the screen narrows, and at 360 px "Leaflet | ©
+     OpenStreetMap contributors" is two thirds of the width — it was drawn
+     straight through the banner. One row up is clear of it.
+
+     Which is the pill's row, and that is the intended order rather than a
+     collision to fix: the pill is opaque and sits at the overlay level, so on
+     the one screen that has both, "you are offline" covers a build number.
+     Being told the map cannot reach the network is worth more than being told
+     which build cannot. */
+  #version-banner {
+    bottom: calc(26px + env(safe-area-inset-bottom, 0px));
   }
 }

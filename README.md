@@ -99,6 +99,12 @@ pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached and
 load on first use, not at boot — so a page view that never opens the print
 dialog never parses them.
 
+The same run writes `static/version.json` — `package.json`'s version, and
+nothing else. It exists because `package.json` does not ship: a wheel carries
+`src/osmapp/` and nothing above it, and the runtime image is built from that
+wheel with no Node in it, so this is how the server can still name the build
+the browser is running. See the version banner below.
+
 ### Configuration
 
 All optional, all environment variables:
@@ -184,6 +190,15 @@ version lives in the tag rather than on the branch, so `main` keeps its
 placeholder. Moving the tag is a force-push made with `GITHUB_TOKEN`, which
 GitHub deliberately does not let start another run.
 
+Both numbers end up in the bottom-left corner of the page, as `Server 1.4.2 ·
+Client 1.4.2` — `internal/version.py` reads the first from `pyproject.toml` (or
+from the installed package's metadata) and the second from `package.json` (or
+from `static/version.json`). They come from one tag, so they normally agree, and
+seeing them disagree is the point of printing both: an image that was not built
+from a release, or a service worker still handing out the assets from before
+one. On a phone the banner sits a row above the attribution, and it steps aside
+while a tool's bar is on the map.
+
 ---
 
 ## Installing as an app
@@ -261,6 +276,7 @@ static/js/                  One IIFE module per file, namespaced under window.Ap
 static/fonts/               DejaVuSans, embedded into cards by pdfdoc.js
 static/icons/               PWA icons (SVG + generated PNGs)
 static/vendor/              Leaflet, Turf, pdf-lib, pdf.js — no CDN at runtime
+static/version.json         Client version, written by copy-vendor.js
 scripts/copy-vendor.js      Populates static/vendor/ from node_modules
 tests/                      pytest (server), node --test (client)
 tests/e2e/                  pytest + Playwright (the page in a browser)

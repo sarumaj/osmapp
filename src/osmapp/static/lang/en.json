@@ -1029,5 +1029,9 @@
     "toolText": "Text",
     "titleText": "Caption",
     "kindText": "Caption"
+  },
+  "version": {
+    "server": "Server",
+    "client": "Client"
   }
 }

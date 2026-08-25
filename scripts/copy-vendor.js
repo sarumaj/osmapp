@@ -146,6 +146,23 @@ for (const [name, pcfg] of packages) {
 
 console.log(`Done — ${count} entries from ${packages.length} packages.`);
 
+// The client version, written where the server can read it back.
+//
+// package.json does not travel: the wheel carries src/osmapp and nothing above
+// it, and the runtime image is built from that wheel with no Node left in it.
+// This file does travel — it sits among the assets whose version it names, and
+// internal/version.py falls back to it once package.json is out of reach. It is
+// written from here because this is the step that produces those assets, so the
+// number cannot end up describing a tree it was not built from.
+const versionFile = resolve(root, "src/osmapp/static/version.json");
+mkdirSync(dirname(versionFile), { recursive: true });
+writeFileSync(
+  versionFile,
+  JSON.stringify({ version: pkg.version }, null, 2) + "\n",
+  "utf8",
+);
+console.log(`Wrote ${rel(versionFile)} — client version ${pkg.version}.`);
+
 const TEMPLATES = resolve(root, "src/osmapp/templates");
 const referenced = new Map();
 
