@@ -112,10 +112,16 @@ jobs:
 
       - name: Report
         if: always()
+        env:
+          SHA: ${{ steps.push.outputs.sha }}
         run: |
           {
             echo "### Vendor — ${{ github.ref_name }}"
-            echo "${{ steps.push.outputs.sha && format('At `{0}`.', steps.push.outputs.sha) || 'Not pushed back.' }}"
+            if [ -n "$SHA" ]; then
+              echo "At \`$SHA\`."
+            else
+              echo "Not pushed back."
+            fi
             find src/osmapp/static/vendor -type f | wc -l | xargs echo "Vendored files:"
           } >> "$GITHUB_STEP_SUMMARY"
 
