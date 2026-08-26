@@ -228,6 +228,48 @@ App.print = (function () {
   var HALO = "rgba(255,255,255,0.9)";
   var INK = "#333";
 
+  // THE TWO PENS
+  //
+  // The border and the eraser that cuts it are the only controls in the
+  // dialog measured in ink on the sheet, and the numbers below were chosen
+  // against one sheet: the built-in card, whose map area is 534 pt across and
+  // is read at arm's length. A wall map is the same dialog drawing A0 - a map
+  // area four times as wide, read from across a room - and 8 pt of border on
+  // it is the same scratch 2 pt is on a card. A single span of points cannot
+  // serve both, so these are the card's span and _penRange scales it to
+  // whatever frame the dialog has adopted.
+  //
+  // `value` is what an unset slider shows. index.html.j2 carries the same
+  // three numbers, so the dialog is right before this file touches it, and
+  // wallcard.test.mjs checks the two have not drifted apart.
+  var BORDER_PT = { min: 0.5, max: 8, step: 0.5, value: 2 };
+  var ERASE_PT = { min: 2, max: 40, step: 1, value: 8 };
+
+  /**
+   * The frame those numbers were picked on, as one number.
+   *
+   * The card's map area is 534 by 350, and the side to compare a sheet
+   * against is neither of those: it is the square of the same area, 432 pt.
+   * A frame's longest side would do it too until the sheet is turned - the
+   * title band comes off the height either way, so a landscape wall map is
+   * not a rotation of the portrait one, and the border would step up by a
+   * twentieth for having tipped the paper over.
+   */
+  var PEN_REFERENCE_PT = Math.sqrt(
+    DEFAULT_LAYOUT.placeholder.width * DEFAULT_LAYOUT.placeholder.height,
+  );
+
+  // Steps a readout can say out loud. The border's half point scaled by an A0
+  // sheet is 3.19, and a slider stepping in 3.19 pt reports a border of
+  // 15.97 - a measurement, where the control is meant to offer a number.
+  var PEN_STEPS = [0.5, 1, 2, 5, 10];
+
+  /** The sliders whose numbers are widths on the sheet. See _syncPenControls. */
+  var PEN_CONTROLS = [
+    { role: "width", base: BORDER_PT },
+    { role: "erase-size", base: ERASE_PT },
+  ];
+
   /** The four points, clockwise from north. The letters are translated. */
   var COMPASS_POINTS = [
     { key: "print.compassN", bearing: 0, needle: true },
@@ -365,6 +407,9 @@ App.print = (function () {
     var saved = _readPreferences();
     PREFERENCES_ROLES.forEach(function (role) {
       if (saved[role] === undefined) return;
+      // A pen width means nothing until the frame is known, and the frame is
+      // adopted after this runs. _syncPenControls restores those two.
+      if (_penBase(role)) return;
       var input = D.role(_dialog, role);
       if (!input) return;
 
@@ -421,6 +466,10 @@ App.print = (function () {
     PREFERENCES_ROLES.forEach(function (role) {
       var input = D.role(_dialog, role);
       if (!input) return;
+      if (_penBase(role)) {
+        preferences[role] = _penStore(input);
+        return;
+      }
       preferences[role] =
         input.type === "checkbox" ? (input.checked ? "1" : "0") : input.value;
     });
@@ -513,6 +562,9 @@ App.print = (function () {
     _view = _fitViewFor(_feature, _view ? _view.rotation : 0);
     _desiredEz = _view.ez;
 
+    // Before the cursor, which is drawn at the brush's width, and before
+    // _syncFrameControls' readouts, which report both sliders.
+    _syncPenControls();
     _syncFrameControls();
     _sizeEraseCursor();
     _retile();
@@ -534,6 +586,109 @@ App.print = (function () {
       MAX_RENDER_SIDE_PX / Math.max(1, longest),
       Math.sqrt(MAX_RENDER_PX / area),
     );
+  }
+
+  /**
+   * How much bigger this frame is than the one the pen weights were chosen on.
+   *
+   * Never below 1. A template with a small map slot is still a card held in
+   * the hand, and narrowing a range that has always reached 8 pt would move a
+   * setting somebody is happy with; the complaint this answers is only ever
+   * that the sliders stop too soon.
+   */
+  function _penScale(box) {
+    if (!box) return 1;
+    var side = Math.sqrt(Math.max(1, box.width * box.height));
+    return Math.max(1, side / PEN_REFERENCE_PT);
+  }
+
+  /**
+   * One slider's bounds on this frame: the card's span, scaled and put back
+   * onto a lattice.
+   *
+   * Bounds and value alike come back as multiples of the step, so a value the
+   * browser clamps lands on a stop rather than between two - a slider that
+   * cannot be dragged back to its own maximum is how a range control reads as
+   * broken.
+   */
+  function _penRange(base, box) {
+    var scale = _penScale(box);
+    var step = PEN_STEPS[0];
+    for (var i = 0; i < PEN_STEPS.length; i++) {
+      if (PEN_STEPS[i] <= base.step * scale) step = PEN_STEPS[i];
+    }
+    var snap = function (value, round) {
+      return Math.max(step, round((value * scale) / step) * step);
+    };
+    return {
+      // The bottom of the range rounds down and the rest to nearest. A
+      // proportional minimum for the border on A0 is 3.19 pt, and rounding
+      // that onto a 2 pt step puts the finest line the sheet offers at 4 -
+      // twice what the scale asked for, on the sheet with the most room for a
+      // thin one.
+      min: snap(base.min, Math.floor),
+      max: snap(base.max, Math.round),
+      step: step,
+      value: snap(base.value, Math.round),
+      scale: scale,
+    };
+  }
+
+  /** Both pen sliders, as they stand on a given frame. */
+  function pens(box) {
+    return {
+      border: _penRange(BORDER_PT, box),
+      erase: _penRange(ERASE_PT, box),
+    };
+  }
+
+  /** The base for a pen role, or null for every other control. */
+  function _penBase(role) {
+    for (var i = 0; i < PEN_CONTROLS.length; i++) {
+      if (PEN_CONTROLS[i].role === role) return PEN_CONTROLS[i].base;
+    }
+    return null;
+  }
+
+  /**
+   * Re-cut both pen sliders for the frame that has just been adopted.
+   *
+   * The saved number is a width on the card's frame rather than on this one.
+   * The card dialog and the wall map share one preference record, and what
+   * somebody who set the border to 2 pt wants back on a poster is a line of
+   * the same weight, not two points of one - so it is scaled up here and
+   * divided out again in _savePreferences. That is also why the sliders are
+   * not restored by _loadPreferences with the rest: at that point the dialog
+   * does not yet know which sheet it is drawing.
+   */
+  function _syncPenControls() {
+    if (!_dialog) return;
+    var saved = _readPreferences();
+
+    PEN_CONTROLS.forEach(function (pen) {
+      var input = D.role(_dialog, pen.role);
+      if (!input) return;
+
+      var range = _penRange(pen.base, PLACEHOLDER);
+      input.min = range.min;
+      input.max = range.max;
+      input.step = range.step;
+
+      var want = parseFloat(saved[pen.role]);
+      if (!isFinite(want)) {
+        input.value = range.value;
+        return;
+      }
+      var scaled = Math.round((want * range.scale) / range.step) * range.step;
+      input.value = Math.max(range.min, Math.min(range.max, scaled));
+    });
+  }
+
+  /** A pen width put back on the card's frame, so any other sheet can read it. */
+  function _penStore(input) {
+    var value = parseFloat(input.value);
+    if (!isFinite(value)) return input.value;
+    return String(Math.round((value / _penScale(PLACEHOLDER)) * 100) / 100);
   }
 
   /**
@@ -4344,8 +4499,17 @@ App.print = (function () {
         layout: layout,
         renderWidth: Math.max(1, Math.floor(layout.placeholder.width * scale)),
         renderHeight: Math.max(1, Math.floor(layout.placeholder.height * scale)),
+        pens: pens(layout.placeholder),
       };
     },
+    /**
+     * What the border and eraser sliders offer on a frame this size.
+     *
+     * Here for the same reason as the four above: a slider whose range stops
+     * short of the sheet still slides, still reads out points and still draws
+     * a line - one nobody standing in front of an A0 poster can see.
+     */
+    pens: pens,
     layout: function () {
       // A getter, not a reference: PLACEHOLDER and FIELDS are reassigned
       // whenever a template loads, so an exported object would go stale.

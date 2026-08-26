@@ -1513,6 +1513,13 @@
                 <span data-i18n="print.color">Color</span>
                 <input type="color" data-role="color" value="#d40000" />
               </label>
+              <!-- The range here is the card's, and print.js re-cuts it for
+                   whatever sheet the dialog has adopted: a border is ink on
+                   paper, and 8 pt of it is a heavy line on a card and a
+                   scratch on an A0 poster. Same for the eraser below, which
+                   has to be able to take the heaviest border out. Both are
+                   kept in step with BORDER_PT and ERASE_PT by
+                   wallcard.test.mjs. -->
               <label class="print-controls__field">
                 <span data-i18n="print.thickness">Thickness</span>
                 <input

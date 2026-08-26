@@ -158,6 +158,165 @@ test("a large sheet gives up resolution rather than pixels", () => {
   );
 });
 
+// ── The pens ─────────────────────────────────────────────────────────────
+
+/** The `min`, `max`, `step` and `value` the markup gives a slider. */
+function slider(role) {
+  const tag = new RegExp(`<input[^>]*data-role="${role}"[^>]*>`).exec(DIALOG);
+  assert.ok(tag, `no ${role} control in the print dialog`);
+  const read = (name) => {
+    const found = new RegExp(`${name}="([^"]*)"`).exec(tag[0]);
+    assert.ok(found, `the ${role} control has no ${name}`);
+    return Number(found[1]);
+  };
+  return {
+    min: read("min"),
+    max: read("max"),
+    step: read("step"),
+    value: read("value"),
+  };
+}
+
+const longest = (box) => Math.max(box.width, box.height);
+
+test("the card's two sliders are exactly the ones the markup ships", () => {
+  // The dialog is drawn from the markup and re-cut by print.js the moment a
+  // frame is adopted. Where the two disagree the slider jumps as it opens,
+  // and the number somebody was looking at is not the one they get.
+  const print = load();
+  const pens = print.pens(print.layout().placeholder);
+  const shipped = ({ min, max, step, value }) => ({ min, max, step, value });
+  assert.deepEqual(shipped(pens.border), slider("width"));
+  assert.deepEqual(shipped(pens.erase), slider("erase-size"));
+});
+
+test("a poster's border reaches as far across its sheet as a card's does", () => {
+  // The point of the whole exercise. 8 pt is 1.5% of the card's map area and
+  // reads as a deliberately heavy line; the same 8 pt is 0.24% of A0, which
+  // is a line drawn for a sheet nobody is holding.
+  const print = load();
+  const card = print.layout().placeholder;
+  const want = slider("width").max / longest(card);
+
+  for (const size of SIZES) {
+    for (const landscape of [false, true]) {
+      const sheet = print.wallSheet(size, landscape);
+      const share = sheet.pens.border.max / longest(sheet.layout.placeholder);
+      // Loose, because the range is snapped to a step a readout can say: on
+      // A1 that is 2 pt, and rounding 34.35 to it moves the top of the range
+      // by one percent of itself.
+      assert.ok(
+        share > want * 0.85 && share < want * 1.15,
+        `${size} tops out at ${(share * 100).toFixed(2)}% of the sheet, the card at ${(want * 100).toFixed(2)}%`,
+      );
+    }
+  }
+});
+
+test("a bigger sheet is never offered a lighter pen", () => {
+  const print = load();
+  let previous = print.pens(print.layout().placeholder);
+  for (const size of SIZES) {
+    const pens = print.wallSheet(size, false).pens;
+    const below = `${size} is offered less than the sheet under it`;
+    assert.ok(pens.border.max >= previous.border.max, `${below}: border max`);
+    assert.ok(pens.border.value >= previous.border.value, `${below}: border default`);
+    assert.ok(pens.erase.max >= previous.erase.max, `${below}: eraser max`);
+    previous = pens;
+  }
+  const a0 = print.wallSheet("a0", false).pens;
+  const card = print.pens(print.layout().placeholder);
+  assert.ok(a0.border.max > card.border.max * 3, "A0 is barely heavier than a card");
+  assert.ok(a0.border.value > card.border.value, "an A0 poster opens with a card's hairline");
+});
+
+test("a landscape sheet gets much the same pen as the same sheet upright", () => {
+  // Turning the paper changes what is on it, not how heavy a line has to be
+  // to be seen from the other side of the room. Not identical, because the
+  // title band comes off the height either way and so the map area is not a
+  // rotation of itself - but the pen may not notice more than a step of that.
+  const print = load();
+  for (const size of SIZES) {
+    const upright = print.wallSheet(size, false).pens;
+    const turned = print.wallSheet(size, true).pens;
+    for (const which of ["border", "erase"]) {
+      const step = Math.max(upright[which].step, turned[which].step);
+      for (const what of ["min", "max", "value"]) {
+        // A step, or a fiftieth - whichever is the coarser. The band is what
+        // is left of the difference once the map area is measured as a square
+        // of the same area rather than by its longest side.
+        const slack = Math.max(step, upright[which][what] / 50);
+        assert.ok(
+          Math.abs(upright[which][what] - turned[which][what]) <= slack,
+          `${size} ${which} ${what}: ${upright[which][what]} upright, ${turned[which][what]} turned`,
+        );
+      }
+    }
+  }
+});
+
+test("every pen slider lands on its own stops", () => {
+  // A range whose bounds are not multiples of its step cannot be dragged to
+  // its own maximum, and a value the browser clamps comes to rest between two
+  // stops - both of which read as a broken control rather than a rounded one.
+  const print = load();
+  const sheets = [
+    { name: "card", pens: print.pens(print.layout().placeholder) },
+    ...SIZES.map((size) => ({ name: size, pens: print.wallSheet(size, false).pens })),
+  ];
+  for (const { name, pens } of sheets) {
+    for (const [which, range] of Object.entries(pens)) {
+      const where = `${name} ${which}`;
+      assert.ok(range.step > 0, `${where} has no step`);
+      assert.ok(range.min > 0, `${where} starts at nothing`);
+      assert.ok(range.max > range.min, `${where} has no range at all`);
+      assert.ok(
+        range.value >= range.min && range.value <= range.max,
+        `${where} opens outside its own range`,
+      );
+      for (const [what, value] of Object.entries(range)) {
+        if (what === "scale") continue;
+        const stops = value / range.step;
+        assert.ok(
+          Math.abs(stops - Math.round(stops)) < 1e-9,
+          `${where} ${what} is ${value}, which is not a multiple of ${range.step}`,
+        );
+      }
+    }
+    assert.ok(
+      pens.erase.max > pens.border.max,
+      `${name}: the eraser cannot take out the heaviest border it can draw`,
+    );
+  }
+});
+
+test("a pen width is remembered against the card, not against the sheet", () => {
+  // One preference record serves both dialogs, so a saved number has to mean
+  // the same thing on A0 as on a card - which it only does if what is stored
+  // is the width on the card's frame. Stored raw, a congregation that prints
+  // cards at 2 pt gets a 2 pt line on a poster: the bug, back through the
+  // preferences.
+  assert.match(PRINT, /function _penStore\(/);
+  const save = PRINT.slice(PRINT.indexOf("function _savePreferences("));
+  assert.match(save.slice(0, 700), /_penBase\(role\)[\s\S]{0,80}_penStore\(input\)/);
+  const load_ = PRINT.slice(PRINT.indexOf("function _loadPreferences("));
+  assert.match(load_.slice(0, 700), /if \(_penBase\(role\)\) return;/);
+});
+
+test("the sliders are re-cut whenever a frame is adopted", () => {
+  // Not only on the sheet select: a template carries its own map area, and
+  // the wall map's own sheet is applied through the same call.
+  const apply = PRINT.slice(
+    PRINT.indexOf("function _applyLayout("),
+    PRINT.indexOf("function _renderScale("),
+  );
+  assert.match(apply, /_syncPenControls\(\)/);
+  assert.ok(
+    apply.indexOf("_syncPenControls()") < apply.indexOf("_sizeEraseCursor()"),
+    "the erase cursor is sized from a brush width that is about to change",
+  );
+});
+
 // ── The wiring ───────────────────────────────────────────────────────────────
 
 test("every wall-map control is in the dialog and hidden from a card", () => {
