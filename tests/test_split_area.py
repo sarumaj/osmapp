@@ -28,6 +28,8 @@ from shapely.ops import unary_union
 
 from osmapp import create_app
 from osmapp.internal.geo import (
+    SLIVER_RATIO,
+    _tiles_for,  # type: ignore[reportPrivateUsage]
     approx_area_km2,
     polygon_from_request,
     split_polygon,
@@ -57,6 +59,20 @@ def square(km2: float, lat: float = LAT, lng: float = LNG) -> Polygon:
     )
 
 
+def diamond(km2: float, lat: float = LAT, lng: float = LNG) -> Polygon:
+    """A square of `km2` turned 45°, which is the shape grids leave scraps on.
+
+    Every one of its four edges crosses the grid diagonally, so eight cells
+    come away holding a corner of it and nothing else. A drawn boundary does
+    the same thing wherever it runs at an angle; a diamond just does it
+    predictably.
+    """
+    bounds = square(km2 * 2, lat, lng).bounds
+    west, south, east, north = bounds
+    mid_x, mid_y = (west + east) / 2, (south + north) / 2
+    return Polygon([(mid_x, south), (east, mid_y), (mid_x, north), (west, mid_y)])
+
+
 def polygons(tiles: list[Any]) -> list[Polygon]:
     return [tile.polygon for tile in tiles]
 
@@ -64,13 +80,19 @@ def polygons(tiles: list[Any]) -> list[Polygon]:
 # ── The two assumptions the assembly rests on ────────────────────────────────
 
 
+@pytest.mark.parametrize("shape", [square, diamond])
 @pytest.mark.parametrize("km2", [12.0, 40.0, 120.0, 300.0])
-def test_the_tiles_are_the_boundary(km2: float):
-    """Their union is what was asked for, to within floating point."""
-    area = square(km2)
+def test_the_tiles_are_the_boundary(km2: float, shape: Any):
+    """Their union is what was asked for, to within floating point.
+
+    Run over the diamond as well as the square because folding scraps together
+    rewrites tiles after the grid has laid them out, and coverage is the
+    property that pass could quietly break.
+    """
+    area = shape(km2)
     covered = unary_union(polygons(split_polygon(area, max_area_km2=50)))
 
-    assert covered.difference(area).area == pytest.approx(0, abs=1e-12)
+    assert covered.difference(area).area == pytest.approx(0, abs=1e-12)  # type: ignore[reportUnknownMemberType]
     assert area.difference(covered).area == pytest.approx(0, abs=1e-12)
 
 
@@ -95,9 +117,10 @@ def test_a_tall_boundary_fits_at_its_southern_edge_too():
         assert approx_area_km2(tile.polygon) <= 50
 
 
-def test_the_tiles_do_not_overlap():
+@pytest.mark.parametrize("shape", [square, diamond])
+def test_the_tiles_do_not_overlap(shape: Any):
     """Overlap is duplicate features and duplicate Overpass traffic."""
-    tiles = polygons(split_polygon(square(400), max_area_km2=50))
+    tiles = polygons(split_polygon(shape(400), max_area_km2=50))
     for index, tile in enumerate(tiles):
         for other in tiles[index + 1 :]:
             assert tile.intersection(other).area == pytest.approx(0, abs=1e-12)
@@ -193,6 +216,38 @@ def test_a_cell_that_cuts_a_concave_boundary_in_two_yields_two_tiles():
     assert all(tile.polygon.geom_type == "Polygon" for tile in tiles)
     covered = unary_union(polygons(tiles))
     assert u_shape.difference(covered).area == pytest.approx(0, abs=1e-12)
+
+
+def test_a_scrap_left_by_a_grid_line_is_folded_into_a_neighbor():
+    """The failure that started this: a tile a few hundred metres across.
+
+    It is a full download - two Overpass round trips, and a retry ladder behind
+    each of them - for a corner of a field that the tile beside it covers the
+    approaches to anyway. The grid produces one wherever a boundary runs at an
+    angle to it, which is most boundaries.
+    """
+    area = diamond(400)
+    laid_out = _tiles_for(area, 50, 0)  # what the grid alone produces
+    tiles = split_polygon(area, max_area_km2=50)
+
+    assert len(tiles) < len(laid_out), "no scraps were folded away"
+    scraps = [t for t in laid_out if approx_area_km2(t) < 50 * SLIVER_RATIO]
+    assert scraps, "the fixture stopped producing scraps - the test proves nothing"
+
+
+def test_folding_a_scrap_never_pushes_a_tile_over_the_limit():
+    """A merged tile is downloaded like any other and measured by the same
+    guard, so the fold has to respect the limit the split exists to keep."""
+    for tile in split_polygon(diamond(400), max_area_km2=50):
+        assert approx_area_km2(tile.polygon) <= 50
+
+
+def test_a_folded_tile_is_still_one_polygon():
+    """polygon_from_request keeps the largest part of what it is posted, so a
+    tile that came back as two pieces would be a tile half-downloaded."""
+    for tile in split_polygon(diamond(400), max_area_km2=50):
+        assert tile.polygon.geom_type == "Polygon"
+        assert tile.polygon.is_valid
 
 
 # ── What is still refused ────────────────────────────────────────────────────

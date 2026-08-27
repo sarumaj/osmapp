@@ -6,6 +6,7 @@ from typing import NamedTuple, cast
 from flask import request
 from shapely.geometry import MultiPolygon, Polygon, box, shape
 from shapely.geometry.base import BaseGeometry
+from shapely.ops import unary_union
 
 from .config import MAX_AREA_KM2, MAX_TILES
 from .responses import BadRequest
@@ -26,6 +27,14 @@ TILE_TARGET_RATIO = 0.9
 # both fetch routes keep what crosses a tile edge rather than cutting at it. A
 # request for one costs an Overpass round trip and returns nothing new.
 MIN_TILE_KM2 = 1e-4  # 100 m^2
+
+# A piece this much smaller than a tile is folded into the tile beside it
+# rather than fetched on its own. A grid line that clips the corner of a
+# boundary leaves a scrap a few hundred metres across, and a scrap costs
+# exactly what a full tile costs: two Overpass round trips, and a retry ladder
+# behind each of them if the service is busy. Folding it into a neighbor
+# spends a fraction of that neighbor's budget instead.
+SLIVER_RATIO = 0.1
 
 # _tiles_for divides again when a piece is still over the limit after a pass,
 # which only happens to a piece whose own latitude works out worse than the
@@ -157,6 +166,11 @@ def split_polygon(
     is cut into a grid instead, each cell is clipped to the boundary, and the
     client fetches the pieces in turn and assembles them.
 
+    The grid is a first cut rather than the answer: the scraps it leaves where
+    a cell catches the corner of an outline are folded back into the tiles
+    beside them, since a scrap costs a full download and carries almost
+    nothing. See _merge_slivers.
+
     Two properties matter to the caller, and both are why cells are clipped
     rather than sent as squares:
 
@@ -202,7 +216,7 @@ def split_polygon(
         # Divided is decided per part, not per boundary: a project assembled
         # from three villages, each of them small enough, is three whole areas
         # rather than three pieces of one.
-        pieces = _tiles_for(part, max_area_km2, 0)
+        pieces = _merge_slivers(_tiles_for(part, max_area_km2, 0), max_area_km2)
         tiles.extend(Tile(piece, len(pieces) > 1) for piece in pieces)
 
     if not tiles:
@@ -257,6 +271,86 @@ def _tiles_for(polygon: Polygon, max_area_km2: float, depth: int) -> list[Polygo
                 tiles.extend(_tiles_for(part, max_area_km2, depth + 1))
 
     return tiles
+
+
+def _merge_slivers(pieces: list[Polygon], max_area_km2: float) -> list[Polygon]:
+    """Fold the scraps a grid line leaves into the tile they lie against.
+
+    Cutting a boundary along straight lines leaves pieces that have nothing to
+    do with how big a download should be: a cell that catches the corner of an
+    outline comes away with a few hundred metres of field. As a tile it costs
+    what any tile costs - two Overpass round trips, and a retry ladder behind
+    each if the service is busy - to return a street network that is usually
+    empty and a handful of buildings its neighbor would have returned anyway.
+
+    Folding is refused where it would break what a tile is:
+
+    - the union has to be a single polygon, so two scraps meeting a neighbor
+      at one corner stay where they are rather than becoming a shape the fetch
+      routes would take the largest half of;
+    - it has to stay under the limit, since a merged tile is downloaded like
+      any other and is measured by the same guard.
+
+    Coverage and non-overlap survive by construction: this only ever replaces
+    two disjoint pieces with the one polygon they make together.
+    """
+    tiles = list(pieces)
+    threshold = max_area_km2 * SLIVER_RATIO
+
+    folded = True
+    while folded:
+        folded = False
+        for index, tile in enumerate(tiles):
+            if approx_area_km2(tile) >= threshold:
+                continue
+            target = _fold_into(tiles, index, max_area_km2)
+            if target is None:
+                continue
+            neighbor, union = target
+            tiles[neighbor] = union
+            del tiles[index]
+            # The indices have shifted and the merged tile is a different
+            # shape, so the scan starts again rather than carrying on with a
+            # stale list. There are a handful of slivers at most.
+            folded = True
+            break
+
+    return tiles
+
+
+def _fold_into(
+    tiles: list[Polygon], index: int, max_area_km2: float
+) -> tuple[int, Polygon] | None:
+    """The tile a sliver should join, and what the two of them make.
+
+    The neighbor sharing the longest edge with it, which is what keeps a
+    merged tile compact: joining along a hairline touch would produce a tile
+    shaped like two rooms and a corridor, and an Overpass query pays for the
+    ground between.
+    """
+    sliver = tiles[index]
+    best: tuple[int, Polygon] | None = None
+    best_edge = 0.0
+
+    for other, candidate in enumerate(tiles):
+        if other == index or not sliver.intersects(candidate):
+            continue
+
+        # Zero for a corner touch, which is not an edge to join along.
+        shared = sliver.intersection(candidate).length
+        if shared <= best_edge:
+            continue
+
+        union = unary_union([sliver, candidate])
+        if union.geom_type != "Polygon" or not union.is_valid:
+            continue
+        if approx_area_km2(union) > max_area_km2:
+            continue
+
+        best = (other, cast(Polygon, union))
+        best_edge = shared
+
+    return best
 
 
 def _grid_shape(polygon: Polygon, max_area_km2: float) -> tuple[int, int]:

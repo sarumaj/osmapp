@@ -128,6 +128,38 @@ def _with_osm_id(gdf: Any) -> Any:
     return gdf
 
 
+# The four ways osmnx says "there is nothing here", and only the first of them
+# has an exception class of its own. The other three are bare ValueErrors that
+# arrive from two modules and differ from a real failure only by their message,
+# so they are matched by it:
+#
+#   - Overpass returned no elements at all       InsufficientResponseError
+#   - it returned some, but none inside the poly truncate.truncate_graph_polygon
+#   - the graph came out with no nodes           convert.graph_to_gdfs
+#   - the graph came out with no edges           convert.graph_to_gdfs
+#
+# Matching on message text is fragile, and the alternative is worse: the same
+# ValueError class also carries "The geometry of `polygon` is invalid", which is
+# a bug on this end and has to stay loud. An osmnx release that rewords these
+# turns a quiet empty tile back into a 502 - visible, and the retry ladder that
+# follows it is the symptom that brought this here in the first place.
+_EMPTY_AREA_MESSAGES = (
+    "found no graph nodes",
+    "graph contains no nodes",
+    "graph contains no edges",
+)
+
+
+def _empty_area(exc: Exception) -> bool:
+    """Is this exception osmnx reporting an area with nothing in it?"""
+    if isinstance(exc, ox._errors.InsufficientResponseError):  # type: ignore[attr-defined]
+        return True
+    if not isinstance(exc, ValueError):
+        return False
+    message = str(exc).casefold()
+    return any(text in message for text in _EMPTY_AREA_MESSAGES)
+
+
 @bp.route("/fetch_streets", methods=["POST"])
 def fetch_streets() -> Response:
     """Drivable street network inside the posted polygon, as GeoJSON.
@@ -150,7 +182,7 @@ def fetch_streets() -> Response:
       edge is its own component inside the tile and a real street outside it.
     - Nothing found is 200 and an empty collection rather than 404. A tile of
       farmland is an ordinary part of a large area, and a 404 would abandon the
-      whole download over it.
+      whole download over it. See _empty_area for the four ways osmnx says so.
     """
     try:
         geom = polygon_from_request()
@@ -178,11 +210,9 @@ def fetch_streets() -> Response:
         logger.info("Got %d street segments", len(edges))
 
         return json_({"streets": streets, "count": len(edges)})
-    except ox._errors.InsufficientResponseError:  # type: ignore[attr-defined]
-        if tiled:
+    except Exception as exc:
+        if _empty_area(exc) and tiled:
             return json_(empty)
-        return error_("No streets found in that area.", 404)
-    except Exception:
         logger.exception("fetch_streets failed")
         return error_(
             "Could not download streets. Overpass may be busy.", 502, retryable=True
