@@ -16,6 +16,14 @@ having to remember to bump a constant.
 The version is cached against the newest mtime in the tree, mirroring the
 mtime-keyed cache in `i18n.py`: on a container this hashes once and never
 again, while in development an edit is picked up without a restart.
+
+The worker also carries the client version from `package.json`, which is not
+something it needs for caching. It is the only place the *running* build can be
+asked to name itself: the page is network-first and the assets are cache-first,
+so between a deploy and the reload the HTML is new while everything it loads is
+still last week's. The banner in the corner is rendered into that HTML, so
+without this it names a build the browser is not running. See `_reconcile` in
+`static/js/pwa.js`.
 """
 
 import hashlib
@@ -34,6 +42,7 @@ from flask import (
 
 from .config import STATIC_DIR
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
+from .version import CLIENT_VERSION
 
 bp = Blueprint("pwa", __name__)
 
@@ -111,6 +120,7 @@ def service_worker() -> Response:
     body = render_template(
         "sw.js.j2",
         version=version,
+        client_version=CLIENT_VERSION,
         precache=urls,
         navigations=sorted(set(language_paths().values())),
         offline_url=url_for("views.index"),

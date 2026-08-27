@@ -276,7 +276,9 @@
         <span class="version-banner__label" data-i18n="version.client"
           >Client</span
         >
-        <span class="version-banner__value">{{ versions.client }}</span>
+        <span class="version-banner__value" id="version-client"
+          >{{ versions.client }}</span
+        >
       </span>
     </div>
 
@@ -778,6 +780,71 @@
             data-i18n="boundary.useBoundary"
           >
             Use boundary
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- ── About ────────────────────────────────────────────────────────
+         The copyright line is not translated and is not meant to be: a name
+         and a year say the same thing in every language, and the string has
+         to keep agreeing with LICENSE, which one dictionary drifting would
+         quietly break. The licence is named in the link rather than in the
+         sentence for the same reason.
+         ═══════════════════════════════════════════════════════════════ -->
+    <template id="tpl-about-dialog">
+      <div
+        class="app-dialog about-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label="About this app"
+      >
+        <h2 class="app-dialog__title" data-i18n="about.title">
+          About OSM Territory Mapper
+        </h2>
+        <p class="app-dialog__hint" data-i18n="about.purpose">
+          Splits a map area into walkable territories and prints each one as a
+          PDF card. Boundaries follow real streets, so a territory is something
+          a person can be asked to walk. Streets and buildings come from
+          OpenStreetMap.
+        </p>
+
+        <p class="about-dialog__legal">
+          <span class="about-dialog__copyright">© 2026 Dawid Ciepiela</span>
+          <a
+            class="about-dialog__license"
+            href="https://github.com/sarumaj/osmapp/blob/main/LICENSE"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="about.license"
+            >BSD 3-Clause License</a
+          >
+        </p>
+
+        <div class="app-dialog__actions">
+          <a
+            class="btn btn--ghost about-dialog__link"
+            href="https://github.com/sarumaj/osmapp"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="about.source"
+            >Source code</a
+          >
+          <a
+            class="btn btn--ghost about-dialog__link"
+            href="https://github.com/sarumaj/osmapp/issues/new"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-i18n="about.issues"
+            >Report a problem</a
+          >
+          <button
+            type="button"
+            class="btn btn--primary"
+            data-role="close"
+            data-i18n="about.close"
+          >
+            Close
           </button>
         </div>
       </div>
@@ -1954,6 +2021,7 @@
     <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
     <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
     <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/balance.js') }}"></script>
     <script src="{{ url_for('static', filename='js/coverage.js') }}"></script>
     <script src="{{ url_for('static', filename='js/network.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ui.js') }}"></script>

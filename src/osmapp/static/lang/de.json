@@ -38,7 +38,6 @@
     "clearPrinted": "Druckmarkierungen aller Gebiete entfernen",
     "reset": "Alles zurücksetzen",
     "language": "Sprache",
-    "github": "Quellcode und Hilfestellung auf GitHub",
     "help": "Geführte Tour anzeigen",
     "collapse": "Beschriftungen ausblenden",
     "expand": "Beschriftungen einblenden",
@@ -60,7 +59,6 @@
     "labelExport": "Speichern",
     "labelReset": "Reset",
     "labelLanguage": "Sprache",
-    "labelGithub": "GitHub",
     "labelHelp": "Hilfe",
     "needsBoundary": "Zuerst eine Außengrenze zeichnen oder suchen",
     "needsData": "Zuerst die OSM-Daten laden",
@@ -120,7 +118,9 @@
     "redoNoteStepCount": "Zeichenschritt zurückholen ({count} verfügbar)",
     "redoNoteStepNone": "Nichts zurückzuholen",
     "labelWallCard": "Wandkarte",
-    "wallCard": "Alle Gebiete auf ein Blatt drucken"
+    "wallCard": "Alle Gebiete auf ein Blatt drucken",
+    "labelAbout": "Über",
+    "about": "Was diese App ist, ihre Lizenz und wo man Probleme meldet"
   },
   "info": {
     "prompt": "Zeichne ein Polygon, um Daten zu laden.",
@@ -943,7 +943,9 @@
     "noteBend": "Gerade Teilstrecke am mittleren Griff biegen",
     "noteClick": "Einen Punkt setzen",
     "noteToolText": "Eine Beschriftung schreiben",
-    "goWallCard": "Wandkarte drucken"
+    "goWallCard": "Wandkarte drucken",
+    "groupAbout": "Über",
+    "aboutClose": "Schließen"
   },
   "outline": {
     "hint": "Eckpunkt ziehen zum Verschieben · Eckpunkt anklicken zum Löschen · X halten und streichen wischt eine ganze Reihe weg · Punkt zwischen zwei Ecken ziehen fügt einen hinzu · Enter übernimmt · ? für alle Tasten",
@@ -1034,8 +1036,17 @@
     "titleText": "Beschriftung",
     "kindText": "Beschriftung"
   },
+  "about": {
+    "title": "Über OSM Territory Mapper",
+    "purpose": "Teilt einen Kartenbereich in begehbare Gebiete auf und druckt jedes als PDF-Karte. Grenzen folgen echten Straßen, damit ein Gebiet etwas ist, das man jemandem zum Ablaufen geben kann. Straßen und Gebäude stammen von OpenStreetMap.",
+    "license": "BSD-3-Clause-Lizenz",
+    "source": "Quellcode",
+    "issues": "Problem melden",
+    "close": "Schließen"
+  },
   "version": {
     "server": "Server",
-    "client": "Client"
+    "client": "Client",
+    "clientStale": "Läuft mit {running}; {available} wird nach dem Neuladen geladen."
   }
 }
