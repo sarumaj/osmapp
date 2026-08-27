@@ -181,18 +181,13 @@ App.boundary = (function () {
       partsNote.textContent = T("boundary.parts", { count: payload.parts });
     }
 
-    var overLimit =
-      payload.areaKm2 != null &&
-      payload.maxAreaKm2 != null &&
-      payload.areaKm2 > payload.maxAreaKm2;
-    D.toggle(warn, overLimit);
-    if (overLimit) {
-      // t() localizes numeric vars itself, so these go in raw.
-      warn.textContent = T("boundary.tooBig", {
-        area: _round(payload.areaKm2),
-        max: payload.maxAreaKm2,
-      });
-    }
+    var note = _sizeNote(payload);
+    D.toggle(warn, !!note.text);
+    // Styled as an error only when it is one. The other case is an outline
+    // that downloads perfectly well, in more than one go, and coloring that
+    // red tells somebody to trim a boundary that does not need trimming.
+    D.toggleClass(warn, "is-error", note.error);
+    warn.textContent = note.text;
 
     function render() {
       current = base ? _simplify(base, TOLERANCES[tolIndex]) : boxFeature;
@@ -314,6 +309,52 @@ App.boundary = (function () {
     }
   }
 
+  /**
+   * What the dialog says about the size of the outline it is offering.
+   *
+   * Size has two thresholds now, and only the higher one is a refusal:
+   *
+   *   - Over `maxAreaKm2`, one Overpass request cannot cover the outline, so
+   *     the download is divided into that many pieces and assembled. Nothing
+   *     is wrong; the note exists because the download takes proportionally
+   *     longer and somebody watching a progress counter should know why it
+   *     goes to eight.
+   *   - Over `maxDownloadKm2`, the server will not download it at all. That is
+   *     the warning, and trimming the outline first is the way out of it.
+   *
+   * An older server sends neither number, and says nothing rather than
+   * guessing at limits it was not told.
+   *
+   * @param {Object} payload the boundary suggestion, as /geocode_boundary sent it
+   * @returns {{text: string, error?: boolean}}
+   */
+  function _sizeNote(payload) {
+    var area = payload.areaKm2;
+    if (area == null) return { text: "" };
+
+    // t() localizes numeric vars itself, so these go in raw.
+    if (payload.maxDownloadKm2 != null && area > payload.maxDownloadKm2) {
+      return {
+        error: true,
+        text: T("boundary.tooBig", {
+          area: _round(area),
+          max: payload.maxDownloadKm2,
+        }),
+      };
+    }
+
+    if (payload.maxAreaKm2 != null && area > payload.maxAreaKm2) {
+      return {
+        text: T("boundary.split", {
+          area: _round(area),
+          parts: Math.ceil(area / payload.maxAreaKm2),
+        }),
+      };
+    }
+
+    return { text: "" };
+  }
+
   function _metaLine(payload) {
     var bits = [];
     var kind = payload.type || payload.category;
@@ -400,8 +441,9 @@ App.boundary = (function () {
 
     // The territories, streets and buildings that existed belonged to the
     // previous boundary. displayResults() drops them on a successful fetch, but
-    // a fetch that fails - an area over the download limit is the common case --
-    // would otherwise leave the old territory sitting under the new outline.
+    // a fetch that fails - a busy Overpass, or an outline over what the server
+    // will download at all - would otherwise leave the old territory sitting
+    // under the new outline.
     // Clearing up front means the state is coherent either way, and there is
     // nothing sensible to undo back to.
     App.polygons.setClusters([], { silent: true });

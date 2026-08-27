@@ -140,6 +140,8 @@
   "loading": {
     "starting": "Uruchamianie…",
     "cancel": "Anuluj",
+    "splitting": "Przygotowywanie pobierania…",
+    "splittingStatus": "Dzielenie obszaru na części do pobrania",
     "streets": "Pobieranie ulic…",
     "streetsStatus": "Zapytanie do Overpass o sieć ulic",
     "buildings": "Pobieranie budynków…",
@@ -317,6 +319,7 @@
       "many": "{count} rozłącznych części — użyta zostanie tylko największa.",
       "other": "{count} rozłącznej części — użyta zostanie tylko największa."
     },
+    "split": "Około {area} km² — za dużo na jedno pobranie, dane zostaną pobrane w około {parts} częściach.",
     "tooBig": "Około {area} km², powyżej limitu {max} km². Obrysu można użyć, ale przed pobraniem danych trzeba go zmniejszyć.",
     "useBoundary": "Użyj granicy",
     "useBox": "Użyj prostokąta",
@@ -625,6 +628,7 @@
     "downloadTitle": "Pobrać dane OSM?",
     "downloadMessage": "Ulice i budynki wewnątrz tej granicy zostaną pobrane z OpenStreetMap.",
     "downloadArea": "Około {area} km². Większe obszary trwają dłużej.",
+    "downloadAreaParts": "Około {area} km², pobierane w {parts} częściach. Większe obszary trwają dłużej.",
     "download": "Pobierz",
     "later": "Nie teraz",
     "replaceOuterTitle": "Zastąpić granicę?",

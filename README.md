@@ -111,7 +111,8 @@ All optional, all environment variables:
 
 | Variable                  | Default                                         | Why you'd change it                                                                       |
 |---------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------------|
-| `OSM_MAX_AREA_KM2`        | `50`                                            | Polygons above this are refused — large areas can pull hundreds of MB and hit the timeout |
+| `OSM_MAX_AREA_KM2`        | `50`                                            | The most one Overpass request may cover. Larger areas are divided into tiles this size    |
+| `OSM_MAX_TILES`           | `24`                                            | Tiles one download may take, so the real ceiling is this × `OSM_MAX_AREA_KM2`             |
 | `OVERPASS_URL`            | `https://overpass-api.de/api`                   | Point at a mirror or your own instance                                                    |
 | `OVERPASS_TIMEOUT`        | `180`                                           | Seconds. Raise only with `OSM_MAX_AREA_KM2`                                               |
 | `NOMINATIM_URL`           | `.../nominatim.openstreetmap.org/search`        | Self-hosted instances only need to set this one (`/lookup` and `/reverse` are derived)    |
@@ -570,6 +571,7 @@ pick it up automatically.
 | Route                                     | Purpose                                                     |
 |-------------------------------------------|-------------------------------------------------------------|
 | `GET /`, `/pl`, `/de`, `/fr`              | The app (`/en` redirects to `/`)                            |
+| `POST /split_area`                        | GeoJSON polygon in → the areas to download it as, in order  |
 | `POST /fetch_streets`                     | GeoJSON polygon in → drivable street network out            |
 | `POST /fetch_buildings`                   | GeoJSON polygon in → building footprints with addresses out |
 | `GET /geocode?q=`                         | Nominatim proxy, cached and rate-limited to 1 req/s         |
@@ -583,6 +585,17 @@ pick it up automatically.
 Both fetch endpoints require the polygon on **every** request. There is deliberately
 no server-side geometry cache — a module-level one meant two browser tabs (or any
 multi-worker deployment) handed users each other's areas.
+
+`/split_area` is what makes a town downloadable. One Overpass request covers at
+most `OSM_MAX_AREA_KM2`; anything larger is cut into a grid, each cell clipped to
+the boundary, and the client fetches the pieces in turn and assembles them. The
+split is done on the server because the limit is enforced there: the browser
+measures a polygon on the sphere and the server measures it on the flat, and the
+difference is enough for a tile drawn in one to be refused by the other. Tiles
+come back tagged, and a tagged one is fetched differently — what crosses its
+edges is kept rather than cut, since a grid line is not a boundary anybody drew.
+A polygon already small enough comes back as a single untagged tile, which is
+the download this app has always made.
 
 ---
 

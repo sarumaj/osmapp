@@ -46,17 +46,31 @@ App.data = (function () {
   /**
    * Download everything inside a boundary, one area at a time.
    *
-   * The server takes a single polygon and refuses one over MAX_AREA_KM2,
-   * which is what keeps a careless drag off Overpass' back. A boundary holding
-   * three villages is therefore three pairs of requests rather than one pair
-   * over their common bounding box - which for villages twenty kilometers
-   * apart is a request for the farmland between them, and a refusal.
+   * One request covers at most MAX_AREA_KM2, which is what keeps a careless
+   * drag off Overpass' back. That used to be the ceiling on a project as well:
+   * a town over the limit was refused, and the only advice on offer was to
+   * draw something smaller. It is now the size of a *request* instead. The
+   * server divides whatever it is given into areas that fit - see
+   * /split_area - and this loop fetches them in turn and assembles the pieces
+   * into the one map they came from.
+   *
+   * So an area arrives here for one of three reasons, and the loop below does
+   * not care which: a boundary drawn in several detached parts, a part too
+   * large to fetch in one go, or an ordinary small boundary, which is a plan
+   * of exactly one area and behaves as it always did.
+   *
+   * Assembly is a concatenation minus the duplicates. Two tiles that share a
+   * seam both return what crosses it, deliberately - the alternative is a
+   * street that stops at a grid line - so the same feature arrives twice and
+   * is kept once. See _featureKey for what "the same" means.
    *
    * @param {Object} geojson polygon or multipolygon to download
-   * @param {{force?: boolean, merge?: boolean}} [opts] `force` is accepted and
-   *   ignored; there is no cache to bypass, and the body below says why.
-   *   `merge` adds what comes back to the data already on screen, for an area
-   *   joining a project that is already open.
+   * @param {{force?: boolean, merge?: boolean, areas?: Object[]}} [opts]
+   *   `force` is accepted and ignored; there is no cache to bypass, and the
+   *   body below says why. `merge` adds what comes back to the data already on
+   *   screen, for an area joining a project that is already open. `areas` is a
+   *   plan already fetched by confirmAndFetch, so the split is not asked for
+   *   twice.
    * @returns {Promise<{cancelled?:boolean, failed?:boolean}>} always resolves
    */
   function fetchData(geojson, opts) {
@@ -67,19 +81,22 @@ App.data = (function () {
     // read. Skipping a download the user has just confirmed also needs an
     // answer for what a confirmed download that then does not happen looks
     // like on screen.
-    var areas = G.polygonParts(geojson);
-    if (!areas.length) return Promise.resolve({ failed: true });
-
     _cancelled = false;
     App.ui.showBusy(
-      T("loading.streets"),
-      _areaStatus("loading.streetsStatus", 0, areas.length),
+      T("loading.splitting"),
+      T("loading.splittingStatus"),
       cancelFetch,
     );
 
+    var areas = [];
     var streets = [];
     var buildings = [];
     var bounds = null;
+    // One set per collection, held for the whole download: a seam is shared by
+    // two tiles fetched minutes apart, so "have I seen this" cannot be a
+    // question about the request that has just landed.
+    var seenStreets = Object.create(null);
+    var seenBuildings = Object.create(null);
 
     /** Recursive rather than a loop: each area is two awaited requests. */
     function fetchArea(index) {
@@ -90,7 +107,9 @@ App.data = (function () {
       );
       return _post("/fetch_streets", areas[index])
         .then(function (data) {
-          streets = streets.concat((data.streets || {}).features || []);
+          streets = streets.concat(
+            _fresh(seenStreets, (data.streets || {}).features),
+          );
           App.ui.setOverlayText(
             T("loading.buildings"),
             _areaStatus("loading.buildingsStatus", index, areas.length),
@@ -98,13 +117,20 @@ App.data = (function () {
           return _post("/fetch_buildings", areas[index]);
         })
         .then(function (data) {
-          buildings = buildings.concat((data.buildings || {}).features || []);
+          buildings = buildings.concat(
+            _fresh(seenBuildings, (data.buildings || {}).features),
+          );
           bounds = _widen(bounds, data.bounds);
           return fetchArea(index + 1);
         });
     }
 
-    return fetchArea(0)
+    return _plan(geojson, opts.areas)
+      .then(function (list) {
+        areas = list;
+        if (!areas.length) throw _httpError("Nothing to download.", 400);
+        return fetchArea(0);
+      })
       .then(function () {
         App.ui.setOverlayText(T("loading.preparing"), "");
         App.ui.hideOverlay();
@@ -164,34 +190,96 @@ App.data = (function () {
    */
   function confirmAndFetch(geojson, opts) {
     opts = opts || {};
-    return App.ui
-      .confirm({
-        titleKey: "confirm.downloadTitle",
-        messageKey: "confirm.downloadMessage",
-        detail: _areaLine(geojson),
-        okKey: "confirm.download",
-        cancelKey: "confirm.later",
+    _cancelled = false;
+    // The plan is asked for before the question rather than after the answer,
+    // so the dialog can say how many downloads this is. It is one cheap
+    // request against arithmetic on the server, and it is the only place the
+    // count can come from: the client measures area geodesically and the
+    // server measures it flat, so a number worked out here would not be the
+    // number the server acts on.
+    //
+    // One attempt, unlike the download's own. Nothing here is load-bearing -
+    // a dialog without a count is still the dialog - and the case that makes
+    // it fail is the offline one, where the retries would hold the question
+    // back by a minute before asking it anyway.
+    return _plan(geojson, null, 1)
+      .catch(function () {
+        // Including "the area is too large to download at all", which is a
+        // refusal worth showing once rather than twice: fetchData asks for the
+        // plan again and reports whatever comes back, so this end stays quiet
+        // and simply offers the download without a count.
+        return [];
       })
-      .then(function (ok) {
-        if (!ok) {
-          App.ui.setInfo({
-            titleKey: "info.notLoaded",
-            hintKey: "info.hintNotLoaded",
+      .then(function (areas) {
+        return App.ui
+          .confirm({
+            titleKey: "confirm.downloadTitle",
+            messageKey: "confirm.downloadMessage",
+            detail: _areaLine(geojson, areas.length),
+            okKey: "confirm.download",
+            cancelKey: "confirm.later",
+          })
+          .then(function (ok) {
+            if (!ok) {
+              App.ui.setInfo({
+                titleKey: "info.notLoaded",
+                hintKey: "info.hintNotLoaded",
+              });
+              if (App.controls) App.controls.refresh();
+              return { cancelled: true };
+            }
+            return fetchData(
+              geojson,
+              Object.assign({}, opts, areas.length ? { areas: areas } : {}),
+            );
           });
-          if (App.controls) App.controls.refresh();
-          return { cancelled: true };
-        }
-        return fetchData(geojson, opts);
       });
   }
 
-  /** "About 12.4 km2" - the one number that predicts how long this will take. */
-  function _areaLine(geojson) {
+  /**
+   * The areas one boundary is downloaded as, in the order they are fetched.
+   *
+   * Always from the server. The split has to agree with the guard that refuses
+   * an oversized request, and the two only agree when the same arithmetic
+   * decides both - turf measures a polygon on the sphere, the server measures
+   * it on the flat, and the difference is enough for a tile drawn here to be
+   * refused there.
+   *
+   * @param {Object} geojson the whole boundary, detached parts included
+   * @param {Object[]} [ready] a plan already fetched, returned as-is
+   * @param {number} [attempts] passed to _post
+   * @returns {Promise<Object[]>} tile features, each carrying the flag the
+   *   fetch routes read to keep what crosses its edges
+   */
+  function _plan(geojson, ready, attempts) {
+    if (ready && ready.length) return Promise.resolve(ready);
+
+    var feature;
+    try {
+      feature = G.feat(geojson);
+    } catch (e) {
+      // fetchData resolves rather than throws, whatever it was handed, and a
+      // shape turf refuses to wrap is one of the ways it can be handed
+      // nothing.
+      return Promise.reject(_httpError("That boundary is not usable.", 400));
+    }
+
+    return _post("/split_area", feature, attempts).then(function (data) {
+      return ((data.tiles || {}).features || []).slice();
+    });
+  }
+
+  /**
+   * "About 12.4 km2" - the one number that predicts how long this will take,
+   * and, when it is more than one download, how many of them there are.
+   */
+  function _areaLine(geojson, parts) {
     try {
       var km2 = turf.area(G.feat(geojson)) / 1e6;
-      return T("confirm.downloadArea", {
-        area: km2 >= 100 ? Math.round(km2) : Math.round(km2 * 100) / 100,
-      });
+      var area = km2 >= 100 ? Math.round(km2) : Math.round(km2 * 100) / 100;
+      return parts > 1
+        ? T("confirm.downloadAreaParts", { area: area, parts: parts })
+        : T("confirm.downloadArea", { area: area });
     } catch (e) {
       return "";
     }
@@ -212,6 +300,93 @@ App.data = (function () {
       total: total,
     });
     return status + " " + progress;
+  }
+
+  /**
+   * The features of one response that the download has not already collected.
+   *
+   * @param {Object} seen keys of everything kept so far; added to in place
+   * @param {Object[]} features what one request returned
+   * @returns {Object[]} the ones worth keeping, in the order they arrived
+   */
+  function _fresh(seen, features) {
+    var kept = [];
+    (features || []).forEach(function (feature) {
+      var key = _featureKey(feature);
+      // Null is "no id and no shape": there is nothing to compare it on, and
+      // dropping it would be a guess rather than a decision.
+      if (key === null) {
+        kept.push(feature);
+        return;
+      }
+      if (seen[key]) return;
+      seen[key] = true;
+      kept.push(feature);
+    });
+    return kept;
+  }
+
+  /**
+   * What makes two downloaded features the same feature.
+   *
+   * The OSM id alone is not enough, and using it alone loses data rather than
+   * duplicating it: osmnx cuts a way into one edge per junction, so a single
+   * street id legitimately arrives as six segments of six different shapes.
+   * Keyed on the id alone, five of them are dropped as duplicates of the
+   * first.
+   *
+   * The shape alone is not enough either - two identically shaped garages are
+   * two garages - so the key is both: the id, and enough of the geometry to
+   * tell one piece of that id from another. A feature that genuinely came back
+   * twice, from the two tiles sharing the seam it lies on, matches on both,
+   * because both tiles were cut from the same download and the geometry is not
+   * re-derived per tile.
+   *
+   * @returns {?string} null for a feature carrying neither, which is not the
+   *   same as a feature that matches nothing: it cannot be compared at all,
+   *   and the callers keep it rather than guess.
+   */
+  function _featureKey(feature) {
+    var properties = (feature && feature.properties) || {};
+    var geometry = (feature && feature.geometry) || {};
+    var id = properties.osmid != null ? String(properties.osmid) : "";
+    var shape = _shapeKey(geometry.coordinates);
+
+    if (!id && shape === "0") return null;
+    return id + "|" + (geometry.type || "") + "|" + shape;
+  }
+
+  /**
+   * A geometry as its first point, its last point and how many it has.
+   *
+   * Cheap on purpose: this runs over every feature of every response, and a
+   * building download is tens of thousands of coordinates. Two different
+   * shapes sharing all three of these are possible in principle and would have
+   * to share an OSM id as well to collide - which is a way that returns to
+   * where it started with the same number of points, and does not.
+   */
+  function _shapeKey(coordinates) {
+    var first = null;
+    var last = null;
+    var count = 0;
+
+    (function walk(node) {
+      if (!node || typeof node.length !== "number") return;
+      if (typeof node[0] === "number") {
+        count++;
+        if (!first) first = node;
+        last = node;
+        return;
+      }
+      for (var i = 0; i < node.length; i++) walk(node[i]);
+    })(coordinates);
+
+    if (!count) return "0";
+    return count + "@" + _point(first) + ">" + _point(last);
+  }
+
+  function _point(coord) {
+    return Number(coord[0]).toFixed(7) + "," + Number(coord[1]).toFixed(7);
   }
 
   /** The smallest bounds box holding both, either of which may be missing. */
@@ -241,7 +416,16 @@ App.data = (function () {
     App.ui.hideOverlay();
   }
 
-  function _post(url, body) {
+  /**
+   * @param {string} url the route to post to
+   * @param {Object} body the JSON body
+   * @param {number} [attempts] tries before giving up, RETRY_ATTEMPTS by
+   *   default. A caller passes 1 when a failure is not worth waiting out -
+   *   see confirmAndFetch, where the answer only decorates a dialog and a
+   *   minute of backoff would hold the dialog itself back.
+   */
+  function _post(url, body, attempts) {
+    var limit = attempts || RETRY_ATTEMPTS;
     var attempt = 0;
 
     function attemptOnce() {
@@ -267,7 +451,7 @@ App.data = (function () {
         .catch(function (err) {
           if (_cancelled) throw _cancelledError();
           err.attempts = attempt;
-          if (!err.retryable || attempt >= RETRY_ATTEMPTS) throw err;
+          if (!err.retryable || attempt >= limit) throw err;
           return _backoff(attempt, err).then(attemptOnce);
         });
     }
@@ -712,25 +896,21 @@ App.data = (function () {
   /**
    * Two feature collections as one, without the features they share.
    *
-   * Keyed on the OSM id, which every street and building the server hands back
-   * carries: two downloads over neighboring areas both return the road along
-   * the join, and drawing it twice doubles its weight on screen and its cost
-   * in every filtered-view pass. A feature with no id is kept unconditionally,
-   * since there is nothing to compare it on.
+   * Two downloads over neighboring areas both return the road along the join,
+   * and drawing it twice doubles its weight on screen and its cost in every
+   * filtered-view pass. Identity is _featureKey's - the OSM id and the shape,
+   * not the id on its own, which would take one segment of a street and drop
+   * the other five the same way the tiled download would. A feature with
+   * neither is kept, since there is nothing to compare it on.
    */
   function _mergedCollection(a, b) {
     var features = [];
     var seen = Object.create(null);
 
     [a, b].forEach(function (collection) {
-      ((collection && collection.features) || []).forEach(function (feature) {
-        var id = feature.properties && feature.properties.osmid;
-        if (id != null) {
-          if (seen[id]) return;
-          seen[id] = true;
-        }
-        features.push(feature);
-      });
+      features = features.concat(
+        _fresh(seen, (collection && collection.features) || []),
+      );
     });
 
     return { type: "FeatureCollection", features: features };

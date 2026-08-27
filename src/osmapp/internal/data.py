@@ -10,7 +10,7 @@ import osmnx as ox
 from flask import Blueprint, Response
 
 from .config import STREET_FILTER
-from .geo import polygon_from_request
+from .geo import is_tiled_request, polygon_from_request
 from .responses import BadRequest, error_, json_
 
 logger = logging.getLogger("osm_app")
@@ -136,18 +136,41 @@ def fetch_streets() -> Response:
     country and not a failure. Anything else is 502 and flagged retryable: the
     client cannot tell a busy Overpass from a refusing one, and only one of the
     two is worth waiting out.
+
+    A polygon marked as one tile of a divided download is treated differently
+    in three places, and each of them is a hole in the assembled map otherwise:
+
+    - Edges that cross the tile's edges are kept whole rather than cut, because
+      a street does not stop at a grid line. The same edge comes back from the
+      tile on the other side of the seam, identically, and the client drops the
+      copy.
+    - Every connected component is kept. osmnx otherwise returns the largest
+      one, which is the right answer for a village and the wrong one for an
+      arbitrary square cut out of it: the lane that leaves through the north
+      edge is its own component inside the tile and a real street outside it.
+    - Nothing found is 200 and an empty collection rather than 404. A tile of
+      farmland is an ordinary part of a large area, and a 404 would abandon the
+      whole download over it.
     """
     try:
         geom = polygon_from_request()
+        tiled = is_tiled_request()
     except BadRequest as exc:
         return error_(str(exc))
 
+    empty: dict[str, Any] = {
+        "streets": {"type": "FeatureCollection", "features": []},
+        "count": 0,
+    }
+
     try:
-        logger.info("Downloading streets for %.6f deg^2", geom.area)
+        logger.info("Downloading streets for %.6f deg^2 (tiled=%s)", geom.area, tiled)
         graph = ox.graph_from_polygon(  # type: ignore[reportUnknownMemberType]
             geom,  # type: ignore[reportArgumentType]
             network_type="drive",
             custom_filter=STREET_FILTER,
+            truncate_by_edge=tiled,
+            retain_all=tiled,
         )
         _, edges = ox.graph_to_gdfs(graph)  # type: ignore[reportUnknownMemberType]
 
@@ -156,6 +179,8 @@ def fetch_streets() -> Response:
 
         return json_({"streets": streets, "count": len(edges)})
     except ox._errors.InsufficientResponseError:  # type: ignore[attr-defined]
+        if tiled:
+            return json_(empty)
         return error_("No streets found in that area.", 404)
     except Exception:
         logger.exception("fetch_streets failed")
@@ -171,6 +196,11 @@ def fetch_buildings() -> Response:
     An area with no buildings returns an empty collection with 200 rather than
     404: unlike streets, that is the expected result for farmland the boundary
     happens to include, and the client draws the rest of the map from it.
+
+    Nothing here has to know about tiles. osmnx returns every footprint that
+    intersects the polygon rather than clipping at it, so a building on a seam
+    arrives whole from both tiles that touch it and the client drops the copy
+    by OSM id.
     """
     try:
         geom = polygon_from_request()

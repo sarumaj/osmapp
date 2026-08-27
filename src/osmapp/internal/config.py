@@ -36,8 +36,20 @@ NOMINATIM_REVERSE_URL = os.environ.get("NOMINATIM_REVERSE_URL", "") or re.sub(
     r"/search/?$", "/reverse", NOMINATIM_URL
 )
 
-# Refuse early instead of hanging Overpass for three minutes.
+# The largest polygon one Overpass round trip is allowed to cover. It is not a
+# ceiling on what can be downloaded: an area above it is divided into tiles of
+# at most this size and fetched one tile at a time (see geo.split_polygon), so
+# the number below is the size of a request rather than the size of a project.
+# Keep it small enough that a single tile finishes inside OVERPASS_TIMEOUT.
 MAX_AREA_KM2 = float(os.environ.get("OSM_MAX_AREA_KM2", "50"))
+
+# How many tiles one download may be divided into, and with it the real ceiling
+# on a project: MAX_AREA_KM2 * MAX_TILES km². The cap exists because the split
+# turns one refusal into a queue of requests, and a careless drag across half a
+# country would otherwise become an afternoon of Overpass traffic nobody asked
+# for. 24 tiles at the default size is ~1200 km² - larger than any city this
+# app is used on, and still a bounded amount of work.
+MAX_TILES = int(os.environ.get("OSM_MAX_TILES", "24"))
 
 # Overpass tag filter for the street download: the road classes a territory
 # boundary is routed along. Service roads, tracks and footpaths are left out,

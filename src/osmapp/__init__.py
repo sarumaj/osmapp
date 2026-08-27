@@ -6,7 +6,9 @@ from flask import Flask, Response, jsonify, make_response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from .internal.areas import bp as areas_bp
 from .internal.config import (
+    MAX_TILES,
     MAX_UPLOAD_BYTES,
     OVERPASS_TIMEOUT,
     OVERPASS_URL,
@@ -52,12 +54,20 @@ def create_app() -> Flask:
     limiter.exempt(views_bp)  # the page itself and /service/health
     limiter.exempt(tiles_bp)  # /service/tiles is cheap and cached
     limiter.exempt(pwa_bp)  # the manifest and the worker are static and tiny
-    limiter.limit("6 per minute")(data_bp)  # /service/data is expensive
+    # Two Overpass round trips per tile, and a download is at most MAX_TILES
+    # of them: the budget is what one whole download costs, plus a few for the
+    # retries a busy Overpass provokes. Tying it to the tile budget rather than
+    # picking a number keeps the two from contradicting each other - a limit
+    # below the cost of one download refuses work the app is designed to do,
+    # which is what a flat "6 per minute" did to every boundary drawn in more
+    # than three parts.
+    limiter.limit(f"{2 * MAX_TILES + 6} per minute")(data_bp)  # reaches Overpass
     limiter.limit("30 per minute")(geocode_bp)  # /service/geocode is expensive
+    limiter.limit("30 per minute")(areas_bp)  # /split_area is arithmetic only
 
     init_osmnx(OVERPASS_URL, OVERPASS_TIMEOUT)
 
-    for blueprint in (views_bp, data_bp, geocode_bp, tiles_bp, pwa_bp):
+    for blueprint in (views_bp, data_bp, areas_bp, geocode_bp, tiles_bp, pwa_bp):
         app.register_blueprint(blueprint)
 
     @app.errorhandler(429)
