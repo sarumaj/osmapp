@@ -32,6 +32,7 @@ from .config import (
     GEOCODE_CACHE_MAX,
     GEOCODE_MIN_INTERVAL,
     MAX_AREA_KM2,
+    MAX_TILES,
     NOMINATIM_LOOKUP_URL,
     NOMINATIM_REVERSE_URL,
     NOMINATIM_URL,
@@ -250,7 +251,13 @@ def geocode_boundary() -> Response:
         "parts": parts if geometry else 0,
         "vertices": _count_vertices(geometry) if geometry else 0,
         "areaKm2": round(approx_area_km2(geom), 3) if geom is not None else None,
+        # Three numbers rather than one, because "too big" now has two
+        # meanings and only the second one is a refusal: an outline over
+        # maxAreaKm2 is downloaded in pieces, and one over maxDownloadKm2 is
+        # not downloaded at all. The dialog says which of the two it has.
         "maxAreaKm2": MAX_AREA_KM2,
+        "maxTiles": MAX_TILES,
+        "maxDownloadKm2": round(MAX_AREA_KM2 * MAX_TILES, 3),
         "bounds": _bounds(item, geom),
         "threshold": threshold,
     }
