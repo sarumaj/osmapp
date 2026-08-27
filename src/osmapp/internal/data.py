@@ -211,8 +211,10 @@ def fetch_streets() -> Response:
 
         return json_({"streets": streets, "count": len(edges)})
     except Exception as exc:
-        if _empty_area(exc) and tiled:
-            return json_(empty)
+        if _empty_area(exc):
+            return (
+                json_(empty) if tiled else error_("No streets found in that area.", 404)
+            )
         logger.exception("fetch_streets failed")
         return error_(
             "Could not download streets. Overpass may be busy.", 502, retryable=True
