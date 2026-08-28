@@ -50,7 +50,6 @@ App.editing = (function () {
   var _rightPan = null; // { x, y, moved } while the right button drags the map
   var _routedPrefix = []; // routed geometry through the committed vertices
   var _undonePoints = []; // vertices taken back, newest last - the redo stack
-  var _lastCut = null; // the line from the most recent cut, for diagnosis
 
   // Snap index
   //
@@ -807,8 +806,8 @@ App.editing = (function () {
 
     var now = Date.now();
     // At most the two trailing clicks belong to this gesture. Popping
-    // everything inside the window ate real vertices from anyone placing
-    // points quickly along a street.
+    // everything inside the window would eat real vertices from anyone
+    // placing points quickly along a street.
     var popped = 0;
     while (
       popped < 2 &&
@@ -835,7 +834,6 @@ App.editing = (function () {
     }
 
     var cut = _extendToBoundaries(_routeAll(_points));
-    _lastCut = cut;
 
     s.editMode = false;
     _stopDraw();
@@ -1297,7 +1295,7 @@ App.editing = (function () {
         "total",
       );
 
-      _flashLine(_lastCut, splitCount > 0);
+      _flashLine(points, splitCount > 0);
 
       if (splitCount === 0) {
         // Crossing a territory and separating it are different things: a line
@@ -1320,8 +1318,8 @@ App.editing = (function () {
    *
    * The knife width escalates on failure, and no test has yet produced a case
    * where the wider blade helps: over zig-zag lines, 60-vertex irregular cells
-   * and lines flush with an edge, every cut the 1.5 cm blade missed was a line
-   * that did not go all the way across, which no width rescues. The escalation
+   * and lines flush with an edge, every cut the narrowest blade missed was a
+   * line that did not go all the way across, which no width rescues. The escalation
    * is insurance against floating-point cases nobody has reproduced; it runs
    * only after a real failure, and it costs one extra difference() on a line
    * that was going to be reported as broken anyway.
@@ -1335,7 +1333,7 @@ App.editing = (function () {
     var parts = G.polygonParts(feature);
     if (parts.length === 0) return null;
 
-    var widths = s.CUT_KNIFE_M || [0.25, 1, 3];
+    var widths = s.CUT_KNIFE_M;
     for (var i = 0; i < widths.length; i++) {
       var pieces = _cutOnce(parts, line, widths[i]);
       if (pieces) {

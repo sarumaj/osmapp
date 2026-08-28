@@ -146,9 +146,11 @@ App.spatial = (function () {
   /**
    * Index a payload spanning the segment a..b.
    *
-   * The segment is stamped into every cell it passes through rather than only
-   * into the cells holding its endpoints, so a street longer than a cell is
-   * still found from a point in the middle of it.
+   * The segment is stamped into every cell of its bounding box rather than
+   * only into the cells holding its endpoints, so a street longer than a cell
+   * is still found from a point in the middle of it. A diagonal is therefore
+   * indexed in cells it does not actually cross, which costs a query some
+   * candidates to reject and never costs it an answer.
    *
    * @returns {number} the item's index
    */
