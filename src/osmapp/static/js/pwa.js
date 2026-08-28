@@ -12,6 +12,13 @@
  * Network-dependent controls are disabled rather than left to fail. Fetching
  * OSM data, geocoding and PDF composition all need the server, and a button
  * that produces a silent nothing is worse than one that is visibly off.
+ *
+ * The version banner is corrected from here rather than trusted as rendered.
+ * Navigation is network-first and the assets are cache-first, so between a
+ * deploy and the reload above the page is the new HTML running the old
+ * JavaScript - and the banner, being part of that HTML, names a build the
+ * browser is not running. The controlling worker is the one thing on the page
+ * that belongs to the same generation as the code, so it is asked.
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -21,6 +28,7 @@ App.pwa = (function () {
 
   var _waiting = null;
   var _reloading = false;
+  var _versionSettled = false;
 
   function init() {
     _bindConnectivity();
@@ -49,6 +57,8 @@ App.pwa = (function () {
       if (!_reloading) return;
       window.location.reload();
     });
+
+    _checkRunningVersion();
 
     App._loaded.push("pwa");
   }
@@ -145,6 +155,67 @@ App.pwa = (function () {
     if (!_waiting) return;
     _reloading = true;
     _waiting.postMessage({ type: "SKIP_WAITING" });
+  }
+
+  // THE VERSION BANNER
+
+  /**
+   * Ask the worker controlling this page which build its assets came from.
+   *
+   * Only when there *is* a controller. On a first visit the worker is
+   * installing rather than controlling, nothing is being served from a cache
+   * yet, and the HTML and the code it loaded are the same build - so the
+   * rendered banner is already right and there is nothing to correct.
+   */
+  function _checkRunningVersion() {
+    var controller = navigator.serviceWorker.controller;
+    if (!controller) return;
+
+    navigator.serviceWorker.addEventListener("message", function (event) {
+      var data = event.data || {};
+      if (data.type === "VERSION") _reconcile(data.client);
+    });
+
+    try {
+      controller.postMessage({ type: "GET_VERSION" });
+    } catch (error) {
+      // A worker that will not answer leaves the banner as rendered, which is
+      // the same place this started.
+    }
+  }
+
+  /**
+   * Correct the banner to the build actually running, when they differ.
+   *
+   * Both numbers are shown - "1.4.0 -> 1.5.0" - because the running one alone
+   * would read as "this deploy did not happen". What it means is that the new
+   * one is downloaded and waiting for the reload the prompt is offering, and
+   * the arrow is the shortest way to say so on a line that has room for about
+   * a dozen characters.
+   *
+   * The title spells the arrow out for anyone not reading it off the screen.
+   * It is an accessible name rather than a tooltip: the banner gives its
+   * pointer events back to the map underneath, so there is nothing to hover.
+   *
+   * @param {string} running the client version the controlling worker carries
+   */
+  function _reconcile(running) {
+    if (_versionSettled || !running) return;
+
+    var value = document.getElementById("version-client");
+    if (!value) return;
+
+    var served = (value.textContent || "").trim();
+    _versionSettled = true;
+    if (!served || running === served) return;
+
+    value.textContent = running + " \u2192 " + served;
+    value.classList.add("is-stale");
+
+    var T = App.i18n ? App.i18n.t : null;
+    value.title = T
+      ? T("version.clientStale", { running: running, available: served })
+      : "Running " + running + "; " + served + " loads after a reload.";
   }
 
   // connectivity

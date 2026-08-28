@@ -2,61 +2,63 @@
 
 [Deutsch](#deutsch) · [Polski](#polski) · [Français](#français)
 
-|               Territory clusters               |                   Printing a territory card                   |
-|:----------------------------------------------:|:-------------------------------------------------------------:|
-|  ![Territory clusters](img/screenshot_1.png)   |      ![Printing a territory card](img/screenshot_2.png)       |
-|           **Using a card template**            |           **Searching to draw the territory area**            |
-| ![Using a card template](img/screenshot_3.png) | ![Searching to draw the territory area](img/screenshot_4.png) |
+|    Territory clusters     |        Printing a territory card         |
+|:-------------------------:|:----------------------------------------:|
+|                           |                                          |
+| **Using a card template** | **Searching to draw the territory area** |
+|                           |                                          |
 
 **Split a map area into walkable territories, then print each one as a PDF card.**
 
-Draw a shape on a map — a neighborhood, village, or a few blocks. The app
-downloads real streets and buildings from OpenStreetMap, then splits the area
-into however many territories you need. Every boundary runs
-**along a real street**, so "everything on this side of Railway Avenue" is an
-instruction someone can actually follow. Then print each territory as a PDF
-card, optionally overlaid on your own pre-printed template.
+Draw a shape on a map — a neighborhood, village, or a few city blocks. The app
+downloads real streets and buildings from OpenStreetMap and splits the area into
+as many territories as you need. Every boundary follows **an actual street**, so
+instructions like "everything on this side of Railway Avenue" are ones people can
+actually use. Then print each territory as a PDF card, optionally fitted onto your
+own pre-printed template.
 
 ## Who it's for
 
-Anyone who divides a geographic area into assignments handed to people on foot:
-canvassing, leaflet distribution, survey work, delivery rounds, parish visiting,
-and congregation field service. The primary target group is congregations of
-Jehovah's Witnesses carrying out their missionary work
+Anyone who divides a geographic area into assignments for people on foot: canvassing,
+leaflet distribution, survey work, delivery rounds, parish visiting, and congregation
+field service. The primary audience is congregations of Jehovah's Witnesses carrying
+out their missionary work
 ([more about it](https://www.jw.org/finder?wtlocale=E&docid=502013361&srcid=share)).
 
 ## Quick start
 
-1. **Draw the area** — use the polygon tool, click around the edges,
-   double-click to close.
+1. **Draw the area** — select the polygon tool, click around the edges, double-
+   click to close.
 2. **Wait for data** — streets and buildings load from OpenStreetMap (a few
-   seconds for a town, longer for a city).
-3. **Split it** — choose a number of territories ("40") or a target size ("~25
-   buildings each").
-4. **Adjust by hand** — merge, cut, drag boundaries, or delete. `Ctrl+Z` undoes.
-5. **Annotate, if you need to** — write notes, drop pins on places, mark
-   streets freehand or snapped to the road network, and set captions straight
-   onto the map.
-6. **Print** — right-click a territory → Print. Set line color/thickness,
-   rotate/zoom, erase border segments, export PDF.
-7. **Put it all on one wall map** — import as many saved projects into one as
-   you like (Import offers *Add* alongside *Replace*, and takes several files
-   at once), then Wall map draws every territory of every one of them onto a
-   single numbered sheet, up to A0.
+   seconds for a small town, longer for a city).
+3. **Split it** — enter a number of territories ("40") or a target size
+   ("~25 buildings each").
+4. **Adjust by hand** — merge, cut, drag boundaries, or delete them. `Ctrl+Z`
+   undoes any change.
+5. **Add annotations** — write notes, drop pins on places, mark streets freehand
+   or snapped to the road network, and place captions directly on the map.
+6. **Print** — right-click a territory -> Print. Choose line color and thickness,
+   rotate or zoom, erase border segments, and export to PDF.
+7. **Make a wall map** — import as many saved projects as you like into one
+   (the Import dialog offers *Add* alongside *Replace* and accepts multiple
+   files at once). Wall map then draws every territory from every project onto
+   a single numbered sheet, up to A0.
 
-Your work is saved in the browser — a refresh or accidental tab close won't lose
-it. Export to a file to load later on another machine.
+Your work is saved in the browser automatically — a refresh or accidental tab
+close won't lose anything. Export to a file to open it later on another machine.
 
 ## What it is not
 
-- Does **not** track who lives where, visits, or anything about residents.
-- Does **not** invent street data — everything comes from OpenStreetMap. If a
-  new estate is missing there, it's missing here. Fix it on OSM, not here.
+- Does **not** track who lives where, record visits, or store any information
+  about residents.
+- Does **not** make up street data — everything comes from OpenStreetMap. If
+  a new housing estate is missing there, it's missing here too. Fix it in OSM,
+  not here.
 
 ## Languages
 
-Available in English, Polish, German, and French. Pick from the menu or go
-directly to `/pl`, `/de`, or `/fr`.
+Available in English, Polish, German, and French. Pick your language from the
+menu, or go directly to `/pl`, `/de`, or `/fr`.
 
 ## Setup
 
@@ -65,91 +67,92 @@ pip install .
 osmapp
 ```
 
-The Dockerfile does the same in three stages: Node vendors client libraries,
-Python builds the wheel, and the runtime image carries neither toolchain.
+The Dockerfile does the same thing in three stages: Node vendors the client
+libraries, Python builds the wheel, and the final runtime image contains neither
+toolchain.
 
 ### Vendored client libraries
 
-`static/vendor/` is committed — nothing fetches a CDN at runtime. It's produced
-by `scripts/copy-vendor.js`:
+`static/vendor/` is checked into the repository — nothing fetches from a CDN at
+runtime. The folder is generated by `scripts/copy-vendor.js`:
 
 ```bash
 npm install
 npm run vendor
 ```
 
-Run this after any `package.json` dependency bump and **commit the result** —
-the deploy workflow builds from a plain checkout with no Node step. On Renovate
-PRs the CI workflow does it and folds the result into Renovate's own commit, so
-this is only needed for a bump made by hand. The script wipes `static/vendor/`
-before it writes, so a package dropped from `vendorConfig` leaves nothing
-behind. Paths under `static/vendor/` deliberately omit the version segment the
-CDN URLs carry, which is why a bump does not touch the `<script>` tags or
-`window.VENDOR` in `templates/index.html.j2`.
+Run this after any `package.json` dependency bump and **commit the result**. The
+deploy workflow builds from a plain checkout with no Node step. On Renovate PRs,
+the CI workflow runs the vendor script automatically and folds the result into
+Renovate's own commit, so you only need to run it manually for bumps you make
+yourself. The script wipes `static/vendor/` before writing, so a package removed
+from `vendorConfig` leaves nothing behind. Paths under `static/vendor/` deliberately
+omit the version segment that CDN URLs include, which is why a version bump doesn't
+touch the `<script>` tags or `window.VENDOR` in `templates/index.html.j2`.
 
-Each `src` in `vendorConfig` is one exact path with no fallback, and the run
-ends by reading every `vendor/...` URL out of `templates/` and requiring it to
-exist. A package that moves its build output therefore fails the vendor step
-instead of quietly producing a tree the page cannot load. That check is why the
-Dockerfile's vendor stage copies `src/osmapp/templates/` as well as
-`scripts/` — without them the script dies on a missing directory after it has
-already written the tree.
+Each `src` in `vendorConfig` is one exact path with no fallback. At the end of
+the run, the script reads every `vendor/...` URL out of `templates/` and checks
+that each file actually exists. If a package moves its build output, the vendor
+step fails with a clear error rather than silently producing a file tree the page
+can't load. This check is also why the Dockerfile's vendor stage copies
+`src/osmapp/templates/` alongside `scripts/` — without the templates directory,
+the script crashes after it has already written the files.
 
-pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached and
-load on first use, not at boot — so a page view that never opens the print
-dialog never parses them.
+pdf-lib, `@pdf-lib/fontkit`, and pdfjs-dist (~2 MB combined) are precached but only
+loaded when first needed, not at startup — so opening the app without ever touching
+the print dialog never parses them.
 
-The same run writes `static/version.json` — `package.json`'s version, and
-nothing else. It exists because `package.json` does not ship: a wheel carries
-`src/osmapp/` and nothing above it, and the runtime image is built from that
-wheel with no Node in it, so this is how the server can still name the build
-the browser is running. See the version banner below.
+The same run writes `static/version.json` containing just the version from
+`package.json`. This file exists because `package.json` itself doesn't ship:
+a wheel contains only `src/osmapp/` and nothing above it, and the runtime image
+is built from that wheel with no Node present. `static/version.json` is how the
+server can report the version the browser is running. See the version banner
+section below.
 
 ### Configuration
 
-All optional, all environment variables:
+All settings are optional and controlled through environment variables:
 
-| Variable                  | Default                                         | Why you'd change it                                                                       |
-|---------------------------|-------------------------------------------------|-------------------------------------------------------------------------------------------|
-| `OSM_MAX_AREA_KM2`        | `50`                                            | The most one Overpass request may cover. Larger areas are divided into tiles this size    |
-| `OSM_MAX_TILES`           | `24`                                            | Tiles one download may take, so the real ceiling is this × `OSM_MAX_AREA_KM2`             |
-| `OVERPASS_URL`            | `https://overpass-api.de/api`                   | Point at a mirror or your own instance                                                    |
-| `OVERPASS_TIMEOUT`        | `180`                                           | Seconds. Raise only with `OSM_MAX_AREA_KM2`                                               |
-| `NOMINATIM_URL`           | `.../nominatim.openstreetmap.org/search`        | Self-hosted instances only need to set this one (`/lookup` and `/reverse` are derived)    |
-| `GEOCODE_MIN_INTERVAL`    | `1.0`                                           | Seconds between Nominatim calls. Lower only against your own instance                     |
-| `BOUNDARY_THRESHOLD`      | `0.0001`                                        | Douglas-Peucker simplification in degrees (~11 m). Client can request up to `0.01`        |
-| `TILE_URL`                | `https://tile.openstreetmap.de/{z}/{x}/{y}.png` | See [Tile usage](#tile-usage)                                                             |
-| `TILE_CACHE_DIR`          | `.tile_cache`                                   | Docker image points to `/var/cache/osmapp/tiles`                                          |
-| `TILE_CACHE_MAX_MB`       | `500`                                           | Disk budget before pruning starts (aid tiles first, oldest OSM tiles after)               |
-| `TILE_CACHE_MAX_AGE_DAYS` | `60`                                            | Tiles older than this are evicted regardless of budget                                    |
-| `IMAGERY_TILE_URL`        | Esri World Imagery                              | Satellite aid layer. Empty string removes it                                              |
-| `TERRAIN_TILE_URL`        | `https://tile.opentopomap.org/{z}/{x}/{y}.png`  | Terrain aid layer. Empty string removes it                                                |
-| `HOST` / `PORT`           | `0.0.0.0` / `5000`                              | Bind address                                                                              |
-| `FLASK_DEBUG`             | `0`                                             | `1` enables the Werkzeug debugger — never on anything reachable                           |
+| Variable                  | Default                                         | Why you'd change it                                                                          |
+|---------------------------|-------------------------------------------------|----------------------------------------------------------------------------------------------|
+| `OSM_MAX_AREA_KM2`        | `50`                                            | Maximum area one Overpass request may cover. Larger areas are split into tiles of this size. |
+| `OSM_MAX_TILES`           | `24`                                            | Maximum tiles per download. The real ceiling is this × `OSM_MAX_AREA_KM2`.                   |
+| `OVERPASS_URL`            | `https://overpass-api.de/api`                   | Point to a mirror or your own Overpass instance.                                             |
+| `OVERPASS_TIMEOUT`        | `180`                                           | Timeout in seconds. Only raise this alongside `OSM_MAX_AREA_KM2`.                            |
+| `NOMINATIM_URL`           | `.../nominatim.openstreetmap.org/search`        | For self-hosted Nominatim — `/lookup` and `/reverse` are derived from this automatically.    |
+| `GEOCODE_MIN_INTERVAL`    | `1.0`                                           | Minimum seconds between Nominatim requests. Lower only against your own instance.            |
+| `BOUNDARY_THRESHOLD`      | `0.0001`                                        | Douglas-Peucker simplification in degrees (~11 m). Clients can request up to `0.01`.         |
+| `TILE_URL`                | `https://tile.openstreetmap.de/{z}/{x}/{y}.png` | See [Tile usage](#tile-usage).                                                               |
+| `TILE_CACHE_DIR`          | `.tile_cache`                                   | The Docker image points this to `/var/cache/osmapp/tiles`.                                   |
+| `TILE_CACHE_MAX_MB`       | `500`                                           | Disk budget before pruning kicks in (aid tiles go first, then oldest OSM tiles).             |
+| `TILE_CACHE_MAX_AGE_DAYS` | `60`                                            | Tiles older than this are removed regardless of the disk budget.                             |
+| `IMAGERY_TILE_URL`        | Esri World Imagery                              | Satellite aid layer. Set to an empty string to remove it.                                    |
+| `TERRAIN_TILE_URL`        | `https://tile.opentopomap.org/{z}/{x}/{y}.png`  | Terrain aid layer. Set to an empty string to remove it.                                      |
+| `HOST` / `PORT`           | `0.0.0.0` / `5000`                              | Bind address.                                                                                |
+| `FLASK_DEBUG`             | `0`                                             | Set to `1` to enable the Werkzeug debugger — never do this on a publicly reachable server.   |
 
-Each aid layer also takes `<NAME>_MAX_ZOOM` and `<NAME>_ATTRIBUTION` (e.g.
-`TERRAIN_MAX_ZOOM=17`).
+Each aid layer also accepts `<NAME>_MAX_ZOOM` and `<NAME>_ATTRIBUTION` (e.g. `TERRAIN_MAX_ZOOM=17`).
 
 ### Basemaps
 
-There is one **printable** basemap: OpenStreetMap. A territory card is carried
-down a street and must show road names and house numbers — aerial imagery
-doesn't, and topo maps show the wrong features. Cards are always composed from
-OSM tiles regardless of what's on screen. This is not a setting.
+There is exactly one **printable** basemap: OpenStreetMap. A territory card is
+used in the field and must show street names and house numbers — aerial imagery
+doesn't have them, and topo maps show the wrong things. Cards are always rendered
+from OSM tiles regardless of what's currently visible on screen. This is not configurable.
 
-**Aid layers** (satellite, terrain) exist for the other half of the work:
-spotting entrances, reading slopes, identifying private drives. They appear in
-the layer switcher and are explicitly marked as non-printable. Aid tiles share
-the disk cache but are evicted first — an afternoon of panning satellite imagery
-must not evict the basemap behind territory cards.
+**Aid layers** (satellite, terrain) are there for the planning side of the work:
+spotting building entrances, reading slopes, identifying private driveways. They
+appear in the layer switcher and are clearly marked as non-printable. Aid tiles
+share the disk cache but are evicted first — a session spent panning satellite
+imagery should never push out the basemap tiles needed for printing cards.
 
 ### Tile usage
 
-Printing renders the basemap onto a canvas, so tiles go through `/tiles/...`
-(same-origin for canvas, custom User-Agent, disk-cached). One card ≈ 350 tiles
-per session — fine for occasional personal use.
+Printing renders the basemap onto a canvas, so tiles pass through `/tiles/...`
+(same-origin for canvas access, with a custom User-Agent, and disk-cached). One
+card uses roughly 350 tiles per session — fine for occasional personal use.
 **If you print in volume, set `TILE_URL` to your own or a commercial tile source.**
-Attribution is burned into every rendered image.
+Attribution is embedded into every rendered image.
 
 ### Tests
 
@@ -157,55 +160,56 @@ Attribution is burned into every rendered image.
 pip install -e ".[test]"
 playwright install chromium           # browser suite, optional
 pytest
-node --test "tests/js/*.test.mjs"     # no npm install
+node --test "tests/js/*.test.mjs"     # no npm install needed
 ```
 
-Tests cover only things that fail **silently and consequentially** — loud
-failures (404, startup error, blank page) aren't worth the maintenance. The JS
-suite uses Node's built-in runner with no dependencies.
+Tests focus on things that fail **silently and with real consequences** — obvious
+failures like 404 errors, startup crashes, or blank pages aren't worth the maintenance
+overhead. The JS suite uses Node's built-in test runner with no dependencies.
 
-`tests/e2e/` is the exception to the rule above, and deliberately: a blank page
-*is* loud, but neither other suite can see one. The server suite never renders
-the page and the JS suite runs each module under Node with stubbed globals, so
-a dropped `<script>`, an uncopied vendor file or a module that throws on the
-real DOM passes both. It starts the app on an ephemeral port, drives Chromium
-against it, and answers tiles and the reverse lookup itself — Overpass,
-Nominatim and the tile provider are never contacted. **It skips itself, with a
-reason, when `pytest-playwright` or the browser is missing**, so a plain
-`pytest` still runs everything else. `--browser firefox` and `--browser webkit`
-work the same way if a bug looks engine-shaped.
+`tests/e2e/` is a deliberate exception to this principle: a blank page *is* obvious,
+but neither other suite can catch one. The server suite never renders the page,
+and the JS suite runs each module under Node with stubbed globals — so a missing
+`<script>` tag, an uncopied vendor file, or a module that throws on the real DOM
+passes both. The end-to-end suite starts the app on a temporary port, drives Chromium
+against it, and serves tiles and reverse-geocoding results itself — Overpass, Nominatim,
+and the tile provider are never contacted. **It skips itself gracefully, with an
+explanation, when `pytest-playwright` or the browser is missing** — a plain `pytest`
+run still executes everything else. `--browser firefox` and `--browser webkit` work
+the same way if a bug looks browser-specific.
 
-`.github/workflows/ci.yml` runs all three suites on every push/PR, and the
-Heroku deploy job requires all three to pass. Each emits JUnit XML that a check
-run turns into a summary with inline annotations; a fork PR has a read-only
-token and gets the log instead. A failed browser run uploads its Playwright
-traces, which replay the DOM, console and network of the run that failed.
+`.github/workflows/ci.yml` runs all three suites on every push and pull request,
+and the Heroku deploy job requires all three to pass. Each suite emits JUnit XML
+that CI turns into a test summary with inline annotations. Fork PRs get a read-
+only token and see the raw log instead. A failed browser run uploads its Playwright
+traces, which let you replay the exact DOM, console output, and network activity
+from the failing run.
 
 ### Releasing
 
-Push a `v*` tag. The vendor job writes the tag's version — `v1.4.2` becomes
-`1.4.2` — into `pyproject.toml` and `package.json`, regenerates
-`static/vendor/`, commits, and moves the tag onto that commit; the deploy job
-then builds from it. Both jobs run on every tag with no further input, and the
-version lives in the tag rather than on the branch, so `main` keeps its
-placeholder. Moving the tag is a force-push made with `GITHUB_TOKEN`, which
-GitHub deliberately does not let start another run.
+Push a `v*` tag. The vendor job rewrites the tag's version — `v1.4.2` becomes
+`1.4.2` — into `pyproject.toml` and `package.json`, regenerates `static/vendor/`,
+commits the result, and moves the tag onto that commit. The deploy job then builds
+from it. Both jobs run automatically on every tag with no manual steps. The
+version lives in the tag rather than on the branch, so `main` always keeps its
+placeholder. Moving the tag is a force-push made with `GITHUB_TOKEN`, which GitHub
+deliberately prevents from triggering another workflow run.
 
-Both numbers end up in the bottom-left corner of the page, as `Server 1.4.2 ·
-Client 1.4.2` — `internal/version.py` reads the first from `pyproject.toml` (or
-from the installed package's metadata) and the second from `package.json` (or
-from `static/version.json`). They come from one tag, so they normally agree, and
-seeing them disagree is the point of printing both: an image that was not built
-from a release, or a service worker still handing out the assets from before
-one. On a phone the banner sits a row above the attribution, and it steps aside
-while a tool's bar is on the map.
+Both version numbers appear in the bottom-left corner of the page as
+`Server 1.4.2 · Client 1.4.2`. `internal/version.py` reads the server version
+from `pyproject.toml` (or from the installed package metadata), and the client
+version from `package.json` (or from `static/version.json`). Since both come from
+the same tag, they should always match — seeing them disagree is useful: it means
+either the image wasn't built from a release, or a service worker is still serving
+assets from a previous version. On mobile, the banner sits one row above the
+attribution line and steps aside when a tool bar is open on the map.
 
 ---
 
 ## Installing as an app
 
-The app is a PWA — installable from the browser, usable offline for everything
-that doesn't need the server.
+The app is a PWA — you can install it from the browser and use it offline for
+anything that doesn't require the server.
 
 ### What works offline
 
@@ -221,47 +225,48 @@ that doesn't need the server.
 | Fetch streets/buildings (Overpass)            |    no    |
 | Search a place / suggest boundary (Nominatim) |    no    |
 
-**The one caveat is tiles.** PDF composition needs no network, but the basemap
-under it does. Offline you get whatever's in the service worker's tile cache —
-ground you've already looked at. Pan over an area once while connected, and the
-cards are yours to print in the field.
+**The one catch is map tiles.** PDF composition works entirely offline, but the
+basemap underneath it doesn't — you get whatever tiles the service worker has
+cached from previous use. Pan over an area once while you're connected, and
+those tiles are available to print from anywhere.
 
-### How freshness is handled
+### How updates work
 
-No file under `static/js/` carries a fingerprint. Instead, the cache version is
-a SHA-256 over all precached files, computed in `internal/pwa.py` and interpolated
-into `sw.js`. Change any asset → the worker's bytes change → browsers detect it
-on next navigation. No manual cache-busting needed.
+No file under `static/js/` has a fingerprint in its name. Instead, the cache
+version is a SHA-256 hash computed over all precached files in `internal/pwa.py`,
+then embedded into `sw.js`. Change any asset -> the worker's content changes ->
+browsers detect it on the next navigation. No manual cache-busting is needed.
 
-| Request                               | Strategy                 | Why                                                          |
-|---------------------------------------|--------------------------|--------------------------------------------------------------|
-| Navigation (`/`, `/pl`, `/de`, `/fr`) | Network-first            | HTML inlines the dictionary; a stale copy is a wrong copy    |
-| `/static/**`                          | Cache-first              | Freshness comes from the version digest                      |
-| `/tiles/**`                           | Cache-first, capped 2000 | Immutable, already served with `max-age`                     |
-| `/tiles/aid/**`                       | Cache-first, capped 500  | Separate, smaller budget — never evict the printable basemap |
-| Everything else                       | Network-only             | Overpass/Nominatim need a live server                        |
+| Request                               | Strategy                 | Why                                                                                 |
+|---------------------------------------|--------------------------|-------------------------------------------------------------------------------------|
+| Navigation (`/`, `/pl`, `/de`, `/fr`) | Network-first            | HTML inlines the translation dictionary; a stale copy would show wrong text.        |
+| `/static/**`                          | Cache-first              | Freshness is handled by the version hash.                                           |
+| `/tiles/**`                           | Cache-first, capped 2000 | Tiles are immutable and already served with `max-age`.                              |
+| `/tiles/aid/**`                       | Cache-first, capped 500  | Smaller budget, kept separate — aid tiles should never evict the printable basemap. |
+| Everything else                       | Network-only             | Overpass and Nominatim require a live server.                                       |
 
-**Updates are never silent.** A new worker installs and waits; the page offers
-a reload. The undo stack lives in memory and isn't part of the IndexedDB session,
-so activating mid-edit would discard it.
+**Updates are never silent.** When a new service worker is ready, it waits and
+the page offers you a reload prompt. The undo stack lives in memory and isn't
+part of the saved session, so activating a new worker mid-edit would discard it.
 
-**Registration does not wait for an event already past.** It is held back to
-`load` so it does not compete with the first Overpass fetch, but start-up runs
-from a timer after `DOMContentLoaded` and reaches `pwa.js` last, by which time a
-page whose assets are all in the HTTP cache — every visit after the first — has
-finished loading. `pwa.js` checks `document.readyState` and registers straight
-away in that case. Nothing on screen reports a worker that never registered:
-the app is already in memory, and the first thing to go missing is a card
-composed with the connection down, because DejaVuSans is fetched when a PDF is
-built rather than when the page loads.
+**Service worker registration doesn't block startup.** It waits for the `load`
+event to avoid competing with the first Overpass request. But the startup sequence
+runs from a timer after `DOMContentLoaded` and reaches `pwa.js` last — by which
+point, on any visit after the first (when all assets are already in the HTTP cache),
+the page has finished loading. `pwa.js` checks `document.readyState` and registers
+immediately in that case. If the worker never registers, nothing on screen reports
+it — the app is already running from memory. The first thing that will actually
+break is printing a card without a connection, because DejaVuSans is fetched when
+a PDF is built, not when the page loads.
 
-### Deliberately not done: bulk tile pre-fetch
+### Deliberately not done: bulk tile pre-fetching
 
 A "download this territory for offline use" button is the obvious next feature,
-but the OSM tile policy forbids bulk downloading. Tiles you actually look at are
-cached as a side effect; systematically walking a bounding box at every zoom is
-not. If you point `TILE_URL` at your own or a commercial source, this becomes
-reasonable — the cache infrastructure is already there.
+but the OSM tile usage policy forbids bulk downloading. Tiles you actually view
+get cached as a byproduct of normal use; systematically fetching every tile in
+a bounding box at every zoom level is not allowed. If you point `TILE_URL` at
+your own or a commercial tile source, bulk pre-fetching becomes reasonable —
+the caching infrastructure is already in place.
 
 ---
 
@@ -280,14 +285,15 @@ static/vendor/              Leaflet, Turf, pdf-lib, pdf.js — no CDN at runtime
 static/version.json         Client version, written by copy-vendor.js
 scripts/copy-vendor.js      Populates static/vendor/ from node_modules
 tests/                      pytest (server), node --test (client)
-tests/e2e/                  pytest + Playwright (the page in a browser)
+tests/e2e/                  pytest + Playwright (the page in a real browser)
 ```
 
 ### Modules
 
-No bundler, no imports — just `<script>` tags and a shared `window.App`. Load
-order is fixed in `index.html.j2` and asserted by a test (a file in `static/js/`
-not in the list is precached, shipped, and never runs).
+No bundler, no ES module imports — just `<script>` tags and a shared `window.App`
+namespace. Load order is fixed in `index.html.j2` and verified by a test
+(any file in `static/js/` that isn't in the list gets precached and shipped,
+but never runs).
 
 | Module          | Responsibility                                                 |
 |-----------------|----------------------------------------------------------------|
@@ -306,21 +312,22 @@ not in the list is precached, shipped, and never runs).
 | `ui`            | Loading overlay, info panel, context menu, dialogs             |
 | `polygons`      | Territory lifecycle, hover info, filtered street/building view |
 | `labels`        | Numbered chips on parts sharing a territory number             |
-| `naming`        | Territory names, from the OSM data and from what cards said    |
+| `naming`        | Territory names, from OSM data and from what cards said        |
 | `pdfdoc`        | Reads/writes PDFs: template measuring, preview, composition    |
 | `data`          | Overpass fetching, rendering, export/import, merging projects  |
 | `session`       | Debounced save and restore of working state                    |
-| `clustering`    | K-Means → Voronoi → street-routed boundaries                   |
+| `clustering`    | K-Means -> Voronoi -> street-routed boundaries                 |
+| `balance`       | Trades blocks between territories until they even out          |
 | `editing`       | Cut lines, merging, cleanup                                    |
-| `trim`          | Shrink outer boundary onto buildings that matter               |
-| `outline`       | Reshape outer boundary after it's been set                     |
-| `gaps`          | Parts of the area belonging to no territory                    |
-| `footprints`    | Boundaries drawn through buildings, moved onto the wall        |
-| `autoheal`      | Repairing the faults the territory list can name               |
-| `notes`         | Annotations over the area: notes, pins, marks, captions        |
+| `trim`          | Shrinks the outer boundary down to the buildings that matter   |
+| `outline`       | Reshapes the outer boundary after it's been set                |
+| `gaps`          | Parts of the area that don't belong to any territory           |
+| `footprints`    | Boundaries that cross buildings, moved off them                |
+| `autoheal`      | Fixes the problems the territory list can identify             |
+| `notes`         | Annotations: notes, pins, marks, captions                      |
 | `print-filters` | Basemap filters for the print preview                          |
 | `print`         | Canvas map rendering, framing, eraser, card and wall-map sheet |
-| `boundary`      | Turn a geocoder hit into the outer polygon                     |
+| `boundary`      | Turns a geocoder result into the outer polygon                 |
 | `history`       | Undo/redo                                                      |
 | `controls`      | Toolbar, language picker, reset                                |
 | `demo`          | Sample territory for the guided tour                           |
@@ -334,212 +341,415 @@ not in the list is precached, shipped, and never runs).
 
 ### Splitting into territories
 
-Six phases, each yielding to the event loop so the UI stays responsive:
+Two split modes are available, and they optimize for different things.
+**By building count** gives each territory roughly the same number of houses.
+**By territory count** gives each territory roughly the same area of ground.
+Both use the same pipeline and differ in exactly two places: what k-means is
+seeded with, and what the balance pass evens out. Everything in between is the same.
 
-1. **Sample points** — building centroids, falling back to street midpoints,
-  then boundary samples for sparse areas.
-2. **K-Means** → *k* centroids.
-3. **Voronoi** → cells, clipped to the outer boundary.
-4. **Street graph** — undirected weighted graph with a grid index.
-5. **Edge routing** — each unique cell edge routed along streets with A\*,
-  biased toward the edge's bearing. Routed **once** (keyed on sorted endpoints)
-  to avoid duplicate divergent paths that break the planar graph.
-6. **Polygonize** → assign pieces to centroids → fill gaps → render.
+```mermaid
+flowchart TD
+    A["Working area — one area of the boundary"] --> B{"Split by…"}
+    B -->|buildings| C["Building centroids inside the area"]
+    B -->|area| D["Uniform ground sample (turf.pointGrid)"]
+    C --> E["Shuffle, then k-means<br/>in a local equirectangular frame"]
+    D --> E
+    E --> F["Voronoi cells, clipped to the area"]
+    F --> G["Street graph — undirected, weighted, grid-indexed"]
+    G --> H["Anchor each cell corner onto the nearest street node"]
+    H --> I["Route each unique cell edge once, with A*"]
+    I --> J["Polygonize into pieces"]
+    J --> K["Assign each piece to the cell containing it"]
+    K --> L{"Balance"}
+    L -->|buildings| M["Trade blocks until the counts even out"]
+    L -->|area| N["Trade blocks until the areas even out"]
+    M --> O["Fill uncovered ground"]
+    N --> O
+    O --> P["Enforce connectivity"]
+    P --> Q["Move boundaries off the buildings they cross"]
+    Q --> R["Territories"]
+```
+
+Every phase yields to the event loop, so the UI stays responsive and the run
+can be cancelled.
+
+#### Choosing *k*
+
+Splitting by territory count takes *k* directly. Splitting by building count
+takes *n* (the desired number of houses per territory) and derives:
+
+<!-- markdownlint-disable-next-line -->
+$$k = \max\left(2,\ \left\lceil \frac{N}{n} \right\rceil\right),\qquad k \leftarrow \min(k,\ 200)$$
+
+where *N* counts the buildings **inside the area being split** — not the entire
+download. On a boundary containing three villages, using the full download count
+would size *k* for all three, while the run only divides one of them. The 200-
+territory ceiling is applied before the dialog shows its estimate, so you see
+"200 territories, about 60 buildings each" up front rather than discovering it afterwards.
+
+#### Phase 0 — what gets clustered
+
+Splitting by buildings clusters the building centroids. Splitting by area clusters
+a uniform sample of the ground itself, generated by `turf.pointGrid` at a spacing
+derived from the area:
+
+$$s = \sqrt{\frac{A}{25\,k}}$$
+
+This ensures both a hamlet and a city get around 25 sample points per territory,
+rather than using a fixed grid that would be too coarse for one and overwhelming
+for the other.
+
+The distinction matters because k-means only converges on equal-area cells when
+its input points are spread evenly over the area. In a village with three dense
+clusters and scattered outlying farms, seeding with buildings versus seeding with
+ground produces very different Voronoi cell sizes:
+
+| Seeded with   | Smallest cell | Largest cell | Ratio    |
+|---------------|---------------|--------------|----------|
+| buildings     | 6 900 m²      | 1 439 900 m² | **208×** |
+| ground sample | 244 900 m²    | 638 600 m²   | **2.6×** |
+
+Both against an ideal of 470 300 m². Splitting by area is only meaningful with
+the second approach.
+
+#### Phase 1 — k-means
+
+Points are scaled into a local equirectangular frame before clustering,
+then scaled back:
+
+$$x' = x \cos\varphi_0$$
+
+`turf.clustersKmeans` measures Euclidean distance on raw degrees, but a degree
+of longitude is only $\cos\varphi$ as long as a degree of latitude -
+0.61 at 52° N - so clustering unprojected coordinates produces territories that
+are systematically stretched north-south.
+
+Lloyd's algorithm then minimizes the within-cluster sum of squares:
+
+<!-- markdownlint-disable-next-line -->
+$$\arg\min_{S}\ \sum_{i=1}^{k}\ \sum_{x \in S_i} \lVert x - \mu_i \rVert^2 ,\qquad \mu_i = \frac{1}{|S_i|}\sum_{x\in S_i} x$$
+
+Two things about this are worth knowing, because both look like bugs and only
+one actually is.
+
+**The seeding is a bug, and it's turf's.** `clustersKmeans` seeds with
+`coordAll(points).slice(0, k)` — the first *k* features in array order, not
+a representative sample and not k-means++. Overpass returns buildings in OSM ID
+order, and IDs run in contiguous blocks per import, so all *k* seeds land in one
+corner of the map. Lloyd's algorithm can't move a centroid across a town it has
+no points in. The fix is to shuffle the input first, deterministically
+(xorshift32 with a fixed seed), which turns that slice back into the uniform
+sample the algorithm expects. On 3,000 buildings at *k* = 150:
+
+| Seeding              | Median territory | Largest territory |
+|----------------------|------------------|-------------------|
+| input order (turf's) | 4 buildings      | 434 buildings     |
+| shuffled             | 20 buildings     | 53 buildings      |
+| k-means++            | 6 buildings      | 74 buildings      |
+
+Plain shuffled sampling beats k-means++ here, and not by coincidence: k-means++
+spreads seeds by distance, which deliberately over-serves empty outskirts, while
+sampling proportional to density is exactly what count-balancing needs.
+
+**The remaining imbalance is not a bug.** For a point density $f$, the
+asymptotically optimal quantizer places centroids at density:
+
+$$\lambda \propto f^{\frac{d}{d+2}} \;\overset{d=2}{=}\; \sqrt{f}$$
+
+So the number of points assigned to one centroid scales as $f/\sqrt{f} = \sqrt{f}$.
+A neighborhood nine times denser than the outskirts will produce territories with
+three times as many houses — and that's the *correct converged answer*. No amount
+of additional iterations will fix it. Equalizing the counts is a separate job,
+handled in phase 5.
+
+#### Phase 2 — Voronoi
+
+The centroids are deduplicated and their Voronoi diagram is clipped to the area.
+Each surviving cell records which centroid owns it, so phase 5 can assign pieces
+by containment rather than by proximity — street-routed boundaries deviate far
+enough from the Voronoi edges that nearest-centroid alone can place pieces inside
+the wrong territory's body.
+
+#### Phases 3 and 4 — putting the boundary on a street
+
+The street graph is undirected and weighted by length, with a uniform grid index
+for nearest-node lookups.
+
+Cell corners are handled first. A Voronoi vertex falls wherever three cells happen
+to meet — usually in the middle of a block. Routing *from* that vertex means the
+boundary starts with a straight line from the vertex to the first street node,
+creating a territory edge that runs along a road and then cuts between two houses
+to reach a corner in someone's garden. Instead, each corner is snapped to the nearest
+street node within 60 m (roughly half a block), and routing runs between corners
+that are already on the network. On a sparse test case — 150 m blocks with a fifth
+of links missing — 96% of corners land on a street, and 91% of off-street boundary
+length disappears.
+
+The snap is memoized per corner at five decimal places, roughly one metre. Three
+cells meet at each corner and each contributes its own copy; if they disagree on
+where it snapped, their rings don't close and `turf.polygonize` returns fewer
+faces than there are territories. Corners on the outer boundary are never
+moved — those are where a territory meets the edge of the overall area.
+
+Each unique cell edge is then routed once, keyed on its sorted endpoint pair.
+Routing both cells' copies independently could let A\* return two different
+paths for the same edge, which breaks the planar graph. The search minimizes:
+
+$$w(u,v) = d(u,v)\left(1 + 0.3\,\frac{\Delta\theta}{90^{\circ}}\right)$$
+
+where $\Delta\theta$ is the angle between that step and the bearing of the straight
+Voronoi edge. The penalty is enough to prefer a road running alongside the edge
+over an equally short detour at right angles to it, but not enough to reject
+a genuine dogleg. The search stops after 5,000 pops so a partition can't stall
+when two endpoints are in disconnected components.
+
+#### Phase 5 — pieces, balance, repair
+
+The routed lines are noded and polygonized into pieces. Each piece is assigned
+to the territory whose Voronoi cell contains its interior point, falling back
+to the nearest centroid.
+
+Nothing up to this point has measured the finished territories, so the balance
+pass does. It works on the pieces rather than merged outlines — a block is only
+tradeable while it's still a block — and hill-climbs on the total deviation from
+the target:
+
+$$C = \sum_i \left| L_i - \bar{L} \right| ,\qquad \bar{L} = \frac{1}{n}\sum_i L_i$$
+
+$L_i$ is building count in one mode and square metres in the other; the trade
+logic doesn't care which. A block moves from territory $A$ to adjacent territory
+$B$ only if the move strictly reduces $C$, so the cost falls monotonically and
+the loop can't cycle. Two rules outrank balance: a territory never gives away
+its last block, and never gives away a block that would split it into more
+pieces than it already was.
+
+Adjacency between pieces is determined from shared edge coordinates, not from
+buffered intersection tests. `turf.polygonize` builds faces from the noded line
+set it was given, and that set is rounded to five decimal places first — so two
+faces sharing an edge carry the exact same coordinates for it. The adjacency
+answer is already in the geometry.
+
+Three repairs follow, in this order and for these reasons:
+
+1. **Fill uncovered ground.** Any ground inside the outer area but not in any
+   territory gets merged into a territory it actually touches, ranked by shared
+   boundary length rather than centroid distance.
+2. **Enforce connectivity.** Any territory in more than one piece keeps its
+   largest piece and hands each orphan to the neighbor sharing the most boundary
+   with it. An orphan that touches nothing becomes its own territory; one that is
+   both tiny and empty is dropped — but only if empty, since a house on dropped
+   ground would get no card.
+3. **Move boundaries off buildings.** Where routing failed and the straight Voronoi
+   line survived, it may pass through a building. The whole footprint goes to
+   whichever territory already holds most of it. This step runs last because the
+   two passes above weld shapes with a half-metre grow/shrink that would round an
+   outline already sitting on a wall.
+
+The run then reports what it produced — `buildings 14–26 (avg 20.0)`, or the
+equivalent in m² — measured on the finished territories rather than carried
+forward from the balance pass, since all three repair steps move ground after it.
 
 ### Merging
 
-`geometry.unionHealed()` grows each input by 0.5 m before unioning, then shrinks
+`geometry.unionHealed()` expands each input by 0.5 m before unioning, then shrinks
 back. A plain `turf.union` on nearly-coincident boundaries returns a MultiPolygon
-of touching pieces with visible internal outlines; the grow/shrink closes sub-meter
-gaps so the union genuinely dissolves.
+of touching pieces with visible internal outlines; the expand/shrink closes
+sub-meter gaps so the union genuinely dissolves them.
 
 ### Areas: a project made of several boundaries
 
-A project drawn in one sitting has one outer boundary. A project assembled by
-importing others has one per import, disjoint and often kilometers apart, and
-the boundary is then a **MultiPolygon**. Two questions come out of that, and the
-code keeps them apart deliberately:
+A project drawn in one session has one outer boundary. A project assembled from
+imports has one boundary per import — disjoint and often kilometers apart —
+making the boundary a **MultiPolygon**. Two distinct questions arise from this,
+and the code keeps them separate deliberately:
 
 - **"Inside the boundary"** — coverage, gaps, clipping a hand-drawn territory,
-  what a wall map frames, what a download covers. That is the whole boundary:
-  `geometry.outerFeature()`.
-- **"Which one area"** — reshaping an outline, trimming it onto its buildings,
-  splitting it into territories. Each of those is a statement about one place,
-  and walks a single ring besides. That is `polygons.workingOuter()`, which
-  takes the area holding the selected territory, else the middle of the screen,
-  else the largest. The choice needs no control of its own because every one of
-  those tools puts its handles, its preview or its result on the area it chose.
+   what a wall map frames, what a download covers. This always means the whole
+   boundary: `geometry.outerFeature()`.
+- **"Which specific area"** — reshaping an outline, trimming it to its buildings,
+   splitting it into territories. Each of these operates on one place and walks
+   a single ring. This is `polygons.workingOuter()`, which picks the area holding
+   the selected territory, then the area at the center of the screen, then the
+   largest. No separate control is needed because every one of those tools places
+   its handles, preview, or result on the area it selected.
 
-`polygons.replaceOuterPart()` puts an edited area back by subtracting the shape
-it replaced and unioning the new one, so the areas nobody touched come out
-untouched. Downloads run one area at a time — the server takes a single polygon
-and guards its size, and one request over the bounding box of three villages is
-a request for the farmland between them.
+`polygons.replaceOuterPart()` puts an edited area back by subtracting the old
+shape and unioning in the new one, leaving untouched areas unchanged. Downloads
+run one area at a time — the server accepts a single polygon and enforces a size
+limit. A single request covering the bounding box of three villages would pull
+in the farmland between them.
 
-Merging two projects appends territories minus the ground already covered
-(territories not overlapping is the invariant the building counts, the gap
-finder and the printed marks all read), de-duplicates streets and buildings by
-OSM id, and appends notes. See the block comment in `data.js`.
+Merging two projects appends territories minus any ground already covered
+(non-overlapping territories is the invariant that building counts, the gap
+finder, and printed marks all depend on), deduplicates streets and buildings by
+OSM ID, and appends notes. See the block comment in `data.js`.
 
 ### Printing
 
-The card is **rendered from scratch onto a canvas** — not screenshotted from Leaflet.
-This guarantees only the target territory's rings are drawn (no stray borders) and
-renders at 300 dpi regardless of window size.
+The card is **rendered from scratch onto a canvas** — not screenshotted from
+Leaflet. This guarantees that only the target territory's outlines are drawn
+(no stray borders) and renders at 300 dpi regardless of window size.
 
-Three surfaces compose the result:
+Three layers compose the result:
 
 - **tiles** — basemap + attribution, never erasable
-- **border** — line on transparency; erased spans use `destination-out` to remove
-  the line while leaving the map
-- **preview** — tiles + border at chosen opacity
+- **border** — the territory outline on a transparent layer; erased segments use
+  `destination-out` to remove the line while leaving the map underneath
+- **preview** — tiles + border at the chosen opacity
 
-The canvas is fixed to the template placeholder's aspect ratio, so cropping is
-choosing which slice of the world lands on it. Drag to pan, scroll/slide to zoom,
-buttons for quarter turns.
+The canvas is locked to the template placeholder's aspect ratio, so cropping means
+choosing which slice of the map lands on it. Drag to pan, scroll or pinch to zoom,
+use buttons for quarter turns.
 
-A **wall map** is the same dialog and the same three surfaces, given every
-territory instead of one. It differs in three places: the subject is a
-`FeatureCollection` (which `polygonParts` flattens exactly as it flattens a
-territory a cut left in two pieces, so framing and drawing need no special
-case); there is no template, so the sheet is an ISO A size with a margin and a
-heading band; and nothing is marked as printed afterwards, because a poster of
-forty territories is not forty cards. The chips are drawn on the furniture
-layer, beside the scale bar and the compass rather than onto the border, so
-neither the border's opacity nor the eraser reaches them.
+A **wall map** uses the same dialog and the same three layers, but receives every
+territory instead of one. It differs in three ways: the subject is a
+`FeatureCollection` (which `polygonParts` flattens the same way it handles a
+territory split by a cut, so framing and drawing need no special cases); there's
+no template, so the sheet is an ISO A size with a margin and a heading band; and
+nothing is marked as printed afterwards, because a poster of forty territories
+is not the same as forty individual cards. Territory number chips are drawn on
+the furniture layer alongside the scale bar and compass — not on the border —
+so neither the border opacity slider nor the eraser affects them.
 
-What a chip says is **what a card called that territory**, falling back to its
-number. The number is this session's position in the list — an index, not a
-name — while a congregation has its own ("S-13", "12a"), which it types into
-the card's *Territory no.* field. That typing is now kept on the territory
-(`properties.label`, alongside the printed mark and carried by the same
-payload), so it survives into the wall map, into the next card's suggestion,
-and into an export. Chips are pills rather than discs for it: a single digit
-still comes out round.
+What a chip displays is **the label the card gave that territory**, falling back
+to the session index number. Session numbers are just positions in the list, not
+names — congregations have their own ("S-13", "12a"), which they type into the
+card's *Territory no.* field. That value is now stored on the territory itself
+(`properties.label`, alongside the printed mark), so it carries through into
+the wall map, into the next card's suggested label, and into exports. Chips are
+pill-shaped rather than round discs so that a single digit still looks round.
 
-Resolution is not fixed at 300 dpi. A0 at 300 dpi is 140 megapixels, which no
-browser will allocate — and does not refuse, it hands back a blank canvas. So
-`PX_PER_PT` is derived per sheet from a side and an area ceiling, and everything
-measured in points multiplies by it rather than by `DPI`.
+Resolution is not fixed at 300 dpi. An A0 sheet at 300 dpi is 140 megapixels,
+which no browser will allocate — and rather than refusing, browsers silently
+return a blank canvas. So `PX_PER_PT` is calculated per sheet from the sheet
+dimensions and a pixel area ceiling, and everything measured in points
+multiplies by it rather than by a fixed `DPI` constant.
 
-Key details: tiles are fetched **once** (one zoom level, cached as decoded `Image`
-objects for the dialog's lifetime — softness above that level is the tradeoff).
-Erase strokes are stored in **lng/lat with width in meters**, not pixels, so panning
-after erasing doesn't shift erasures off what they were hiding.
+Key implementation details: tiles are fetched **once** per session (at one zoom
+level, cached as decoded `Image` objects for the dialog's lifetime — some softness
+at higher zoom is the trade-off). Erase strokes are stored in **lng/lat
+coordinates with width in metres**, not pixels, so panning after erasing doesn't
+shift erasures away from what they were covering.
 
 ### Composition
 
-`pdfdoc.js` handles everything that touches a PDF, over pdf-lib (writes) and pdf.js
-(reads), both loaded on first use:
+`pdfdoc.js` handles everything that touches a PDF, using pdf-lib (for writing)
+and pdf.js (for reading), both loaded on first use:
 
-1. **Measuring the template** — finds the placeholder rectangle and field positions
-   by walking the content stream (including Form XObjects). Result is cached per
-   template via SHA-256; the placement dialog allows manual correction.
-2. **Rasterizing a page** at 110 dpi on white — PDF pages have no background, and
-   a card on transparency is a black rectangle in dark mode.
-3. **Stamping the map** and drawing locality/territory fields in DejaVuSans (subsetted
-to used glyphs — the standard 14 fonts lack `ł ą ę ś ż ź ć ń`).
-4. **Embedding the project** — gzipped JSON under a fixed attachment name, so a
-   printed sheet is a restore point. This is why `.pdf` is in the import dialog's
-   accept list.
+1. **Measuring the template** — locates the placeholder rectangle and field
+   positions by walking the content stream (including Form XObjects). The
+   result is cached per template using SHA-256; the placement dialog allows
+   manual correction.
+2. **Rasterizing a page** at 110 dpi on white — PDF pages have no background
+color, and a card rendered on transparency would appear as a solid black
+rectangle in dark mode.
+3. **Stamping the map** and filling in locality/territory fields using DejaVuSans
+   (subsetted to only the glyphs actually used — the standard 14 PDF fonts don't
+   include `ł ą ę ś ż ź ć ń`).
+4. **Embedding the project** — gzipped JSON stored as a named attachment, so
+   a printed card is also a restore point. This is why `.pdf` appears in the
+   import dialog's accepted file types.
 
-No server needed for any of this: a template file never leaves the machine it
+None of this requires the server: a template file never leaves the machine it
 was opened on.
 
 ### Notes
 
-Annotations are a separate document from the territories: a note survives a
-re-partition, may sit outside the boundary, and is switched on and off without
-touching any geometry. Four kinds, one record — `{ kind, points, text, color,
-width }` — where a mark has many points and everything else has one:
+Annotations are stored separately from territories: a note survives re-partitioning,
+can sit outside the boundary, and can be toggled on and off without touching any
+geometry. There are four kinds, all sharing one record format -
+`{ kind, points, text, color, width }` - where a mark has multiple points and
+everything else has one:
 
-| Kind | What it is | On the map |
-|------|------------|------------|
-| note | a sentence pinned to a spot | sticky glyph, words always shown |
-| pin | a place or a building | teardrop, tip on the spot, words on hover |
-| mark | a stroke along the ground | line, freehand or street-snapped, with handles on its points |
-| caption | words and nothing else | the words themselves, no glyph |
+| Kind    | What it is                  | How it appears on the map                                                |
+|---------|-----------------------------|--------------------------------------------------------------------------|
+| note    | a sentence pinned to a spot | sticky-note glyph, text always visible                                   |
+| pin     | a place or building         | teardrop shape, tip on the spot, text shown on hover                     |
+| mark    | a stroke along the ground   | a line, drawn freehand or snapped to streets, with handles on each point |
+| caption | text only                   | just the words, no glyph                                                 |
 
-Marks come from one pen, and the gesture picks the kind: a drag is a freehand
-sweep, a click places a vertex. With **Snap to streets** on, a clicked vertex is
-pulled onto the network and the hop before it is routed along the road, under
-the same detour limits the cut tool uses — so "this street, not the next one" is
-a mark that lies on the street. **Freeform** is the other end of that: only the
-hand draws, a click places nothing, and the magnet goes quiet under it because a
-sweep has no vertices to pull. Every kind asks for its words when it is made:
-a note without any is a note thought better of, while a pin and a mark are kept
-either way. Notes ride along in the session, the GeoJSON export and the card
-attachment.
+Marks come from one tool and the gesture determines the type: dragging creates
+a freehand stroke, clicking places a vertex. With **Snap to streets** on, a clicked
+vertex snaps to the road network and the segment before it is routed along the
+road — using the same detour limits as the cut tool — so "this street, not the
+next one" is a mark that actually lies on the street. **Freeform** is the opposite:
+only the drag gesture draws, a click does nothing, and snapping is automatically
+disabled because a freehand sweep has no vertices to snap. Every annotation type
+prompts for text when created — a note without text is discarded, while a pin or
+mark is kept either way. Notes are included in the session, GeoJSON export, and
+card attachment.
 
-**A line being drawn is stepped through, not only cancelled.** While one is open
-`Ctrl+Z` and `Backspace` take back the last thing the hand did — a clicked
-point, or a whole freehand sweep, since half a sweep is a start point with
-nothing drawn from it — and `Ctrl+Y` puts it back. That holds past the first
-point too: the line leaves the map but the steps that made it do not, so one
-`Ctrl+Z` too many costs nothing. Undo answers for the note list again once the
-line is stored or `Esc` gives it up.
+**A line being drawn can be stepped back, not just cancelled.** While a line is
+open, `Ctrl+Z` and `Backspace` undo the last action — a clicked point, or a complete
+freehand sweep (since half a sweep is just a start point with nothing
+attached) — and `Ctrl+Y` puts it back. This works even past the first point: the
+line disappears from the map but its steps are still remembered, so one `Ctrl+Z`
+too many costs nothing. Undo returns to affecting the note list once the line is
+saved or dismissed with `Esc`.
 
-**A mark keeps its skeleton, so it can be corrected.** Alongside the geometry
-everything downstream draws, a mark stores the points somebody placed and what
+**A mark stores its skeleton so it can be edited.** Alongside the geometry that
+everything downstream renders, a mark stores the points the user placed and what
 the app did between each pair — `{ at, snapped, via, bend, sweep }` per node,
-where `via` is a run the hop follows (a routed street path, or the samples of a
-sweep), `bend` is the control point of a curve, and neither is a straight line.
-The geometry is derived from that and never trusted from a file, so an edit and
-a reload cannot disagree.
+where `via` is the path a segment follows (a routed street path or freehand
+samples), `bend` is the control point of a curve, and neither is a straight
+line. The geometry is always derived from this skeleton and never read back
+from a saved file, so edits and reloads always agree.
 
-While the pencil is the selected pen, every mark wears the polygon editor's own
-handles — the same shape for the same gesture:
+While the pencil tool is active, every mark shows the same handles as the polygon
+editor — the same shape for the same gesture:
 
-| Handle | Gesture | What happens |
-|--------|---------|--------------|
-| point | drag | the point moves, and its two hops are worked out again — re-snapped and re-routed if the magnet is on |
-| point | click | the point comes out, down to the two a line needs |
-| middle of a straight hop | drag | the hop bends into a curve through the handle |
-| middle of a bent hop | click | the bend comes out and the hop is straight again |
+| Handle                       | Gesture | What happens                                                                                                 |
+|------------------------------|---------|--------------------------------------------------------------------------------------------------------------|
+| point                        | drag    | the point moves, and its two adjacent segments are recalculated — re-snapped and re-routed if snapping is on |
+| point                        | click   | the point is removed (down to the minimum of two)                                                            |
+| middle of a straight segment | drag    | the segment bends into a curve passing through the handle                                                    |
+| middle of a bent segment     | click   | the bend is removed and the segment becomes straight again                                                   |
 
-The ends of a swept hop wear none: that hop is a run of samples of where the
-hand went, and moving one end of it would leave the rest behind. Nor does a mark
-drawn before this existed — there is no skeleton in the file to edit, and the
-mark is drawn from its geometry as it always was.
+The endpoints of a freehand segment have no handles: that segment is a series of
+samples of where your hand moved, and moving one end would leave the rest behind.
+Marks drawn before this editing feature existed also have no handles — there's no
+skeleton in the file, so the mark renders from its stored geometry as it always
+did.
 
-**Both cards show the same thing.** A PNG is a picture, so everything is drawn
-into it. A PDF is a document, so the same marks are drawn *and* carried as real
-annotations — one per note, so a glyph and the words beside it are one thing to
-open, move or delete:
+**Both output formats show the same content.** A PNG is a flat image, so
+everything is drawn into it. A PDF is a document, so the same marks are drawn
+*and* also stored as real PDF annotations — one per note, making the glyph and
+its text a single object you can open, move, or delete:
 
-| Kind | On a PDF |
-|------|----------|
-| note, pin, mark | `/Ink` — the glyph or stroke, with the words in the same appearance |
-| caption | `/FreeText` — the subtype a reader opens for typing |
+| Kind            | In a PDF                                                                  |
+|-----------------|---------------------------------------------------------------------------|
+| note, pin, mark | `/Ink` — the glyph or stroke, with the text in the same appearance stream |
+| caption         | `/FreeText` — the annotation type a reader opens for direct editing       |
 
-Ink rather than the sticky-note `/Text` a pin more closely resembles, because a
-popup note is not among the types a reader will let you select and delete, and a
-pin nobody can rub out is worse than one filed under the wrong subtype.
+`/Ink` is used rather than the sticky-note `/Text` that a pin might more naturally
+suggest, because popup notes can't be selected and deleted in most readers — and
+a pin you can't remove is worse than one filed under the technically wrong type.
 
 Each annotation carries its own appearance stream and the print flag, so a card
-looks the same in every viewer instead of however that viewer chooses to draw a
-comment, and it carries what a comment list reads — `/T`, `/Contents`, `/M`,
-`/CreationDate`, `/Subj` and a linked `/Popup`. `print.js` builds the glyph
-outlines and the boxes of words and hands `pdfdoc.js` everything as fractions of
-the map image, so one place in the app knows what a pin looks like and one knows
-where the map sits on the page. The box is measured twice — Arial for the
-preview, DejaVu for the card — and kept at whichever is wider, since a box sized
-for the narrower face clips the last word off every label.
+looks identical in every PDF viewer rather than being drawn however that viewer
+renders comments. The annotation also carries all the metadata a comment list
+reads: `/T`, `/Contents`, `/M`, `/CreationDate`, `/Subj`, and a linked `/Popup`.
+`print.js` builds the glyph outlines and text boxes, then passes everything to
+`pdfdoc.js` as fractions of the map image — so one part of the app knows what
+a pin looks like, and one knows where the map sits on the page. Each text box
+is measured twice — once with Arial (for the preview) and once with DejaVu
+(for the card) — and kept at whichever is wider, since a box sized for the
+narrower font clips the last word off every label.
 
-A caption is drawn in the pen's color, the way the map draws it, while a
-mark's label stays black in its box, where black is what survives being printed
-over a street map. Both are written so that a reader which rebuilds the
-appearance itself lands in the same place: the color is in `/DA` — on a
-`/FreeText` that is where the lettering's color lives, while `/C` is what gets
-painted *behind* it — the intent is `/FreeTextTypeWriter`, which is words and
-no box, and the face is named in the document's form resources, because that is
-where `/DA` is resolved (PDF 32000-1, 12.7.3.3) and a caption re-typed without
-it comes back in a substituted font with the Polish diacritics gone.
+Captions are drawn in the pen color, matching how they appear on the map. Mark
+labels stay black inside their boxes — black being the color that survives
+printing over a street map. Both are written so that a reader which rebuilds
+the appearance itself ends up in the same place: the text color lives in
+`/DA` — on a `/FreeText`, that's where the lettering color is set, while `/C`
+controls what's painted *behind* it. The intended subtype is `/FreeTextTypeWriter`
+(words with no box), and the font is named in the document's form resources,
+because that's where `/DA` is resolved (PDF 32000-1 §12.7.3.3). Without it,
+a re-typed caption comes back in a substituted font with Polish diacritics stripped.
 
-**"Draw the words on the card"** turns the boxes off for a crowded card: the
-glyphs and strokes stay and the words go only into the PDF's comments. A caption
-is nothing but words, so it is drawn either way. The switch is off-limits while
-the notes themselves are off, since there would be nothing for it to draw.
+**"Draw the words on the card"** hides text boxes for a crowded card: glyphs and
+strokes remain, but text goes only into the PDF's comment layer. Captions are
+nothing but text, so they're drawn regardless. The switch is unavailable when
+annotations are hidden entirely, since there would be nothing to draw.
 
 ---
 
@@ -552,106 +762,110 @@ Markup is annotated declaratively:
 <a data-i18n-attrs="title=toolbar.draw;aria-label=toolbar.draw"></a>
 ```
 
-`App.dom.render()` translates every cloned template at mount time. Strings built
-in JS go through `T("key", { count: 3 })`; `{placeholders}` interpolate and
-numbers are localized via `Intl.NumberFormat`. Language comes from the URL;
-Flask inlines the matching dictionary plus an English fallback, so there's no
-fetch waterfall and no untranslated first paint. Console output stays English
-(developer output — translating makes issue reports harder to read).
+`App.dom.render()` translates every cloned template when it's mounted. Strings
+built in JavaScript go through `T("key", { count: 3 })`; `{placeholders}` are
+interpolated and numbers are formatted via `Intl.NumberFormat`. The language is
+determined by the URL; Flask inlines the matching dictionary along with an English
+fallback, so there's no extra network request and no flash of untranslated text
+on first load. Console output stays in English — it's developer output, and
+translating it makes bug reports harder to read.
 
-**Adding a language**: copy `static/lang/en.json`, translate it, add
+**Adding a language:** copy `static/lang/en.json`, translate it, add
 `{ code, label }` to `LANGUAGES` in `static/js/i18n.js` and to `SUPPORTED_LANGS`
-in `internal/i18n.py`. The picker, `/<lang>` routes, and dictionary-parity test
-pick it up automatically.
+in `internal/i18n.py`. The language picker, `/<lang>` routes, and dictionary
+parity test all pick it up automatically.
 
 ---
 
 ## HTTP API
 
-| Route                                     | Purpose                                                     |
-|-------------------------------------------|-------------------------------------------------------------|
-| `GET /`, `/pl`, `/de`, `/fr`              | The app (`/en` redirects to `/`)                            |
-| `POST /split_area`                        | GeoJSON polygon in → the areas to download it as, in order  |
-| `POST /fetch_streets`                     | GeoJSON polygon in → drivable street network out            |
-| `POST /fetch_buildings`                   | GeoJSON polygon in → building footprints with addresses out |
-| `GET /geocode?q=`                         | Nominatim proxy, cached and rate-limited to 1 req/s         |
-| `GET /geocode_boundary?osm_type=&osm_id=` | One relation/way resolved to a simplified polygon           |
-| `GET /reverse_geocode?lat=&lon=`          | Locality candidates for a point (naming fields)             |
-| `GET /tiles/<z>/<x>/<y>.png`              | Tile proxy with disk cache — printable basemap              |
-| `GET /tiles/aid/<layer>/<z>/<x>/<y>.png`  | Same proxy, on-screen aid layers. Never printed             |
-| `GET /sw.js`, `/manifest.webmanifest`     | Service worker and manifest, per language                   |
-| `GET /service/health`                     | Returns `OK` — deploy health check                          |
+| Route                                     | Purpose                                                      |
+|-------------------------------------------|--------------------------------------------------------------|
+| `GET /`, `/pl`, `/de`, `/fr`              | The app (`/en` redirects to `/`)                             |
+| `POST /split_area`                        | GeoJSON polygon in -> the sub-areas to download, in order    |
+| `POST /fetch_streets`                     | GeoJSON polygon in -> drivable street network out            |
+| `POST /fetch_buildings`                   | GeoJSON polygon in -> building footprints with addresses out |
+| `GET /geocode?q=`                         | Nominatim proxy, cached and rate-limited to 1 req/s          |
+| `GET /geocode_boundary?osm_type=&osm_id=` | Resolves one relation or way to a simplified polygon         |
+| `GET /reverse_geocode?lat=&lon=`          | Returns locality candidates for a point (used for naming)    |
+| `GET /tiles/<z>/<x>/<y>.png`              | Tile proxy with disk cache — printable basemap               |
+| `GET /tiles/aid/<layer>/<z>/<x>/<y>.png`  | Same proxy for on-screen aid layers. Never printed.          |
+| `GET /sw.js`, `/manifest.webmanifest`     | Service worker and web app manifest, per language            |
+| `GET /service/health`                     | Returns `OK` — used by the deploy health check               |
 
-Both fetch endpoints require the polygon on **every** request. There is deliberately
-no server-side geometry cache — a module-level one meant two browser tabs (or any
-multi-worker deployment) handed users each other's areas.
+Both fetch endpoints require the full polygon on **every** request. There is
+deliberately no server-side geometry cache — a module-level cache caused two browser
+tabs (or any multi-worker deployment) to receive each other's data.
 
-`/split_area` is what makes a town downloadable. One Overpass request covers at
-most `OSM_MAX_AREA_KM2`; anything larger is cut into a grid, each cell clipped to
-the boundary, and the client fetches the pieces in turn and assembles them. The
-split is done on the server because the limit is enforced there: the browser
-measures a polygon on the sphere and the server measures it on the flat, and the
-difference is enough for a tile drawn in one to be refused by the other. Tiles
-come back tagged, and a tagged one is fetched differently — what crosses its
-edges is kept rather than cut, since a grid line is not a boundary anybody drew.
-A polygon already small enough comes back as a single untagged tile, which is
-the download this app has always made.
+`/split_area` is what makes large areas downloadable. One Overpass request covers
+at most `OSM_MAX_AREA_KM2` km²; anything larger is cut into a grid, each cell
+clipped to the boundary, and the client fetches the pieces in sequence and assembles
+them. The split happens server-side because the size limit is enforced there:
+the browser measures a polygon on the sphere and the server measures it on a flat
+projection, and the difference is large enough for a tile valid in one to be
+rejected by the other. Grid cells come back tagged, and tagged cells are fetched
+differently — data crossing their edges is kept rather than cut, since a grid
+line isn't a boundary anyone drew. A polygon that's already small enough comes
+back as a single untagged tile, the same as a download always worked before.
 
 ---
 
 ## Keyboard shortcuts
 
-| Key                                     | Action                                                      |
-|-----------------------------------------|-------------------------------------------------------------|
-| `?` or `F1`                             | Shortcut sheet (reachable inside dialogs)                   |
-| `Ctrl/Cmd + Z`                          | Undo (territory geometry, a mark being drawn, or the print eraser) |
-| `Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z` | Redo                                                        |
-| `Enter`                                 | Commit current modal tool (cut, merge, trim, outline, draw) |
-| `Esc`                                   | Cancel drawing, modal tool, or close a dialog               |
-| `Alt` (held while cutting)              | Place a free vertex instead of snapping                     |
-| `A`                                     | Notes tool; `1`–`4` pick the pen; `S` snapping, `F` freeform |
-| `W`                                     | Wall map — every territory on one sheet                     |
-| Right-click                             | Context menu — on a territory, empty ground, or boundary    |
+| Key                                     | Action                                                               |
+|-----------------------------------------|----------------------------------------------------------------------|
+| `?` or `F1`                             | Shortcut reference (works inside dialogs too)                        |
+| `Ctrl/Cmd + Z`                          | Undo (territory geometry, a mark being drawn, or the print eraser)   |
+| `Ctrl/Cmd + Y` / `Ctrl/Cmd + Shift + Z` | Redo                                                                 |
+| `Enter`                                 | Confirm the current modal tool (cut, merge, trim, outline, draw)     |
+| `Esc`                                   | Cancel drawing or a modal tool, or close a dialog                    |
+| `Alt` (held while cutting)              | Place a free vertex instead of snapping to a street                  |
+| `A`                                     | Notes tool; `1`–`4` pick the pen; `S` toggles snapping, `F` freeform |
+| `W`                                     | Wall map — all territories on one sheet                              |
+| Right-click                             | Context menu — on a territory, empty ground, or the boundary         |
 
-All bindings live in one registry in `shortcuts.js`, which is both the
-dispatcher and the source the `?` sheet renders from.
+All key bindings are registered in one place in `shortcuts.js`, which also
+generates the `?` reference sheet from that same registry.
 
 ---
 
 ## Known limits
 
-- **Session is not a backup.** It lives in IndexedDB for that origin — survives
-  a refresh/crash/reboot, but clearing site data takes it and another machine
-  has never seen it. Export GeoJSON or print a card with the project embedded.
-- **Urban-tuned partitioner.** Rural areas fall back to street/boundary sampling
-  and give coarser results.
-- **Single-page rectangular placeholders.** Multi-page or rotated placeholders
-  need changes to `PLACEHOLDER` in `print.js` and `compose` in `pdfdoc.js`.
-- **A project of several areas opens as one on an older build.** The boundary
-  is a MultiPolygon in the same `outerPolygon` field a single area has always
-  used, so nothing about the file format changed and every existing session
-  and export still loads. A build from before this feature reads that field
-  with `largestPolygon()` and keeps the biggest area without saying so. The
-  version gate was left alone deliberately: raising it would refuse every
-  session and every export already out there.
-- **A wall map above A3 prints below 300 dpi.** The canvas it is composed on
-  is capped at twenty megapixels, which is about 115 dpi across an A0 sheet.
-  Raising `MAX_RENDER_PX` costs memory in threes — the preview, the border and
-  the tile mosaic are all held at that size — and a browser that cannot
-  allocate one returns a blank canvas rather than an error.
-- **Offline printing uses cached tiles only.** Unseen ground comes out blank
-  (visible in the preview before export).
-- **Server errors are English** regardless of interface language. If that matters,
-  return error *codes* and map them to `alert.*` keys client-side.
-- **Note labels do not avoid each other.** Each box is placed beside its own
-  mark and drawn where it lands, so two notes on the same corner overlap. The
-  "Draw the words on the card" switch is the answer for a card where that
-  matters.
-- **A PDF card's notes live in its annotation layer**, which is what makes them
-  openable and deletable — and what a reader set to hide or not print comments
-  hides. They carry the print flag, so printing takes them by default; a reader
-  told otherwise is being told otherwise. Flattening keeps them: `qpdf
-  --flatten-annotations=all` draws every note into the page.
+- **The session is not a backup.** It's stored in IndexedDB for that browser
+   origin — it survives a refresh, crash, or reboot, but clearing site data
+   wipes it, and another machine has never seen it. Export to GeoJSON or print
+   a card with the project embedded to make a real backup.
+- **The partitioner is tuned for urban areas.** Rural areas fall back to
+   street/boundary sampling and produce coarser results.
+- **Only single-page rectangular placeholders are supported.** Multi-page or
+   rotated placeholders require changes to `PLACEHOLDER` in `print.js` and
+   `compose` in `pdfdoc.js`.
+- **A multi-area project opens as a single area on older builds.** The boundary
+   is stored as a MultiPolygon in the same `outerPolygon` field a single area
+   has always used, so the file format hasn't changed and all existing sessions
+   and exports still load. An older build reads that field with `largestPolygon()`
+   and silently keeps only the largest area. The version gate was deliberately not
+   raised — doing so would reject every existing session and export.
+- **Wall maps above A3 print below 300 dpi.** The canvas is capped at twenty
+   megapixels, which works out to about 115 dpi across an A0 sheet. Raising
+   `MAX_RENDER_PX` multiplies memory use by three (the preview, border, and tile
+   mosaic are all held at that size), and a browser that can't allocate it
+   returns a blank canvas rather than an error.
+- **Offline printing uses only cached tiles.** Areas you haven't visited yet
+   come out blank — this is visible in the preview before you export.
+- **Server error messages are always in English** regardless of the interface
+   language. To fix this, return error *codes* from the server and map them to
+   `alert.*` keys on the client side.
+- **Note labels don't avoid each other.** Each label is placed next to its own
+   mark wherever it lands, so two notes at the same corner will overlap. The
+   "Draw the words on the card" switch is the workaround for cards where this
+   is a problem.
+- **PDF annotation visibility depends on the reader.** Notes live in the PDF's
+   annotation layer, which is what makes them openable and deletable — but a
+   reader configured to hide or not print comments will suppress them. They carry
+   the print flag, so printing includes them by default; a reader that ignores
+   the flag is overriding it intentionally. To flatten annotations permanently
+   into the page: `qpdf --flatten-annotations=all`.
 
 ---
 
@@ -659,9 +873,9 @@ dispatcher and the source the `?` sheet renders from.
 
 Map data © OpenStreetMap contributors, available under the
 [Open Database License](https://www.openstreetmap.org/copyright). Attribution is
-rendered into every printed map. Geocoding uses Nominatim; routing data and
-building footprints come from Overpass. Please read those services' usage
-policies before deploying anywhere shared.
+embedded into every printed map. Geocoding uses Nominatim; routing data and
+building footprints come from Overpass. Please review those services' usage
+policies before deploying this anywhere shared.
 
 ---
 
@@ -699,7 +913,7 @@ Zeugen Jehovas ([mehr dazu](https://www.jw.org/finder?wtlocale=X&docid=502013361
 5. **Anmerken** — Notizen schreiben, Nadeln auf Orte setzen, Straßen freihand
    oder am Straßennetz eingerastet markieren, Beschriftungen auf die Karte
    setzen.
-6. **Drucken** — Rechtsklick auf ein Gebiet → „Drucken". Linienfarbe/-stärke
+6. **Drucken** — Rechtsklick auf ein Gebiet -> „Drucken". Linienfarbe/-stärke
    festlegen, Karte drehen/zoomen, Umrandungsteile löschen, PDF exportieren.
    Auf einer PDF-Karte werden die Anmerkungen zu echten Kommentaren, auf einem
    PNG in die Karte gezeichnet.
@@ -757,7 +971,7 @@ parafialne, trasy dostawcze. Główną grupą docelową są zbory Świadków Jeh
    cofa.
 5. **Dodaj notatki** — pisz notatki, wstawiaj pinezki, zaznaczaj ulice
    odręcznie lub z przyciąganiem do sieci dróg, dodawaj podpisy na mapie.
-6. **Wydrukuj** — prawy przycisk na obszar → „Drukuj". Ustaw linię,
+6. **Wydrukuj** — prawy przycisk na obszar -> „Drukuj". Ustaw linię,
    obróć/zoomuj, usuń fragmenty obramowania, eksportuj PDF. Na karcie PDF
    notatki stają się prawdziwymi komentarzami, na PNG są rysowane na mapie.
 7. **Wszystko na jednej mapie ściennej** — zaimportuj do jednego projektu
@@ -815,7 +1029,7 @@ principal est constitué des congrégations des Témoins de Jéhovah
    `Ctrl+Z` annule.
 5. **Annotez** — écrivez des notes, posez des épingles, marquez des rues à main
    levée ou aimantées au réseau routier, posez des légendes sur la carte.
-6. **Imprimez** — clic droit sur un territoire → « Imprimer ». Définissez
+6. **Imprimez** — clic droit sur un territoire -> « Imprimer ». Définissez
    couleur/épaisseur du trait, pivotez/zoomez, effacez des parties de la limite,
    exportez le PDF. Sur une carte PDF les notes deviennent de vrais
    commentaires ; sur un PNG elles sont dessinées sur la carte.

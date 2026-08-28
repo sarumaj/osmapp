@@ -157,6 +157,9 @@
     App.naming.init();
     App.data.init();
     App.session.init();
+    // Before clustering: the partition hands it the polygonized blocks to
+    // trade, and it reads geometry and spatial into its own init().
+    App.balance.init();
     App.clustering.init();
     // Before editing and trim: both ask it for the street graph, and both
     // capture the module reference in their own init().

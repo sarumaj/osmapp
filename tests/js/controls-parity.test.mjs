@@ -318,6 +318,7 @@ const DIALOG_SOURCE = {
   boundary: readFileSync(join(JS_DIR, "boundary.js"), "utf8"),
   ui: readFileSync(join(JS_DIR, "ui.js"), "utf8"),
   labels: readFileSync(join(JS_DIR, "labels.js"), "utf8"),
+  controls: readFileSync(join(JS_DIR, "controls.js"), "utf8"),
 };
 
 const DIALOGS = [
@@ -329,6 +330,9 @@ const DIALOGS = [
   // The last screen that took over without registering anything, so "?" over
   // it listed the keys of the map underneath and said nothing about the list.
   { name: "territory list", module: "labels", id: "list" },
+  // Reached from the toolbar, so it is the one dialog somebody can open
+  // without having started any work — and the rule holds there too.
+  { name: "about", module: "controls", id: "about" },
 ];
 
 for (const dialog of DIALOGS) {

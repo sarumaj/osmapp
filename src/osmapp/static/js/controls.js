@@ -619,19 +619,57 @@ App.controls = (function () {
         },
         { id: "language", custom: _mountLanguagePicker },
         {
-          // fa-brands, not fa-solid: the GitHub mark lives in a separate
-          // webfont.
-          id: "github",
-          icon: "fa-github",
-          iconClass: "fa-brands",
-          labelKey: "toolbar.labelGithub",
-          titleKey: "toolbar.github",
+          // A dialog rather than a link straight out to GitHub. The repository
+          // answers "where is the code" and nothing else; the questions people
+          // actually arrive with are what this is, whether they may use it,
+          // and where to say something is wrong - and the last of those wants
+          // the issue tracker, which the bare repository link never reached.
+          id: "about",
+          icon: "fa-circle-info",
+          labelKey: "toolbar.labelAbout",
+          titleKey: "toolbar.about",
           accent: "purple",
-          href: "https://github.com/sarumaj/osmapp",
+          onClick: showAbout,
         },
       ],
     },
   ];
+
+  // ABOUT
+
+  /**
+   * What this is, who owns it, and where to report a problem.
+   *
+   * Everything on it is static markup, so there is nothing to fill in here.
+   * The context is the whole of the work: a dialog that registers no keys
+   * leaves "?" answering for the map underneath it, which is the screen it is
+   * covering rather than the one being looked at - and openDialog puts a "?"
+   * button on this dialog like any other.
+   */
+  function showAbout() {
+    var dialog = App.ui.openDialog("tpl-about-dialog", function () {
+      App.shortcuts.pop("about");
+    });
+
+    D.onRole(dialog, "close", function () {
+      App.ui.closeDialog();
+    });
+
+    App.shortcuts.push({
+      id: "about",
+      titleKey: "shortcuts.groupAbout",
+      exclusive: true,
+      entries: [
+        {
+          combos: ["Escape"],
+          labelKey: "shortcuts.aboutClose",
+          run: function () {
+            App.ui.closeDialog();
+          },
+        },
+      ],
+    });
+  }
 
   // LIFECYCLE
 

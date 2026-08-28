@@ -36,6 +36,13 @@
 "use strict";
 
 const VERSION = "{{ version }}";
+// The client version this worker's assets were built from. Not used for
+// caching - it is what lets a page ask the worker actually controlling it
+// which build it is running, since the HTML the page came from is fresher than
+// the assets the worker hands out. Interpolating it here also means a release
+// that bumps nothing but the number still changes this file's bytes, so the
+// browser still notices, and the banner still becomes true.
+const CLIENT_VERSION = "{{ client_version }}";
 const SHELL_CACHE = `shell-${VERSION}`;
 const PAGE_CACHE = `pages-${VERSION}`;
 // Tiles survive a deploy: they have nothing to do with the app's own assets,
@@ -121,7 +128,12 @@ self.addEventListener("message", (event) => {
   if (data.type === "SKIP_WAITING") {
     self.skipWaiting();
   } else if (data.type === "GET_VERSION") {
-    event.source && event.source.postMessage({ type: "VERSION", version: VERSION });
+    event.source &&
+      event.source.postMessage({
+        type: "VERSION",
+        version: VERSION,
+        client: CLIENT_VERSION,
+      });
   } else if (data.type === "CLEAR_TILES") {
     // Both: "clear cached tiles" means all of them, not the ones that happen
     // to be printable.

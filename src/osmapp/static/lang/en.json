@@ -38,7 +38,6 @@
     "clearPrinted": "Clear the printed marks on all territories",
     "reset": "Reset everything",
     "language": "Language",
-    "github": "Source code and help resources on GitHub",
     "help": "Show the guided tour",
     "collapse": "Hide the labels",
     "expand": "Show the labels",
@@ -60,7 +59,6 @@
     "labelExport": "Export",
     "labelReset": "Reset",
     "labelLanguage": "Language",
-    "labelGithub": "GitHub",
     "labelHelp": "Help",
     "needsBoundary": "Draw or search for an outer boundary first",
     "needsData": "Load the OSM data first",
@@ -120,7 +118,9 @@
     "redoNoteStepCount": "Put back a drawing step ({count} available)",
     "redoNoteStepNone": "Nothing to put back",
     "labelWallCard": "Wall map",
-    "wallCard": "Print every territory on one sheet"
+    "wallCard": "Print every territory on one sheet",
+    "labelAbout": "About",
+    "about": "What this app is, its licence, and where to report a problem"
   },
   "info": {
     "prompt": "Draw a polygon to load data.",
@@ -943,7 +943,9 @@
     "noteBend": "Bend a straight hop by its middle handle",
     "noteClick": "Place one point",
     "noteToolText": "Write a caption",
-    "goWallCard": "Print the wall map"
+    "goWallCard": "Print the wall map",
+    "groupAbout": "About",
+    "aboutClose": "Close"
   },
   "outline": {
     "hint": "Drag a corner to move it · Click a corner to delete it · Hold X and sweep to rub out a run of them · Drag the small dot between two corners to add one · Enter applies · ? for all keys",
@@ -1034,8 +1036,17 @@
     "titleText": "Caption",
     "kindText": "Caption"
   },
+  "about": {
+    "title": "About OSM Territory Mapper",
+    "purpose": "Splits a map area into walkable territories and prints each one as a PDF card. Boundaries follow real streets, so a territory is something a person can be asked to walk. Streets and buildings come from OpenStreetMap.",
+    "license": "BSD 3-Clause License",
+    "source": "Source code",
+    "issues": "Report a problem",
+    "close": "Close"
+  },
   "version": {
     "server": "Server",
-    "client": "Client"
+    "client": "Client",
+    "clientStale": "Running {running}; {available} loads after a reload."
   }
 }

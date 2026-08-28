@@ -38,7 +38,6 @@
     "clearPrinted": "Effacer les marques d'impression sur tous les territoires",
     "reset": "Tout réinitialiser",
     "language": "Langue",
-    "github": "Code source et ressources d'aide sur GitHub",
     "help": "Afficher la visite guidée",
     "collapse": "Masquer les étiquettes",
     "expand": "Afficher les étiquettes",
@@ -60,7 +59,6 @@
     "labelExport": "Exporter",
     "labelReset": "Réinitialiser",
     "labelLanguage": "Langue",
-    "labelGithub": "GitHub",
     "labelHelp": "Aide",
     "needsBoundary": "Tracez ou recherchez d'abord une limite extérieure",
     "needsData": "Chargez d'abord les données OSM",
@@ -120,7 +118,9 @@
     "redoNoteStepCount": "Rétablir une étape du tracé ({count} disponibles)",
     "redoNoteStepNone": "Rien à rétablir",
     "labelWallCard": "Carte murale",
-    "wallCard": "Imprimer tous les territoires sur une seule feuille"
+    "wallCard": "Imprimer tous les territoires sur une seule feuille",
+    "labelAbout": "À propos",
+    "about": "Ce qu'est cette application, sa licence et où signaler un problème"
   },
   "info": {
     "prompt": "Tracez un polygone pour charger les données.",
@@ -943,7 +943,9 @@
     "noteBend": "Courber un segment droit par sa poignée centrale",
     "noteClick": "Poser un point",
     "noteToolText": "Écrire une légende",
-    "goWallCard": "Imprimer la carte murale"
+    "goWallCard": "Imprimer la carte murale",
+    "groupAbout": "À propos",
+    "aboutClose": "Fermer"
   },
   "outline": {
     "hint": "Glissez un sommet pour le déplacer · Cliquez un sommet pour le supprimer · Maintenez X et balayez pour en effacer une série · Glissez le point entre deux sommets pour en ajouter un · Entrée applique · ? pour toutes les touches",
@@ -1034,8 +1036,17 @@
     "titleText": "Légende",
     "kindText": "Légende"
   },
+  "about": {
+    "title": "À propos d'OSM Territory Mapper",
+    "purpose": "Découpe une zone de carte en territoires praticables à pied et imprime chacun sous forme de fiche PDF. Les limites suivent de vraies rues, pour qu'un territoire soit quelque chose que l'on peut demander à quelqu'un de parcourir. Les rues et les bâtiments proviennent d'OpenStreetMap.",
+    "license": "Licence BSD 3-Clause",
+    "source": "Code source",
+    "issues": "Signaler un problème",
+    "close": "Fermer"
+  },
   "version": {
     "server": "Serveur",
-    "client": "Client"
+    "client": "Client",
+    "clientStale": "Exécute {running} ; {available} sera chargé après rechargement."
   }
 }

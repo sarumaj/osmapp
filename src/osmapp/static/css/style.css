@@ -445,6 +445,53 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Set by pwa.js when the running client is older than the one the server just
+   rendered, which it shows as "1.4.0 -> 1.5.0". Dimmed rather than colored
+   like a warning: nothing is wrong, the new build is downloaded and waiting
+   for the reload the update prompt is already offering.
+
+   No pointer-events exception, even though the element carries a title. The
+   banner sits over the bottom-left corner of the map and gives its clicks and
+   drags back to it; taking them here would mean a corner that quietly stops
+   panning, which is a worse trade than a tooltip nobody can hover. The title
+   is there for the accessible name, not for the mouse. */
+.version-banner__value.is-stale {
+  color: var(--c-text-dim);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   About
+   ═══════════════════════════════════════════════════════════ */
+.about-dialog {
+  max-width: 34em;
+}
+
+/* The line nobody opened the dialog for, and the one it has to carry: kept
+   quiet, kept on one line, and kept below the sentence that answers why
+   somebody is reading this at all. */
+.about-dialog__legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin: 10px 0 0;
+  font: var(--ui-fs-sm) / 1.5 var(--ui-font);
+  color: var(--c-text-dim);
+}
+
+.about-dialog__license {
+  color: var(--c-accent);
+}
+
+/* The two links are actions on the same row as Close and have to read as its
+   equals; .btn is written for <button>, which brings its own text alignment
+   and none of an anchor's underline. */
+.about-dialog__link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+}
+
 /* ═══════════════════════════════════════════════════════════
    Dialog
    ═══════════════════════════════════════════════════════════ */

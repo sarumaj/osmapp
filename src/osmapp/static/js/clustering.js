@@ -6,8 +6,9 @@
  *   Phase 2  Voronoi -> clip each cell to the outer polygon
  *   Phase 3  build the street graph
  *   Phase 4  route each unique cell edge along the street network, once
- *   Phase 5  polygonize, assign, fill gaps, enforce connectivity, take the
- *            boundaries off the buildings they run through, render
+ *   Phase 5  polygonize, assign, balance the building counts, fill gaps,
+ *            enforce connectivity, take the boundaries off the buildings they
+ *            run through, render
  */
 var App = window.App || {};
 App._loaded = App._loaded || [];
@@ -23,6 +24,13 @@ App.clustering = (function () {
 
   var _cancelled = false;
   var _stats = { hits: 0, misses: 0, capped: 0 };
+  // Which of the two splits is running. Read in phase 0, to choose what
+  // k-means is seeded with, and in phase 5, to choose what the balance pass
+  // evens out - the two ends of the pipeline that make the modes differ. Run
+  // state rather than a parameter because everything in between is indifferent
+  // to it, and threading it through five signatures that never read it is how
+  // it came to be ignored in the first place.
+  var _mode = "area";
 
   // Clipping a Voronoi cell can leave slivers. Parts below this contribute no
   // boundary edges, and orphan parts below it are dropped rather than becoming
@@ -37,6 +45,12 @@ App.clustering = (function () {
   // geometry.unionHealed() exists.
   var TOUCH_SLACK_M = 0.5;
   var CONNECTIVITY_PASSES = 5;
+  // How far a cell corner may be pulled to land on the street network. About
+  // half a block: far enough to reach the street the corner belongs to,
+  // near enough that a corner is never teleported past the street beside it
+  // onto the next one over. A corner with nothing this close is in open
+  // ground, where a straight line crosses nobody's garden anyway.
+  var VERTEX_SNAP_MAX_M = 60;
 
   function init() {
     s = App.state;
@@ -65,7 +79,20 @@ App.clustering = (function () {
       return;
     }
 
-    var total = s.cachedBuildings ? s.cachedBuildings.features.length : 0;
+    // The area the run will actually split, measured once: `total` and
+    // `outerArea` both have to describe it, and _phase0 clusters the same
+    // points. Counting every cached building instead - the whole download -
+    // sizes k for three villages when the run splits one of them, and the
+    // "about {each} buildings" the dialog prints is then a promise about a
+    // population that is never partitioned.
+    var outerFeature = null;
+    try {
+      outerFeature = App.polygons.workingOuter();
+    } catch (e) {
+      console.warn(">>> Could not read the outer polygon:", e.message);
+    }
+
+    var total = outerFeature ? _buildingPoints(outerFeature).length : 0;
     var noBuildings = total === 0;
 
     var dialog = App.ui.openDialog("tpl-cluster-dialog", function () {
@@ -86,10 +113,12 @@ App.clustering = (function () {
     modes[noBuildings ? 1 : 0].checked = true;
 
     var outerArea = 0;
-    try {
-      outerArea = turf.area(App.polygons.workingOuter());
-    } catch (e) {
-      console.warn(">>> Could not measure outer polygon:", e.message);
+    if (outerFeature) {
+      try {
+        outerArea = turf.area(outerFeature);
+      } catch (e) {
+        console.warn(">>> Could not measure outer polygon:", e.message);
+      }
     }
 
     function mode() {
@@ -97,15 +126,25 @@ App.clustering = (function () {
       return checked ? checked.value : "area";
     }
 
-    /** @returns {number|null} k, or null when the input is not usable */
+    /**
+     * @returns {number|null} k, or null when the input is not usable
+     *
+     * Capped here rather than on the way out of the dialog, because the line
+     * under the field is computed from whatever this returns. Capping after
+     * it was printed makes the dialog offer "600 territories, about 20
+     * buildings each" and the run produce 200 territories of 60.
+     */
     function partitionCount() {
+      var k;
       if (mode() === "buildings") {
         var n = parseInt(bldInput.value, 10);
         if (isNaN(n) || n < 1 || n > total) return null;
-        return Math.max(2, Math.ceil(total / n));
+        k = Math.max(2, Math.ceil(total / n));
+      } else {
+        k = parseInt(kInput.value, 10);
+        if (isNaN(k) || k < 2) return null;
       }
-      var k = parseInt(kInput.value, 10);
-      return isNaN(k) || k < 2 ? null : k;
+      return Math.min(s.MAX_PARTITIONS, k);
     }
 
     function sync() {
@@ -144,7 +183,6 @@ App.clustering = (function () {
         sync();
         return;
       }
-      k = Math.min(s.MAX_PARTITIONS, k);
       if (k > 100 && !confirm(T("partition.confirmMany", { k: k }))) return;
       App.ui.closeDialog();
       runKMeansPartition(k, mode());
@@ -190,7 +228,7 @@ App.clustering = (function () {
   // ENTRY POINT
 
   function runKMeansPartition(k, mode) {
-    mode = mode || "area";
+    _mode = mode === "buildings" ? "buildings" : "area";
     _cancelled = false;
     _stats = { hits: 0, misses: 0, capped: 0 };
 
@@ -199,14 +237,14 @@ App.clustering = (function () {
       return;
     }
 
-    console.log(">>> Partition: k=" + k + " mode=" + mode);
+    console.log(">>> Partition: k=" + k + " mode=" + _mode);
     App.ui.showPhases(
       T("loading.partition"),
       T("loading.partitionStatus"),
       cancelPartition,
     );
     _defer(function () {
-      _phase0(k, mode);
+      _phase0(k);
     }, 30);
   }
 
@@ -255,7 +293,78 @@ App.clustering = (function () {
     }
   }
 
-  function _phase0(k, mode) {
+  /**
+   * Building centroids inside `area`, in cached-download order.
+   *
+   * The centroid is memoized on the feature under the same `_centroid` key
+   * autoheal.js uses, so opening the dialog, running the partition and
+   * healing afterwards all pay for it once between them. The cache is safe
+   * because a download, an import or a reset replaces the whole collection
+   * rather than editing features in place.
+   */
+  function _buildingPoints(area) {
+    var features = (s.cachedBuildings && s.cachedBuildings.features) || null;
+    if (!features || features.length === 0) return [];
+
+    var box;
+    try {
+      box = turf.bbox(area);
+    } catch (e) {
+      return [];
+    }
+
+    var pts = [];
+    features.forEach(function (f) {
+      if (!f.geometry) return;
+      var centroid = f._centroid;
+      if (!centroid) {
+        try {
+          centroid = f._centroid = turf.centroid(G.feat(f.geometry));
+        } catch (e) {
+          return; // malformed building
+        }
+      }
+      if (_within(centroid, area, box)) pts.push(centroid);
+    });
+    return pts;
+  }
+
+  /**
+   * An even scatter of points over the ground inside `area`.
+   *
+   * What "split by area" has to be clustered on. K-means converges on cells of
+   * equal area only when the points it is given are spread evenly over the
+   * ground - feed it the buildings and it converges on the buildings, however
+   * the dialog labelled the run.
+   *
+   * The spacing is chosen from the area rather than fixed, so a hamlet and a
+   * city both get about the same number of samples per territory. Twenty-five
+   * is enough for the cells to come out even and few enough that a 200-way
+   * split of a city stays a five-thousand-point clustering rather than a
+   * hundred-thousand-point one.
+   *
+   * @returns {Object[]} sample points, empty when the area cannot be measured
+   */
+  function _groundSample(area, k) {
+    var SAMPLES_PER_TERRITORY = 25;
+    try {
+      var m2 = turf.area(area);
+      if (!(m2 > 0)) return [];
+      var spacing = Math.sqrt(m2 / (k * SAMPLES_PER_TERRITORY));
+      var grid = turf.pointGrid(turf.bbox(area), spacing, {
+        units: "meters",
+        mask: area,
+      });
+      return (grid && grid.features) || [];
+    } catch (e) {
+      // The street and ring fallbacks in _phase0 pick it up from here rather
+      // than the run dying on a polygon turf would not grid.
+      console.warn(">>> Could not sample the ground:", e.message);
+      return [];
+    }
+  }
+
+  function _phase0(k) {
     App.ui.setPhase(0);
     _defer(function () {
       var outerFeature;
@@ -271,19 +380,19 @@ App.clustering = (function () {
 
       var outerRing = outerFeature.geometry.coordinates[0];
       var outerBox = turf.bbox(outerFeature);
-      var pts = [];
 
-      if (s.cachedBuildings && s.cachedBuildings.features.length > 0) {
-        s.cachedBuildings.features.forEach(function (f) {
-          if (!f.geometry) return;
-          try {
-            var centroid = turf.centroid(G.feat(f.geometry));
-            if (_within(centroid, outerFeature, outerBox)) pts.push(centroid);
-          } catch (e) {
-            /* skip malformed building */
-          }
-        });
-      }
+      var buildingPts = _buildingPoints(outerFeature);
+
+      // What k-means is asked to divide up, and the first place the two modes
+      // part company. Splitting by buildings clusters the buildings; splitting
+      // by area clusters the ground itself, sampled evenly, because k-means
+      // over a uniform sample converges on cells of equal area and k-means
+      // over the buildings converges on something else entirely - which is
+      // what made "about {each} m2 each" a number the run never honored.
+      var pts =
+        _mode === "buildings"
+          ? buildingPts.slice()
+          : _groundSample(outerFeature, k);
 
       if (pts.length < k * 2 && s.cachedStreets) {
         s.cachedStreets.features.forEach(function (f) {
@@ -317,14 +426,14 @@ App.clustering = (function () {
       }
 
       _defer(function () {
-        _phase1(k, mode, outerFeature, outerRing, pts);
+        _phase1(k, outerFeature, outerRing, pts, buildingPts);
       });
     });
   }
 
   // PHASE 1 - K-Means
 
-  function _phase1(k, mode, outerFeature, outerRing, pts) {
+  function _phase1(k, outerFeature, outerRing, pts, buildingPts) {
     App.ui.setPhase(1);
     _defer(function () {
       // turf.clustersKmeans measures Euclidean distance on raw degrees. A
@@ -344,9 +453,25 @@ App.clustering = (function () {
         return turf.point([c[0] * kx, c[1]]);
       });
 
-      var clustered = turf.clustersKmeans(turf.featureCollection(projected), {
-        numberOfClusters: k,
-      });
+      // turf.clustersKmeans seeds skmeans with `coordAll(points).slice(0, k)`
+      // - the first k features in array order, not a sample and not k-means++.
+      // Overpass hands buildings back in OSM id order, and ids run in
+      // contiguous blocks per import, so those k seeds all land in one corner
+      // of the map. Lloyd's iteration cannot walk a centroid across a town it
+      // has no points in, so it settles with whole neighborhoods served by one
+      // centroid: on a 3000-building fixture asking for 20 per territory, the
+      // median territory came out at 4 buildings and the largest at 434.
+      //
+      // Shuffling makes that slice a uniform sample of the buildings, which is
+      // the initialization the algorithm assumes. Sampling proportional to
+      // density is also what count balance wants - k-means++ deliberately
+      // spreads seeds by distance and over-serves empty outskirts, and scored
+      // worse here than plain sampling (max 74 against 52 on the same
+      // fixture). A fixed seed keeps the same input producing the same map.
+      var clustered = turf.clustersKmeans(
+        turf.featureCollection(_shuffled(projected, 0x5eed)),
+        { numberOfClusters: k },
+      );
 
       var centMap = Object.create(null);
       clustered.features.forEach(function (f) {
@@ -360,9 +485,33 @@ App.clustering = (function () {
 
       console.log(">>> Centroids:", centroids.length, "| lng scale:", kx.toFixed(3));
       _defer(function () {
-        _phase2(outerFeature, outerRing, centroids);
+        _phase2(outerFeature, outerRing, centroids, buildingPts);
       });
     });
+  }
+
+  /**
+   * A copy of `list` in a shuffled order, from a seed rather than Math.random.
+   *
+   * Deterministic on purpose: a partition that comes out differently every
+   * time it is run over the same download is one nobody can check, redo after
+   * an undo, or report a bug against.
+   */
+  function _shuffled(list, seed) {
+    var out = list.slice();
+    var state = seed >>> 0 || 1;
+    for (var i = out.length - 1; i > 0; i--) {
+      // xorshift32 - a few lines, no dependency, and far better distributed
+      // than the LCG-on-a-float this would otherwise be written as.
+      state ^= state << 13;
+      state ^= state >>> 17;
+      state ^= state << 5;
+      var j = (state >>> 0) % (i + 1);
+      var tmp = out[i];
+      out[i] = out[j];
+      out[j] = tmp;
+    }
+    return out;
   }
 
   // PHASE 2 - Voronoi, clipped to the outer polygon
@@ -371,7 +520,7 @@ App.clustering = (function () {
   // assign pieces by containment rather than by proximity, which is what keeps
   // a territory in one piece.
 
-  function _phase2(outerFeature, outerRing, centroids) {
+  function _phase2(outerFeature, outerRing, centroids, buildingPts) {
     App.ui.setPhase(2);
     _defer(function () {
       var seen = Object.create(null);
@@ -441,14 +590,14 @@ App.clustering = (function () {
       }
 
       _defer(function () {
-        _phase3(outerFeature, outerRing, cells, deduped);
+        _phase3(outerFeature, outerRing, cells, deduped, buildingPts);
       });
     });
   }
 
   // PHASE 3 - street graph
 
-  function _phase3(outerFeature, outerRing, cells, centroids) {
+  function _phase3(outerFeature, outerRing, cells, centroids, buildingPts) {
     App.ui.setPhase(3);
     _defer(function () {
       var graph = _buildStreetGraph();
@@ -456,7 +605,7 @@ App.clustering = (function () {
         console.warn(">>> Empty street graph — boundaries will stay straight");
       }
       _defer(function () {
-        _phase4(outerFeature, outerRing, cells, centroids, graph);
+        _phase4(outerFeature, outerRing, cells, centroids, graph, buildingPts);
       });
     });
   }
@@ -471,8 +620,21 @@ App.clustering = (function () {
   // Every part of a clipped cell contributes edges, not just the largest. With
   // only the largest contributing, the smaller parts are bounded purely by
   // their neighbors' lines and come out aligned with no cell at all.
+  //
+  // The corners are pulled onto the network before any of that. A Voronoi
+  // vertex falls wherever three cells happen to meet, which is generally the
+  // middle of a block, and routing from the vertex meant emitting the straight
+  // line from it to the first street node as part of the boundary. Measured on
+  // a 100 m street grid that is 16 m at each end of every edge - a boundary
+  // that runs along a road, then cuts between two houses to reach a corner in
+  // somebody's garden. Snapping the corner instead costs the cell a few tens
+  // of metres of shape and buys a boundary that is street all the way.
+  //
+  // Once per corner, not once per edge: the three cells meeting at a vertex
+  // have to agree on where it went, or their rings no longer close and
+  // polygonize returns fewer faces than there are territories.
 
-  function _phase4(outerFeature, outerRing, cells, centroids, graph) {
+  function _phase4(outerFeature, outerRing, cells, centroids, graph, buildingPts) {
     App.ui.setPhase(4);
     _defer(function () {
       var PRECISION = 5;
@@ -511,6 +673,31 @@ App.clustering = (function () {
         return false;
       }
 
+      // Corner -> the point the boundary should actually turn at.
+      var anchors = Object.create(null);
+      var pulled = 0;
+
+      /**
+       * Where a cell corner belongs, memoized so every edge meeting there
+       * agrees.
+       *
+       * A corner on the outer ring is left exactly where it is: it is the
+       * point at which a territory meets the edge of the area, and moving it
+       * would either open a gap along the boundary or push a territory out
+       * past it.
+       */
+      function anchor(point, onRing) {
+        if (onRing || graph.count === 0) return point;
+        var key = coordKey(point);
+        var known = anchors[key];
+        if (known !== undefined) return known;
+
+        var hit = graph.grid.nearestPoint(point, VERTEX_SNAP_MAX_M);
+        if (hit) pulled++;
+        anchors[key] = hit ? hit.coord : point;
+        return anchors[key];
+      }
+
       var uniqueEdges = Object.create(null);
 
       cells.forEach(function (cell) {
@@ -533,10 +720,12 @@ App.clustering = (function () {
             var key = edgeKey(p1, p2);
             if (uniqueEdges[key]) continue;
             var mid = [(p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2];
+            var ring1 = isOnRing(p1);
+            var ring2 = isOnRing(p2);
             uniqueEdges[key] = {
-              p1: p1,
-              p2: p2,
-              onOuter: isOnRing(p1) && isOnRing(p2) && isOnRing(mid),
+              a: anchor(p1, ring1),
+              b: anchor(p2, ring2),
+              onOuter: ring1 && ring2 && isOnRing(mid),
             };
           }
         });
@@ -552,11 +741,14 @@ App.clustering = (function () {
         for (var n = start; n < end; n++) {
           var e = uniqueEdges[keys[n]];
           if (e.onOuter) {
-            boundaryLines.push([e.p1, e.p2]);
+            boundaryLines.push([e.a, e.b]);
             continue;
           }
-          var path = _findStreetPathForEdge(e.p1, e.p2, graph);
-          boundaryLines.push(path && path.length >= 2 ? path : [e.p1, e.p2]);
+          // Both ends are already graph nodes wherever one was near enough to
+          // pull, so the connector _findStreetPathForEdge would otherwise add
+          // has nothing to span and the whole edge comes back as street.
+          var path = _findStreetPathForEdge(e.a, e.b, graph);
+          boundaryLines.push(path && path.length >= 2 ? path : [e.a, e.b]);
         }
         App.ui.setPhaseProgress(4, end / keys.length);
         if (end < keys.length) {
@@ -570,13 +762,21 @@ App.clustering = (function () {
 
         console.log(
           ">>> Edges routed:", keys.length,
+          "| corners pulled onto a street:", pulled, "of", Object.keys(anchors).length,
           "| graph hits:", _stats.hits,
           "misses:", _stats.misses,
           "| A* gave up on:", _stats.capped,
         );
 
         _defer(function () {
-          _phase5(outerFeature, outerRing, cells, centroids, boundaryLines);
+          _phase5(
+            outerFeature,
+            outerRing,
+            cells,
+            centroids,
+            boundaryLines,
+            buildingPts,
+          );
         });
       }
 
@@ -584,9 +784,17 @@ App.clustering = (function () {
     });
   }
 
-  // PHASE 5 - polygonize, assign, gap-fill, enforce connectivity, render
+  // PHASE 5 - polygonize, assign, balance, gap-fill, enforce connectivity,
+  // render
 
-  function _phase5(outerFeature, outerRing, cells, centroids, boundaryLines) {
+  function _phase5(
+    outerFeature,
+    outerRing,
+    cells,
+    centroids,
+    boundaryLines,
+    buildingPts,
+  ) {
     App.ui.setPhase(5);
     _defer(function () {
       var k = centroids.length;
@@ -620,15 +828,47 @@ App.clustering = (function () {
       var centroidCoords = centroids.map(function (c) {
         return c.geometry.coordinates;
       });
-      var slots = Object.create(null);
       var byDistance = 0;
 
-      pieces.forEach(function (piece) {
+      // Which territory each piece belongs to, kept as an index per piece
+      // rather than unioned straight away. App.balance trades pieces between
+      // territories, and a piece is only tradeable while it is still a piece:
+      // once the shapes are welded together, moving one block from a
+      // fifty-building territory to a five-building neighbor is a difference
+      // and a union against outlines that no longer record where the blocks
+      // were.
+      var owner = pieces.map(function (piece) {
         var assignment = _assignPiece(piece, cells, centroidCoords);
-        if (assignment === null) return;
+        if (assignment === null) return -1;
         if (assignment.fallback) byDistance++;
+        return assignment.index;
+      });
 
-        var idx = assignment.index;
+      if (byDistance > 0) {
+        console.log(">>> Pieces assigned by distance fallback:", byDistance);
+      }
+
+      // The second place the modes part company: even out the houses, or even
+      // out the ground, whichever the dialog promised.
+      var balanced =
+        _mode === "buildings"
+          ? App.balance.byBuildings(pieces, owner, buildingPts)
+          : App.balance.byArea(pieces, owner);
+
+      if (balanced) {
+        var unit = _mode === "buildings" ? " buildings" : " m2";
+        console.log(
+          ">>> Balance: target", Math.round(balanced.target) + unit, "|",
+          balanced.moves, "blocks traded in", balanced.passes, "passes |",
+          "spread", Math.round(balanced.before.min) + "-" + Math.round(balanced.before.max),
+          "->", Math.round(balanced.after.min) + "-" + Math.round(balanced.after.max),
+        );
+      }
+
+      var slots = Object.create(null);
+      pieces.forEach(function (piece, i) {
+        var idx = owner[i];
+        if (idx < 0) return;
         if (!slots[idx]) {
           slots[idx] = G.feat(piece);
         } else {
@@ -639,10 +879,6 @@ App.clustering = (function () {
           }
         }
       });
-
-      if (byDistance > 0) {
-        console.log(">>> Pieces assigned by distance fallback:", byDistance);
-      }
 
       // Clip every slot to the outer polygon
       Object.keys(slots).forEach(function (idx) {
@@ -662,7 +898,7 @@ App.clustering = (function () {
       _fillGaps(slots, outerFeature, centroidCoords);
 
       // Guarantee every territory is a single connected piece
-      _enforceConnectivity(slots);
+      _enforceConnectivity(slots, buildingPts);
 
       // Take every boundary off the buildings it runs through
       // Last, because the two passes above both weld shapes together with
@@ -716,8 +952,57 @@ App.clustering = (function () {
         "clusters,",
         elsewhere.length,
         "kept from the other areas",
+        "|", _spreadOf(partitions, buildingPts),
       );
     });
+  }
+
+  /**
+   * What the run is about to hand over, in the unit it was asked for.
+   *
+   * Measured on the finished territories rather than reported from the balance
+   * pass, because three passes move ground after it: gap fragments go to the
+   * nearest touching centroid, connectivity orphans to the neighbor they share
+   * the most boundary with, and footprints on a boundary go whole to whoever
+   * holds most of them. None of the three measures anything, so the spread
+   * App.balance reports is a statement about the middle of phase 5 and this is
+   * the one about its output - the territories the tooltip will describe and
+   * the cards will be printed from.
+   *
+   * @returns {string} "buildings 14-26 (avg 20.0)", or the same in m2
+   */
+  function _spreadOf(partitions, buildingPts) {
+    if (partitions.length === 0) return "no territories";
+
+    var byBuildings = _mode === "buildings";
+    if (byBuildings && (!buildingPts || buildingPts.length === 0)) {
+      return "no buildings";
+    }
+
+    var weights = byBuildings
+      ? App.balance.counts(partitions, buildingPts)
+      : partitions.map(function (f) {
+          try {
+            return turf.area(f);
+          } catch (e) {
+            return 0;
+          }
+        });
+
+    var min = Infinity;
+    var max = -Infinity;
+    var sum = 0;
+    weights.forEach(function (w) {
+      if (w < min) min = w;
+      if (w > max) max = w;
+      sum += w;
+    });
+
+    var avg = sum / weights.length;
+    return byBuildings
+      ? "buildings " + min + "-" + max + " (avg " + avg.toFixed(1) + ")"
+      : "m2 " + Math.round(min) + "-" + Math.round(max) +
+        " (avg " + Math.round(avg) + ")";
   }
 
   // ASSIGNMENT
@@ -955,12 +1240,18 @@ App.clustering = (function () {
    *
    * An orphan that touches nothing becomes its own territory rather than being
    * welded to a distant slot - that would recreate the exact bug this exists to
-   * prevent. Orphans below 5% of an average territory are dropped instead: at
-   * that size they are invisible on the map but still counted in the info panel
-   * and still printable as a card, which reads as a partition that produced one
-   * more territory than it appears to have.
+   * prevent. Empty orphans below 5% of an average territory are dropped
+   * instead: at that size they are invisible on the map but still counted in
+   * the info panel and still printable as a card, which reads as a partition
+   * that produced one more territory than it appears to have.
+   *
+   * Empty, and only empty. A dropped orphan is in no territory at all, so a
+   * house standing on one gets no card and turns up on nobody's round - and
+   * unlike the speck the rule is aimed at, that is a fault nothing downstream
+   * reports. A tiny territory somebody has to walk to is the better of the two
+   * outcomes, and the one the size test was never meant to rule out.
    */
-  function _enforceConnectivity(slots) {
+  function _enforceConnectivity(slots, buildingPts) {
     var pass = 0;
     var changed = true;
     var split = 0;
@@ -1020,7 +1311,7 @@ App.clustering = (function () {
             return;
           }
 
-          if (area < minArea) {
+          if (area < minArea && _holdsNothing(orphan, buildingPts)) {
             dropped++;
             return;
           }
@@ -1048,7 +1339,7 @@ App.clustering = (function () {
         } catch (e) {
           return;
         }
-        if (area < minArea) {
+        if (area < minArea && _holdsNothing(orphan, buildingPts)) {
           dropped++;
           return;
         }
@@ -1065,6 +1356,12 @@ App.clustering = (function () {
         "| dropped", dropped, "below", Math.round(minArea), "m²",
       );
     }
+  }
+
+  /** Whether no building stands on `feature`. */
+  function _holdsNothing(feature, buildingPts) {
+    if (!buildingPts || buildingPts.length === 0) return true;
+    return App.balance.counts([feature], buildingPts)[0] === 0;
   }
 
   function _nextSlotKey(slots) {

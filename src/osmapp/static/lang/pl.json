@@ -38,7 +38,6 @@
     "clearPrinted": "Usuń oznaczenia wydruku ze wszystkich terenów",
     "reset": "Wyczyść wszystko",
     "language": "Język",
-    "github": "Kod źródłowy i pomoc na GitHubie",
     "help": "Pokaż przewodnik po aplikacji",
     "collapse": "Ukryj podpisy",
     "expand": "Pokaż podpisy",
@@ -60,7 +59,6 @@
     "labelExport": "Zapisz",
     "labelReset": "Wyczyść",
     "labelLanguage": "Język",
-    "labelGithub": "GitHub",
     "labelHelp": "Pomoc",
     "needsBoundary": "Najpierw narysuj lub wyszukaj granicę zewnętrzną",
     "needsData": "Najpierw wczytaj dane OSM",
@@ -120,7 +118,9 @@
     "redoNoteStepCount": "Ponów krok rysowania (dostępne: {count})",
     "redoNoteStepNone": "Nie ma czego ponowić",
     "labelWallCard": "Mapa ścienna",
-    "wallCard": "Wydrukuj wszystkie tereny na jednym arkuszu"
+    "wallCard": "Wydrukuj wszystkie tereny na jednym arkuszu",
+    "labelAbout": "O aplikacji",
+    "about": "Czym jest ta aplikacja, jaka jest jej licencja i gdzie zgłaszać problemy"
   },
   "info": {
     "prompt": "Narysuj wielokąt, aby wczytać dane.",
@@ -986,7 +986,9 @@
     "noteBend": "Wygnij prosty odcinek za środkowy uchwyt",
     "noteClick": "Postaw jeden punkt",
     "noteToolText": "Napisz podpis",
-    "goWallCard": "Wydrukuj mapę ścienną"
+    "goWallCard": "Wydrukuj mapę ścienną",
+    "groupAbout": "O aplikacji",
+    "aboutClose": "Zamknij"
   },
   "outline": {
     "hint": "Przeciągnij narożnik, aby go przesunąć · Kliknij narożnik, aby go usunąć · Przytrzymaj X i zamiataj, aby zetrzeć cały ich ciąg · Przeciągnij kropkę między narożnikami, aby dodać nowy · Enter zatwierdza · ? pokazuje wszystkie klawisze",
@@ -1085,8 +1087,17 @@
     "titleText": "Podpis",
     "kindText": "Podpis"
   },
+  "about": {
+    "title": "O aplikacji OSM Territory Mapper",
+    "purpose": "Dzieli obszar mapy na terytoria do przejścia pieszo i drukuje każde jako kartę PDF. Granice biegną wzdłuż prawdziwych ulic, więc terytorium to coś, co można komuś powierzyć do obejścia. Ulice i budynki pochodzą z OpenStreetMap.",
+    "license": "Licencja BSD 3-Clause",
+    "source": "Kod źródłowy",
+    "issues": "Zgłoś problem",
+    "close": "Zamknij"
+  },
   "version": {
     "server": "Serwer",
-    "client": "Klient"
+    "client": "Klient",
+    "clientStale": "Działa {running}; {available} zostanie wczytana po przeładowaniu."
   }
 }
