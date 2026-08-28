@@ -287,9 +287,19 @@ App.editing = (function () {
     var uLat = dLat / len;
     var uLng = dLng / len;
 
+    // A degree of longitude is shorter than a degree of latitude, so one unit
+    // of this direction is less than M_PER_DEG_LAT meters on the ground
+    // wherever the line runs east or west - two thirds of it at 52 degrees.
+    // Dividing by the ground length is what makes the two offsets below the
+    // number of meters they are named for.
+    var kx = SP.lngScale(to.lat);
+    var perUnit = Math.sqrt(
+      uLat * uLat * SP.M_PER_DEG_LAT * SP.M_PER_DEG_LAT + uLng * uLng * kx * kx,
+    );
+
     // Start the ray just past the endpoint so a boundary the endpoint is
     // already sitting on is not reported as a zero-distance hit.
-    var epsDeg = 0.2 / SP.M_PER_DEG_LAT;
+    var epsDeg = 0.2 / perUnit;
     var start = L.latLng(to.lat + uLat * epsDeg, to.lng + uLng * epsDeg);
     var far = L.latLng(to.lat + uLat * reach, to.lng + uLng * reach);
 
@@ -319,7 +329,7 @@ App.editing = (function () {
     // Overshoot unconditionally: past the boundary it met, or past the
     // endpoint itself when there was nothing to meet.
     var anchor = best || to;
-    var overDeg = s.CUT_EXTEND_OVERSHOOT_M / SP.M_PER_DEG_LAT;
+    var overDeg = s.CUT_EXTEND_OVERSHOOT_M / perUnit;
     return L.latLng(anchor.lat + uLat * overDeg, anchor.lng + uLng * overDeg);
   }
 
