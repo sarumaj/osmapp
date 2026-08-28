@@ -148,6 +148,57 @@ test("nearestSegment prefers the genuinely closer of two segments", () => {
   assert.equal(grid.nearestSegment([19.905, 50.0001], 500).payload, "south");
 });
 
+// A degree of longitude is 62% of a degree of latitude at the latitudes this
+// app is used at, so a square-in-degrees cell is much narrower than it is
+// tall. A ring counted in latitude degrees therefore reaches only 74 m to the
+// east for a 120 m cell, and everything between there and maxMeters was
+// reported as empty ground: no street to snap to, no boundary edge crossed.
+const LAT = 52; // Poland and Germany, where the territories are
+const M_PER_DEG_LAT = 110540;
+const east = (metres) => metres / (111320 * Math.cos((LAT * Math.PI) / 180));
+const north = (metres) => metres / M_PER_DEG_LAT;
+
+test("nearestPoint reaches maxMeters to the east, not just to the north", () => {
+  // 350 m out with a 400 m radius, and swept across a cell so the result does
+  // not depend on where inside its own cell the query point happens to fall.
+  for (let step = 0; step < 12; step++) {
+    const lng = 19.9 + east(step * 10);
+    const eastward = new SP.Grid(120);
+    eastward.addPoint([lng + east(350), LAT], "east");
+    assert.equal(eastward.nearestPoint([lng, LAT], 400)?.payload, "east", `east, offset ${step * 10} m`);
+
+    const northward = new SP.Grid(120);
+    northward.addPoint([lng, LAT + north(350)], "north");
+    assert.equal(northward.nearestPoint([lng, LAT], 400)?.payload, "north", `north, offset ${step * 10} m`);
+  }
+});
+
+test("nearestSegment reaches maxMeters to the east, not just to the north", () => {
+  for (let step = 0; step < 12; step++) {
+    const lng = 19.9 + east(step * 10);
+    // A boundary edge running north-south, 350 m due east of the query point.
+    const grid = new SP.Grid(120);
+    grid.addSegment([lng + east(350), LAT - north(50)], [lng + east(350), LAT + north(50)], "edge");
+    const hit = grid.nearestSegment([lng, LAT], 400);
+    assert.ok(hit, `an edge 350 m east must be found within 400 m, offset ${step * 10} m`);
+    assert.ok(Math.abs(hit.dist - 350) < 5, `expected about 350 m, got ${hit.dist}`);
+  }
+});
+
+test("nearestSegment widens past the first hit before committing", () => {
+  // Rings are counted in cells, and a cell is 120 m tall but 74 m wide here,
+  // so the segment 250 m to the north is reached in fewer rings than the one
+  // 200 m to the east. Committing to the first ring that produces a hit
+  // returns the farther of the two.
+  for (let step = 0; step < 12; step++) {
+    const lng = 19.9 + east(step * 10);
+    const grid = new SP.Grid(120);
+    grid.addSegment([lng - east(50), LAT + north(250)], [lng + east(50), LAT + north(250)], "far");
+    grid.addSegment([lng + east(200), LAT - north(50)], [lng + east(200), LAT + north(50)], "near");
+    assert.equal(grid.nearestSegment([lng, LAT], 400).payload, "near", `offset ${step * 10} m`);
+  }
+});
+
 test("closestOnSegment clamps to the endpoints", () => {
   const a = [19.9, 50.0];
   const b = [19.91, 50.0];
