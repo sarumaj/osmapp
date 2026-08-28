@@ -102,6 +102,20 @@ App.spatial = (function () {
     this.items = [];
   }
 
+  /**
+   * How far, in meters, scanning shells 0..ring is guaranteed to have
+   * reached: nothing left unscanned is nearer than this.
+   *
+   * Cells are square in degrees, and a degree of longitude is shorter than a
+   * degree of latitude everywhere but the equator - a 120 m cell is 74 m wide
+   * at 52 degrees north. A ring is therefore worth its narrowest side, and
+   * measuring it by the latitude side alone stops an outward search short of
+   * maxMeters to the east and to the west.
+   */
+  Grid.prototype._ringReachM = function (lat) {
+    return this.cell * Math.min(M_PER_DEG_LAT, lngScale(lat));
+  };
+
   Grid.prototype._key = function (cx, cy) {
     return cx * 1e7 + cy;
   };
@@ -132,9 +146,11 @@ App.spatial = (function () {
   /**
    * Index a payload spanning the segment a..b.
    *
-   * The segment is stamped into every cell it passes through rather than only
-   * into the cells holding its endpoints, so a street longer than a cell is
-   * still found from a point in the middle of it.
+   * The segment is stamped into every cell of its bounding box rather than
+   * only into the cells holding its endpoints, so a street longer than a cell
+   * is still found from a point in the middle of it. A diagonal is therefore
+   * indexed in cells it does not actually cross, which costs a query some
+   * candidates to reject and never costs it an answer.
    *
    * @returns {number} the item's index
    */
@@ -197,18 +213,17 @@ App.spatial = (function () {
    */
   Grid.prototype.nearestPoint = function (coord, maxMeters) {
     maxMeters = maxMeters || 500;
-    var maxRing = Math.max(1, Math.ceil(maxMeters / (this.cell * M_PER_DEG_LAT)));
+    var reach = this._ringReachM(coord[1]);
+    // The nearest side of the first unscanned cell is one ring closer than
+    // its index suggests, because the query point sits somewhere inside its
+    // own cell rather than at the center of it. The extra ring is what makes
+    // maxMeters a distance rather than an approximation of one.
+    var maxRing = Math.ceil(maxMeters / reach) + 1;
     var best = null;
     var bestD2 = maxMeters * maxMeters;
-    var foundRing = -1;
     var seen = new Set();
 
     for (var ring = 0; ring <= maxRing; ring++) {
-      // A hit found in ring R is not necessarily the nearest one. The
-      // diagonal corner of the next ring out is closer to the query point
-      // than the far edge of the current ring, so an item there can still
-      // win. Widening exactly once more before committing covers that.
-      if (foundRing >= 0 && ring > foundRing + 1) break;
       var candidates = this.shell(coord, ring);
       for (var i = 0; i < candidates.length; i++) {
         if (seen.has(candidates[i])) continue;
@@ -219,9 +234,14 @@ App.spatial = (function () {
         if (d2 < bestD2) {
           bestD2 = d2;
           best = it;
-          foundRing = ring;
         }
       }
+      // A hit found in ring R is not necessarily the nearest one: the
+      // diagonal corner of ring R is farther away than the near side of ring
+      // R + 1, so an item out there can still win. Only a hit inside the
+      // reach of the rings already scanned can be committed to.
+      var bound = ring * reach;
+      if (best && bestD2 <= bound * bound) break;
     }
     return best ? { payload: best.payload, coord: best.coord, dist: Math.sqrt(bestD2) } : null;
   };
@@ -267,10 +287,8 @@ App.spatial = (function () {
    */
   Grid.prototype.nearestSegment = function (coord, maxMeters) {
     maxMeters = maxMeters || 200;
-    var maxRing = Math.max(
-      1,
-      Math.ceil(maxMeters / (this.cell * M_PER_DEG_LAT)),
-    );
+    var reach = this._ringReachM(coord[1]);
+    var maxRing = Math.ceil(maxMeters / reach) + 1;
     var best = null;
     var bestD = maxMeters;
 
@@ -291,7 +309,9 @@ App.spatial = (function () {
           best = { payload: it.payload, coord: hit.coord, dist: hit.dist };
         }
       }
-      if (best && ring > 1) break;
+      // Same stopping rule as nearestPoint: a farther ring can hold a nearer
+      // segment until the best hit is inside the reach already scanned.
+      if (best && bestD <= ring * reach) break;
     }
     return best;
   };
