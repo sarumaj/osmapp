@@ -4,3 +4,4 @@
 **/__pycache__
 *.pyc
 .tile_cache
+src/osmapp/static/dist

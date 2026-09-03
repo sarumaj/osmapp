@@ -7,8 +7,10 @@ RUN npm ci
 
 COPY scripts/ ./scripts/
 COPY src/osmapp/templates/ ./src/osmapp/templates/
+COPY src/osmapp/static/js/ ./src/osmapp/static/js/
+COPY src/osmapp/static/css/ ./src/osmapp/static/css/
 
-RUN npm run vendor
+RUN npm run build
 
 FROM python:3.14-slim AS builder
 
@@ -21,6 +23,9 @@ COPY pyproject.toml .
 COPY LICENSE .
 COPY src/ src/
 COPY --from=vendor /build/src/osmapp/static/vendor/ src/osmapp/static/vendor/
+# Present here and absent from a plain checkout, which is what decides whether
+# the page loads one bundle or the individual sources.
+COPY --from=vendor /build/src/osmapp/static/dist/ src/osmapp/static/dist/
 COPY --from=vendor /build/src/osmapp/static/version.json src/osmapp/static/version.json
 
 RUN python -m venv /opt/venv && \

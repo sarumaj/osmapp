@@ -19,7 +19,6 @@ from collections.abc import Iterator
 import pytest
 from playwright.sync_api import Browser, BrowserContext, Page
 
-FONT = "/static/fonts/DejaVuSans.ttf"
 
 # Installing precaches the whole shell -- the vendor tree included -- over a
 # loopback server, and a worker only claims the page once that has finished.
@@ -41,6 +40,20 @@ def worker_page(browser: Browser, base_url: str) -> Iterator[Page]:
         context.close()
 
 
+@pytest.fixture(scope="module")
+def font_url(worker_page: Page) -> str:
+    """The card font's URL as the page names it, stamp included.
+
+    Read off the page rather than written out here: a static URL carries a
+    `?v=<digest>` that changes with any asset, and the Cache API matches on the
+    whole URL. Hardcoding the unstamped path asserts against a URL nothing
+    requests, which passes only while there is no stamp to miss.
+    """
+    url = worker_page.evaluate("() => window.VENDOR && window.VENDOR.font")
+    assert url, "the page does not name the card font in window.VENDOR"
+    return url
+
+
 def test_a_worker_takes_control_of_the_page(worker_page: Page):
     """Registration happens even though start-up runs after the load event.
 
@@ -58,7 +71,7 @@ def test_a_worker_takes_control_of_the_page(worker_page: Page):
     assert any(scope.endswith("/") for scope in scopes)
 
 
-def test_the_card_font_is_in_the_worker_s_cache(worker_page: Page):
+def test_the_card_font_is_in_the_worker_s_cache(worker_page: Page, font_url: str):
     """The face pdfdoc.js embeds is precached, not fetched when it is needed.
 
     Composing a card is the one flow that reaches for an asset the page did
@@ -74,12 +87,14 @@ def test_the_card_font_is_in_the_worker_s_cache(worker_page: Page):
           }
           return 0;
         }""",
-        FONT,
+        font_url,
     )
     assert cached > 0, "the card font is not in any cache"
 
 
-def test_the_font_still_arrives_with_the_connection_down(worker_page: Page):
+def test_the_font_still_arrives_with_the_connection_down(
+    worker_page: Page, font_url: str
+):
     """The step the composer actually takes, taken offline.
 
     Asserted through `fetch` rather than by composing a card: this is the
@@ -95,7 +110,7 @@ def test_the_font_still_arrives_with_the_connection_down(worker_page: Page):
               const response = await fetch(font);
               return response.ok ? (await response.arrayBuffer()).byteLength : 0;
             }""",
-            FONT,
+            font_url,
         )
     finally:
         context.set_offline(False)
