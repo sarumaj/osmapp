@@ -1,17 +1,19 @@
 """Progressive-web-app plumbing: the manifest and the service worker.
 
-The interesting problem here is freshness, not offline. Nothing in
-`static/js/` carries a fingerprint - `url_for('static', filename='js/main.js')`
-is a bare `/static/js/main.js` - so a service worker that cache-firsts those
-files has no way to notice a deploy, and the app would happily run last week's
-JavaScript against this week's HTML forever.
+The interesting problem here is freshness, not offline. A service worker that
+cache-firsts the app's assets needs a way to notice a deploy, or the app runs
+last week's JavaScript against this week's HTML forever.
 
-Rather than adding a build step to a project that deliberately has none, the
-cache version is derived from the bytes of the precached files themselves. It
-is interpolated into `sw.js`, so any change to any asset changes the service
+The cache version is derived from the bytes of the precached files themselves.
+It is interpolated into `sw.js`, so any change to any asset changes the service
 worker's own body. Browsers byte-compare `sw.js` on every navigation, which
 turns "an asset changed" into "the service worker updated" without anyone
 having to remember to bump a constant.
+
+That digest is also what `internal/assets.py` stamps onto every static URL, so
+the URLs listed here are the URLs the page requests. Precaching the unstamped
+form would fetch everything twice: once into the shell cache on install, and
+again from the network for a stamped URL nothing has cached.
 
 The version is cached against the newest mtime in the tree, mirroring the
 mtime-keyed cache in `i18n.py`: on a container this hashes once and never
@@ -40,6 +42,7 @@ from flask import (
     url_for,
 )
 
+from .assets import APP_BUNDLE, built
 from .config import STATIC_DIR
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
 from .version import CLIENT_VERSION
@@ -50,7 +53,17 @@ bp = Blueprint("pwa", __name__)
 # being reportlab's alone: static/js/pdfdoc.js composes the card in the browser
 # and embeds the same face, and the standard 14 cannot render ł ą ę ś ż ź ć ń.
 # It is ~750 KB, which is the price of printing a card with no network.
-PRECACHE_DIRS = ("css", "fonts", "js", "lang", "icons", "vendor")
+PRECACHE_DIRS = ("css", "fonts", "js", "lang", "icons", "vendor", "dist")
+
+# The app's own sources, which the bundle supersedes where it exists. The page
+# requests one half or the other, so precaching both would spend 1.2 MB of a
+# visitor's install on files nothing will ask for.
+SUPERSEDED_BY_BUNDLE = ("js", "css")
+
+# A source map is fetched by devtools, from a comment inside the file it
+# belongs to, and never by the app. Control.Geocoder's is 100 KB of an install
+# for something no visitor opens.
+PRECACHE_SKIP_SUFFIXES = (".map",)
 
 THEME_COLOR = "#3388ff"  # --c-accent
 BACKGROUND_COLOR = "#ffffff"  # --c-surface
@@ -58,16 +71,24 @@ BACKGROUND_COLOR = "#ffffff"  # --c-surface
 _cache: dict[str, tuple[float, tuple[str, list[str]]]] = {}
 
 
+def _precache_dirs() -> tuple[str, ...]:
+    """The directories worth precaching for the build that is actually served."""
+    superseded = SUPERSEDED_BY_BUNDLE if built(APP_BUNDLE, STATIC_DIR) else ("dist",)
+    return tuple(name for name in PRECACHE_DIRS if name not in superseded)
+
+
 def _iter_assets() -> list[Path]:
     found: list[Path] = []
-    for name in PRECACHE_DIRS:
+    for name in _precache_dirs():
         directory = STATIC_DIR / name
         if not directory.is_dir():
             continue
         found.extend(
             path
             for path in directory.rglob("*")
-            if path.is_file() and not path.name.startswith(".")
+            if path.is_file()
+            and not path.name.startswith(".")
+            and not path.name.endswith(PRECACHE_SKIP_SUFFIXES)
         )
     return sorted(found)
 
@@ -95,14 +116,15 @@ def asset_manifest() -> tuple[str, list[str]]:
     root = current_app.static_url_path or "/static"
 
     digest = hashlib.sha256()
-    urls: list[str] = []
+    relatives: list[str] = []
     for path in paths:
         relative = path.relative_to(STATIC_DIR).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(path.read_bytes())
-        urls.append(f"{root}/{relative}")
+        relatives.append(relative)
 
-    result = (digest.hexdigest()[:12], urls)
+    version = digest.hexdigest()[:12]
+    result = (version, [f"{root}/{relative}?v={version}" for relative in relatives])
     _cache["assets"] = (stamp, result)
     return result
 

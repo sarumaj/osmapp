@@ -68,8 +68,8 @@ osmapp
 ```
 
 The Dockerfile does the same thing in three stages: Node vendors the client
-libraries, Python builds the wheel, and the final runtime image contains neither
-toolchain.
+libraries and minifies the app's own, Python builds the wheel, and the final
+runtime image contains neither toolchain.
 
 ### Vendored client libraries
 
@@ -108,6 +108,55 @@ a wheel contains only `src/osmapp/` and nothing above it, and the runtime image
 is built from that wheel with no Node present. `static/version.json` is how the
 server can report the version the browser is running. See the version banner
 section below.
+
+### Static file delivery
+
+Two things happen to every asset on its way out, both of them optional in the
+sense that the app serves a correct page without either.
+
+**Minified and bundled.** `npm run bundle` writes `static/dist/`: the 37
+modules under `static/js/` minified and concatenated in the order
+`index.html.j2` loads them, and `style.css` minified beside them. The template
+loads `dist/js/app.min.js` when it exists and lists the individual sources when
+it does not, so:
+
+```bash
+npm run build     # vendor + bundle, which is what the Dockerfile runs
+npm run bundle    # just the app's own assets
+```
+
+Unlike `static/vendor/`, `static/dist/` is **not** committed. It is generated
+from files in this repository and would go stale against them on every commit
+that touched one; the image build produces it instead, and the Heroku deploy
+builds that image. A plain `pip install .` checkout therefore serves the
+readable sources — slower by about 250 KB compressed, and what you want when
+debugging. The browser suite runs against the bundle, the server suite against
+the sources, so both paths are covered.
+
+The sources are never rewritten in place: `tests/js/` loads them by path, and
+the bundle is an additional tree.
+
+**Compressed and cached.** `internal/assets.py` installs Flask-Compress
+(brotli, with gzip for clients that do not offer it) and a cache policy for
+`/static/`. Waitress does not compress and nothing in front of it does either,
+so without this the first visit transfers about 2.1 MB of JavaScript and CSS
+uncompressed; with the bundle and brotli it is closer to 100 KB. The rendered
+page benefits as much — it inlines two language dictionaries — and so do the
+Overpass replies from `/service/data`.
+
+The caching half exists because a static URL carries no fingerprint, which
+leaves `Cache-Control: no-cache` as the only safe answer and makes every reload
+revalidate some forty files. Every URL `url_for('static', ...)` produces
+therefore carries `?v=<digest>`, and a request that arrives with such a stamp
+is answered `public, max-age=31536000, immutable`. The digest is the one
+`internal/pwa.py` versions the service worker cache with, so an edited asset
+becomes a new URL rather than a cache entry someone has to invalidate, and an
+unstamped URL keeps revalidating as before.
+
+Compressed bodies for stamped URLs are held in memory for the life of the
+process, so an asset is encoded once per deploy rather than once per request.
+Nothing else is cached: `/service/data` answers a POST, so two polygons share
+one path.
 
 ### Configuration
 
@@ -179,7 +228,9 @@ run still executes everything else. `--browser firefox` and `--browser webkit` w
 the same way if a bug looks browser-specific.
 
 `.github/workflows/ci.yml` runs all three suites on every push and pull request,
-and the Heroku deploy job requires all three to pass. Each suite emits JUnit XML
+and the Heroku deploy job requires all three to pass. The browser job builds
+`static/dist/` first, so it exercises the bundle the deployed image serves; the
+other two run against the sources. Each suite emits JUnit XML
 that CI turns into a test summary with inline annotations. Fork PRs get a read-
 only token and see the raw log instead. A failed browser run uploads its Playwright
 traces, which let you replay the exact DOM, console output, and network activity
@@ -282,8 +333,10 @@ static/js/                  One IIFE module per file, namespaced under window.Ap
 static/fonts/               DejaVuSans, embedded into cards by pdfdoc.js
 static/icons/               PWA icons (SVG + generated PNGs)
 static/vendor/              Leaflet, Turf, pdf-lib, pdf.js — no CDN at runtime
+static/dist/                Minified bundle of static/js and style.css (built)
 static/version.json         Client version, written by copy-vendor.js
 scripts/copy-vendor.js      Populates static/vendor/ from node_modules
+scripts/build-app-assets.js Minifies static/js and style.css into static/dist/
 tests/                      pytest (server), node --test (client)
 tests/e2e/                  pytest + Playwright (the page in a real browser)
 ```

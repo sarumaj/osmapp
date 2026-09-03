@@ -13,8 +13,9 @@
  *                                    wrong copy. Cache is the offline fallback
  *                                    only, stored per path so /, /pl and /de
  *                                    each keep their own.
- *   /static/**      cache-first      Fingerprint-free URLs, so freshness comes
- *                                    from VERSION rather than revalidation.
+ *   /static/**      cache-first      Every URL carries ?v=VERSION, so a new
+ *                                    build is a new URL: freshness comes from
+ *                                    the stamp rather than from revalidation.
  *                                    A new version precaches everything again
  *                                    and drops the old cache wholesale.
  *   /tiles/**       cache-first      Immutable in practice, already served

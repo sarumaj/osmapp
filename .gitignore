@@ -328,3 +328,10 @@ test-results/
 # Force build and dist directories
 !src/**/vendor/**/dist/
 !src/**/vendor/**/build/
+
+# Minified bundle of the app's own assets, written by `npm run bundle`. Unlike
+# static/vendor/ this is generated from files in this repository and would go
+# stale against them on every commit that touched one, so it is built during
+# the image build instead of being checked in. A checkout without it serves
+# the sources.
+src/osmapp/static/dist/

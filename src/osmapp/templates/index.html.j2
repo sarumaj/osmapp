@@ -25,7 +25,7 @@
     />
     <link
       rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
+      href="{{ url_for('static', filename=app_stylesheet or 'css/style.css') }}"
     />
     {% for code, path in lang_paths.items() -%}
     <link rel="alternate" hreflang="{{ code }}" href="{{ path }}" />
@@ -2012,49 +2012,55 @@
     <script src="{{ url_for('static', filename='vendor/cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.min.js') }}"></script>
 
     <!-- App modules — load order matters (state first, main last) -->
-    <script src="{{ url_for('static', filename='js/util.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/state.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/store.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/dom.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
+    {%- if app_bundle %}
+    <!-- Every module under static/js, minified and concatenated in load
+         order by `npm run bundle`; see scripts/build-app-assets.js. -->
+    <script defer src="{{ url_for('static', filename=app_bundle) }}"></script>
+    {%- else %}
+    <script defer src="{{ url_for('static', filename='js/util.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/state.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/store.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/dom.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/shortcuts.js') }}"></script>
     <!-- Must load before trim.js and outline.js: both build their keyboard
          context at load time and request the eraser shortcut from this
          module. -->
-    <script src="{{ url_for('static', filename='js/vertices.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/basemap.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/geometry.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/spatial.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/balance.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/coverage.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/network.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/ui.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/polygons.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/labels.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/naming.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/vertices.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/basemap.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/geometry.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/spatial.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/balance.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/coverage.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/network.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/ui.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/polygons.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/labels.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/naming.js') }}"></script>
     <!-- Must load before its callers: data.js uses it when importing a card
          and print.js uses it when composing one. Neither resolves it at load
          time, but a shared dependency belongs ahead of its consumers. -->
-    <script src="{{ url_for('static', filename='js/pdfdoc.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/data.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/session.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/clustering.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/editing.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/trim.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/outline.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/gaps.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/footprints.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/autoheal.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/pdfdoc.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/data.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/session.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/clustering.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/editing.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/trim.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/outline.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/gaps.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/footprints.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/autoheal.js') }}"></script>
     <!-- Before print.js, which asks it for what to draw on a card. -->
-    <script src="{{ url_for('static', filename='js/notes.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/print.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/boundary.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/history.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/controls.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/demo.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/tour.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/notes.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/print-filters.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/print.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/boundary.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/history.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/controls.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/demo.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/tour.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+    <script defer src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {%- endif %}
   </body>
 </html>

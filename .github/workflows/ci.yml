@@ -68,8 +68,8 @@ jobs:
           sed -i -E "s/^version = \".*\"\$/version = \"$version\"/" pyproject.toml
           grep -m1 '^version = ' pyproject.toml
 
-      - name: Regenerate the vendor tree
-        run: npm run vendor
+      - name: Regenerate the vendor tree and the app bundle
+        run: npm run build
 
       - name: Fold the result back into the ref
         id: push
@@ -123,6 +123,7 @@ jobs:
               echo "Not pushed back."
             fi
             find src/osmapp/static/vendor -type f | wc -l | xargs echo "Vendored files:"
+            du -h src/osmapp/static/dist/js/app.min.js | cut -f1 | xargs echo "App bundle:"
           } >> "$GITHUB_STEP_SUMMARY"
 
   test_python:
@@ -222,6 +223,21 @@ jobs:
 
       - name: Install
         run: pip install -e ".[test]"
+
+      # The browser suite is the only one that runs the assets the deployed
+      # image actually serves, so it runs against the bundle rather than the
+      # sources. The Python suite covers the unbundled path, which is what a
+      # checkout without this step gets.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Build the app bundle
+        run: |
+          npm ci
+          npm run bundle
 
       - name: Cache Playwright browsers
         id: playwright-cache

@@ -6,6 +6,7 @@ from flask import Flask, Response, jsonify, make_response
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
+from .internal import assets
 from .internal.areas import bp as areas_bp
 from .internal.config import (
     MAX_TILES,
@@ -18,6 +19,7 @@ from .internal.config import (
 from .internal.data import bp as data_bp
 from .internal.geocode import bp as geocode_bp
 from .internal.headers import init_osmnx
+from .internal.pwa import asset_manifest
 from .internal.pwa import bp as pwa_bp
 from .internal.tiles import bp as tiles_bp
 from .internal.tiles import prune_tiles
@@ -30,6 +32,10 @@ def create_app() -> Flask:
     Rate limits are per blueprint rather than global, because the routes differ by
     an order of magnitude in what they cost: /service/data reaches Overpass, while
     the page, the tiles and the manifest are cached or static and are exempt.
+
+    Compression and the static cache policy are installed last, as hooks rather
+    than as a blueprint: they apply to every response, including the ones Flask
+    produces for the static endpoint and for an unhandled error.
 
     Returns:
         An app ready to serve. Nothing here starts a thread - see __main__ for the
@@ -69,6 +75,10 @@ def create_app() -> Flask:
 
     for blueprint in (views_bp, data_bp, areas_bp, geocode_bp, tiles_bp, pwa_bp):
         app.register_blueprint(blueprint)
+
+    # The digest the service worker versions its cache with is also what makes
+    # a static URL safe to cache for a year, so both come from one source.
+    assets.install(app, lambda: asset_manifest()[0])
 
     @app.errorhandler(429)
     def ratelimit_handler(e: Exception) -> Response:
