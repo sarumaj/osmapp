@@ -663,6 +663,83 @@ def test_every_tour_step_leaves_its_subject_in_view(phone: Page):
     )
 
 
+# Whether the control the current step is about is inside everything that
+# scrolls above it. Vertical only: nothing the tour points at sits in a
+# sideways scroller, and the toolbar panel — which is the one that hides
+# things — caps its height and lets its width wrap.
+REACHED = """() => {
+    const id = window.App.tour.stepId();
+    if (!id) return null;
+    const step = window.App.tour.steps().find((s) => s.id === id);
+    const out = { id, done: false, hiddenBy: null, by: 0 };
+    out.done = document.querySelector('.tour__next').dataset.i18n === 'tour.finish';
+    if (!step || !step.target) return out;
+
+    const node = document.querySelector(step.target);
+    if (!node) return out;   // a step whose target is gone is another test's
+
+    for (let el = node.parentElement; el; el = el.parentElement) {
+        const style = getComputedStyle(el);
+        if (style.overflowY === 'visible') continue;
+        if (el.scrollHeight <= el.clientHeight) continue;
+
+        const view = el.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        // A target taller than the scroller it is in — the toolbar panel on a
+        // short screen, the print dialog's settings column — can only ever be
+        // partly in view, and every scroll position hides one end of it. What
+        // it owes is that some of it is on screen.
+        const short = Math.min(box.bottom, view.bottom) - Math.max(box.top, view.top);
+        const enough = box.height <= view.height ? box.height - 1 : 1;
+        if (short < enough) {
+            out.hiddenBy = String(el.className || el.tagName).split(' ')[0];
+            out.by = Math.round(Math.max(box.height, 1) - Math.max(short, 0));
+            return out;
+        }
+    }
+    return out;
+}"""
+
+
+def test_no_step_explains_a_control_that_is_scrolled_out_of_view(phone: Page):
+    """The panel a step points into is a scroller, and it was scrolling.
+
+    The toolbar caps at 72% of the height here and the groups past the cap are
+    reached by swiping it, so the buttons the last third of the tour is about —
+    Reset, the language picker, the shortcut list — are below the fold from the
+    moment the panel opens. Nothing about those steps failed: the button has a
+    box, so it is found, and the spotlight is then clipped away against the
+    panel that is hiding it, leaving a card explaining a control that is
+    nowhere on the screen. The reader cannot even swipe it into view, because
+    the tour's veil is over the panel.
+
+    Asserted on the target rather than on the spotlight, and per scroller
+    rather than per viewport: a frame drawn inside a panel scrolled elsewhere
+    is on the screen and is still pointing at nothing.
+    """
+    phone.evaluate("() => window.App.tour.start()")
+    expect(phone.locator(".tour__bubble")).to_be_visible()
+
+    seen = 0
+    lost: list[str] = []
+    while seen < 60:
+        phone.wait_for_timeout(250)
+        step = phone.evaluate(REACHED)
+        if step is None:
+            break
+        seen += 1
+        if step["hiddenBy"]:
+            lost.append(f'"{step["id"]}" by {step["by"]} px inside .{step["hiddenBy"]}')
+        if step["done"]:
+            break
+        phone.locator(".tour__next").click()
+
+    assert seen > 20, f"only walked {seen} steps — the tour stopped early"
+    assert not lost, "the step points at something scrolled out of sight: " + "; ".join(
+        lost
+    )
+
+
 # A phone held sideways. Not in PHONES, because it is not a second phone to run
 # every assertion in this file against — it is one arrangement, and the one that
 # was broken: 844 px is wide enough to miss every `max-width: 720px` rule in the

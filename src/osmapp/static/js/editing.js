@@ -463,6 +463,13 @@ App.editing = (function () {
     _hintBanner = D.mountOnMap("tpl-draw-hint", s.leafletMap);
     _showCutToolbar();
 
+    // What the pointer is doing here is aiming at a point on the ground, not
+    // at the territory under it, and the crosshair is the cursor that says so
+    // -- the same one the trim tool, the notes pens and Leaflet.Editable's own
+    // boundary tracing use. The class carries it; the rule is in the
+    // stylesheet, beside the other three.
+    L.DomUtil.addClass(s.leafletMap.getContainer(), "is-cutting");
+
     // Dragging stays enabled: Leaflet suppresses the click that follows a drag
     // (_draggableMoved), so panning cannot place a stray vertex, and a split
     // line often runs past the edge of the screen.
@@ -477,6 +484,8 @@ App.editing = (function () {
   function _stopDraw() {
     App.polygons.setTooltipMode(s.mergeMode ? "anchored" : "full");
     App.gaps.schedule(0);
+
+    L.DomUtil.removeClass(s.leafletMap.getContainer(), "is-cutting");
 
     _unbindRightPan();
     s.leafletMap.off("mousemove", _onDrawMouseMove);

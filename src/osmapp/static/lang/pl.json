@@ -695,7 +695,7 @@
       },
       "draw": {
         "title": "Albo narysuj granicę",
-        "body": "Klikaj, aby stawiać narożniki, potem Enter lub dwuklik zamyka kształt. Wszystko inne dzieje się wewnątrz tej granicy zewnętrznej. Nie jest ostateczna: kliknij ten przycisk ponownie — albo kliknij granicę prawym przyciskiem — aby przesuwać, dodawać lub usuwać narożniki."
+        "body": "Klikaj, aby stawiać narożniki — Backspace cofa ostatni, a Esc porzuca kształt — potem Enter lub dwuklik go zamyka. Wszystko inne dzieje się wewnątrz tej granicy zewnętrznej. Nie jest ostateczna: kliknij ten przycisk ponownie — albo kliknij granicę prawym przyciskiem — aby przesuwać, dodawać lub usuwać narożniki."
       },
       "locate": {
         "title": "Znajdź siebie",
@@ -723,7 +723,7 @@
       },
       "cut": {
         "title": "Popraw podział ręcznie",
-        "body": "Przycisk świeci, a narzędzie jest włączone: tym paskiem na dole mapy się je obsługuje. Linia poprowadzona w poprzek terenu rozdziela go; przyciąga się do skrzyżowań, ulic i istniejących granic, S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, a Enter wykonuje cięcie."
+        "body": "Przycisk świeci, a narzędzie jest włączone: tym paskiem na dole mapy się je obsługuje. Linia poprowadzona w poprzek terenu rozdziela go; przyciąga się do skrzyżowań, ulic i istniejących granic, S, B i F przełączają trzy rodzaje przyciągania, Alt stawia punkt swobodny, Backspace cofa ostatni, a Enter wykonuje cięcie."
       },
       "mergeButton": {
         "title": "Przycisk „Połącz“",
@@ -763,7 +763,7 @@
       },
       "notes": {
         "title": "Cztery pióra",
-        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, ołówek rysuje po terenie, a ostatnie pióro pisze podpis wprost na mapie. Przeciągnij ołówek, aby rysować odręcznie, albo klikaj punkt po punkcie; przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej. „Odręcznie” działa odwrotnie: rysuje tylko ręka, a kliknięcie nic nie stawia. Gotowe zaznaczenie ma te same uchwyty co obszar — przeciągnij punkt, aby go przesunąć, kliknij, aby go usunąć, a środkowy punkt prostego odcinka go wygina. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
+        "body": "Notatka to zdanie przypięte do miejsca, pinezka oznacza jedno miejsce lub budynek, ołówek rysuje po terenie, a ostatnie pióro pisze podpis wprost na mapie. Przeciągnij ołówek, aby rysować odręcznie, albo klikaj punkt po punkcie; przy włączonym „Przyciągaj do ulic” każdy kliknięty punkt wskakuje na sieć dróg, a linia biegnie ulicą między nimi, więc zaznaczenie leży na ulicy, a nie obok niej. „Odręcznie” działa odwrotnie: rysuje tylko ręka, a kliknięcie nic nie stawia. Gotowe zaznaczenie ma te same uchwyty co granica — przeciągnij punkt, aby go przesunąć, kliknij, aby go usunąć, a środkowy punkt prostego odcinka go wygina. Gdy ołówek trzyma lewy przycisk, mapę przesuwa się prawym. Wszystko to zapisuje się z projektem i trafia na kartę: na PNG jest rysowane, a na PDF staje się prawdziwymi komentarzami, które czytnik otworzy, przesunie lub usunie."
       },
       "layers": {
         "title": "Co jest widoczne",
@@ -813,13 +813,21 @@
         "title": "Znaczniki pokazują, co odpada",
         "body": "Odosobnione gospodarstwa przy drodze polnej zostały pominięte automatycznie, a każde ma znacznik, który przy każdym powiększeniu ma ten sam rozmiar. Kliknij znacznik, aby jednak zachować budynek — granica ukształtuje się wzdłuż drogi wokół niego, zamiast udawać, że go nie ma."
       },
+      "trimEdit": {
+        "title": "Albo przesuń narożniki samodzielnie",
+        "body": "Żaden suwak nie wyrazi tego jednego narożnika, który ma iść rowem, a nie żywopłotem — więc to pole, albo klawisz E, oddaje ci sam proponowany obrys. Każdy jego narożnik dostaje uchwyt: przeciągnij, aby przesunąć, kliknij, aby usunąć, przeciągnij małą kropkę na krawędzi, aby dodać nowy. Te same trzy gesty kilka kroków dalej przekształcają samą granicę. Dopóki trzymasz kształt, suwaki są zablokowane, bo ponowne przeliczenie odrzuciłoby twoją poprawkę; odznaczenie pola wraca do obrysu wyliczonego."
+      },
       "outlineButton": {
         "title": "Albo zmień kształt istniejącej",
         "body": "Ten sam przycisk otwiera granicę ponownie, gdy już istnieje. To odpowiedź na narożnik w złym miejscu — i powód, dla którego granica przejęta z obrysu administracyjnego jest punktem wyjścia, a nie czymś, z czym trzeba zostać."
       },
       "outline": {
         "title": "Przesuwanie narożników",
-        "body": "Przeciągnij narożnik, aby go przesunąć, kliknij, aby usunąć, przeciągnij kropkę między dwoma, aby dodać nowy — a przytrzymanie X ściera cały ich ciąg naraz. Liczba i zmiana powierzchni podążają za każdym ruchem. Zatwierdzenie przycina terytoria do nowego obrysu; jeśli wyjdzie poza pobrany obszar, aplikacja zaproponuje dociągnięcie reszty."
+        "body": "Każdy narożnik granicy ma teraz uchwyt, a przy myszy kursor mówi, co robi: otwarta dłoń nad narożnikiem, plus nad małą kropką w połowie krawędzi. Przeciągnięcie narożnika przesuwa go — obrys, liczba narożników i zmiana powierzchni podążają za ruchem. Kliknięcie narożnika usuwa go; ostatnie trzy zostają, bo dwa narożniki to linia, a nie obszar. Przeciągnięcie takiej kropki wygina krawędź wokół nowego narożnika."
+      },
+      "outlineErase": {
+        "title": "Zetrzyj cały ciąg",
+        "body": "Granica przejęta z urzędowego obrysu potrafi mieć setki narożników, a wyprostowanie jednego jej odcinka to dwadzieścia kliknięć, z których każde przesuwa pozostałe uchwyty pod ręką. Przytrzymaj więc X i przeciągnij: za kursorem idzie czerwony pierścień, każdy dotknięty narożnik znika, a całe pociągnięcie to jedno cofnięcie. Resztę prowadzi ten pasek — liczba narożników i zmiana powierzchni, cofnij i ponów dla pojedynczej zmiany, Reset przywracający kształt wyjściowy oraz Zatwierdź. Zatwierdzenie przycina terytoria do nowego obrysu; jeśli wyjdzie poza pobrany obszar, aplikacja zaproponuje dociągnięcie reszty."
       },
       "numbers": {
         "title": "Ponumeruj je",

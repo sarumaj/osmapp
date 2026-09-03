@@ -1083,6 +1083,30 @@ body {
     0 0 0 4px rgba(41, 128, 185, 0.28);
 }
 
+/* What the pointer says over a handle.
+   Leaflet marks every marker `.leaflet-interactive`, which its own stylesheet
+   draws as a hand — the cursor for "this opens something". A corner opens
+   nothing: it is picked up and put down, and the hand is the one cursor that
+   says the opposite of that. The open hand says it can be lifted, and Leaflet
+   closes it into `grabbing` on the drag itself.
+
+   The half-handle is a different promise. Dragging it does not move a corner,
+   it makes one, and `copy` is the cursor a drag that leaves something new
+   behind already has everywhere else.
+
+   Neither says "and a click deletes it", because no cursor does — that one is
+   in the hint bar under the map, in the shortcut list and in the tour.
+
+   Two classes deep because leaflet.css is linked after this file: at equal
+   specificity its `.leaflet-interactive` would win. */
+.leaflet-container .leaflet-vertex-icon {
+  cursor: grab;
+}
+
+.leaflet-container .leaflet-middle-icon {
+  cursor: copy;
+}
+
 .leaflet-container.is-trimming .leaflet-vertex-icon,
 .leaflet-container.is-outlining .leaflet-vertex-icon {
   border-color: #0e6655;
@@ -1152,10 +1176,32 @@ body {
 }
 
 
-/* Shift and Alt drag a selection box, and a text-selection cursor while doing
-   it makes the gesture feel like it is doing something else. */
+/* ── The cursor of a tool that places things ───────────────────────────
+   Trimming, cutting, annotating and tracing a boundary all aim at a point on
+   the ground rather than at a thing on the screen, and the crosshair is the
+   cursor for that. Shift and Alt drag a selection box in trim, and a
+   text-selection cursor while doing it makes the gesture feel like it is
+   doing something else.
+
+   `svg path` rather than `.leaflet-interactive`: the ground is drawn as
+   paths — the buildings, the streets, the territories — while the handles,
+   the excluded-building marks and the note pins are markers, and every one
+   of those is a thing on the screen with a cursor of its own that says what
+   it does. Naming the paths keeps the crosshair on the ground it is about.
+   `.leaflet-interactive` covers both and took the marks' own pointer away
+   with it.
+
+   Tracing the outer boundary is in the list without a container of its own:
+   Leaflet.Editable puts the crosshair on the map with an inline style while
+   it draws, which no stylesheet can reach past. What that style does not
+   reach is anything drawn over the map, so the paths are named here for that
+   tool too — a building under the pointer is still ground you are placing a
+   corner on. */
 .leaflet-container.is-trimming,
-.leaflet-container.is-trimming .leaflet-interactive {
+.leaflet-container.is-trimming .leaflet-pane > svg path,
+.leaflet-container.is-cutting,
+.leaflet-container.is-cutting .leaflet-pane > svg path,
+.leaflet-container.leaflet-editable-drawing .leaflet-pane > svg path {
   cursor: crosshair;
 }
 
@@ -2124,8 +2170,12 @@ body {
    nothing under it to click. touch-action, because the freehand tool is a
    drag and on a touch screen a drag is a scroll until something says
    otherwise. */
-.leaflet-container.is-annotating {
+.leaflet-container.is-annotating,
+.leaflet-container.is-annotating .leaflet-pane > svg path {
   cursor: crosshair;
+}
+
+.leaflet-container.is-annotating {
   touch-action: none;
 }
 

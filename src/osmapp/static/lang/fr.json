@@ -652,7 +652,7 @@
       },
       "draw": {
         "title": "Ou tracez la limite",
-        "body": "Cliquez pour poser des sommets, puis Entrée ou double-clic ferme la forme. Tout le reste se passe à l’intérieur de cette limite extérieure. Elle n’est pas définitive : recliquez sur ce bouton — ou faites un clic droit sur la limite — pour déplacer, ajouter ou supprimer ses sommets."
+        "body": "Cliquez pour poser des sommets — Retour arrière reprend le dernier et Échap abandonne la forme —, puis Entrée ou un double-clic la ferme. Tout le reste se passe à l’intérieur de cette limite extérieure. Elle n’est pas définitive : recliquez sur ce bouton — ou faites un clic droit sur la limite — pour déplacer, ajouter ou supprimer ses sommets."
       },
       "locate": {
         "title": "Trouvez-vous",
@@ -680,7 +680,7 @@
       },
       "cut": {
         "title": "Corriger une division à la main",
-        "body": "Le bouton est allumé et l'outil est actif : cette barre en bas de la carte est l'outil. Vous tracez une ligne à travers un territoire et il se divise ; la ligne s'accroche aux intersections, aux rues et aux bords existants, S, B et F changent les trois types d'accrochage, Alt place un point libre, et Entrée effectue la coupe."
+        "body": "Le bouton est allumé et l'outil est actif : cette barre en bas de la carte est l'outil. Vous tracez une ligne à travers un territoire et il se divise ; la ligne s'accroche aux intersections, aux rues et aux bords existants, S, B et F changent les trois types d'accrochage, Alt place un point libre, Retour arrière reprend le dernier, et Entrée effectue la coupe."
       },
       "mergeButton": {
         "title": "Le bouton Fusionner",
@@ -720,7 +720,7 @@
       },
       "notes": {
         "title": "Quatre stylos",
-        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, le crayon dessine sur le terrain, et le dernier stylo pose une légende à même la carte. Faites glisser le crayon pour une ligne à main levée, ou cliquez point par point ; avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté. « Main levée » fait l'inverse : seule la main dessine, et un clic ne pose rien. Une marque terminée porte les mêmes poignées qu'un territoire — faites glisser un point pour le déplacer, cliquez-le pour le retirer, et faites glisser le point au milieu d'un segment droit pour le courber. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
+        "body": "Une note est une phrase épinglée à un endroit, une épingle marque un lieu ou un bâtiment, le crayon dessine sur le terrain, et le dernier stylo pose une légende à même la carte. Faites glisser le crayon pour une ligne à main levée, ou cliquez point par point ; avec « Aimanter aux rues » activé, chaque point cliqué saute sur le réseau routier et la ligne suit la rue entre eux, si bien qu'une marque repose sur la rue et non à côté. « Main levée » fait l'inverse : seule la main dessine, et un clic ne pose rien. Une marque terminée porte les mêmes poignées que la limite — faites glisser un point pour le déplacer, cliquez-le pour le retirer, et faites glisser le point au milieu d'un segment droit pour le courber. Tant que le crayon tient le bouton gauche, le droit déplace la carte. Tout cela est enregistré avec le projet et ressort sur la carte : dessiné sur un PNG, et sur un PDF sous forme de vrais commentaires qu'un lecteur peut ouvrir, déplacer ou supprimer."
       },
       "layers": {
         "title": "Ce qui est affiché",
@@ -770,13 +770,21 @@
         "title": "Les marques montrent ce qui disparaît",
         "body": "Les fermes isolées le long du chemin ont été exclues automatiquement, et chacune porte une marque de taille constante quel que soit le zoom. Cliquez une marque pour conserver ce bâtiment malgré tout — la limite se reforme autour de lui, le long du chemin, au lieu de faire comme s’il n’existait pas."
       },
+      "trimEdit": {
+        "title": "Ou déplacez les sommets vous-même",
+        "body": "Aucun curseur ne sait exprimer le sommet qui doit suivre le fossé plutôt que la haie : cette case, ou E, vous confie le contour proposé lui-même. Chacun de ses sommets reçoit une poignée — glissez pour le déplacer, cliquez pour le supprimer, glissez le petit point d’une arête pour en ajouter un. Ces trois mêmes gestes remodèlent la limite elle-même quelques étapes plus loin. Tant que vous tenez la forme, les curseurs sont verrouillés, car un recalcul jetterait votre retouche ; décocher la case revient au contour calculé."
+      },
       "outlineButton": {
         "title": "Ou remodelez celle que vous avez",
         "body": "Le même bouton rouvre la limite dès qu’il en existe une. C’est la réponse à un sommet mal placé — et la raison pour laquelle une limite reprise d’un contour administratif est un point de départ plutôt qu’un état subi."
       },
       "outline": {
         "title": "Déplacer les sommets",
-        "body": "Glissez un sommet pour le déplacer, cliquez pour le supprimer, glissez le point entre deux pour en ajouter un — et maintenez X pour en balayer toute une série d’un coup. Le nombre et la variation de surface suivent chaque geste. Appliquer découpe les territoires sur le nouveau contour ; s’il dépasse la zone téléchargée, le reste est proposé au téléchargement."
+        "body": "Chaque sommet de la limite porte désormais une poignée, et à la souris le pointeur dit ce qu’elle fait : une main ouverte sur un sommet, un plus sur le petit point au milieu d’une arête. Glissez un sommet et il se déplace — le contour, le nombre de sommets et la variation de surface suivent le geste. Cliquez sur un sommet et il disparaît ; les trois derniers restent, car deux sommets font une ligne et non une surface. Glissez un de ces points et l’arête se plie autour du sommet qu’il laisse."
+      },
+      "outlineErase": {
+        "title": "Effacer toute une série",
+        "body": "Une limite reprise d’un contour officiel peut compter des centaines de sommets, et en redresser une portion demande vingt clics, dont chacun déplace les poignées restantes sous la main. Maintenez donc X et balayez : un anneau rouge suit le pointeur, chaque sommet touché disparaît, et tout le passage ne fait qu’une annulation. La barre garde le reste — le nombre de sommets et la variation de surface, une annulation et un rétablissement par changement, Réinitialiser pour retrouver la forme de départ, et Appliquer. Appliquer découpe les territoires sur le nouveau contour ; s’il dépasse la zone téléchargée, le reste est proposé au téléchargement."
       },
       "numbers": {
         "title": "Les numéroter",
