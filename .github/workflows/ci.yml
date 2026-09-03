@@ -404,9 +404,17 @@ jobs:
           HD_OVERPASS_TIMEOUT: "30"
           HD_TILE_URL: ${{ secrets.TILE_URL }}
 
+      - name: Get previous tag
+        if: github.ref_type == 'tag'
+        id: previous_tag
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "tag=$PREVIOUS_TAG" >> "$GITHUB_OUTPUT"
+
       - name: Publish the release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          previous_tag: ${{ steps.previous_tag.outputs.tag }}
           prerelease: ${{ contains(github.ref_name, '-') }}
