@@ -3,6 +3,7 @@
 from flask import Blueprint, redirect, render_template, request, url_for
 from werkzeug.wrappers import Response
 
+from .assets import APP_BUNDLE, APP_STYLESHEET, built
 from .i18n import DEFAULT_LANG, SUPPORTED_LANGS, language_paths, load_dictionary
 from .tiles import client_basemaps
 from .version import VERSIONS
@@ -11,9 +12,16 @@ bp = Blueprint("views", __name__)
 
 
 def _render_app(lang: str) -> str:
+    """The page, loading whichever build of the app's own assets exists.
+
+    Both are None on a checkout where the build step has not run, and the
+    template then lists the individual sources instead.
+    """
     return render_template(
         "index.html.j2",
         lang=lang,
+        app_bundle=built(APP_BUNDLE),
+        app_stylesheet=built(APP_STYLESHEET),
         lang_paths=language_paths(),
         basemaps=client_basemaps(),
         versions=VERSIONS,
