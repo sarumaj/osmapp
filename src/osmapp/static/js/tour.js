@@ -201,6 +201,25 @@ App.tour = (function () {
       },
     },
     {
+      // The half of the trim tool that is neither a click nor a slider. It
+      // comes last of the four because it is the escape hatch from the other
+      // three, and it is where the corner handles are introduced - the same
+      // handles the outline editor two steps later is made of, so the pair of
+      // tools is one gesture learned once.
+      id: "trimEdit",
+      demo: true,
+      target: '.trim-toolbar [data-role="adjust"]',
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="trim"]',
+      enter: function () {
+        if (!App.state.trimMode) App.trim.toggle();
+      },
+      exit: function () {
+        if (App.state.trimMode) App.trim.toggle();
+      },
+    },
+    {
       // The boundary is not write-once, and the only other places that say so
       // are a clause at the end of the "draw" step and a right-click nobody
       // has a reason to try. Without a step of its own, a modal tool with its
@@ -223,6 +242,25 @@ App.tour = (function () {
       exit: function () {
         // cancel() rather than toggle(): the walkthrough must not leave the
         // sample's boundary carrying whatever the demonstration did to it.
+        if (App.state.outlineMode) App.outline.cancel();
+      },
+    },
+    {
+      // The three gestures fit one card; the gesture that removes twenty
+      // corners at once, and what the bar does with all of it, does not. The
+      // split is the trim bar's, for the trim bar's reason: the half that
+      // lands past the fold on a phone would be the half nobody knows to go
+      // looking for, and holding a key while sweeping is exactly that.
+      id: "outlineErase",
+      demo: true,
+      target: ".outline-toolbar",
+      placement: "top",
+      highlight: "ring",
+      origin: '[data-action="draw"]',
+      enter: function () {
+        if (!App.state.outlineMode) App.outline.toggle();
+      },
+      exit: function () {
         if (App.state.outlineMode) App.outline.cancel();
       },
     },
@@ -970,7 +1008,106 @@ App.tour = (function () {
       }
     }
 
+    _reveal(step);
     _redraw();
+  }
+
+  /**
+   * Scroll the step's target into view inside whatever is scrolling it.
+   *
+   * The toolbar panel is a scroller. It is capped at 72% of a phone's height
+   * so that the map keeps a quarter of the screen, and the groups past the cap
+   * are reached by swiping it - which means that on a phone the buttons the
+   * last third of the tour points at are below the fold from the moment the
+   * panel opens. Nothing about that step failed: the button has a box, so it
+   * is found, and the spotlight is then clipped away against the panel that is
+   * hiding it (see _onScreen) - leaving a card explaining a control that is
+   * nowhere on the screen. The dialogs the sample steps open scroll for the
+   * same reason, and the repair button at the foot of a long territory list is
+   * the same case.
+   *
+   * It is not something the reader can put right either: the veil swallows the
+   * swipe that would bring the button back.
+   *
+   * So the tour scrolls it into view itself, on every placement rather than
+   * once per step, because the box that has to be visible is also what a
+   * rotation and a mode bar move.
+   *
+   * Nearest-edge, which is what scrollIntoView({block: "nearest"}) does, but
+   * hand-rolled for the margin: the spotlight is drawn PAD outside the target
+   * and its ring 3 px outside that, so a control scrolled flush against the
+   * edge of its scroller has its own highlight clipped off - the very thing
+   * _onScreen then pulls in by RIM. Scrolling RIM further is the difference
+   * between a ring round a button and a ring with one side missing. It also
+   * keeps the page itself out of it: scrollIntoView walks up to the document,
+   * and the one thing on this page that must not move is the map.
+   */
+  function _reveal(step) {
+    var node = _resolve(step);
+    if (!node) return;
+    // Innermost first, re-measuring as it goes: scrolling one scroller moves
+    // everything inside it, so an outer one has to be judged against the boxes
+    // the inner one leaves behind.
+    for (var el = node.parentElement; el; el = el.parentElement) {
+      _scrollInto(el, node);
+    }
+  }
+
+  /**
+   * Bring `node` inside `scroller`, if `scroller` scrolls at all.
+   *
+   * The scroller's border box overstates its viewport by its own border - 2 px
+   * for the toolbar panel and for a dialog - in the direction that matters
+   * here, which RIM absorbs. Same bargain as _clipOf, and the same reason.
+   */
+  function _scrollInto(scroller, node) {
+    var style = window.getComputedStyle(scroller);
+    var view = scroller.getBoundingClientRect();
+    var box = node.getBoundingClientRect();
+
+    if (
+      style.overflowY !== "visible" &&
+      scroller.scrollHeight > scroller.clientHeight
+    ) {
+      scroller.scrollTop += _shift(
+        box.top - RIM,
+        box.bottom + RIM,
+        view.top,
+        view.bottom,
+      );
+    }
+    if (
+      style.overflowX !== "visible" &&
+      scroller.scrollWidth > scroller.clientWidth
+    ) {
+      // Measured again: the scroll above has moved the box this one is about.
+      box = node.getBoundingClientRect();
+      scroller.scrollLeft += _shift(
+        box.left - RIM,
+        box.right + RIM,
+        view.left,
+        view.right,
+      );
+    }
+  }
+
+  /**
+   * How far to scroll for `low`..`high` to lie inside `from`..`to`.
+   *
+   * Zero for something already inside, which is what keeps this idempotent:
+   * a scroll fires the listener that called it, and a second answer of "move
+   * it by nothing" is what stops that going round again.
+   *
+   * Zero as well for something larger than the view it is in - the toolbar
+   * panel on a short screen, the print dialog's settings column - where every
+   * scroll position hides one end of it and moving is only a choice of which.
+   * Whatever is on screen there is what the reader is already looking at.
+   */
+  function _shift(low, high, from, to) {
+    if (low < from && high > to) return 0;
+    if (low < from) return low - from;
+    if (high > to) return high - to;
+    return 0;
   }
 
   /**
@@ -1417,6 +1554,13 @@ App.tour = (function () {
     bodyKey: _bodyKey,
     chooseSpot: _choose,
     sameSubject: _sameSubject,
+    revealShift: _shift,
+
+    /** Which step is on screen, for a test that has to say where it is. */
+    stepId: function () {
+      var step = _root && _steps[_index];
+      return step ? step.id : null;
+    },
   };
 })();
 

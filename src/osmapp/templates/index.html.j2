@@ -1129,8 +1129,12 @@
           </label>
           <!-- When this is checked, the sliders and selection are locked
                to prevent manual adjustments from being discarded by a
-               recompute. -->
-          <label class="trim-toolbar__opt">
+               recompute.
+
+               The label carries a name of its own so the tour can ring the
+               switch together with the words beside it: a frame round the
+               13-px box alone is a frame round nothing anybody can read. -->
+          <label class="trim-toolbar__opt" data-role="adjust">
             <input type="checkbox" data-role="edit" />
             <span data-i18n="trim.adjust">Adjust corners by hand</span>
             <kbd>E</kbd>

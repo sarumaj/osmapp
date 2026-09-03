@@ -652,7 +652,7 @@
       },
       "draw": {
         "title": "Oder die Grenze zeichnen",
-        "body": "Klicken setzt Eckpunkte, Enter oder Doppelklick schließt die Form. Alles Weitere geschieht innerhalb dieser äußeren Grenze. Sie ist nicht endgültig: diese Schaltfläche erneut anklicken — oder mit der rechten Maustaste auf die Grenze — um Eckpunkte zu verschieben, hinzuzufügen oder zu löschen."
+        "body": "Klicken setzt Eckpunkte — die Rücktaste nimmt den letzten Punkt zurück, Esc verwirft die Form —, Enter oder Doppelklick schließt sie. Alles Weitere geschieht innerhalb dieser äußeren Grenze. Sie ist nicht endgültig: diese Schaltfläche erneut anklicken — oder mit der rechten Maustaste auf die Grenze — um Eckpunkte zu verschieben, hinzuzufügen oder zu löschen."
       },
       "locate": {
         "title": "Standort finden",
@@ -680,7 +680,7 @@
       },
       "cut": {
         "title": "Aufteilung von Hand korrigieren",
-        "body": "Der Knopf leuchtet, das Werkzeug ist an: diese Leiste unten auf der Karte ist es. Eine Linie quer durch ein Gebiet trennt es auf; sie rastet an Kreuzungen, Straßen und vorhandenen Grenzen ein, S, B und F schalten die drei Arten der Ausrichtung um, Alt setzt einen freien Punkt, Enter führt den Schnitt aus."
+        "body": "Der Knopf leuchtet, das Werkzeug ist an: diese Leiste unten auf der Karte ist es. Eine Linie quer durch ein Gebiet trennt es auf; sie rastet an Kreuzungen, Straßen und vorhandenen Grenzen ein, S, B und F schalten die drei Arten der Ausrichtung um, Alt setzt einen freien Punkt, die Rücktaste nimmt den letzten zurück, Enter führt den Schnitt aus."
       },
       "mergeButton": {
         "title": "Der Knopf „Verbinden“",
@@ -720,7 +720,7 @@
       },
       "notes": {
         "title": "Vier Stifte",
-        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, der Stift zeichnet auf dem Gelände, und der letzte schreibt eine Beschriftung direkt auf die Karte. Zieh den Stift für eine Freihandlinie oder klicke Punkt für Punkt; mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben. „Freihand“ geht den anderen Weg: nur die Hand zeichnet, ein Klick setzt nichts. Eine fertige Markierung trägt dieselben Griffe wie ein Gebiet — einen Punkt ziehen verschiebt ihn, ein Klick entfernt ihn, und der Punkt in der Mitte einer geraden Teilstrecke biegt sie. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
+        "body": "Eine Notiz ist ein Satz an einer Stelle, eine Nadel markiert einen Ort oder ein Gebäude, der Stift zeichnet auf dem Gelände, und der letzte schreibt eine Beschriftung direkt auf die Karte. Zieh den Stift für eine Freihandlinie oder klicke Punkt für Punkt; mit eingeschaltetem „An Straßen einrasten“ springt jeder geklickte Punkt auf das Straßennetz und die Linie folgt der Straße dazwischen, sodass eine Markierung auf der Straße liegt statt daneben. „Freihand“ geht den anderen Weg: nur die Hand zeichnet, ein Klick setzt nichts. Eine fertige Markierung trägt dieselben Griffe wie die Grenze — einen Punkt ziehen verschiebt ihn, ein Klick entfernt ihn, und der Punkt in der Mitte einer geraden Teilstrecke biegt sie. Solange der Stift die linke Taste hat, verschiebt die rechte die Karte. Alles hier wird mit dem Projekt gespeichert und kommt auf die Karte: auf einem PNG gezeichnet, auf einem PDF als echte Kommentare, die sich öffnen, verschieben und löschen lassen."
       },
       "layers": {
         "title": "Was angezeigt wird",
@@ -770,13 +770,21 @@
         "title": "Die Markierungen zeigen, was wegfällt",
         "body": "Die einzeln stehenden Höfe am Feldweg wurden automatisch ausgenommen, und jeder trägt eine Markierung, die bei jedem Zoom gleich groß bleibt. Ein Klick darauf behält das Gebäude doch — die Grenze formt sich dann am Weg entlang um es herum, statt so zu tun, als wäre es nicht da."
       },
+      "trimEdit": {
+        "title": "Oder die Ecken selbst verschieben",
+        "body": "Kein Regler kann die eine Ecke ausdrücken, die dem Graben statt der Hecke folgen soll — also übergibt dieses Kästchen, oder E, den vorgeschlagenen Umriss selbst. Jede seiner Ecken bekommt einen Griff: ziehen verschiebt sie, anklicken löscht sie, der kleine Punkt auf einer Kante fügt eine hinzu. Dieselben drei Gesten formen wenige Schritte später die Grenze selbst um. Solange die Form in deiner Hand liegt, sind die Regler gesperrt, denn ein Neuberechnen würde die Anpassung verwerfen; das Kästchen wieder zu leeren kehrt zum berechneten Umriss zurück."
+      },
       "outlineButton": {
         "title": "Oder die vorhandene umformen",
         "body": "Dieselbe Schaltfläche öffnet die Grenze erneut, sobald es eine gibt. Sie ist die Antwort auf eine Ecke an der falschen Stelle — und der Grund, warum eine aus einem Verwaltungsumriss übernommene Grenze ein Ausgangspunkt ist und kein Zustand, mit dem man leben muss."
       },
       "outline": {
         "title": "Die Ecken verschieben",
-        "body": "Eckpunkt ziehen zum Verschieben, anklicken zum Löschen, den kleinen Punkt zwischen zweien ziehen fügt einen hinzu — und X halten wischt eine ganze Reihe auf einmal weg. Anzahl und Flächenänderung folgen jeder Bewegung. Beim Übernehmen werden die Gebiete auf den neuen Umriss beschnitten; wächst er über das Heruntergeladene hinaus, wird das Nachladen angeboten."
+        "body": "Jede Ecke der Grenze trägt jetzt einen Griff, und mit der Maus sagt der Zeiger, was er tut: eine offene Hand über einer Ecke, ein Plus über dem kleinen Punkt in der Mitte einer Kante. Eine Ecke ziehen verschiebt sie — Umriss, Eckenzahl und Flächenänderung folgen der Bewegung. Ein Klick auf eine Ecke löscht sie; die letzten drei bleiben, denn zwei Ecken sind eine Linie und keine Fläche. Zieht man einen dieser Punkte, biegt sich die Kante um die neue Ecke."
+      },
+      "outlineErase": {
+        "title": "Eine ganze Reihe wegwischen",
+        "body": "Eine aus einem amtlichen Umriss übernommene Grenze kann Hunderte Ecken haben, und eine Strecke davon zu begradigen sind zwanzig Klicks, von denen jeder die übrigen Griffe unter der Hand verschiebt. Halte stattdessen X und wische: ein roter Ring folgt dem Zeiger, jede berührte Ecke verschwindet, und der ganze Zug ist ein einziger Widerruf. Den Rest führt diese Leiste — Eckenzahl und Flächenänderung, Rückgängig und Wiederherstellen für je eine Änderung, Zurücksetzen auf die Ausgangsform und Übernehmen. Beim Übernehmen werden die Gebiete auf den neuen Umriss beschnitten; wächst er über das Heruntergeladene hinaus, wird das Nachladen angeboten."
       },
       "numbers": {
         "title": "Nummerieren",

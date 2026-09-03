@@ -289,6 +289,7 @@ test("a screen too big for one card is described by two adjacent steps", () => {
   const steps = tour.steps();
   for (const [first, second] of [
     ["trim", "trimSliders"],
+    ["outline", "outlineErase"],
     ["autoheal", "autohealScope"],
   ]) {
     const at = steps.findIndex((step) => step.id === first);
@@ -348,6 +349,29 @@ test("moving off the last card never puts one over the subject", () => {
   const asDrawn = { left: 20, top: 40, right: 320, bottom: 240 };
 
   assert.deepStrictEqual(tour.chooseSpot([clear, across], box, spot, asDrawn), clear);
+});
+
+// ── Reaching the target ──────────────────────────────────────────────────────
+
+test("a target below the fold of its scroller is scrolled back into it", () => {
+  // The toolbar panel scrolls: on a phone it is capped at 72% of the height
+  // and the last groups in it are below the fold from the moment it opens. A
+  // step pointing at one of those buttons found it, drew its spotlight inside
+  // a panel that was hiding it, and explained a control that was nowhere on
+  // the screen — and the veil is over the swipe that would have fixed it.
+  const shift = load().revealShift;
+
+  // Already inside, so nothing moves. This is also what stops the scroll the
+  // fix performs from triggering another one: the listener that answers a
+  // scroll runs this again, and the second answer has to be zero.
+  assert.equal(shift(20, 60, 0, 100), 0);
+  // Above the top edge, then below the bottom one: it moves by the deficit
+  // exactly, signed the way a scrollTop is.
+  assert.equal(shift(-30, 10, 0, 100), -30);
+  assert.equal(shift(90, 130, 0, 100), 30);
+  // Taller than the view it sits in — the panel itself on a short screen, the
+  // print dialog's settings column — where every position hides one end of it.
+  assert.equal(shift(-30, 130, 0, 100), 0);
 });
 
 // ── Suppression ──────────────────────────────────────────────────────────────

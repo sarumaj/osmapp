@@ -652,7 +652,7 @@
       },
       "draw": {
         "title": "Or draw the boundary",
-        "body": "Click to place corners, then press Enter or double-click to close the shape. Everything else the app does happens inside this outer boundary. It is not final: click this button again — or right-click the boundary — to move, add or delete its corners."
+        "body": "Click to place corners — Backspace takes the last one back and Esc abandons the shape — then Enter or a double-click closes it. Everything else the app does happens inside this outer boundary. It is not final: click this button again — or right-click the boundary — to move, add or delete its corners."
       },
       "locate": {
         "title": "Find yourself",
@@ -680,7 +680,7 @@
       },
       "cut": {
         "title": "Correct a split by hand",
-        "body": "The button is lit and the tool is on: this bar at the bottom of the map is the tool. You draw a line across a territory and it divides; the line snaps to junctions, streets and existing edges, S, B and F switch the three kinds of snapping, Alt places a free point, and Enter makes the cut."
+        "body": "The button is lit and the tool is on: this bar at the bottom of the map is the tool. You draw a line across a territory and it divides; the line snaps to junctions, streets and existing edges, S, B and F switch the three kinds of snapping, Alt places a free point, Backspace takes the last one back, and Enter makes the cut."
       },
       "mergeButton": {
         "title": "The Merge button",
@@ -720,7 +720,7 @@
       },
       "notes": {
         "title": "Four pens",
-        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, the pencil draws along the ground, and the last pen writes a caption straight onto the map. Drag the pencil for a freehand line or click point by point; with “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it. “Freeform” goes the other way: only the hand draws, and a click places nothing. A finished mark wears the same handles a territory does — drag a point to move it, click one to take it out, and drag the dot halfway along a straight hop to bend it. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
+        "body": "A note is a sentence pinned to a spot, a pin marks one place or building, the pencil draws along the ground, and the last pen writes a caption straight onto the map. Drag the pencil for a freehand line or click point by point; with “Snap to streets” on, each clicked point jumps onto the road network and the line follows the road between them, so a mark lies on the street rather than near it. “Freeform” goes the other way: only the hand draws, and a click places nothing. A finished mark wears the same handles the boundary does — drag a point to move it, click one to take it out, and drag the dot halfway along a straight hop to bend it. While the pencil has the left button, the right one pans the map. Everything here is saved with the project and comes out on the card: drawn onto a PNG, and on a PDF as real comments a reader can open, move or delete."
       },
       "layers": {
         "title": "What is shown",
@@ -770,13 +770,21 @@
         "title": "The marks show what is being dropped",
         "body": "The isolated farms out along the track were excluded automatically, and each one carries a mark that stays the same size however far you zoom out. Click a mark to keep that building after all — the boundary reshapes around it, along the track, rather than pretending it is not there."
       },
+      "trimEdit": {
+        "title": "Or move the corners yourself",
+        "body": "No slider can express the one corner that should follow the ditch rather than the hedge, so this box — or E — hands you the proposed boundary itself. Every corner of it grows a handle: drag one to move it, click one to delete it, drag the small dot on an edge to add one. Those same three gestures reshape the boundary itself a few steps from here. The sliders lock while you hold the shape, because recomputing it would throw your adjustment away; clearing the box goes back to the computed outline."
+      },
       "outlineButton": {
         "title": "Or reshape the one you have",
         "body": "The same button reopens the boundary once one exists. It is the answer to a corner in the wrong place, and it is the reason a boundary traced from an administrative outline is a starting point rather than something you are stuck with."
       },
       "outline": {
         "title": "Move the corners",
-        "body": "Drag a corner to move it, click one to delete it, drag the small dot between two to add one — and hold X to sweep a whole run of them away at once. The count and the change in area follow every move. Applying clips the territories to the new outline; growing past what was downloaded offers to fetch the rest."
+        "body": "Every corner of the boundary now carries a handle, and with a mouse the pointer says what each one does: an open hand over a corner, a plus over the small dot halfway along an edge. Drag a corner and it moves — the outline, the corner count and the change in area follow the drag. Click a corner and it is gone; the last three stay, because two corners are a line rather than an area. Drag one of those dots and the edge bends around the corner it leaves behind."
+      },
+      "outlineErase": {
+        "title": "Rub out a whole run",
+        "body": "A boundary adopted from an official outline can carry hundreds of corners, and straightening one stretch of it is twenty clicks, each of which moves the remaining handles under your hand. So hold X and sweep instead: a red ring follows the pointer, every corner it touches goes, and the whole sweep is a single undo. The bar keeps the rest — the corner count and how far the area has moved, an undo and a redo for one corner change at a time, Reset for the shape you started with, and Apply. Applying clips the territories to the new outline; growing past what was downloaded offers to fetch the rest."
       },
       "numbers": {
         "title": "Number them",
