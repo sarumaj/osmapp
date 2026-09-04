@@ -1049,7 +1049,7 @@
   },
   "about": {
     "title": "Über OSM Territory Mapper",
-    "purpose": "Teilt einen Kartenbereich in begehbare Gebiete auf und druckt jedes als PDF-Karte. Grenzen folgen echten Straßen, damit ein Gebiet etwas ist, das man jemandem zum Ablaufen geben kann. Straßen und Gebäude stammen von OpenStreetMap.",
+    "purpose": "Teilt einen Kartenbereich in begehbare Gebiete auf und druckt jedes als PDF-Karte. Grenzen folgen echten Straßen, damit ein Gebiet etwas ist, das man jemandem zum Ablaufen geben kann. Straßen und Gebäude stammen von OpenStreetMap. Diese Anwendung wurde mit Hilfe von KI-Tools (Claude von Anthropic) entwickelt. Der gesamte Code wurde vor der Einbindung überprüft und getestet.",
     "license": "BSD-3-Clause-Lizenz",
     "source": "Quellcode",
     "issues": "Problem melden",

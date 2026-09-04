@@ -1100,7 +1100,7 @@
   },
   "about": {
     "title": "O aplikacji OSM Territory Mapper",
-    "purpose": "Dzieli obszar mapy na terytoria do przejścia pieszo i drukuje każde jako kartę PDF. Granice biegną wzdłuż prawdziwych ulic, więc terytorium to coś, co można komuś powierzyć do obejścia. Ulice i budynki pochodzą z OpenStreetMap.",
+    "purpose": "Dzieli obszar mapy na terytoria do przejścia pieszo i drukuje każde jako kartę PDF. Granice biegną wzdłuż prawdziwych ulic, więc terytorium to coś, co można komuś powierzyć do obejścia. Ulice i budynki pochodzą z OpenStreetMap. Ta aplikacja została opracowana przy pomocy narzędzi sztucznej inteligencji (Claude firmy Anthropic). Cały kod został sprawdzony i przetestowany przed włączeniem do kodu źródłowego.",
     "license": "Licencja BSD 3-Clause",
     "source": "Kod źródłowy",
     "issues": "Zgłoś problem",

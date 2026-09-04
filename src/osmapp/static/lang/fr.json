@@ -1049,7 +1049,7 @@
   },
   "about": {
     "title": "À propos d'OSM Territory Mapper",
-    "purpose": "Découpe une zone de carte en territoires praticables à pied et imprime chacun sous forme de fiche PDF. Les limites suivent de vraies rues, pour qu'un territoire soit quelque chose que l'on peut demander à quelqu'un de parcourir. Les rues et les bâtiments proviennent d'OpenStreetMap.",
+    "purpose": "Découpe une zone de carte en territoires praticables à pied et imprime chacun sous forme de fiche PDF. Les limites suivent de vraies rues, pour qu'un territoire soit quelque chose que l'on peut demander à quelqu'un de parcourir. Les rues et les bâtiments proviennent d'OpenStreetMap. Cette application a été développée à l'aide d'outils d'IA (Claude, d'Anthropic). L'ensemble du code a été vérifié et testé avant d'être intégré.",
     "license": "Licence BSD 3-Clause",
     "source": "Code source",
     "issues": "Signaler un problème",

@@ -1049,7 +1049,7 @@
   },
   "about": {
     "title": "About OSM Territory Mapper",
-    "purpose": "Splits a map area into walkable territories and prints each one as a PDF card. Boundaries follow real streets, so a territory is something a person can be asked to walk. Streets and buildings come from OpenStreetMap.",
+    "purpose": "Splits a map area into walkable territories and prints each one as a PDF card. Boundaries follow real streets, so a territory is something a person can be asked to walk. Streets and buildings come from OpenStreetMap. This application was developed with the assistance of AI tools (Claude, by Anthropic). All code has been reviewed and tested before being merged.",
     "license": "BSD 3-Clause License",
     "source": "Source code",
     "issues": "Report a problem",

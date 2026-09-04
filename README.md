@@ -1,5 +1,8 @@
 # OSM Territory Mapper
 
+> **Note:** This codebase was developed with the assistance of AI tools
+> (Claude, by Anthropic). All code is reviewed and tested before being merged.
+
 [Deutsch](#deutsch) · [Polski](#polski) · [Français](#français)
 
 |               Territory clusters               |                   Printing a territory card                   |
