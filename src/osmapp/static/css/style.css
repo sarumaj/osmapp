@@ -1648,11 +1648,129 @@ body {
   box-shadow: none;
 }
 
+/* ── The overlay switches ──────────────────────────────────────────────── */
+/* A list of states, behind a row that opens it. Seven tiles was a third of the
+   panel spent on the switches a session changes once if at all.
+
+   Everything here is scoped to the expanded panel. Collapsed, the row and the
+   switches are tiles like any other - the labels go, the switch goes, and what
+   is left is the icon and its .is-active ring, which is what the strip is. */
+.tb-panel:not(.is-collapsed) .tb-group__section {
+  /* Same full-width line as the divider above it, and the same reason: the
+     items are a wrapping row, and a section is not something to wrap beside. */
+  flex: 0 0 100%;
+}
+
+.tb-panel:not(.is-collapsed) .tb-group__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tb-gap);
+  margin-top: var(--tb-gap);
+}
+
+/* Row form: the icon, the name it draws, and whether it is drawn. */
+.tb-panel:not(.is-collapsed) .tb-item--disclosure,
+.tb-panel:not(.is-collapsed) .tb-item--switch {
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+}
+
+.tb-panel:not(.is-collapsed) .tb-item--disclosure .tb-item__label,
+.tb-panel:not(.is-collapsed) .tb-item--switch .tb-item__label {
+  flex: 1;
+  text-align: left;
+  /* The tile form centers a label under an icon and clips it at one line; a
+     row has the width for the whole name. */
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.tb-item__chevron {
+  flex: none;
+  font-size: 10px;
+  color: var(--c-text-dim);
+}
+
+/* The switch. Decoration - aria-pressed on the anchor is the state - so it is
+   drawn rather than mounted, and there is one tab stop for one control. */
+.tb-item__state {
+  flex: none;
+  width: 26px;
+  height: 14px;
+  border-radius: 999px;
+  background: var(--c-border-strong);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.tb-item__state::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--c-surface);
+  transition: transform 0.15s;
+}
+
+.tb-item.is-active .tb-item__state {
+  background: var(--c-accent);
+}
+
+.tb-item.is-active .tb-item__state::after {
+  transform: translateX(12px);
+}
+
+/* A switch nobody can throw says so by going quiet rather than by staying
+   coloured: Numbers is on by default and unavailable until there are
+   territories, which is where the two states meet. */
+.tb-item.is-disabled .tb-item__state {
+  background: var(--c-border);
+}
+
+/* The row is a whole line, so the .is-active ring the View group draws around
+   a tile would box the name in as well. The switch already says it is on. */
+.tb-panel:not(.is-collapsed)
+  .tb-group[data-group="view"]
+  .tb-item--switch.is-active {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tb-item__state,
+  .tb-item__state::after {
+    transition: none;
+  }
+}
+
+/* Collapsed, the row is one icon and the seven it opens are seven more. */
+.tb-panel.is-collapsed .tb-item__state,
+.tb-panel.is-collapsed .tb-item__chevron {
+  display: none;
+}
+
 /* ── Collapsed: icons only, one column ─────────────────────────────────── */
 /* One column, so the panel is as wide as an icon rather than as wide as six of
    them and the six-column measure above does not apply. */
 .tb-panel.is-collapsed {
   width: auto;
+  /* The icon column scrolls, and a classic scrollbar is 15 px of a 38 px
+     strip. Shrink-to-fit reserves nothing for a descendant's scrollbar, so
+     the icons and the chevron land under it rather than beside it. Hiding it
+     keeps wheel, trackpad and keyboard scrolling, and costs an affordance too
+     narrow to grab at this width anyway. macOS overlays its scrollbars, so it
+     never showed this. */
+  scrollbar-width: none;
+}
+
+/* Chrome and Safari released before scrollbar-width. */
+.tb-panel.is-collapsed::-webkit-scrollbar {
+  display: none;
 }
 
 /* The note goes with the labels: a paragraph of prose in a 30 px strip is not

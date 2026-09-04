@@ -328,6 +328,49 @@
       <span class="tb-group__break" aria-hidden="true"></span>
     </template>
 
+    <!-- The row that opens the overlay switches, and the list they go in.
+
+         Seven tiles was the longest run in the panel, spent on the switches a
+         session changes once if at all, so they sit behind this row instead
+         and it starts closed.
+
+         A list rather than more tiles because each entry is a state and not an
+         action: the name says what it draws, the switch beside it says whether
+         it is drawn. The collapsed panel drops both and leaves the icon, which
+         is the trade every other tile makes there. -->
+    <template id="tpl-toolbar-disclosure">
+      <div class="tb-group__section">
+        <a
+          class="tb-item tb-item--disclosure"
+          href="#"
+          role="button"
+          aria-expanded="false"
+          data-role="toggle"
+        >
+          <i class="tb-item__icon" data-role="icon" aria-hidden="true"></i>
+          <span class="tb-item__label" data-role="label"></span>
+          <i
+            class="tb-item__chevron fa-solid fa-chevron-right"
+            data-role="chevron"
+            aria-hidden="true"
+          ></i>
+        </a>
+        <div class="tb-group__list" data-role="list" hidden></div>
+      </div>
+    </template>
+
+    <!-- One overlay switch. The same anchor as tpl-toolbar-button, so the
+         active state, the tooltip and the disabled handling are the ones every
+         tile gets, with the switch drawn after the label. The switch is
+         decoration: aria-pressed on the anchor is what says on or off. -->
+    <template id="tpl-toolbar-switch">
+      <a class="tb-item tb-item--switch" href="#" role="button">
+        <i class="tb-item__icon" data-role="icon" aria-hidden="true"></i>
+        <span class="tb-item__label" data-role="label"></span>
+        <span class="tb-item__state" aria-hidden="true"></span>
+      </a>
+    </template>
+
     <!-- One line under the View group, shown only while an aid basemap is
          selected. The rule it states — cards always print OSM — is otherwise
          invisible until someone has already printed fifty of them. -->

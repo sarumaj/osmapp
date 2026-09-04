@@ -353,17 +353,30 @@ App.tour = (function () {
     {
       // Inside the sample block: this step introduces the group, and the two
       // that follow point at the switches in it that say nothing without
-      // territories on screen.
+      // territories on screen. All three open the list those switches live in,
+      // which is closed until asked for - see showLayers in controls.js.
       id: "layers",
       demo: true,
       target: '[data-group="view"]',
       placement: "right",
+      enter: function () {
+        App.controls.showLayers(true);
+      },
+      exit: function () {
+        App.controls.showLayers(null);
+      },
     },
     {
       id: "numbers",
       demo: true,
       target: '[data-action="numbers"]',
       placement: "right",
+      enter: function () {
+        App.controls.showLayers(true);
+      },
+      exit: function () {
+        App.controls.showLayers(null);
+      },
     },
     {
       // The one switch in the group that computes rather than draws: it finds
@@ -375,6 +388,12 @@ App.tour = (function () {
       demo: true,
       target: '[data-action="layer-gaps"]',
       placement: "right",
+      enter: function () {
+        App.controls.showLayers(true);
+      },
+      exit: function () {
+        App.controls.showLayers(null);
+      },
     },
     {
       // Inside the sample block, because the panel is the one thing in the app

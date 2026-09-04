@@ -48,7 +48,14 @@ App.controls = (function () {
   /** id -> { spec, node } for every rendered button. */
   var _items = {};
 
+  /** The overlay switches: the row that opens them, the list, and its spec. */
+  var _layersToggle = null;
+  var _layersList = null;
+  var _layersCfg = null;
+  var _layersOpen = false;
+
   var COLLAPSE_KEY = "osmapp.toolbar.collapsed";
+  var LAYERS_KEY = "osmapp.toolbar.layersOpen";
   var NARROW_PX = 720;
 
   // A Font Awesome class per basemap the server may send, drawn on the picker's
@@ -378,6 +385,23 @@ App.controls = (function () {
         },
         { id: "basemap", custom: _mountBasemapPicker },
         { separator: true },
+        {
+          // Everything below is behind this row rather than beside it. Seven
+          // switches is the longest run in the panel and the one changed least
+          // often - a session sets the overlays once, if at all - so the panel
+          // stops spending a third of its height on them and asks instead.
+          //
+          // Every spec after this one is mounted into the list it opens, in
+          // the row form rather than as a tile.
+          disclosure: {
+            id: "layers",
+            icon: "fa-layer-group",
+            labelKey: "toolbar.labelLayers",
+            expandKey: "toolbar.layersExpand",
+            collapseKey: "toolbar.layersCollapse",
+            itemTemplate: "tpl-toolbar-switch",
+          },
+        },
         {
           id: "layer-outer",
           // A crop frame rather than a polygon: fa-draw-polygon is the Draw
@@ -967,6 +991,9 @@ App.controls = (function () {
           title.textContent = T(group.titleKey);
 
           var host = D.role(section, "items");
+          // Set by a disclosure spec, and from there on the template every
+          // button after it is built from.
+          var template = null;
           // dynamic() first, then the written-out buttons, so a group that is
           // partly server-driven puts what the server sent at the top of its
           // own list rather than after it.
@@ -976,6 +1003,13 @@ App.controls = (function () {
           specs.forEach(function (spec) {
             if (spec.separator) {
               D.mount("tpl-toolbar-break", host);
+              return;
+            }
+            if (spec.disclosure) {
+              // Everything after this goes inside what it opens, which is why
+              // the host is replaced rather than added to.
+              host = _mountDisclosure(spec.disclosure, host);
+              template = spec.disclosure.itemTemplate;
               return;
             }
             if (spec.custom) {
@@ -990,7 +1024,10 @@ App.controls = (function () {
               if (tile && tile.dataset) tile.dataset.action = spec.id;
               return;
             }
-            _items[spec.id] = { spec: spec, node: _makeButton(spec, host) };
+            _items[spec.id] = {
+              spec: spec,
+              node: _makeButton(spec, host, template),
+            };
           });
 
           // Below the items rather than inside them: it is a sentence about
@@ -1005,6 +1042,7 @@ App.controls = (function () {
           _setCollapsed(!_panel.classList.contains("is-collapsed"));
         });
         _setCollapsed(_initialCollapsed());
+        _setLayersOpen(_initialLayersOpen());
 
         L.DomEvent.disableClickPropagation(_panel);
         L.DomEvent.disableScrollPropagation(_panel);
@@ -1015,6 +1053,38 @@ App.controls = (function () {
   }
 
   /**
+   * Mount the row that opens the overlay switches, and return the list they go
+   * in.
+   *
+   * The row is a tile like any other, so the collapsed strip draws it as one
+   * and the seven it hides cost a single icon there. What it toggles is the
+   * list beneath it and nothing on the map.
+   */
+  function _mountDisclosure(cfg, host) {
+    var section = D.mount("tpl-toolbar-disclosure", host);
+    _layersCfg = cfg;
+    _layersToggle = D.role(section, "toggle");
+    _layersList = D.role(section, "list");
+
+    // Addressed the way every tile is, so the tour and the tests can reach it.
+    _layersToggle.dataset.action = cfg.id;
+    D.role(_layersToggle, "icon").className =
+      "tb-item__icon fa-solid " + cfg.icon;
+
+    var label = D.role(_layersToggle, "label");
+    label.setAttribute("data-i18n", cfg.labelKey);
+    label.textContent = T(cfg.labelKey);
+
+    L.DomEvent.on(_layersToggle, "click", function (e) {
+      L.DomEvent.preventDefault(e);
+      L.DomEvent.stopPropagation(e);
+      _setLayersOpen(!_layersOpen, true);
+    });
+
+    return _layersList;
+  }
+
+  /**
    * @param {{id:string, icon:string, iconClass?:string, labelKey:string,
    *          titleKey?:string, disabledTitleKey?:string, accent?:string,
    *          shortcut?:string, onClick?:Function, setup?:Function,
@@ -1022,9 +1092,11 @@ App.controls = (function () {
    *   href turns the button into a real external link: click propagation is
    *   stopped so the map does not see it, but nothing is prevented, so
    *   navigation still happens.
+   * @param {string} [template] Template to build from. Defaults to the tile;
+   *   the overlay switches pass the row form instead.
    */
-  function _makeButton(spec, host) {
-    var node = D.mount("tpl-toolbar-button", host);
+  function _makeButton(spec, host, template) {
+    var node = D.mount(template || "tpl-toolbar-button", host);
     node.dataset.action = spec.id;
     if (spec.accent) node.setAttribute("data-accent", spec.accent);
 
@@ -1081,6 +1153,49 @@ App.controls = (function () {
     if (stored === "1") return true;
     if (stored === "0") return false;
     return window.innerWidth < NARROW_PX;
+  }
+
+  /**
+   * Closed until asked for, on every visit before the first answer.
+   *
+   * Unlike the panel's own collapse this does not consult the width: the
+   * switches are as far down the panel on a desktop as on a phone, and the
+   * reason for closing them is what they are rather than how much room there
+   * is for them.
+   */
+  function _initialLayersOpen() {
+    return App.util.readLocal(LAYERS_KEY, null) === "1";
+  }
+
+  /**
+   * @param {boolean} open
+   * @param {boolean} [remember] Store this as the answer. The tour opens the
+   *   list to point inside it, which is not the user saying they want it open.
+   */
+  function _setLayersOpen(open, remember) {
+    _layersOpen = !!open;
+    if (!_layersList) return;
+
+    D.toggle(_layersList, _layersOpen);
+    D.toggleClass(_layersToggle, "is-open", _layersOpen);
+    _layersToggle.setAttribute("aria-expanded", String(_layersOpen));
+
+    var key = _layersOpen ? _layersCfg.collapseKey : _layersCfg.expandKey;
+    _layersToggle.setAttribute(
+      "data-i18n-attrs",
+      "title=" + key + ";aria-label=" + key,
+    );
+    _layersToggle.title = T(key);
+    _layersToggle.setAttribute("aria-label", _layersToggle.title);
+
+    var chevron = D.role(_layersToggle, "chevron");
+    if (chevron) {
+      chevron.className =
+        "tb-item__chevron fa-solid " +
+        (_layersOpen ? "fa-chevron-down" : "fa-chevron-right");
+    }
+
+    if (remember) App.util.writeLocal(LAYERS_KEY, _layersOpen ? "1" : "0");
   }
 
   function _setCollapsed(collapsed) {
@@ -1545,6 +1660,17 @@ App.controls = (function () {
     if (_panel) _setCollapsed(!!collapsed);
   }
 
+  /**
+   * Open or close the overlay switches without answering the question for the
+   * user; `null` puts back whatever they last answered.
+   *
+   * The tour points at two switches inside the list and has to open it to do
+   * so, which is a step of a walkthrough and not a preference.
+   */
+  function showLayers(open) {
+    if (_layersList) _setLayersOpen(open === null ? _initialLayersOpen() : open);
+  }
+
   return {
     init: init,
     refresh: refresh,
@@ -1552,6 +1678,7 @@ App.controls = (function () {
     clearAll: clearAll,
     setCollapsed: setCollapsed,
     isCollapsed: isCollapsed,
+    showLayers: showLayers,
   };
 })();
 
