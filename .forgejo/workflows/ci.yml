@@ -1,0 +1,192 @@
+# Converted from .github/workflows/ci.yml for Forgejo by
+# scripts/github_to_forgejo.py (HomeLab); --move-ci rewrites it. Jobs needing
+# GitHub, macOS, Windows or secrets Forgejo lacks stay in the GitHub file.
+name: Build, Test and Deploy OSM App
+'on':
+  push:
+    branches:
+    - main
+    - renovate/all-patch
+  pull_request: null
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy to Heroku after the tests pass
+        required: false
+        default: false
+        type: boolean
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: false
+jobs:
+  vendor:
+    name: Sync vendored assets
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: vendor-${{ github.ref }}
+      cancel-in-progress: true
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+    - name: Check out the ref
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ github.head_ref || github.ref_name }}
+        fetch-depth: 0
+        lfs: true
+    - name: Set up Node
+      uses: https://github.com/actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+    - name: Install dependencies
+      run: npm ci
+    - name: Stamp the release version
+      if: github.ref_type == 'tag'
+      run: |
+        set -euo pipefail
+        version="${GITHUB_REF_NAME#v}"
+        npm version "$version" --no-git-tag-version --allow-same-version
+        sed -i -E "s/^version = \".*\"\$/version = \"$version\"/" pyproject.toml
+        grep -m1 '^version = ' pyproject.toml
+    - name: Regenerate the vendor tree and the app bundle
+      run: npm run build
+    - name: Fold the result back into the ref
+      id: push
+      if: github.ref_type == 'tag' || (github.event_name == 'pull_request' && contains(github.actor, 'renovate'))
+      run: |
+        set -euo pipefail
+        git add -A src/osmapp/static/vendor src/osmapp/static/version.json \
+          pyproject.toml package.json package-lock.json
+        if git diff --cached --quiet; then
+          echo "tree already matches the lockfile and the version"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        export GIT_AUTHOR_NAME="$(git log -1 --format=%an)"
+        export GIT_AUTHOR_EMAIL="$(git log -1 --format=%ae)"
+        export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+        export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+
+        if [ "$GITHUB_REF_TYPE" = tag ]; then
+          kind="$(git cat-file -t "$GITHUB_REF_NAME")"
+          notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
+          git commit -m "chore(release): $GITHUB_REF_NAME"
+          if [ "$kind" = tag ]; then
+            git tag -f -a "$GITHUB_REF_NAME" -m "$notes"
+          else
+            git tag -f "$GITHUB_REF_NAME"
+          fi
+          # Pushes made with GITHUB_TOKEN do not start another run, so
+          # moving the tag here cannot loop back into this workflow.
+          git push --force origin "refs/tags/$GITHUB_REF_NAME"
+        else
+          git commit --amend --no-edit
+          git push --force-with-lease origin "HEAD:refs/heads/$GITHUB_HEAD_REF"
+        fi
+
+        echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+    - name: Report
+      if: always()
+      env:
+        SHA: ${{ steps.push.outputs.sha }}
+      run: |
+        {
+          echo "### Vendor — ${{ github.ref_name }}"
+          if [ -n "$SHA" ]; then
+            echo "At \`$SHA\`."
+          else
+            echo "Not pushed back."
+          fi
+          find src/osmapp/static/vendor -type f | wc -l | xargs echo "Vendored files:"
+          du -h src/osmapp/static/dist/js/app.min.js | cut -f1 | xargs echo "App bundle:"
+        } >> "$GITHUB_STEP_SUMMARY"
+  test_python:
+    name: Test (Python)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+    - vendor
+    steps:
+    - name: Check out repository
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ needs.vendor.outputs.sha || github.sha }}
+    - name: Set up Python
+      uses: https://github.com/actions/setup-python@v7
+      with:
+        python-version: 3.14
+        cache: pip
+        cache-dependency-path: pyproject.toml
+    - name: Install
+      run: pip install -e ".[test]"
+    - name: Test
+      run: pytest -m "not e2e" --junitxml=junit-python.xml
+  test_javascript:
+    name: Test (Node)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs:
+    - vendor
+    steps:
+    - name: Check out repository
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ needs.vendor.outputs.sha || github.sha }}
+    - name: Set up Node
+      uses: https://github.com/actions/setup-node@v7
+      with:
+        node-version: 24
+    - name: Test
+      run: |
+        node --test \
+          --test-reporter=spec --test-reporter-destination=stdout \
+          --test-reporter=junit --test-reporter-destination=junit-node.xml \
+          "tests/js/*.test.mjs"
+  test_e2e:
+    name: Test (E2E)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs:
+    - vendor
+    steps:
+    - name: Check out repository
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ needs.vendor.outputs.sha || github.sha }}
+        lfs: true
+    - name: Set up Python
+      uses: https://github.com/actions/setup-python@v7
+      with:
+        python-version: 3.14
+        cache: pip
+        cache-dependency-path: pyproject.toml
+    - name: Install
+      run: pip install -e ".[test]"
+    - name: Set up Node
+      uses: https://github.com/actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+    - name: Build the app bundle
+      run: |
+        npm ci
+        npm run bundle
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: https://github.com/actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
+    - name: Install Chromium and system dependencies
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: playwright install --with-deps chromium
+    - name: Install system dependencies only
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: playwright install-deps chromium
+    - name: Test
+      run: pytest -m "e2e" --junitxml=junit-e2e.xml --tracing=retain-on-failure
