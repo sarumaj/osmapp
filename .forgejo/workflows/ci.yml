@@ -117,7 +117,7 @@ jobs:
     - name: Set up Python
       uses: https://github.com/actions/setup-python@v7
       with:
-        python-version: 3.14
+        python-version: 3.15
         cache: pip
         cache-dependency-path: pyproject.toml
     - name: Install
@@ -160,7 +160,7 @@ jobs:
     - name: Set up Python
       uses: https://github.com/actions/setup-python@v7
       with:
-        python-version: 3.14
+        python-version: 3.15
         cache: pip
         cache-dependency-path: pyproject.toml
     - name: Install
