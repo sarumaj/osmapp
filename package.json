@@ -40,7 +40,7 @@
     "leaflet-control-geocoder": "4.0.0",
     "leaflet-editable": "1.3.2",
     "pdf-lib": "1.17.1",
-    "pdfjs-dist": "6.3.289",
+    "pdfjs-dist": "6.4.299",
     "terser": "^5.49.2"
   },
   "vendorConfig": {

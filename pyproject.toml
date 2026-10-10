@@ -33,13 +33,13 @@ dependencies = [
     # Line-separator
     "flask-limiter==4.1.1",
     # Line-separator
-    "geopandas==1.1.4",
+    "geopandas==1.2.0",
     # Line-separator
     "osmnx==2.1.1",
     # Line-separator
     "random-header-generator==1.2",
     # Line-separator
-    "shapely==2.1.2",
+    "shapely==2.2.0",
     # Line-separator
     "waitress==3.0.2",
 ]
