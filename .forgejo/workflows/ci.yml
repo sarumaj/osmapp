@@ -7,6 +7,8 @@ name: Build, Test and Deploy OSM App
     branches:
     - main
     - renovate/all-patch
+    tags:
+    - v*
   pull_request: null
   workflow_dispatch:
     inputs:
@@ -190,3 +192,165 @@ jobs:
       run: playwright install-deps chromium
     - name: Test
       run: pytest -m "e2e" --junitxml=junit-e2e.xml --tracing=retain-on-failure
+  container:
+    name: Publish container image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs:
+    - vendor
+    - test_python
+    - test_javascript
+    - test_e2e
+    if: github.ref_type == 'tag' || (github.event_name == 'push' && github.ref_name == 'main') || (github.event_name
+      == 'workflow_dispatch' && inputs.deploy)
+    concurrency:
+      group: container-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+    - name: Find Forgejo's registry
+      shell: bash
+      run: |
+        echo "REGISTRY=${GITHUB_SERVER_URL#*://}" >> "$GITHUB_ENV"
+        echo "IMAGE_CACHE=${GITHUB_SERVER_URL#*://}/${GITHUB_REPOSITORY,,}:buildcache" >> "$GITHUB_ENV"
+    - name: Check out repository
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ needs.vendor.outputs.sha || github.sha }}
+        lfs: true
+    - name: Set up Buildx
+      uses: https://github.com/docker/setup-buildx-action@v4
+    - name: Log in to GHCR
+      uses: https://github.com/docker/login-action@v4
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.FORGEJO_PACKAGES_TOKEN }}
+    - name: Derive tags and labels
+      id: meta
+      uses: https://github.com/docker/metadata-action@v6
+      with:
+        images: ${{ env.REGISTRY }}/${{ github.repository }}
+        flavor: latest=auto
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          type=raw,value=edge,enable=${{ github.ref_name == 'main' }}
+          type=sha,format=long,enable=${{ github.ref_name == 'main' }}
+        labels: |
+          org.opencontainers.image.title=osmapp
+          org.opencontainers.image.description=Territory mapping and printable field cards from OpenStreetMap data
+    - name: Build and push
+      id: build
+      uses: https://github.com/docker/build-push-action@v7
+      with:
+        context: .
+        platforms: linux/amd64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        annotations: ${{ steps.meta.outputs.annotations }}
+        cache-from: type=registry,ref=${{ env.IMAGE_CACHE }}
+        cache-to: type=registry,ref=${{ env.IMAGE_CACHE }},mode=max
+        provenance: mode=max
+        sbom: true
+    - name: Report
+      if: always()
+      run: |
+        {
+          echo "### Container — ${{ github.ref_name }}"
+          echo '```'
+          echo "${{ steps.meta.outputs.tags }}"
+          echo '```'
+          echo "Digest: \`${{ steps.build.outputs.digest }}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+  build_and_release:
+    name: Deploy OSM App to Heroku
+    runs-on: ubuntu-latest
+    needs:
+    - vendor
+    - test_python
+    - test_javascript
+    - test_e2e
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.deploy) || github.event_name
+      == 'repository_dispatch'
+    concurrency:
+      group: deploy-${{ github.event.client_payload.ref || github.ref }}
+      cancel-in-progress: true
+    steps:
+    - name: Check out repository
+      uses: https://github.com/actions/checkout@v7
+      with:
+        ref: ${{ needs.vendor.outputs.sha || github.sha }}
+        fetch-depth: 0
+        lfs: true
+    - name: Install Heroku CLI
+      run: |
+        curl https://cli-assets.heroku.com/install.sh | sh
+    - name: Get app url
+      uses: https://github.com/akhileshns/heroku-deploy@v3.15.15
+      with:
+        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+        heroku_app_name: ''
+        heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
+        justlogin: true
+    - name: Export app config
+      id: export_app_config
+      run: |
+        HEROKU_APP_URL=$(heroku apps:info --app="${{ secrets.HEROKU_APP_NAME }}" --json | jq -r '.app.web_url | rtrimstr("/")')
+        cat <<EOF >> "$GITHUB_OUTPUT"
+        HEROKU_APP_URL=$HEROKU_APP_URL
+        EOF
+    - name: Deploy to Heroku
+      uses: https://github.com/akhileshns/heroku-deploy@v3.15.15
+      with:
+        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+        heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
+        heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
+        healthcheck: ${{ steps.export_app_config.outputs.HEROKU_APP_URL }}/service/health
+        rollbackonhealthcheckfailed: true
+        usedocker: true
+        delay: 30
+      env:
+        HD_FLASK_DEBUG: '0'
+        HD_NOMINATIM_URL: ${{ secrets.NOMINATIM_URL }}
+        HD_OVERPASS_URL: ${{ secrets.OVERPASS_URL }}
+        HD_OSM_MAX_AREA_KM2: '50'
+        HD_OVERPASS_TIMEOUT: '30'
+        HD_TILE_URL: ${{ secrets.TILE_URL }}
+    - name: Collect the release files
+      shell: bash
+      run: |
+        mkdir -p .forgejo-release
+      if: github.ref_type == 'tag'
+    - name: Write the release notes
+      id: release_notes
+      shell: bash
+      env:
+        TAG: ${{ github.ref_name }}
+      run: |
+        if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
+          git fetch --quiet --unshallow --tags
+        else
+          git fetch --quiet --tags
+        fi
+        previous=$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)
+        {
+          echo 'notes<<END_OF_NOTES'
+          git log --no-merges --format='- %s' ${previous:+"$previous.."}"$TAG"
+          echo END_OF_NOTES
+        } >> "$GITHUB_OUTPUT"
+      if: github.ref_type == 'tag'
+    - name: Publish the release
+      uses: https://code.forgejo.org/actions/forgejo-release@v2
+      with:
+        direction: upload
+        url: ${{ github.server_url }}
+        repo: ${{ github.repository }}
+        tag: ${{ github.ref_name }}
+        title: ${{ github.ref_name }}
+        release-dir: .forgejo-release
+        prerelease: ${{ contains(github.ref_name, '-') }}
+        override: false
+        release-notes: ${{ steps.release_notes.outputs.notes }}
+      if: github.ref_type == 'tag'
