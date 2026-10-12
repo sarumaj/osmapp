@@ -224,7 +224,7 @@ jobs:
       with:
         registry: ${{ env.REGISTRY }}
         username: ${{ github.repository_owner }}
-        password: ${{ secrets.FORGEJO_PACKAGES_TOKEN }}
+        password: ${{ secrets.PACKAGES_TOKEN }}
     - name: Derive tags and labels
       id: meta
       uses: https://github.com/docker/metadata-action@v6
