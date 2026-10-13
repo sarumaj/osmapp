@@ -265,7 +265,7 @@ jobs:
           echo "Digest: \`${{ steps.build.outputs.digest }}\`"
         } >> "$GITHUB_STEP_SUMMARY"
   build_and_release:
-    name: Deploy OSM App to Heroku
+    name: Deploy OSM App to apps
     runs-on: ubuntu-latest
     needs:
     - vendor
@@ -284,40 +284,65 @@ jobs:
         ref: ${{ needs.vendor.outputs.sha || github.sha }}
         fetch-depth: 0
         lfs: true
-    - name: Install Heroku CLI
-      run: |
-        curl https://cli-assets.heroku.com/install.sh | sh
-    - name: Get app url
-      uses: https://github.com/akhileshns/heroku-deploy@v3.15.15
-      with:
-        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-        heroku_app_name: ''
-        heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
-        justlogin: true
-    - name: Export app config
-      id: export_app_config
-      run: |
-        HEROKU_APP_URL=$(heroku apps:info --app="${{ secrets.HEROKU_APP_NAME }}" --json | jq -r '.app.web_url | rtrimstr("/")')
-        cat <<EOF >> "$GITHUB_OUTPUT"
-        HEROKU_APP_URL=$HEROKU_APP_URL
-        EOF
-    - name: Deploy to Heroku
-      uses: https://github.com/akhileshns/heroku-deploy@v3.15.15
-      with:
-        heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-        heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
-        heroku_email: ${{ secrets.HEROKU_USER_EMAIL }}
-        healthcheck: ${{ steps.export_app_config.outputs.HEROKU_APP_URL }}/service/health
-        rollbackonhealthcheckfailed: true
-        usedocker: true
-        delay: 30
+    - name: Deploy to apps
+      shell: bash
       env:
+        APPS_URL: https://apps.ciepiela.org
+        APPS_TOKEN: ${{ secrets.APPS_TOKEN }}
+        APPS_APP: ${{ github.event.repository.name }}
+        APPS_HEALTHCHECK: /service/health
+        APPS_DELAY: '30'
         HD_FLASK_DEBUG: '0'
         HD_NOMINATIM_URL: ${{ secrets.NOMINATIM_URL }}
         HD_OVERPASS_URL: ${{ secrets.OVERPASS_URL }}
         HD_OSM_MAX_AREA_KM2: '50'
         HD_OVERPASS_TIMEOUT: '30'
         HD_TILE_URL: ${{ secrets.TILE_URL }}
+      run: |
+        set -euo pipefail
+        api() {
+          curl -fsS --retry 3 -H "Authorization: Bearer $APPS_TOKEN" -H "Accept: application/json" "$@"
+        }
+        uuid=$(api "$APPS_URL/api/v1/applications" \
+          | jq -r --arg name "$APPS_APP" '[.[] | select(.name == $name)][0].uuid // empty')
+        if [ -z "$uuid" ]; then
+          echo "::error::The panel at $APPS_URL has no application named $APPS_APP."
+          exit 1
+        fi
+        # The configuration: HD_NAME becomes NAME; what is empty here keeps its value there.
+        vars=$(jq -n '[env | to_entries[] | select(.key | startswith("HD_")) | select(.value != "")
+          | {key: .key[3:], value, is_literal: true}]')
+        if [ "$vars" != "[]" ]; then
+          jq -n --argjson data "$vars" '{data: $data}' | api -X PATCH -H "Content-Type: application/json" \
+            -d @- "$APPS_URL/api/v1/applications/$uuid/envs/bulk" > /dev/null
+        fi
+        # The commit checked out here, also when it is not the branch's newest.
+        jq -n --arg sha "$(git rev-parse HEAD 2> /dev/null || echo "$GITHUB_SHA")" '{git_commit_sha: $sha}' \
+          | api -X PATCH -H "Content-Type: application/json" -d @- "$APPS_URL/api/v1/applications/$uuid" > /dev/null
+        deployment=$(api -X POST "$APPS_URL/api/v1/deploy?uuid=$uuid&force=true" \
+          | jq -r '.deployments[0].deployment_uuid')
+        echo "Deployment $deployment of $APPS_APP"
+        status=queued
+        for _ in $(seq 180); do
+          status=$(api "$APPS_URL/api/v1/deployments/$deployment" | jq -r .status)
+          case "$status" in
+            finished) break ;;
+            failed | cancelled-by-user)
+              echo "::error::The deployment ended as $status; its log is in the panel."
+              exit 1
+              ;;
+          esac
+          sleep 10
+        done
+        if [ "$status" != finished ]; then
+          echo "::error::The deployment did not finish within 30 minutes ($status)."
+          exit 1
+        fi
+        if [ -n "${APPS_HEALTHCHECK:-}" ]; then
+          address=$(api "$APPS_URL/api/v1/applications/$uuid" | jq -r '(.fqdn // "") | split(",")[0]')
+          sleep "${APPS_DELAY:-0}"
+          curl -fsS --retry 6 --retry-delay 10 --retry-all-errors -o /dev/null "$address$APPS_HEALTHCHECK"
+        fi
     - name: Collect the release files
       shell: bash
       run: |
