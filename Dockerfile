@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM node:24-slim AS vendor
+FROM --platform=$BUILDPLATFORM node:26-slim AS vendor
 
 WORKDIR /build
 
