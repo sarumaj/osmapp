@@ -10,8 +10,15 @@ name: Build, Test and Deploy OSM App
     tags:
     - v*
   pull_request: null
+  # Run by hand from main with a tag named to retry that tag's release (its
+  # deployment and the Forgejo release), as the other repositories' release
+  # workflows can be.
   workflow_dispatch:
     inputs:
+      tag:
+        description: The tag to release again (vX.Y.Z); empty for a run of the branch
+        type: string
+        required: false
       deploy:
         description: Deploy to Heroku after the tests pass
         required: false
@@ -31,10 +38,19 @@ jobs:
     outputs:
       sha: ${{ steps.push.outputs.sha }}
     steps:
+    - name: Check the tag
+      if: inputs.tag
+      env:
+        TAG: ${{ inputs.tag }}
+      run: |
+        case "$TAG" in
+          v[0-9]*) ;;
+          *) echo "::error::$TAG is not a release tag (vX.Y.Z)"; exit 1 ;;
+        esac
     - name: Check out the ref
       uses: https://github.com/actions/checkout@v7
       with:
-        ref: ${{ github.head_ref || github.ref_name }}
+        ref: ${{ inputs.tag || github.head_ref || github.ref_name }}
         fetch-depth: 0
         lfs: true
     - name: Set up Node
@@ -45,10 +61,12 @@ jobs:
     - name: Install dependencies
       run: npm ci
     - name: Stamp the release version
-      if: github.ref_type == 'tag'
+      if: (github.ref_type == 'tag' || inputs.tag)
+      env:
+        TAG: ${{ inputs.tag || github.ref_name }}
       run: |
         set -euo pipefail
-        version="${GITHUB_REF_NAME#v}"
+        version="${TAG#v}"
         npm version "$version" --no-git-tag-version --allow-same-version
         sed -i -E "s/^version = \".*\"\$/version = \"$version\"/" pyproject.toml
         grep -m1 '^version = ' pyproject.toml
@@ -56,7 +74,9 @@ jobs:
       run: npm run build
     - name: Fold the result back into the ref
       id: push
-      if: github.ref_type == 'tag' || (github.event_name == 'pull_request' && contains(github.actor, 'renovate'))
+      if: (github.ref_type == 'tag' || inputs.tag) || (github.event_name == 'pull_request' && contains(github.actor, 'renovate'))
+      env:
+        TAG: ${{ inputs.tag || github.ref_name }}
       run: |
         set -euo pipefail
         git add -A src/osmapp/static/vendor src/osmapp/static/version.json \
@@ -72,18 +92,18 @@ jobs:
         export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
         export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 
-        if [ "$GITHUB_REF_TYPE" = tag ]; then
-          kind="$(git cat-file -t "$GITHUB_REF_NAME")"
-          notes="$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")"
-          git commit -m "chore(release): $GITHUB_REF_NAME"
+        if [ "$GITHUB_REF_TYPE" = tag ] || [ -n "${{ inputs.tag }}" ]; then
+          kind="$(git cat-file -t "$TAG")"
+          notes="$(git tag -l --format='%(contents)' "$TAG")"
+          git commit -m "chore(release): $TAG"
           if [ "$kind" = tag ]; then
-            git tag -f -a "$GITHUB_REF_NAME" -m "$notes"
+            git tag -f -a "$TAG" -m "$notes"
           else
-            git tag -f "$GITHUB_REF_NAME"
+            git tag -f "$TAG"
           fi
           # Pushes made with GITHUB_TOKEN do not start another run, so
           # moving the tag here cannot loop back into this workflow.
-          git push --force origin "refs/tags/$GITHUB_REF_NAME"
+          git push --force origin "refs/tags/$TAG"
         else
           git commit --amend --no-edit
           git push --force-with-lease origin "HEAD:refs/heads/$GITHUB_HEAD_REF"
@@ -96,7 +116,7 @@ jobs:
         SHA: ${{ steps.push.outputs.sha }}
       run: |
         {
-          echo "### Vendor — ${{ github.ref_name }}"
+          echo "### Vendor — ${{ inputs.tag || github.ref_name }}"
           if [ -n "$SHA" ]; then
             echo "At \`$SHA\`."
           else
@@ -201,7 +221,7 @@ jobs:
     - test_python
     - test_javascript
     - test_e2e
-    if: github.ref_type == 'tag' || (github.event_name == 'push' && github.ref_name == 'main') || (github.event_name
+    if: github.ref_type == 'tag' || inputs.tag || (github.event_name == 'push' && github.ref_name == 'main') || (github.event_name
       == 'workflow_dispatch' && inputs.deploy)
     concurrency:
       group: container-${{ github.ref }}
@@ -232,11 +252,11 @@ jobs:
         images: ${{ env.REGISTRY }}/${{ github.repository }}
         flavor: latest=auto
         tags: |
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=raw,value=edge,enable=${{ github.ref_name == 'main' }}
-          type=sha,format=long,enable=${{ github.ref_name == 'main' }}
+          type=semver,pattern={{version}},value=${{ inputs.tag }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }}
+          type=semver,pattern={{major}},value=${{ inputs.tag }}
+          type=raw,value=edge,enable=${{ github.ref_name == 'main' && !inputs.tag }}
+          type=sha,format=long,enable=${{ github.ref_name == 'main' && !inputs.tag }}
         labels: |
           org.opencontainers.image.title=osmapp
           org.opencontainers.image.description=Territory mapping and printable field cards from OpenStreetMap data
@@ -258,7 +278,7 @@ jobs:
       if: always()
       run: |
         {
-          echo "### Container — ${{ github.ref_name }}"
+          echo "### Container — ${{ inputs.tag || github.ref_name }}"
           echo '```'
           echo "${{ steps.meta.outputs.tags }}"
           echo '```'
@@ -272,7 +292,7 @@ jobs:
     - test_python
     - test_javascript
     - test_e2e
-    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.deploy) || github.event_name
+    if: github.ref_type == 'tag' || inputs.tag || (github.event_name == 'workflow_dispatch' && inputs.deploy) || github.event_name
       == 'repository_dispatch'
     concurrency:
       group: deploy-${{ github.event.client_payload.ref || github.ref }}
@@ -344,15 +364,22 @@ jobs:
           curl -fsS --retry 6 --retry-delay 10 --retry-all-errors -o /dev/null "$address$APPS_HEALTHCHECK"
         fi
     - name: Collect the release files
+      # The tag's commit, for the release: forgejo-release refuses a tag that points
+      # elsewhere than the commit it is given, by default the run's (a retry from main).
+      id: release_files
       shell: bash
+      env:
+        TAG: ${{ inputs.tag || github.ref_name }}
       run: |
         mkdir -p .forgejo-release
-      if: github.ref_type == 'tag'
+        git fetch --quiet --force origin "+refs/tags/$TAG:refs/tags/$TAG"
+        echo "sha=$(git rev-parse "refs/tags/$TAG^{commit}")" >> "$GITHUB_OUTPUT"
+      if: (github.ref_type == 'tag' || inputs.tag)
     - name: Write the release notes
       id: release_notes
       shell: bash
       env:
-        TAG: ${{ github.ref_name }}
+        TAG: ${{ inputs.tag || github.ref_name }}
       run: |
         if [ "$(git rev-parse --is-shallow-repository)" = true ]; then
           git fetch --quiet --unshallow --tags
@@ -370,19 +397,20 @@ jobs:
           printf '%s\n' "$notes"
           echo END_OF_NOTES
         } >> "$GITHUB_OUTPUT"
-      if: github.ref_type == 'tag'
+      if: (github.ref_type == 'tag' || inputs.tag)
     - name: Publish the release
       uses: https://code.forgejo.org/actions/forgejo-release@v2
       with:
         direction: upload
         url: ${{ github.server_url }}
         repo: ${{ github.repository }}
-        tag: ${{ github.ref_name }}
-        title: ${{ github.ref_name }}
+        tag: ${{ inputs.tag || github.ref_name }}
+        sha: ${{ steps.release_files.outputs.sha }}
+        title: ${{ inputs.tag || github.ref_name }}
         release-dir: .forgejo-release
         # No files to attach: the upload of the empty directory's unmatched glob fails.
         skip-assets: true
-        prerelease: ${{ contains(github.ref_name, '-') }}
+        prerelease: ${{ contains(inputs.tag || github.ref_name, '-') }}
         override: false
         release-notes: ${{ steps.release_notes.outputs.notes }}
-      if: github.ref_type == 'tag'
+      if: (github.ref_type == 'tag' || inputs.tag)
