@@ -145,7 +145,15 @@ jobs:
     - name: Install
       run: pip install -e ".[test]"
     - name: Test
+      id: tests
       run: pytest -m "not e2e" --junitxml=junit-python.xml
+    # The results as one comment on the pull request (dawid/ci-actions), also when
+    # tests failed.
+    - name: Test report
+      if: always() && steps.tests.outcome != 'skipped'
+      uses: https://git.ciepiela.org/dawid/ci-actions/test-report@main
+      with:
+        junit: junit-python.xml
   test_javascript:
     name: Test (Node)
     runs-on: ubuntu-latest
@@ -162,11 +170,19 @@ jobs:
       with:
         node-version: 24
     - name: Test
+      id: tests
       run: |
         node --test \
           --test-reporter=spec --test-reporter-destination=stdout \
           --test-reporter=junit --test-reporter-destination=junit-node.xml \
           "tests/js/*.test.mjs"
+    # The results as one comment on the pull request (dawid/ci-actions), also when
+    # tests failed.
+    - name: Test report
+      if: always() && steps.tests.outcome != 'skipped'
+      uses: https://git.ciepiela.org/dawid/ci-actions/test-report@main
+      with:
+        junit: junit-node.xml
   test_e2e:
     name: Test (E2E)
     runs-on: ubuntu-latest
@@ -211,7 +227,15 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit == 'true'
       run: playwright install-deps chromium
     - name: Test
+      id: tests
       run: pytest -m "e2e" --junitxml=junit-e2e.xml --tracing=retain-on-failure
+    # The results as one comment on the pull request (dawid/ci-actions), also when
+    # tests failed.
+    - name: Test report
+      if: always() && steps.tests.outcome != 'skipped'
+      uses: https://git.ciepiela.org/dawid/ci-actions/test-report@main
+      with:
+        junit: junit-e2e.xml
   container:
     name: Publish container image
     runs-on: ubuntu-latest

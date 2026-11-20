@@ -230,14 +230,15 @@ explanation, when `pytest-playwright` or the browser is missing** — a plain `p
 run still executes everything else. `--browser firefox` and `--browser webkit` work
 the same way if a bug looks browser-specific.
 
-`.github/workflows/ci.yml` runs all three suites on every push and pull request,
-and the Heroku deploy job requires all three to pass. The browser job builds
-`static/dist/` first, so it exercises the bundle the deployed image serves; the
-other two run against the sources. Each suite emits JUnit XML
-that CI turns into a test summary with inline annotations. Fork PRs get a read-
-only token and see the raw log instead. A failed browser run uploads its Playwright
-traces, which let you replay the exact DOM, console output, and network activity
-from the failing run.
+`.forgejo/workflows/ci.yml` (Forgejo Actions) runs all three suites on every push
+and pull request, and publishing the container image and deploying it to `apps`
+require all three to pass. The browser job builds `static/dist/` first, so it
+exercises the bundle the deployed image serves; the other two run against the
+sources. Each suite emits JUnit XML that CI turns into a comment on the pull
+request (`dawid/ci-actions`' test-report), one per suite, with the totals and each
+failure's message. A failed browser run keeps its Playwright traces in
+`test-results/` (`--tracing=retain-on-failure`); CI uploads no artifacts, so run
+the suite locally to replay the exact DOM, console output, and network activity.
 
 ### Releasing
 
