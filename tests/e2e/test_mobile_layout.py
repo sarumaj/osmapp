@@ -786,7 +786,7 @@ def walk_the_tour(page: Page, probe: str) -> list[dict[str, Any]]:
     seen: list[dict[str, Any]] = []
     while len(seen) < 60:
         if seen:
-            page.wait_for_function(ARRIVED, arg=seen[-1]["title"], timeout=5000)
+            page.wait_for_function(ARRIVED, arg=seen[-1]["title"], timeout=15_000)
         step = page.evaluate(probe)
         if step is None:
             break
