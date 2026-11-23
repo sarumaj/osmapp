@@ -122,13 +122,14 @@ def test_the_wall_map_offers_its_own_controls_and_not_a_card_s(two_villages: Pag
     # A2 does without changing anything being asserted.
     dialog.locator("[data-role='page-size']").select_option("a4")
     # The preview draws once the tiles behind it are in; until then the dialog
-    # shows a counter, which is the state a broken compose would stay in.
-    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=60_000)
+    # shows a counter, which is the state a broken compose would stay in. Two
+    # minutes: on a busy CI host the tiles' prefetch alone took longer than one.
+    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=120_000)
     upright = _canvas(two_villages)
     assert upright["height"] > upright["width"], upright
 
     dialog.locator("[data-role='landscape']").check()
-    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=60_000)
+    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=120_000)
     turned = _canvas(two_villages)
     assert turned["width"] > turned["height"], turned
     # Not the portrait canvas with its sides swapped: the heading band comes
@@ -164,7 +165,7 @@ def test_a_wall_map_composes_a_pdf_and_marks_nothing_printed(
     dialog = two_villages.locator(".app-dialog.print-dialog")
     expect(dialog).to_be_visible()
     dialog.locator("[data-role='page-size']").select_option("a4")
-    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=60_000)
+    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=120_000)
 
     with two_villages.expect_download(timeout=120_000) as download:
         dialog.locator("[data-role='download']").click()
@@ -223,7 +224,7 @@ def test_a_portrait_sheet_is_shown_whole(two_villages: Page):
     dialog = two_villages.locator(".app-dialog.print-dialog")
     expect(dialog).to_be_visible()
     dialog.locator("[data-role='page-size']").select_option("a4")
-    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=60_000)
+    expect(dialog.locator("[data-role='status']")).to_be_hidden(timeout=120_000)
 
     fit = two_villages.evaluate(
         """() => {

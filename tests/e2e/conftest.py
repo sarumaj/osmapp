@@ -37,6 +37,12 @@ from werkzeug.serving import BaseWSGIServer, make_server
 from osmapp import create_app
 from osmapp.internal import geocode, headers, tiles
 
+# Every expect() waits up to 15 s instead of Playwright's 5 s. On a CI host busy
+# with other jobs the app's recounts and redraws took longer than 5 s, and tests
+# failed although nothing was wrong; a passing test still returns as soon as its
+# condition holds.
+expect.set_options(timeout=15_000)
+
 # A 1×1 transparent PNG. Leaflet only needs the image to decode; what it shows
 # is irrelevant to every assertion here, and stubbing it keeps both the tile
 # proxy and the provider behind it out of the test run.

@@ -97,7 +97,8 @@ def test_a_card_is_two_clicks_from_a_loaded_territory(sample: Page):
 
     rows = sample.locator(".territory-list .territory-row-wrap")
     expect(rows.first).to_be_visible()
-    assert rows.count() == sample.evaluate("() => window.App.state.clusters.length")
+    # The list may draw before the recount lands (a row too many): waited for.
+    expect(rows).to_have_count(sample.evaluate("() => window.App.state.clusters.length"))
 
     rows.first.locator("[data-role='print']").click()
 
