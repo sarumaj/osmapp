@@ -186,7 +186,10 @@ jobs:
   test_e2e:
     name: Test (E2E)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # The suite takes about ten minutes on a quiet CI host, and twice that when the
+    # host runs other jobs beside it: the limit leaves room for a busy host, not for
+    # a hang.
+    timeout-minutes: 35
     needs:
     - vendor
     steps:
