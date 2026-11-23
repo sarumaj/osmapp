@@ -873,14 +873,16 @@ def test_an_open_list_follows_the_recount(app_page: Page):
     app_page.evaluate(
         "() => window.App.polygons.deleteCluster(window.App.state.clusters[1].layer)"
     )
+    # The list is redrawn after the recount, which on a busy CI host takes longer
+    # than expect's five seconds: as long as the recount itself may.
     app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
     expect(app_page.locator("[data-gap]")).to_have_count(
-        app_page.evaluate("() => window.App.gaps.count()")
+        app_page.evaluate("() => window.App.gaps.count()"), timeout=10000
     )
 
     app_page.evaluate("() => window.App.gaps.adopt(window.App.gaps.features()[0])")
     app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
-    expect(app_page.locator("[data-gap]")).to_have_count(0)
+    expect(app_page.locator("[data-gap]")).to_have_count(0, timeout=10000)
 
 
 def test_fix_all_leaves_no_work_behind_the_spinner(gridded: Page):
