@@ -37,7 +37,7 @@
     "@turf/turf": "7.4.0",
     "clean-css": "^5.3.3",
     "leaflet": "1.9.4",
-    "leaflet-control-geocoder": "4.0.0",
+    "leaflet-control-geocoder": "42.0.0",
     "leaflet-editable": "1.3.2",
     "pdf-lib": "1.17.1",
     "pdfjs-dist": "6.4.299",
