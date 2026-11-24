@@ -95,9 +95,11 @@ def test_a_card_is_two_clicks_from_a_loaded_territory(sample: Page):
     """
     sample.locator('.tb-item[data-action="print"]').click()
 
-    rows = sample.locator(".territory-list .territory-row-wrap")
+    # The territories' rows: a gap's row (uncovered ground, data-gap) is in
+    # the list too once the recount finds one, but it is no territory and has
+    # no card to print.
+    rows = sample.locator(".territory-list .territory-row-wrap:not([data-gap])")
     expect(rows.first).to_be_visible()
-    # The list may draw before the recount lands (a row too many): waited for.
     expect(rows).to_have_count(sample.evaluate("() => window.App.state.clusters.length"))
 
     rows.first.locator("[data-role='print']").click()
