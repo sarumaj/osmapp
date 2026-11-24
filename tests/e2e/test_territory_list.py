@@ -36,6 +36,9 @@ SHAPES = """() => window.App.polygons.clusterFeatures()
 
 WANDS = ".territory-row__fix:not([hidden])"
 OUTCOME = "[data-role='outcome']"
+# How long a gap's recount may take to land: 10 s ran out on a busy CI host
+# (the gap appeared in time, its adoption's recount did not), 2026-11-24.
+GAP_RECOUNT_MS = 30_000
 
 
 def repair(page: Page, wand: Locator) -> None:
@@ -765,7 +768,7 @@ def holed(app_page: Page) -> Page:
     app_page.evaluate(
         "() => window.App.polygons.deleteCluster(window.App.state.clusters[1].layer)"
     )
-    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=GAP_RECOUNT_MS)
 
     app_page.evaluate("() => window.App.labels.openList()")
     expect(app_page.locator(".territory-list")).to_be_visible()
@@ -813,7 +816,7 @@ def test_the_wand_on_a_gap_makes_a_territory_and_then_repairs_it(holed: Page):
 
     repair(holed, holed.locator("[data-gap]").first.locator(WANDS))
 
-    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=GAP_RECOUNT_MS)
     assert holed.evaluate("() => window.App.state.clusters.length") > before
     expect(holed.locator("[data-gap]")).to_have_count(0)
     expect(holed.locator("[data-role='outcome']")).to_contain_text("1")
@@ -829,7 +832,7 @@ def test_closing_a_gap_from_the_list_leaves_no_row_behind(holed: Page):
     holed.locator("[data-gap]").first.locator(
         ".territory-row__dissolve:not([hidden])"
     ).click()
-    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=GAP_RECOUNT_MS)
 
     expect(holed.locator(".territory-list")).to_be_visible()
     expect(holed.locator("[data-gap]")).to_have_count(0)
@@ -844,11 +847,11 @@ def test_fix_all_takes_in_the_ground_nothing_covers(holed: Page):
     holed.locator("[data-role='fix-all']").click()
     expect(holed.locator(OUTCOME)).not_to_be_empty()
 
-    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    holed.wait_for_function("() => window.App.gaps.count() === 0", timeout=GAP_RECOUNT_MS)
     expect(holed.locator("[data-gap]")).to_have_count(0)
 
     holed.evaluate("() => window.App.history.undo()")
-    holed.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    holed.wait_for_function("() => window.App.gaps.count() > 0", timeout=GAP_RECOUNT_MS)
     assert holed.evaluate("() => window.App.gaps.count()") > 0, (
         "one Ctrl+Z, and the ground is uncovered again"
     )
@@ -875,13 +878,13 @@ def test_an_open_list_follows_the_recount(app_page: Page):
     )
     # The list is redrawn after the recount, which on a busy CI host takes longer
     # than expect's five seconds: as long as the recount itself may.
-    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=10000)
+    app_page.wait_for_function("() => window.App.gaps.count() > 0", timeout=GAP_RECOUNT_MS)
     expect(app_page.locator("[data-gap]")).to_have_count(
         app_page.evaluate("() => window.App.gaps.count()"), timeout=10000
     )
 
     app_page.evaluate("() => window.App.gaps.adopt(window.App.gaps.features()[0])")
-    app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=10000)
+    app_page.wait_for_function("() => window.App.gaps.count() === 0", timeout=GAP_RECOUNT_MS)
     expect(app_page.locator("[data-gap]")).to_have_count(0, timeout=10000)
 
 
